@@ -66,8 +66,8 @@ struct ScopedJumpGuard {
     signal(SIGBUS, SIG_DFL);
 }
 
-SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
-    TlbWindow(std::move(handle), config) {
+SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
+    TlbWindow(std::move(handle), config, io_safety) {
     update_io_timeout_callback();
 }
 
@@ -99,27 +99,27 @@ void SiliconTlbWindow::update_io_timeout_callback() {
     io_timeout_callback_ = [hang_check, noc]() -> bool { return !hang_check(noc); };
 }
 
-void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+void SiliconTlbWindow::write16_impl(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
     write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
-uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+uint16_t SiliconTlbWindow::read16_impl(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
     return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
-void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
+void SiliconTlbWindow::write32_impl(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
     write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
-uint32_t SiliconTlbWindow::read32(uint64_t offset) {
+uint32_t SiliconTlbWindow::read32_impl(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
     return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
-void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
+void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, size_t size) {
     size_t n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
@@ -129,7 +129,7 @@ void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t 
     write_regs(dst, src, n, io_timeout_callback_);
 }
 
-void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
+void SiliconTlbWindow::read_register_impl(uint64_t offset, void *data, size_t size) {
     size_t n = size / sizeof(uint32_t);
     auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
@@ -139,7 +139,7 @@ void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
     read_regs((void *)src, n, (void *)dst, io_timeout_callback_);
 }
 
-void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
+void SiliconTlbWindow::write_block_impl(uint64_t offset, const void *data, size_t size) {
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
     validate(offset, size);
@@ -151,7 +151,7 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
     }
 }
 
-void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
+void SiliconTlbWindow::read_block_impl(uint64_t offset, void *data, size_t size) {
     const volatile void *src = tlb_handle->get_base() + get_total_offset(offset);
 
     validate(offset, size);
@@ -287,64 +287,66 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
     }
 }
 
-void SiliconTlbWindow::safe_write16(uint64_t offset, uint16_t value) {
-    execute_safe(&SiliconTlbWindow::write16, offset, value);
+void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::write16_impl, offset, value);
+        return;
+    }
+    write16_impl(offset, value);
 }
 
-uint16_t SiliconTlbWindow::safe_read16(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read16, offset); }
-
-void SiliconTlbWindow::safe_write32(uint64_t offset, uint32_t value) {
-    execute_safe(&SiliconTlbWindow::write32, offset, value);
+uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+    if (io_safety_ == IoSafety::Enabled) {
+        return execute_safe(&SiliconTlbWindow::read16_impl, offset);
+    }
+    return read16_impl(offset);
 }
 
-uint32_t SiliconTlbWindow::safe_read32(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read32, offset); }
-
-void SiliconTlbWindow::safe_write_register(uint64_t offset, const void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::write_register, offset, data, size);
+void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::write32_impl, offset, value);
+        return;
+    }
+    write32_impl(offset, value);
 }
 
-void SiliconTlbWindow::safe_read_register(uint64_t offset, void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::read_register, offset, data, size);
+uint32_t SiliconTlbWindow::read32(uint64_t offset) {
+    if (io_safety_ == IoSafety::Enabled) {
+        return execute_safe(&SiliconTlbWindow::read32_impl, offset);
+    }
+    return read32_impl(offset);
 }
 
-void SiliconTlbWindow::safe_write_block(uint64_t offset, const void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::write_block, offset, data, size);
+void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::write_register_impl, offset, data, size);
+        return;
+    }
+    write_register_impl(offset, data, size);
 }
 
-void SiliconTlbWindow::safe_read_block(uint64_t offset, void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::read_block, offset, data, size);
+void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::read_register_impl, offset, data, size);
+        return;
+    }
+    read_register_impl(offset, data, size);
 }
 
-void SiliconTlbWindow::safe_write_block_reconfigure(
-    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::write_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::write_block_impl, offset, data, size);
+        return;
+    }
+    write_block_impl(offset, data, size);
 }
 
-void SiliconTlbWindow::safe_read_block_reconfigure(
-    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void SiliconTlbWindow::safe_read_register_reconfigure(
-    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::read_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void SiliconTlbWindow::safe_write_register_reconfigure(
-    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::write_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
-    const void *src,
-    size_t size,
-    tt_xy_pair core_start,
-    tt_xy_pair core_end,
-    uint64_t addr,
-    NocId noc_id,
-    uint64_t ordering) {
-    execute_safe(
-        &SiliconTlbWindow::noc_multicast_write_reconfigure, src, size, core_start, core_end, addr, noc_id, ordering);
+void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::read_block_impl, offset, data, size);
+        return;
+    }
+    read_block_impl(offset, data, size);
 }
 
 }  // namespace tt::umd

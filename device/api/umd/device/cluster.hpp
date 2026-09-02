@@ -113,12 +113,26 @@ struct ClusterOptions {
     std::filesystem::path simulator_directory = "";
 
     /**
+     * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
+     * processes can attach as clients. Disabled by default so ordinary in-process simulator runs
+     * remain private and can run independently in parallel.
+     */
+    bool serve_simulation_devices_over_sockets = false;
+
+    /**
      * Host SIMULATION chip type only: optional callback invoked when a client sends SHUTDOWN over a
      * chip's socket, so a long-running host (e.g. the sim_server tool) can be stopped in-band. It is
      * fixed when the host starts serving and must only signal (be non-blocking) and be safe to call
      * more than once. Empty means SHUTDOWN is acknowledged as a no-op.
      */
     std::function<void()> simulation_shutdown_handler;
+
+    /**
+     * Host SIMULATION chip type only: the directory this host serves its per-chip sockets in.
+     * Empty means allocate a fresh one, so distinct hosts on the same machine never collide; set it
+     * to serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+     */
+    std::filesystem::path simulator_server_directory = "";
 
     /**
      * I/O device type to use for the cluster.
@@ -294,8 +308,6 @@ public:
      * - Assert soft Tensix reset
      * - Deassert RiscV reset
      * - Set power state to busy (ramp up AICLK)
-     * - Initialize iATUs for PCIe devices
-     * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
      */
@@ -502,6 +514,23 @@ public:
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
+    /**
+     * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
+     * an fd the caller owns.
+     * - The caller must close() the returned fd when done to release the underlying resources.
+     * - `addr` and `size` must both be host-page-aligned.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address within the core to export. Must be page-aligned.
+     * @param size Bytes to export. Must be non-zero and page-aligned. The returned dma-buf is
+     *             exactly this long, which is the length a peer registers its MR with.
+     * @param ordering Ordering mode for the export.
+     * @return dma-buf file descriptor; the caller owns it and must close() it when done.
+     */
+    int export_dmabuf(
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+
     //---------- Functions for synchronization and memory barriers.
 
     /**
@@ -612,11 +641,22 @@ public:
     void* host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const;
 
     /**
-     * Get base PCIe address that is used to access the device.
+     * Get the NOC base address of the chip's sysmem (PCIe) window.
      *
      * @param chip_id Chip to target.
      */
-    std::uint64_t get_pcie_base_addr_from_device(const ChipId chip_id) const;
+    std::uint64_t get_sysmem_window_noc_base(const ChipId chip_id) const;
+
+    /**
+     * Get the NOC base address of the chip's sysmem (PCIe) window.
+     *
+     * @param chip_id Chip to target.
+     *
+     * @deprecated Renamed to get_sysmem_window_noc_base(), which describes what the returned address
+     * actually is. This overload only forwards to it and will be removed once all clients migrate.
+     */
+    [[deprecated("Use get_sysmem_window_noc_base() instead.")]] std::uint64_t get_pcie_base_addr_from_device(
+        const ChipId chip_id) const;
 
     //---------- Misc system functions
 
@@ -741,7 +781,9 @@ private:
     // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
     // no-op for a client Cluster. Called once from the constructor after the chips are built.
     void serve_simulation_devices_over_sockets(
-        const std::filesystem::path& simulator_directory, const std::function<void()>& shutdown_handler);
+        const std::filesystem::path& simulator_directory,
+        const std::filesystem::path& simulator_server_directory,
+        const std::function<void()>& shutdown_handler);
 #endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);

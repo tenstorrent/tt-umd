@@ -17,7 +17,9 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -81,7 +83,7 @@ public:
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         for (int pci_device_id : pci_device_ids) {
             auto tt_device = TTDevice::create(pci_device_id);
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
             ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
             tt_devices_.push_back(std::move(tt_device));
@@ -90,7 +92,7 @@ public:
 
     void TearDown() override {
         for (auto& tt_device : tt_devices_) {
-            tt_device->set_power_state(false);
+            tt_device->set_power_state(TTDevice::PowerState::IDLE);
         }
     }
 
@@ -102,8 +104,8 @@ private:
 
 TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
-    FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_min = get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_min = get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
@@ -111,9 +113,8 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     EXPECT_EQ(wh_min, FW_VERSION_18_3);
     EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
-    FirmwareBundleVersion wh_latest =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_latest = FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_latest = get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_latest = get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
@@ -128,19 +129,20 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
 
-        uint64_t board_id = fw_info->get_board_id();
+        std::optional<uint64_t> board_id = fw_info->get_board_id();
         log_info(
             tt::LogUMD,
-            "Device {}: board_id=0x{:016x}, fw_range={}",
+            "Device {}: board_id={}, fw_range={}",
             pci_device_id,
-            board_id,
+            opt_str(board_id),
             fw_range_label(fw_info->get_firmware_version()));
 
+        EXPECT_NE(board_id, std::nullopt);
         EXPECT_NE(board_id, 0);
 
         // Board ID should map to a known board type.
         BoardType board_type = BoardType::UNKNOWN;
-        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id));
+        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id.value()));
 
         log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));
     }
@@ -153,15 +155,15 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        double asic_temp = fw_info->get_asic_temperature();
+        std::optional<double> asic_temp = fw_info->get_asic_temperature();
         std::optional<double> board_temp = fw_info->get_board_temperature();
 
         log_info(
             tt::LogUMD,
-            "Device {}: fw_range={}, asic_temperature={:.2f} C, board_temperature={} C",
+            "Device {}: fw_range={}, asic_temperature={} C, board_temperature={} C",
             pci_device_id,
             fw_range_label(fw_version),
-            asic_temp,
+            opt_str(asic_temp),
             opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();
@@ -185,6 +187,20 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
     }
 }
 
+// AICLK the chip claims when busy, which is what firmware should report as the maximum.
+static uint32_t expected_max_clock_freq(const tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return wormhole::AICLK_BUSY_VAL;
+        case tt::ARCH::BLACKHOLE:
+            return blackhole::AICLK_BUSY_VAL;
+        case tt::ARCH::QUASAR:
+            return grendel::AICLK_BUSY_VAL;
+        default:
+            throw std::runtime_error("No busy AICLK known for the tested architecture.");
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
@@ -192,15 +208,14 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        auto arch_impl = tt_device->get_architecture_implementation();
 
         std::string range = fw_range_label(fw_version);
-        uint32_t aiclk_busy_val = arch_impl->get_aiclk_busy_val();
+        uint32_t aiclk_busy_val = expected_max_clock_freq(arch);
 
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();
         std::optional<uint32_t> arcclk = fw_info->get_arcclk();
-        uint32_t max_clock = fw_info->get_max_clock_freq();
+        std::optional<uint32_t> max_clock = fw_info->get_max_clock_freq();
 
         log_info(
             tt::LogUMD,
@@ -211,7 +226,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
             opt_str(aiclk),
             opt_str(axiclk),
             opt_str(arcclk),
-            max_clock,
+            opt_str(max_clock),
             aiclk_busy_val);
 
         // Max clock frequency should match the architecture's AICLK_BUSY_VAL.
@@ -308,7 +323,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speeds();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -386,14 +401,15 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        uint8_t asic_location = fw_info->get_asic_location();
+        std::optional<uint8_t> asic_location = fw_info->get_asic_location();
+
         log_info(
             tt::LogUMD,
             "Device {}: arch={}, fw_range={}, asic_location={}",
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            static_cast<uint32_t>(asic_location));
+            opt_str(std::optional<uint32_t>(asic_location)));
 
         // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
@@ -411,18 +427,20 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
 
         // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         // Heartbeat increments every 100ms, so wait at least that long.
-        uint32_t heartbeat1 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat1 = fw_info->get_heartbeat();
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        uint32_t heartbeat2 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat2 = fw_info->get_heartbeat();
 
         log_info(
             tt::LogUMD,
             "Device {}: fw_range={}, heartbeat_1={}, heartbeat_2={}",
             pci_device_id,
             fw_range_label(fw_version),
-            heartbeat1,
-            heartbeat2);
+            opt_str(heartbeat1),
+            opt_str(heartbeat2));
 
+        ASSERT_TRUE(heartbeat1.has_value());
+        ASSERT_TRUE(heartbeat2.has_value());
         EXPECT_GT(heartbeat2, heartbeat1);
     }
 }
@@ -509,8 +527,8 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto speed_percentage = fw_info->get_fan_speed();
-        auto speed_rpm = fw_info->get_fan_rpm();
+        auto speed_percentage = fw_info->get_fan_speeds();
+        auto speed_rpm = fw_info->get_fan_rpms();
 
         // Always report information about 2 fans.
         EXPECT_EQ(speed_percentage.size(), 2);
@@ -632,6 +650,39 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
     }
 }
 
+TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE ||
+            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 11, 0)) {
+            // Unsupported devices reject every request, in range or not.
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 100), std::runtime_error);
+            EXPECT_THROW(restore_default_tdp_limit(tt_device.get()), std::runtime_error);
+            continue;
+        }
+
+        std::optional<uint32_t> original_limit = fw_info->get_tdp_limit();
+        ASSERT_TRUE(original_limit.has_value());
+        log_info(tt::LogUMD, "original tdp_limit={} W", opt_str(original_limit));
+
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+
+        // 75 W is below the default limit of every Blackhole board, and lowering is always accepted.
+        set_tdp_limit(tt_device.get(), 75);
+        std::optional<uint32_t> lowered_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "lowered tdp_limit={} W", opt_str(lowered_limit));
+        EXPECT_EQ(lowered_limit, 75u);
+
+        restore_default_tdp_limit(tt_device.get());
+        std::optional<uint32_t> restored_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "restored tdp_limit={} W", opt_str(restored_limit));
+        EXPECT_EQ(restored_limit, original_limit);
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();
@@ -660,7 +711,7 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
 
         // Available on Wormhole (all versions) and Blackhole >= 19.9.
         if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -688,7 +739,7 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto retrains = fw_info->get_eth_retrain_status();
+        auto retrains = fw_info->get_eth_retrain_status_per_core();
 
         // Only available on Wormhole prior to 19.9.
         if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
@@ -714,7 +765,7 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
 
         // Available on firmware >= 19.9 for both Wormhole and Blackhole.
         if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -750,7 +801,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             soc_desc.get_num_harvested_eth_channels(),
             soc_desc.get_num_eth_channels());
 
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
         if (heartbeats.has_value()) {
             log_info(tt::LogUMD, "--- Heartbeat (all channels) ---");
             for (const auto& [coord, status] : heartbeats.value()) {
@@ -767,7 +818,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             log_info(tt::LogUMD, "Heartbeat: unavailable");
         }
 
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
         if (links.has_value()) {
             log_info(tt::LogUMD, "--- Link status (all channels) ---");
             for (const auto& [coord, status] : links.value()) {
@@ -790,26 +841,24 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         const auto size = fw_info->get_runtime_telemetry_buffer_size();
         const auto address = fw_info->get_runtime_telemetry_buffer_address();
 
-        const auto firmware_version = tt_device->get_firmware_version();
-        const auto size_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-        const auto address_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+        // Address and size are published together behind the same firmware-version gate, so they must
+        // be both present or both absent regardless of arch or firmware version.
+        EXPECT_EQ(address.has_value(), size.has_value());
 
-        if (!size_offset.has_value() || !address_offset.has_value()) {
-            EXPECT_FALSE(size.has_value());
-            EXPECT_FALSE(address.has_value());
-        } else {
-            EXPECT_TRUE(size.has_value());
-            EXPECT_TRUE(address.has_value());
+        // When the buffer is published, the locator must point somewhere and describe a non-empty,
+        // word-aligned region.
+        if (address.has_value() && size.has_value()) {
+            EXPECT_NE(address.value(), 0u);
+            EXPECT_NE(size.value(), 0u);
+            EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
         }
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

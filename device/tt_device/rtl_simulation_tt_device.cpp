@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
@@ -91,12 +92,12 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels) :
     SimulationTTDevice(
-        simulator_directory, std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        simulator_directory,
+        std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
-    architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
-    arch = get_soc_descriptor().arch;
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -106,10 +107,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::move(client)) {
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
-    arch = soc_descriptor.arch;
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -211,7 +210,7 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
@@ -254,7 +253,7 @@ void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType sel
 }
 
 void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.

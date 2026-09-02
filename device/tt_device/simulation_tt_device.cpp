@@ -31,10 +31,13 @@ namespace tt::umd {
 // (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
-    const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
+    std::unique_ptr<TTDeviceModel> model,
+    const std::filesystem::path& simulator_directory,
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
+    TTDevice(std::move(model)), simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model)), client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -63,7 +66,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
     // read/write skeleton below (SimulationServerResponse), so it is handled up front.
-    if (request.command == SimulationServerCommand::GetDeviceInfo) {
+    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
         try {
             return encode(describe_device(get_soc_descriptor(), backend_type()));
         } catch (const std::exception& e) {
@@ -76,7 +79,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
     // YAML (empty when the build ships none) so a client can rebuild the full topology.
-    if (request.command == SimulationServerCommand::GetClusterDescriptor) {
+    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
         try {
             return encode(describe_cluster(simulator_directory_));
         } catch (const std::exception& e) {
@@ -92,7 +95,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     // ack. The handler was fixed before serving started, so it is read here without locking; it must
     // only signal -- it must not tear down from this serving thread. The ack is sent before any
     // teardown, and this serving thread hits EOF and is joined during that teardown.
-    if (request.command == SimulationServerCommand::Shutdown) {
+    if (request.command == SimulationServerCommand::SHUTDOWN) {
         if (shutdown_handler) {
             shutdown_handler();
         }
@@ -107,11 +110,11 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     SimulationServerResponse response;
     try {
         switch (request.command) {
-            case SimulationServerCommand::Read:
+            case SimulationServerCommand::READ:
                 response.data.resize(request.size);
                 read_from_device(response.data.data(), core, request.address, request.size);
                 break;
-            case SimulationServerCommand::Write:
+            case SimulationServerCommand::WRITE:
                 UMD_ASSERT(
                     request.data.size() >= request.size,
                     error::RuntimeError,
@@ -161,7 +164,7 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -177,7 +180,7 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -200,9 +203,10 @@ void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void*
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote write size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Write;
+    request.command = SimulationServerCommand::WRITE;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;
@@ -225,9 +229,10 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote read size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Read;
+    request.command = SimulationServerCommand::READ;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;
@@ -248,7 +253,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch());
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
@@ -258,7 +263,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
+    switch (get_arch()) {
         case tt::ARCH::BLACKHOLE:
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
             break;
@@ -272,7 +277,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             log_debug(
                 LogUMD,
                 "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
+                tt::arch_to_str(get_arch()));
             break;
     }
 }
@@ -311,25 +316,9 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
-void SimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
+void SimulationTTDevice::dma_write_to_core_range(
+    const void* src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
+    UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
 }
 
 void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {

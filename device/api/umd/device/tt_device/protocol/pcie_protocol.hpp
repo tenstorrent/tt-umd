@@ -13,6 +13,7 @@
 #include <optional>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/arch.hpp"
@@ -27,14 +28,16 @@ namespace tt::umd {
 class PCIDevice;
 class TlbWindow;
 struct tlb_data;
+enum class TlbVcDirection;
 
 /**
- * PcieProtocol implements DeviceProtocol and PcieInterface for PCIe-connected devices.
+ * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
+ * devices.
  *
  * Provides PCIe-based device I/O including DMA transfers, register access,
  * and multicast writes.
  */
-class PcieProtocol : public DeviceProtocol, public PcieInterface {
+class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface {
 public:
     explicit PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api = false);
 
@@ -51,22 +54,30 @@ public:
     int get_mmio_id() override;
 
     // PcieInterface.
-    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
-    PCIDevice* get_pci_device() override;
-    [[nodiscard]] bool dma_write_to_device(
-        const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
-    [[nodiscard]] bool dma_read_from_device(
-        void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
-    [[nodiscard]] bool dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) override;
-    void dma_d2h(void* dst, uint32_t src, size_t size) override;
-    void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
-    void dma_h2d(uint32_t dst, const void* src, size_t size) override;
-    void dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) override;
-    void noc_multicast_write(
-        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) override;
+    void set_power_state(PowerState state) override;
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
+    int get_numa_node() const override;
+    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
+
+    // DmaInterface.
+    [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] bool dma_write(
+        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] bool dma_multicast_write(
+        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
+        override;
+    bool dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    bool dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    bool dma_multicast_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
+        override;
+
+    // Not part of any Base API interface: internal PCIe plumbing reached by TTDevice via the
+    // concrete PcieProtocol rather than through PcieInterface/DmaInterface.
+    // TODO: delete this along with TTDevice::get_pci_device() once callers go through PcieInterface only.
+    PCIDevice* get_pci_device();
 
 private:
     TlbWindow* get_cached_tlb_window();
@@ -78,10 +89,18 @@ private:
     void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
     void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
 
+    void noc_multicast_write(
+        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);
+
     enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
-        uint64_t addr, tt_xy_pair core_end, NocId noc_id, std::optional<tt_xy_pair> core_start = std::nullopt);
+        uint64_t addr,
+        tt_xy_pair core_end,
+        NocId noc_id,
+        TlbVcDirection direction,
+        std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
+    bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     template <bool safe>
     void write_data_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
@@ -100,7 +119,7 @@ private:
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 
     // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
-    // TTDevice::set_hang_detector).
+    // TTDevice::wire_hang_detector).
     std::function<bool(NocId)> hang_check_;
 };
 

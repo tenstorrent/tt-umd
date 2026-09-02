@@ -10,7 +10,7 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -32,6 +32,22 @@ class TTDevice;
 class SysmemBuffer {
 public:
     /**
+     * Cleanup callable invoked on destruction, receiving the page-aligned start of the buffer.
+     *
+     * It encodes the difference between the two ownership models: for a buffer the allocator itself
+     * allocated, it unpins the pages and frees the backing memory; for a buffer mapped from a caller's
+     * pointer, it only unpins, leaving the memory to its owner.
+     *
+     * NOTE: the Base API Specification keeps this alias, and the constructors below, private, with the
+     * allocator a friend of this class. There the allocator is the sole author of the deleter and states
+     * the ownership model outright: it composes unpin-and-free for memory UMD owns, and unpin-only for
+     * memory the client owns. Here both are public and the model is instead implied by whether a
+     * release callable was passed, which is not what we want to keep. Moving to the spec's shape is a
+     * follow-up, together with making the constructors private.
+     */
+    using Deleter = std::function<void(void*)>;
+
+    /**
      * Constructor for SysmemBuffer. Start of the buffer must be aligned
      * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
      * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
@@ -52,15 +68,57 @@ public:
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
+     * @param release_backing_memory Optional callable that frees the pages behind buffer_va, invoked after
+     * the buffer has been unpinned from the device. Pass it when the allocator owns the memory it is handing
+     * over; leave it empty when the caller owns the memory and only wants it unpinned on destruction.
+     * Signalling ownership through the presence of this parameter is the interim shape described in the
+     * note on Deleter, not the one the specification settles on.
      */
-    SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(
+        TTDevice* tt_device,
+        void* buffer_va,
+        size_t buffer_size,
+        bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
+        Deleter release_backing_memory = {});
+    /**
+     * Constructor for a buffer that was already made visible to the device by the caller.
+     *
+     * @param communication_id Identifier of the device this buffer's IOVA is valid for. Supplied by the
+     * allocator, which pins for exactly one device. Matches TTDevice::get_communication_device_id().
+     * @param deleter Cleanup callable invoked on destruction with the page-aligned start of the buffer.
+     * Defaults to releasing nothing, since this constructor takes a mapping the caller already owns.
+     */
     SysmemBuffer(
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
+        int communication_id,
         std::optional<uint64_t> noc_addr = std::nullopt,
-        std::function<void()> unmap_callback = {});
+        Deleter deleter = {},
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     ~SysmemBuffer();
+
+    /**
+     * Copies data from a caller-provided source buffer into this system memory buffer.
+     * Pure host-side operation, the device is not involved. This is allowed regardless of
+     * DeviceBufferAccess, which only constrains what the device may do to the mapping.
+     *
+     * @param src Pointer to the source host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to write to. offset + size must fit in the buffer.
+     */
+    void write_to_sysmem(const void* src, size_t size, size_t offset);
+
+    /**
+     * Copies data from this system memory buffer into a caller-provided destination buffer.
+     * Pure host-side operation, the device is not involved.
+     *
+     * @param dest Pointer to the destination host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to read from. offset + size must fit in the buffer.
+     */
+    void read_from_sysmem(void* dest, size_t size, size_t offset);
 
     /**
      * Returns the virtual address of the buffer in the process address space.
@@ -84,6 +142,15 @@ public:
     uint64_t get_device_io_addr(const size_t offset = 0) const;
 
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+
+    DeviceBufferAccess get_device_access() const { return device_access_; }
+
+    /**
+     * Returns the identifier of the device context this buffer was pinned for. The IOVA is valid only
+     * for that device, so callers can compare this against TTDevice::get_communication_device_id() to
+     * confirm a buffer belongs to the device it is about to be used with.
+     */
+    int get_communication_id() const { return communication_id_; }
 
     /**
      * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
@@ -117,14 +184,13 @@ private:
     void align_address_and_size();
 
     /**
-     * Validates that the offset is within the bounds of the buffer.
-     * Throws an exception if the offset is out of bounds.
+     * Validates that the [offset, offset + size) range is within the bounds of the buffer.
+     * Throws an exception if the range is out of bounds.
      *
      * @param offset Offset to validate.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
-    void validate(const size_t offset) const;
-
-    TlbWindow* get_cached_tlb_window();
+    void validate(const size_t offset, const size_t size = 0) const;
 
     PCIDevice* pci_device_;
     TTDevice* tt_device_;
@@ -149,9 +215,14 @@ private:
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
 
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+    // Owns the buffer's page-aligned start. Releasing it runs the deleter composed at construction,
+    // which unpins the pages from the device and, for buffers this class allocated, frees them.
+    std::unique_ptr<void, Deleter> system_memory_ptr_;
 
-    std::function<void()> unmap_callback_;
+    DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;
+
+    // Device this buffer's IOVA is valid for. -1 when unknown.
+    int communication_id_ = -1;
 };
 
 }  // namespace tt::umd

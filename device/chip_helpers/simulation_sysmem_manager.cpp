@@ -38,6 +38,7 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
     // region target, so each chip's DMA lands in its own host window with no per-chip tag at egress.
     pcie_base_ = get_pcie_base_for_arch(arch);
     host_base_ = static_cast<uint64_t>(chip_id) * PER_CHIP_HOST_STRIDE;
+    communication_id_ = static_cast<int>(chip_id);
     registry_ = std::make_shared<MappedBufferRegistry>();
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
@@ -78,7 +79,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
         // physical_address is this chip's host base for the channel -- what UMD programs as the outbound
         // iATU region target (host_base_ is per-chip distinct). The chip-side NOC sysmem-window address is
-        // separate (get_pcie_base_addr_from_device), so the iATU maps NOC-window offset -> this host base.
+        // separate (get_sysmem_window_noc_base), so the iATU maps NOC-window offset -> this host base.
         hugepage_mapping_per_channel.push_back(
             {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
     }
@@ -164,7 +165,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -183,7 +184,12 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     // has already been destroyed (unpin_or_unmap_sysmem clears the registry).
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     return std::make_unique<SysmemBuffer>(
-        buffer, sysmem_buffer_size, device_io_addr, noc_addr, [weak_reg, device_io_addr]() {
+        buffer,
+        sysmem_buffer_size,
+        device_io_addr,
+        communication_id_,
+        noc_addr,
+        [weak_reg, device_io_addr](void*) {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);
                 reg->buffers.erase(
@@ -195,7 +201,8 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
                         }),
                     reg->buffers.end());
             }
-        });
+        },
+        device_access);
 }
 
 }  // namespace tt::umd

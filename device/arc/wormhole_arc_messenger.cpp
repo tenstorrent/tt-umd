@@ -65,19 +65,23 @@ uint32_t WormholeArcMessenger::send_message(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
-    // TODO: Once local and remote ttdevice is properly separated, reenable this code.
-    // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
-    // locks.
-    // It can happen that multiple topology discovery instances run in parallel, and they can create multiple
-    // RemoteTTDevice objects over the same remote chip but using different local one. This will make the locks (which
-    // are over pci device num) allow multiple remote arc messages to the same remote chip which will break the
-    // communication. It can also happen that while topology discovery is running on a remote chip through one local
-    // chip, regular cluster construction is running through another local chip. Currently there's no other solution
-    // than to just lock all arc communication through the same lock. auto lock =
-    //     tt_device->is_remote()
-    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
-    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
-    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
+    // For a remote device, get_communication_device_id() returns the local chip used to reach the remote ARC, so
+    // REMOTE_ARC_MSG serializes all remote ARC traffic flowing through that same local chip.
+    // Caveat: two different local chips talking to the same remote chip are not serialized against each other (e.g.
+    // parallel topology discovery reaching one remote chip through different local chips). This is accepted for now;
+    // proper serialization requires a unique remote chip id rather than keying on the local communication device.
+    auto lock = tt_device->is_remote() ? lock_manager.acquire_mutex(
+                                             MutexType::REMOTE_ARC_MSG,
+                                             tt_device->get_communication_device_id(),
+                                             tt_device->get_communication_device_type())
+                                       : lock_manager.acquire_mutex(
+                                             MutexType::ARC_MSG,
+                                             tt_device->get_communication_device_id(),
+                                             tt_device->get_communication_device_type());
+    // TODO: This lock is deprecated, and will be removed once all clients update the code and start locking using the
+    // locks above. This prevents a potential intermediary bug where two clients running on different UMD versions are
+    // not synchronizing on the same lock.
+    auto lock_global = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;

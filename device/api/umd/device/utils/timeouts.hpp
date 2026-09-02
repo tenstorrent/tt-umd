@@ -9,6 +9,13 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
+// Per-operation budget for a SimulationClient exchange over the host socket: how long transact()
+// waits on the reply before giving up. Guards against a host that is bound but not yet (or no
+// longer) serving -- a client can connect (the listen backlog accepts it) and would otherwise block
+// forever waiting for a response. Generous, since it also covers a slow backend bring-up; a genuine
+// per-request round trip is far quicker.
+inline constexpr auto SIMULATION_SOCKET_TIMEOUT = std::chrono::milliseconds(30'000);
+
 // Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via
 // MmioTimeoutConfig::set_op_timeout. A healthy MMIO op is microseconds; 2 ms sits well above that yet far
 // below the ~700 ms latency of a read on a hung NOC, so genuine hangs are still caught promptly. A slow-
@@ -28,6 +35,9 @@ inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_LONG_POST_RESET_TIMEOUT = std::chrono::milliseconds(300'000);
 
 inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(300'000);
+// A working core echoes the barrier value back in well under a millisecond, so 1 s is enough even on
+// a loaded host, and a core that never echoes it fails in 1 s instead of hanging.
+inline constexpr auto MEMBAR_SYNC_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ETH_QUEUE_ENABLE_TIMEOUT = std::chrono::milliseconds(30'000);
 inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(900'000);
 inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);

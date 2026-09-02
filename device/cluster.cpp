@@ -60,6 +60,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -244,7 +245,24 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SWEMULE) {
 #ifdef TT_UMD_BUILD_EMULE
-        return std::make_unique<SWEmuleChip>(soc_desc);
+        // Pass the chip's globally stable unique id (NOT chip_id, which cluster_desc renumbers to
+        // 0..N-1 per visible-device subset) so a shared L1 segment can be keyed on it.
+        // Only an AUTHENTIC id may name a shared segment. When the descriptor had no
+        // chip_unique_ids block it synthesizes them per-process (chip << 32, or the logical id for
+        // mock), so two ranks each holding a different physical chip 0 would compute the same key
+        // and attach to each other's L1 -- the exact collision the uid is meant to prevent.
+        std::optional<uint64_t> chip_uid;
+        if (cluster_desc->has_authentic_chip_unique_ids()) {
+            const auto& uids = cluster_desc->get_chip_unique_ids();
+            auto it = uids.find(chip_id);
+            if (it != uids.end()) {
+                chip_uid = it->second;  // 0 is a legitimate id here: the key came from the descriptor
+            }
+        }
+        // Whether a missing identity is fatal depends on whether shared backing was requested, and
+        // that is emule's business: SWEmuleChip decides. This file stays free of tt-emule headers,
+        // because it is compiled in every UMD build and emule is an optional component.
+        return std::make_unique<SWEmuleChip>(soc_desc, chip_uid);
 #else
         throw std::runtime_error(
             "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "
@@ -634,8 +652,9 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION) {
-        serve_simulation_devices_over_sockets(options.simulator_directory, options.simulation_shutdown_handler);
+    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
+        serve_simulation_devices_over_sockets(
+            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -648,7 +667,9 @@ Cluster::Cluster(ClusterOptions options) {
 
 #ifdef TT_UMD_BUILD_SIMULATION
 void Cluster::serve_simulation_devices_over_sockets(
-    const std::filesystem::path& simulator_directory, const std::function<void()>& shutdown_handler) {
+    const std::filesystem::path& simulator_directory,
+    const std::filesystem::path& simulator_server_directory,
+    const std::function<void()>& shutdown_handler) {
     // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
     // build), so role_for returns Client. On the host, expose each simulation chip's device on its
     // per-chip socket so a separate client process (a Cluster pointed at the socket directory) can
@@ -659,10 +680,17 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
+    // machine never collide even when they serve the same chip id.
+    const std::filesystem::path server_directory = simulator_server_directory.empty()
+                                                       ? SimulationServerSocket::allocate_server_directory()
+                                                       : simulator_server_directory;
+    log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id)), shutdown_handler);
+                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
+                shutdown_handler);
         }
     }
 }
@@ -751,7 +779,7 @@ void Cluster::assert_risc_reset() {
     }
 
     uint32_t reset_reg_value =
-        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
+        ArchitectureImplementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
@@ -771,7 +799,7 @@ void Cluster::deassert_risc_reset() {
         return;
     }
 
-    auto arch_impl = architecture_implementation::create(arch_name);
+    auto arch_impl = ArchitectureImplementation::create(arch_name);
     uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
                                arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
@@ -884,8 +912,13 @@ void Cluster::refresh_cluster_description() {
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
+}
+
+int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+    return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -904,7 +937,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
@@ -923,8 +957,9 @@ void Cluster::configure_tlb(
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     ZoneScopedC(tracy::Color::Cyan);
-    tt_xy_pair translated_core =
-        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(logical_device_id)
+                                     ->get_soc_descriptor()
+                                     .translate_chip_coord_to_translated(core, get_selected_noc_id());
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
@@ -1161,20 +1196,6 @@ void Cluster::deassert_resets_and_set_clock_state() {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole.
-    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
-        for (const ChipId& chip : all_chip_ids_) {
-            // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose
-            // is_mmio_capable() is also false), so skip enabling the ethernet queue for every chip in a simulation
-            // cluster. This is deliberately not keyed on remote_chip_ids_: the gateway must be skipped too. Silicon
-            // chips are initialized over ARC/ethernet as before.
-            if (options_.chip_type == ChipType::SIMULATION && !get_chip(chip)->is_mmio_capable()) {
-                continue;
-            }
-            get_chip(chip)->enable_ethernet_queue();
-        }
-    }
-
     // Set clock state to busy.
     set_clock_state(DevicePowerState::BUSY);
 }
@@ -1218,7 +1239,7 @@ std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
     return chips_.at(device_id)->get_numa_node();
 }
 
-std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -1229,6 +1250,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     } else {
         return 0;
     }
+}
+
+std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+    return get_sysmem_window_noc_base(chip_id);
 }
 
 std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }

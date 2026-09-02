@@ -9,8 +9,10 @@
 #include <functional>
 #include <memory>
 
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -22,21 +24,30 @@ namespace tt::umd {
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
  */
-class TlbWindow {
+class TlbWindow : public IoWindow {
 public:
     TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
 
     virtual ~TlbWindow() = default;
 
     // Pure virtual methods for memory access - to be implemented by derived classes.
-    virtual void write16(uint64_t offset, uint16_t value) = 0;
-    virtual uint16_t read16(uint64_t offset) = 0;
-    virtual void write32(uint64_t offset, uint32_t value) = 0;
-    virtual uint32_t read32(uint64_t offset) = 0;
+    void write16(uint64_t offset, uint16_t value) override = 0;
+    uint16_t read16(uint64_t offset) override = 0;
+    void write32(uint64_t offset, uint32_t value) override = 0;
+    uint32_t read32(uint64_t offset) override = 0;
     virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
     virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
-    virtual void write_block(uint64_t offset, const void* data, size_t size) = 0;
-    virtual void read_block(uint64_t offset, void* data, size_t size) = 0;
+    void write_block(uint64_t offset, const void* data, size_t size) override = 0;
+    void read_block(uint64_t offset, void* data, size_t size) override = 0;
+
+    // IoWindow spec surface.
+    void write_aligned(uint64_t offset, const void* data, size_t size) override;
+    void read_aligned(uint64_t offset, void* data, size_t size) override;
+    void configure(const TargetIoWindowConfig& config) override;
+    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
+    TargetIoWindowConfig get_target_config() const override;
+    IoOrdering get_io_ordering() const override;
+    HostMemoryCaching get_memory_caching_type() const override;
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
@@ -125,7 +136,7 @@ public:
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;
-    size_t get_size() const;
+    size_t get_size() const override;
     virtual void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
@@ -138,6 +149,7 @@ protected:
         tt_xy_pair core_end,
         NocId noc_id,
         uint64_t ordering,
+        TlbVcDirection direction,
         bool mcast = false,
         tt_xy_pair core_start = {}) const;
 

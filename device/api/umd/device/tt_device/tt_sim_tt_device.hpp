@@ -94,7 +94,7 @@ public:
     uint64_t bar4_base = 0;
 
 protected:
-    SimulationBackendType backend_type() const override { return SimulationBackendType::TTSim; }
+    SimulationBackendType backend_type() const override { return SimulationBackendType::TTSIM; }
 
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;

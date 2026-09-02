@@ -1,9 +1,9 @@
 # UMD locking backends
 
 UMD provides two cross-process lock implementations. They expose the same small interface
-(`initialize()`, `lock()`, `try_lock()`, `unlock()`, `probe_lock()`) and meet the C++ `Lockable`
-requirement, so they work with `std::lock_guard` / `std::unique_lock` and can be swapped for one
-another. They differ in *how* processes find each other and in the performance/robustness trade-off.
+(`initialize()`, `lock()`, `unlock()`, `probe_lock()`, gathered in `MutexInterface`) and meet the C++
+`BasicLockable` requirement, so they work with `std::lock_guard` / `std::unique_lock` and can be
+swapped for one another. `KmdMutex` additionally offers `try_lock()`. They differ in *how* processes find each other and in the performance/robustness trade-off.
 
 | Backend | Mechanism | Coordination requires | Lock/unlock cost | Crash-robust | Scope |
 |---|---|---|---|---|---|

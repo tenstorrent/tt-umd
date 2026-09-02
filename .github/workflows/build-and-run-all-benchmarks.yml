@@ -23,8 +23,8 @@ on:
     paths:
       - 'tests/microbenchmark/**'
 
-# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing a
-# commit nobody will merge, and it holds hardware runners while doing so.
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
 #
 # Only pull_request runs are grouped together. Every other event falls through to run_id, which
 # is unique per run, so nothing can cancel it:

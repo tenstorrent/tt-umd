@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -26,28 +27,33 @@ namespace tt::umd {
 
 namespace {
 
-// The role a UMD process takes for a given simulator_path -- decided purely from what the path is,
-// with no socket bind-race:
-//   - a ".so" file                 -> host running the TTSim backend for that library;
+// What a given simulator_path means, decided purely from what the path is, with no socket
+// bind-race:
+//   - a ".so" file                 -> host, running the TTSim backend for that library;
 //   - a directory holding per-chip  -> client: a host already serves there, so attach to each
 //     simulation sockets               socket in it (one device per socket), sourcing device
 //                                      identity from the host over the wire;
-//   - any other directory          -> host running the RTL backend from that build directory.
-enum class PathKind { HOST_TTSIM, HOST_RTL, CLIENT };
-
-// The path kind and, for CLIENT, the sockets found in the directory -- returned together so
-// discover() doesn't scan the directory a second time. The second scan would also be a TOCTOU race:
-// if the host exited between the two scans, the kind would still be CLIENT but discover() would
-// build zero devices from a now-empty listing and return silently.
+//   - any other directory          -> host, running the RTL backend from that build directory.
+//
+// Role and backend are orthogonal -- a client can attach to either backend -- so they are kept as
+// separate fields rather than collapsed into one enum. The sockets are carried alongside so
+// discover() doesn't scan the directory a second time; a second scan would also be a TOCTOU race,
+// since a host that exited in between would leave the role at Client while discover() built zero
+// devices from a now-empty listing and returned silently.
 struct Classification {
-    PathKind kind;
+    SimulationConnector::Role role = SimulationConnector::Role::Host;
+    // Which backend this process would host. Empty for a client: a client runs no local backend,
+    // and takes the host's backend_type from the device info it fetches over the wire (see
+    // make_client_device).
+    std::optional<SimulationBackendType> backend;
+    // Client only: the per-chip sockets found in the directory.
     std::map<ChipId, std::filesystem::path> sockets;
 };
 
 Classification classify(const std::filesystem::path& simulator_path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
-        return {PathKind::HOST_TTSIM, {}};
+        return {SimulationConnector::Role::Host, SimulationBackendType::TTSIM, {}};
     }
     UMD_ASSERT(
         std::filesystem::is_directory(simulator_path, ec),
@@ -57,20 +63,20 @@ Classification classify(const std::filesystem::path& simulator_path) {
     // attach as a client; any other directory is an RTL build we host.
     auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
     if (sockets.empty()) {
-        return {PathKind::HOST_RTL, {}};
+        return {SimulationConnector::Role::Host, SimulationBackendType::RTL, {}};
     }
-    return {PathKind::CLIENT, std::move(sockets)};
+    return {SimulationConnector::Role::Client, std::nullopt, std::move(sockets)};
 }
 
 // Host path: bring up the in-process backend (the direct hot path). A null socket means serving is
 // off, so the device stays a private in-process host; a non-null socket is adopted so clients can
 // attach.
 std::unique_ptr<TTDevice> make_host_device(
-    PathKind role,
+    SimulationBackendType backend,
     const std::filesystem::path& simulator_directory,
     int num_host_mem_channels,
     std::unique_ptr<SimulationServerSocket> socket) {
-    if (role == PathKind::HOST_TTSIM) {
+    if (backend == SimulationBackendType::TTSIM) {
         auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
         if (socket) {
             device->adopt_socket(std::move(socket));
@@ -105,8 +111,7 @@ std::unique_ptr<TTDevice> make_client_device(
 }  // namespace
 
 SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
-    // The two host backends collapse to Host for callers that only care host-vs-client.
-    return classify(simulator_directory).kind == PathKind::CLIENT ? Role::Client : Role::Host;
+    return classify(simulator_directory).role;
 }
 
 std::filesystem::path SimulationConnector::allocate_server_directory() {
@@ -131,7 +136,7 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
 
     const Classification classification = classify(simulator_path);
 
-    if (classification.kind == PathKind::CLIENT) {
+    if (classification.role == Role::Client) {
         // Multi-chip: one client device per per-chip socket in the directory (enumerated by
         // classify()). Chip ids come from the socket names, so they match the host's. A failure on
         // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
@@ -211,14 +216,15 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
         result.connection.server_directory = server_directory;
         result.connection.sockets.emplace(chip_id, socket_path);
     }
+    // value() rather than operator*: classify() always sets a backend for the host role, and this
+    // makes that invariant explicit instead of reading an empty optional if it ever stops holding.
+    const SimulationBackendType backend = classification.backend.value();
     devices.emplace(
-        chip_id,
-        make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));
+        chip_id, make_host_device(backend, simulator_path, options.num_host_mem_channels, std::move(socket)));
 
     result.connection.role = Role::Host;
     result.connection.simulator = simulator_path;
-    result.connection.backend =
-        classification.kind == PathKind::HOST_TTSIM ? SimulationBackendType::TTSIM : SimulationBackendType::RTL;
+    result.connection.backend = backend;
     result.connection.arch = devices.at(chip_id)->get_soc_descriptor().arch;
     return result;
 }

@@ -69,6 +69,30 @@ public:
         return tt_xy_pair{};
     }
 
+    // Simulation runs no link training. The RTL backend's deleted TTDevice overrides reported
+    // exactly this (no wait, SUCCESS); TTSim's threw "not supported", which nothing reached -- the
+    // simulation chip flow never waits on training.
+    bool wait_eth_core_training(
+        [[maybe_unused]] tt_xy_pair eth_core,
+        [[maybe_unused]] std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return true;
+    }
+
+    EthTrainingStatus get_eth_core_training_status(
+        [[maybe_unused]] tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return EthTrainingStatus::SUCCESS;
+    }
+
+    // No DRAM training in simulation either; report it as never completing rather than lying that
+    // it succeeded, matching the "status not available" early-out of the silicon path.
+    bool wait_dram_channel_training(
+        [[maybe_unused]] uint32_t dram_channel,
+        [[maybe_unused]] std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return false;
+    }
+
 private:
     tt::ARCH arch_ = tt::ARCH::Invalid;
 };

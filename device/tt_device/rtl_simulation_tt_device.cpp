@@ -291,15 +291,4 @@ void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType s
     }
 }
 
-std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    // RTL simulation doesn't require Ethernet training.
-    return std::chrono::milliseconds(0);
-}
-
-EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    // RTL simulation doesn't require Ethernet training.
-    return EthTrainingStatus::SUCCESS;
-}
-
 }  // namespace tt::umd

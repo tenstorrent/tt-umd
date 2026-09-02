@@ -71,6 +71,14 @@ public:
 
     tt_xy_pair get_firmware_noc_coord(NocId noc_id = NocId::DEFAULT_NOC) const override;
 
+    bool wait_eth_core_training(
+        tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    EthTrainingStatus get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    bool wait_dram_channel_training(
+        uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -107,6 +115,9 @@ private:
     void wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id);
 
     IODeviceType get_io_device_type() const;
+
+    // Asks the firmware to retrain one DRAM channel; throws if the firmware reports a failure.
+    void retrain_dram_core(uint32_t dram_channel, NocId noc_id);
 
     // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
     // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint

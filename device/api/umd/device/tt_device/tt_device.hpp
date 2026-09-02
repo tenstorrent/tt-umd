@@ -362,8 +362,8 @@ public:
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
-    virtual std::chrono::milliseconds wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+    std::chrono::milliseconds wait_eth_core_training(
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -508,7 +508,7 @@ public:
      * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
     const SocDescriptor &get_soc_descriptor() const;
 
@@ -520,8 +520,6 @@ protected:
     // architecture descriptor.
     explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
-    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
-
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
@@ -532,8 +530,6 @@ protected:
         CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC);
-
-    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);

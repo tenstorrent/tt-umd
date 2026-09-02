@@ -23,6 +23,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -505,6 +506,104 @@ ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
 
 tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
     return noc_id == NocId::NOC1 ? arc_core_noc1_ : arc_core_noc0_;
+}
+
+bool WormholeDeviceFirmware::wait_eth_core_training(
+    tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    auto start = std::chrono::steady_clock::now();
+    while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+        if (duration > timeout_ms) {
+            // UBB (6U) systems are known to leave links in training, so the timeout is only logged
+            // there; every other board treats it as an error.
+            if (firmware_info_provider_ != nullptr &&
+                get_board_type_from_board_id(firmware_info_provider_->get_board_id().value_or(0)) == BoardType::UBB) {
+                log_warning(
+                    LogUMD,
+                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y);
+                return false;
+            }
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "ETH training timed out after {} ms, on eth core {}, {}",
+                    timeout_ms.count(),
+                    eth_core.x,
+                    eth_core.y));
+        }
+    }
+    return true;
+}
+
+EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id) {
+    uint32_t retrain_status = 0;
+    device_protocol_->read_ctrl(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t), noc_id);
+    // If the core is in retrain state the training status is not yet meaningful; the retrain state has
+    // to clear first.
+    if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
+        log_trace(LogUMD, "Core {} is in retrain state, training is ongoing.", eth_core.str());
+        return EthTrainingStatus::IN_PROGRESS;
+    }
+
+    uint32_t training_status = 0;
+    device_protocol_->read_ctrl(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t), noc_id);
+    log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
+
+    if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
+        // Training can fail for many reasons; what matters here is telling an unconnected link apart
+        // from a genuine failure on a connected one.
+        uint32_t link_err_status = 0;
+        device_protocol_->read_ctrl(
+            &link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t), noc_id);
+        log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
+        if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
+            return EthTrainingStatus::NOT_CONNECTED;
+        }
+    }
+    return static_cast<EthTrainingStatus>(training_status);
+}
+
+bool WormholeDeviceFirmware::wait_dram_channel_training(
+    uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    const uint32_t dram_banks_number = architecture_impl_->get_dram_banks_number();
+    if (dram_channel >= dram_banks_number) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
+                dram_channel,
+                dram_banks_number - 1));
+    }
+
+    auto start = std::chrono::steady_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status =
+            firmware_info_provider_->get_dram_training_status(dram_banks_number);
+
+        if (dram_training_status.empty()) {
+            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
+            return false;
+        }
+
+        // Wormhole cannot retrain a channel, so a reported failure is terminal.
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("DRAM training failed for channel {}; Wormhole cannot retrain it.", dram_channel));
+        }
+
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
+            return true;
+        }
+
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
+    }
 }
 
 void WormholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {

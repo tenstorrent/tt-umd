@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -21,6 +22,7 @@
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
@@ -353,6 +355,99 @@ bool BlackholeDeviceFirmware::get_noc_translation_enabled(NocId /*noc_id*/) {
 
 tt_xy_pair BlackholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
     return noc_id == NocId::NOC1 ? arc_core_noc1_ : arc_core_noc0_;
+}
+
+bool BlackholeDeviceFirmware::wait_eth_core_training(
+    tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // Port status is the last state to settle during the eth training sequence; IN_PROGRESS means
+    // training has not finished yet.
+    auto start = std::chrono::steady_clock::now();
+    while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+        if (duration > timeout_ms) {
+            // TODO: This should throw. ETH connections are very flaky on Blackhole right now, so
+            // the timeout is only logged, matching the BlackholeTTDevice override this replaces.
+            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
+            return false;
+        }
+    }
+    return true;
+}
+
+EthTrainingStatus BlackholeDeviceFirmware::get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val = 0;
+    device_protocol_->read_data(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), noc_id);
+    return static_cast<EthTrainingStatus>(port_status_val);
+}
+
+bool BlackholeDeviceFirmware::wait_dram_channel_training(
+    uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    const uint32_t dram_banks_number = architecture_impl_->get_dram_banks_number();
+    if (dram_channel >= dram_banks_number) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
+                dram_channel,
+                dram_banks_number - 1));
+    }
+
+    // Number of retrain attempts is chosen based on syseng team testing.
+    constexpr uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = 3;
+    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
+    auto start = std::chrono::steady_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status =
+            firmware_info_provider_->get_dram_training_status(dram_banks_number);
+
+        if (dram_training_status.empty()) {
+            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
+            return false;
+        }
+
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
+            if (num_retrain_dram_core > 0) {
+                log_warning(
+                    LogUMD,
+                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
+                    dram_channel,
+                    num_retrain_dram_core - 1);
+                retrain_dram_core(dram_channel, noc_id);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                num_retrain_dram_core--;
+            } else {
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "DRAM training failed for channel {} after {} retrain attempts.",
+                        dram_channel,
+                        MAX_DRAM_RETRAIN_ATTEMPTS));
+            }
+        }
+
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
+            return true;
+        }
+
+        utils::check_timeout(
+            start,
+            timeout_ms,
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
+    }
+}
+
+void BlackholeDeviceFirmware::retrain_dram_core(uint32_t dram_channel, NocId noc_id) {
+    DeviceCommandResult result = send_device_command(
+        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
+        {dram_channel},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        noc_id);
+    if (result.exit_code != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, result.exit_code));
+    }
 }
 
 void BlackholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {

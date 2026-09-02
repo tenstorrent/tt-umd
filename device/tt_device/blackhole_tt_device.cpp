@@ -166,35 +166,6 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
     bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    auto time_taken = std::chrono::milliseconds(0);
-
-    // Port status should be last state to settle during the eth training sequence
-    // PORT_UNKNOWN means that eth is still training.
-    auto start = std::chrono::steady_clock::now();
-    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration > timeout_ms) {
-            // TODO: Exception should be thrown here. ETH connections are very flaky
-            // on Blackhole right now. When this is fixed we can throw the exception here.
-            // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
-            break;
-        }
-    }
-    return time_taken;
-}
-
-EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
-    uint32_t port_status_val;
-    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-    return static_cast<EthTrainingStatus>(port_status_val);
-}
-
 int BlackholeTTDevice::get_pcie_x_coordinate() {
     // Extract the x-coordinate from the register using the lower 6 bits.
     return bar_read32(get_architecture_registers(tt::ARCH::BLACKHOLE).noc_node_id_bar_offset) & 0x3F;
@@ -203,20 +174,5 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
-
-void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    uint32_t ret_code = get_device_firmware()
-                            ->send_device_command(
-                                static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
-                                {dram_channel},
-                                timeout::ARC_MESSAGE_TIMEOUT,
-                                get_selected_noc_id())
-                            .exit_code;
-    if (ret_code != 0) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
-    }
-}
 
 }  // namespace tt::umd

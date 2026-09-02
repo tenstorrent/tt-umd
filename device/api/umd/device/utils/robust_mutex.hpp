@@ -65,7 +65,7 @@ public:
     // Note: the returned PID/TID pair is a snapshot that may already be stale, since there is a race condition inherent
     // in trying to inspect a lock without acquiring it. So consider the information best-effort and for debugging
     // purposes only.
-    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0)) override;
+    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) override;
 
 private:
     // A wrapper which holds the flag for whether the mutex has been initialized or not,

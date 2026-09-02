@@ -57,11 +57,12 @@ jobs:
         # Log ccache operations to a file so remote storage errors are visible in CI.
         # Errors (storage helper failures, S3 timeouts) would otherwise be silent.
         CCACHE_LOGFILE: /tmp/ccache.log
-        # Strip the tt-metal checkout prefix from hashed paths so entries are shareable
-        # with tt-metal's own CI, which builds the same sources at a different absolute
-        # path (/work there). Must point at the tt-metal repo root, not UMD's workspace
-        # root, for the rewritten relative paths to line up.
-        CCACHE_BASEDIR: ${{ github.workspace }}/tt-metal
+        # NOTE: CCACHE_BASEDIR is deliberately NOT set here. Expressions in this block are
+        # evaluated on the *host*, so ${{ github.workspace }} expands to the runner path
+        # (/opt/runner/_work/tt-umd/tt-umd), while the container only has /opt/runner/_work
+        # bind-mounted at /__w. A host path never prefixes any path the compiler sees inside
+        # the container, so ccache's basedir rewriting would silently never fire. It is
+        # computed from the in-container workspace by the configure step below instead.
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
         TRACY_NO_ISA_EXTENSIONS: 1
@@ -150,6 +151,20 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
         run: |
           mkdir -p /tmp/ccache
+          # Strip the tt-metal checkout prefix from hashed paths so entries are shareable with
+          # tt-metal's own CI, which builds the same sources at a different absolute path (/work
+          # there, because build-artifact.yaml mounts its workspace at /work and hardcodes
+          # CCACHE_BASEDIR=/work).
+          #
+          # This MUST be computed at runtime inside the container, exactly like TT_METAL_HOME in
+          # the "Build tt-metal" step below. The ${{ github.workspace }} expression is evaluated on
+          # the host and yields /opt/runner/_work/tt-umd/tt-umd; inside the container that tree is
+          # mounted at /__w, so the compiler only ever sees /__w/... paths. A host-path basedir
+          # matches no prefix, ccache's path rewriting never fires, every translation unit is hashed
+          # with its full /__w/... path, and nothing can ever match tt-metal's /work-relative
+          # entries — a guaranteed 0% hit rate.
+          echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}/tt-metal" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR: ${GITHUB_WORKSPACE}/tt-metal"
           if [ -z "${{ secrets.GARAGE_S3_ACCESS_KEY }}" ] || [ -z "${{ secrets.GARAGE_S3_SECRET_KEY }}" ]; then
             echo "::warning::Garage S3 credentials are missing (need 'secrets: inherit' and the" \
               "GARAGE_S3_ACCESS_KEY / GARAGE_S3_SECRET_KEY secrets). Building without a remote ccache."

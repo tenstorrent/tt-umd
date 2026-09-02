@@ -25,6 +25,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
@@ -180,37 +181,9 @@ void BlackholeTTDevice::probe_arc() {
 }
 
 void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    uint32_t arc_boot_status = 0;
-    uint32_t arc_postcode = 0;
-    uint32_t arc_error_status0 = 0;
-
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-    const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode]() {
-            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
-            read_from_arc_apb(&arc_postcode, registers_.arc_reset_scratch_offset, sizeof arc_postcode);
-            return (arc_boot_status & 0x7) == 0x5;
-        },
-        timeout_ms,
-        busy_poll_window,
-        poll_interval);
-
-    if (!arc_core_started) {
-        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
-        UMD_THROW(
-            error::FirmwareStartupError,
-            get_communication_device_type(),
-            get_communication_device_id(),
-            get_arch(),
-            get_selected_noc_id(),
-            get_arc_core(),
-            arc_boot_status,
-            arc_postcode,
-            timeout_ms,
-            /*message_id=*/std::nullopt,
-            arc_error_status0);
-    }
+    // Transitional shim: the wait moved into BlackholeDeviceFirmware; this override goes away with
+    // the API once every backend has moved.
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
 }
 
 uint32_t BlackholeTTDevice::get_clock() {

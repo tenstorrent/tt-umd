@@ -17,6 +17,7 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -54,6 +55,8 @@ public:
         std::chrono::milliseconds timeout,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -90,6 +93,16 @@ private:
     void wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id);
 
     IODeviceType get_io_device_type() const;
+
+    // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
+    // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint
+    // when the timeout is within the telemetry update interval.
+    void log_aiclk_timeout_warning(
+        uint32_t target_aiclk, uint32_t observed_aiclk, std::chrono::milliseconds timeout_ms);
+
+    // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
+    // settle, rather than throwing.
+    void wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     // Whether NOC address translation is active. Private for now: the constructor needs it to
     // resolve the ARC coordinates, while TTDevice::get_noc_translation_enabled stays the public

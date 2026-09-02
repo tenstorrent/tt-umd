@@ -24,6 +24,14 @@ struct DeviceCommandResult {
 };
 
 /**
+ * @brief Requested clock state for a device.
+ */
+enum class ClockState {
+    BUSY,  ///< Maximum AICLK frequency.
+    IDLE,  ///< Minimum AICLK frequency.
+};
+
+/**
  * @brief Interface to the device's management firmware.
  *
  * Owns the interaction with the firmware running on the device's management processor: waiting for
@@ -65,6 +73,17 @@ public:
         const std::vector<uint32_t> &args,
         std::chrono::milliseconds timeout,
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Sets the device clock frequency.
+     *
+     * Distinct from a power-state change: this drives AICLK through the firmware, then waits for
+     * the clock to settle near the target before returning.
+     *
+     * @param state The target clock state.
+     * @param noc_id NOC to route through.
+     */
+    virtual void set_clock_state(ClockState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

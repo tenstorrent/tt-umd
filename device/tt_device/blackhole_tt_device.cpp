@@ -199,8 +199,10 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     if (!arc_core_started) {
         read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
         UMD_THROW(
-            error::ArcStartupError,
-            *this,
+            error::FirmwareStartupError,
+            get_communication_device_type(),
+            get_communication_device_id(),
+            get_arch(),
             get_selected_noc_id(),
             get_arc_core(),
             arc_boot_status,

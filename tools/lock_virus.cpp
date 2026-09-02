@@ -5,7 +5,16 @@
 // lock_virus: report the state (free / held, owner PID/TID) of every lock UMD can take - each mutex
 // type, for every PCIe and JTAG device found. Locks are probed through LockManager, so what gets
 // reported is the lock UMD would actually take, whichever mutex happens to back it.
+//
+// What this is for: finding out who is holding a lock when something is stuck, in particular when the
+// holder is a process nobody knows about any more. That is also why it probes every lock rather than
+// only the ones that already exist - a lock that was never taken is worth reporting as free.
+//
+// Note that probing a lock initializes it, and initializing a shared memory backed lock creates its
+// /dev/shm file. So a run leaves the backing files of every lock it reported behind. They are empty
+// locks, harmless to UMD, but it does mean "which lock files exist" says nothing after the first run.
 
+#include <chrono>
 #include <cxxopts.hpp>
 #include <iostream>
 #include <memory>
@@ -21,6 +30,13 @@
 #include "umd/device/utils/lock_manager.hpp"
 
 using namespace tt::umd;
+
+namespace {
+
+constexpr std::string_view DEVICE_TYPE_PCIE = "pcie";
+constexpr std::string_view DEVICE_TYPE_JTAG = "jtag";
+
+}  // namespace
 
 // ── reporting ─────────────────────────────────────────────────────────────────
 
@@ -46,9 +62,10 @@ static void report_device_locks(LockManager& lock_manager, int device_id, IODevi
 static std::vector<int> enumerate_jtag_devices() {
     try {
         std::unique_ptr<JtagDevice> jtag_device = JtagDevice::create();
+        const uint32_t device_count = jtag_device->get_device_cnt();
         std::vector<int> device_ids;
-        device_ids.reserve(jtag_device->get_device_cnt());
-        for (uint32_t index = 0; index < jtag_device->get_device_cnt(); index++) {
+        device_ids.reserve(device_count);
+        for (uint32_t index = 0; index < device_count; index++) {
             device_ids.push_back(static_cast<int>(index));
         }
         return device_ids;
@@ -60,18 +77,25 @@ static std::vector<int> enumerate_jtag_devices() {
 
 // ── testing mode ──────────────────────────────────────────────────────────────
 
-static std::optional<MutexType> find_mutex_type(const std::string& mutex_name) {
-    for (MutexType mutex_type : LockManager::SYSTEM_WIDE_MUTEX_TYPES) {
-        if (to_string(mutex_type) == mutex_name) {
-            return mutex_type;
-        }
-    }
-    for (MutexType mutex_type : LockManager::CHIP_SPECIFIC_MUTEX_TYPES) {
+static std::optional<MutexType> find_mutex_type(
+    const std::vector<MutexType>& mutex_types, const std::string& mutex_name) {
+    for (MutexType mutex_type : mutex_types) {
         if (to_string(mutex_type) == mutex_name) {
             return mutex_type;
         }
     }
     return std::nullopt;
+}
+
+static std::string join_mutex_type_names(const std::vector<MutexType>& mutex_types) {
+    std::string names;
+    for (MutexType mutex_type : mutex_types) {
+        if (!names.empty()) {
+            names += ", ";
+        }
+        names += to_string(mutex_type);
+    }
+    return names;
 }
 
 static void spin_forever() {
@@ -101,10 +125,14 @@ int main(int argc, char* argv[]) {
     cxxopts::Options options(
         "lock_virus",
         "Report the state of every lock UMD can take, for all PCIe and JTAG devices found.\n"
+        "Meant for finding out who holds a lock when something is stuck.\n"
+        "\n"
+        "Probing a lock initializes it, so a run creates the /dev/shm file of every shared memory\n"
+        "backed lock it reports and leaves it behind. The files are harmless.\n"
         "\n"
         "Testing mode: --hold-lock <MUTEX_TYPE> acquires that lock and spins forever, allowing\n"
-        "lock_virus (run separately) to observe it as held. Without --device the system wide\n"
-        "lock of that type is taken, with it the lock of the given device.");
+        "lock_virus (run separately) to observe it as held. Without --device a system wide lock\n"
+        "is taken, with it the chip specific lock of the given device.");
 
     // clang-format off
     options.add_options()
@@ -113,7 +141,7 @@ int main(int argc, char* argv[]) {
                           cxxopts::value<std::string>())
         ("device",        "Device to take the lock of, when holding a chip specific lock",
                           cxxopts::value<int>())
-        ("device-type",   "Device type to take the lock of: pcie or jtag",
+        ("device-type",   "Device type to take the lock of, lowercase: pcie or jtag",
                           cxxopts::value<std::string>()->default_value("pcie"));
     // clang-format on
 
@@ -125,23 +153,39 @@ int main(int argc, char* argv[]) {
 
     try {
         const std::string device_type_name = result["device-type"].as<std::string>();
-        if (device_type_name != "pcie" && device_type_name != "jtag") {
-            log_error(tt::LogUMD, "Unknown device type '{}', expected pcie or jtag.", device_type_name);
+        if (device_type_name != DEVICE_TYPE_PCIE && device_type_name != DEVICE_TYPE_JTAG) {
+            log_error(
+                tt::LogUMD,
+                "Unknown device type '{}', expected {} or {}.",
+                device_type_name,
+                DEVICE_TYPE_PCIE,
+                DEVICE_TYPE_JTAG);
             return 1;
         }
-        const IODeviceType device_type = device_type_name == "jtag" ? IODeviceType::JTAG : IODeviceType::PCIe;
+        const IODeviceType device_type = device_type_name == DEVICE_TYPE_JTAG ? IODeviceType::JTAG : IODeviceType::PCIe;
 
         // ── Testing mode: hold a single lock and spin ─────────────────────
         if (result.count("hold-lock")) {
             const std::string mutex_name = result["hold-lock"].as<std::string>();
-            std::optional<MutexType> mutex_type = find_mutex_type(mutex_name);
-            if (!mutex_type.has_value()) {
-                log_error(tt::LogUMD, "Unknown mutex type '{}'.", mutex_name);
-                return 1;
-            }
             std::optional<int> device_id;
             if (result.count("device")) {
                 device_id = result["device"].as<int>();
+            }
+
+            // A mutex type is either system wide or chip specific, and --device is what picks between
+            // the two. Holding the wrong one would take a lock UMD never takes, and which this tool
+            // would never report either, so the type has to exist in the form being asked for.
+            const std::vector<MutexType>& holdable_types =
+                device_id.has_value() ? LockManager::CHIP_SPECIFIC_MUTEX_TYPES : LockManager::SYSTEM_WIDE_MUTEX_TYPES;
+            std::optional<MutexType> mutex_type = find_mutex_type(holdable_types, mutex_name);
+            if (!mutex_type.has_value()) {
+                log_error(
+                    tt::LogUMD,
+                    "'{}' is not a {} mutex type. Expected one of: {}",
+                    mutex_name,
+                    device_id.has_value() ? "chip specific" : "system wide",
+                    join_mutex_type_names(holdable_types));
+                return 1;
             }
             hold_lock(*mutex_type, device_id, device_type);
         }

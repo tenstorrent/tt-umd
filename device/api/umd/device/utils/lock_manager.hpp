@@ -90,9 +90,11 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(
         const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
-    // Reports whether a mutex is currently held, without holding it afterwards. Returns std::nullopt if the mutex was
-    // free, otherwise the owning {pid, tid}. Since a free mutex has to be acquired to find that out, and is released
-    // again right after, the answer is best effort and may be stale as soon as it is returned.
+    // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is
+    // held, and std::nullopt if it is not - which covers both a mutex nobody had taken and one whose owner died holding
+    // it, since probing a shared memory mutex recovers it from a dead owner rather than reporting it as held. Since a
+    // free mutex has to be acquired to find that out, and is released again right after, the answer is best effort and
+    // may be stale as soon as it is returned.
     std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
     std::optional<std::pair<pid_t, pid_t>> probe_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);

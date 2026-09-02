@@ -160,6 +160,15 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
+void SimulationTTDevice::read_from_device_reg(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    read_from_device(mem_ptr, core, addr, size, noc_id);
+}
+
+void SimulationTTDevice::write_to_device_reg(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    write_to_device(mem_ptr, core, addr, size, noc_id);
+}
+
 void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;

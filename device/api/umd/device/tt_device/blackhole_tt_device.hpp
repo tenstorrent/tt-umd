@@ -37,8 +37,6 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    ChipInfo get_chip_info() override;
-
     std::chrono::milliseconds wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 

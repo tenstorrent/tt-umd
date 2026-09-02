@@ -12,7 +12,7 @@ namespace tt::umd {
 SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) :
     arch_(arch),
     architecture_impl_(ArchitectureImplementation::create(arch)),
-    device_firmware_(std::make_unique<SimulationDeviceFirmware>()) {}
+    device_firmware_(std::make_unique<SimulationDeviceFirmware>(arch)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.

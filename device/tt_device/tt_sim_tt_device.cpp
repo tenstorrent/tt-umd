@@ -346,18 +346,6 @@ EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_cor
     UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
 }
 
-ChipInfo TTSimTTDevice::get_chip_info() {
-    // No firmware_info_provider on the simulator; mirror the defaults used inside
-    // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
-    // ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so apply the same 0x120
-    // default here. Keep in sync with create() above.
-    ChipInfo chip_info{};
-    if (get_arch() == tt::ARCH::BLACKHOLE) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
-    }
-    return chip_info;
-}
-
 void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue

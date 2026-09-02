@@ -38,6 +38,21 @@ on:
   push:
     branches: ["main"]
 
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing a
+# commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   merge_group - queue entries are independent merge candidates over different commit sets;
+#                 dequeuing them is the merge queue's job. Early kill on failure is handled by
+#                 the fail-fast-* watchers in build-and-run-all-tests.yml.
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Granted to all jobs that don't declare their own `permissions:` block.
 # `actions: write` is required so the merge-queue fail-fast watchers (inside
 # build-and-run-all-tests.yml) can call the cancel-workflow API.

@@ -431,13 +431,20 @@ Cluster::Cluster(ClusterOptions options) {
             // chip loop wraps in SimulationChips).
             if (options.chip_type == ChipType::SIMULATION &&
                 SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
-                const std::map<ChipId, std::filesystem::path> sockets =
-                    SimulationServerSocket::sockets_in_directory(options.simulator_directory);
+                std::map<ChipId, std::filesystem::path> sockets;
+                for (const auto& [chip_id, socket_path] :
+                     SimulationServerSocket::sockets_in_directory(options.simulator_directory)) {
+                    // Skip sockets a crashed host left behind: role_for() above only guarantees
+                    // that *some* socket here is live, and the probe below has to reach one.
+                    if (SimulationServerSocket::is_live(socket_path)) {
+                        sockets.emplace(chip_id, socket_path);
+                    }
+                }
                 UMD_ASSERT(
                     !sockets.empty(),
                     error::RuntimeError,
                     fmt::format(
-                        "No simulation sockets found in {}; nothing to attach to.",
+                        "No live simulation sockets found in {}; nothing to attach to.",
                         options.simulator_directory.string()));
 
                 // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,

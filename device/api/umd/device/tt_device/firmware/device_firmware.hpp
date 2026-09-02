@@ -11,6 +11,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/power_state.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -112,6 +113,12 @@ public:
      * state the firmware publishes.
      */
     virtual ChipInfo get_chip_info([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Returns the NOC coordinate of the management firmware core.
+     * @param noc_id NOC to resolve the coordinate for.
+     */
+    virtual tt_xy_pair get_firmware_noc_coord([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 };
 
 }  // namespace tt::umd

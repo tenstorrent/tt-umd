@@ -83,7 +83,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         }
     }
 
-    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
+    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.string().c_str());
     std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type.

@@ -33,6 +33,16 @@
 using namespace tt;
 using namespace tt::umd;
 
+#ifdef _WIN32
+// MSVC's CRT has no setenv/unsetenv; map them onto _putenv_s, which the getenv the code under test
+// uses does observe. _putenv_s with an empty value removes the variable.
+namespace {
+int setenv(const char* name, const char* value, int /*overwrite*/) { return _putenv_s(name, value); }
+
+int unsetenv(const char* name) { return _putenv_s(name, ""); }
+}  // namespace
+#endif
+
 int count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {

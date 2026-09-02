@@ -5,16 +5,21 @@
 #pragma once
 
 #include <fmt/ranges.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <random>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
@@ -24,6 +29,29 @@
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd::utils {
+
+// Creates and returns a fresh, uniquely named directory under the system temp directory.
+inline std::filesystem::path create_unique_temp_dir() {
+    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+#ifdef _WIN32
+    // mkdtemp() does not exist on Windows; generate a random directory name and create it instead,
+    // retrying on the unlikely collision. create_directory returning true means we made it, so the
+    // name was unique.
+    std::random_device rd;
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        const uint64_t nonce = (static_cast<uint64_t>(rd()) << 32) ^ rd();
+        std::filesystem::path unique_dir = temp_path / fmt::format("umd_{:016x}", nonce);
+        std::error_code ec;
+        if (std::filesystem::create_directory(unique_dir, ec)) {
+            return unique_dir;
+        }
+    }
+    UMD_THROW(error::RuntimeError, "Failed to create a unique temp directory.");
+#else
+    std::string dir_template = temp_path / "umd_XXXXXX";
+    return std::filesystem::path(mkdtemp(dir_template.data()));
+#endif
+}
 
 inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
     const char* env_var = std::getenv(env_var_name);

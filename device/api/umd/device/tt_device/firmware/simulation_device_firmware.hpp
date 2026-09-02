@@ -15,6 +15,12 @@ namespace tt::umd {
  * as the appropriate no-op. Backends that need to differ get their own subclass when that need
  * arrives, not before.
  */
-class SimulationDeviceFirmware : public DeviceFirmware {};
+class SimulationDeviceFirmware : public DeviceFirmware {
+public:
+    // A simulated device's firmware is ready by construction, so there is nothing to wait for.
+    void init_firmware(
+        [[maybe_unused]] std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
+};
 
 }  // namespace tt::umd

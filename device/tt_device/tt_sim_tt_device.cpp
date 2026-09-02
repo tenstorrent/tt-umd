@@ -337,10 +337,6 @@ void TTSimTTDevice::advance_device_execution() {
     }
 }
 
-void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
-}
-
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");

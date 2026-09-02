@@ -7,7 +7,6 @@
 #include <chrono>
 
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -36,12 +35,7 @@ public:
      * @throws error::FirmwareStartupError if the firmware does not come up within the timeout.
      */
     virtual void init_firmware(
-        std::chrono::milliseconds timeout_ms, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) {
-        // Transitional default while startup moves one backend at a time; for backends that have
-        // not moved, TTDevice::wait_arc_core_start still drives startup and never reaches this.
-        // Becomes pure virtual when the last backend moves.
-        UMD_THROW(error::RuntimeError, "init_firmware is not implemented for this backend yet.");
-    }
+        std::chrono::milliseconds timeout_ms, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

@@ -358,13 +358,6 @@ public:
     DeviceFirmware *get_device_firmware() const;
 
     /**
-     * Waits for ARC core to be fully ready for communication.
-     * Must be called before using ArcMessenger.
-     * This ensures the ARC core is completely initialized and operational.
-     */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
-
-    /**
      * Waits for ETH core training to complete.
      * @param eth_core Specific ETH core to wait on.
      * @param timeout_ms Timeout in ms.
@@ -557,10 +550,6 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
     virtual void set_arc_coordinate() {}
-
-    // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
-    // can implement it. Goes away once firmware startup moves out of TTDevice.
-    virtual void probe_arc() {}
 
 private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);

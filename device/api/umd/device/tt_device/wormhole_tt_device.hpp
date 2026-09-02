@@ -26,8 +26,6 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
-
     uint32_t get_clock() override;
 
     uint32_t get_min_clock_freq() override;
@@ -55,8 +53,6 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
     void set_arc_coordinate() override;
-
-    void probe_arc() override;
 
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);

@@ -24,7 +24,6 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -250,17 +249,6 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(CoreCoord eth_
         }
     }
     return static_cast<EthTrainingStatus>(training_status);
-}
-
-void WormholeTTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, registers_.arc_reset_scratch_offset, sizeof(dummy));  // SCRATCH_0
-}
-
-void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    // Transitional shim: the wait moved into WormholeDeviceFirmware; this override goes away with
-    // the API once every backend has moved.
-    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

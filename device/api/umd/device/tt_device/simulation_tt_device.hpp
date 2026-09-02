@@ -57,6 +57,15 @@ public:
     void write_to_device(
         const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    // A simulation backend has no separate ordered-register transport: every access reaches the
+    // simulator through the same entry points, clocked synchronously from the calling thread under
+    // device_lock, so ordering is already guaranteed. Delegate to the bulk path -- the base
+    // implementations would route through DeviceProtocol, which a simulation model does not provide.
+    void read_from_device_reg(
+        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void write_to_device_reg(
+        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,

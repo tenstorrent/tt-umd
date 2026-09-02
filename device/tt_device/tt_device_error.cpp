@@ -113,12 +113,25 @@ FirmwareStartupError::FirmwareStartupError(
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
 
+TTDeviceData::TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
+    io_device_type(io_device_type), chip_id(chip_id), arch(arch) {}
+
+PcieHangError::PcieHangError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch, uint32_t data_read) :
+    UmdError<PcieHangData>(
+        fmt::format("Read {:#x} over PCIe ID {}: the board should be reset.", data_read, chip_id),
+        {TTDeviceData(io_device_type, chip_id, arch), data_read}) {}
+
 UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
     UmdError<TTDeviceData>(
         fmt::format(
             "This method cannot be called before initializing TTDevice. Device ID: {}",
             tt_device.get_communication_device_id()),
         tt_device) {}
+
+UninitializedDeviceError::UninitializedDeviceError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
+    UmdError<TTDeviceData>(
+        fmt::format("This method cannot be called before initializing TTDevice. Device ID: {}", chip_id),
+        TTDeviceData(io_device_type, chip_id, arch)) {}
 
 UnresolvableCoordinateError::UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc) :
     UmdError<DeviceCoreData>(

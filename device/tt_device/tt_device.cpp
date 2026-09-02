@@ -20,7 +20,6 @@
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
@@ -93,7 +92,6 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     // Waits for the firmware and builds the components that read what it publishes; the model's
     // firmware owns them, and the accessors below lend them onward.
     get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
@@ -513,13 +511,6 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
-
-ArcMessenger *TTDevice::get_arc_messenger() const {
-    if (arc_messenger_ == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    return arc_messenger_.get();
-}
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
     FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();

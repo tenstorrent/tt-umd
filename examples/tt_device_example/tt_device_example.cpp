@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Board ID: 0x" << std::hex << device->get_board_id() << std::dec << std::endl;
         std::cout << "Temperature: " << device->get_asic_temperature() << "°C" << std::endl;
 
-        std::cout << "ArcMessenger available: " << (device->get_arc_messenger() ? "Yes" : "No") << std::endl;
+        std::cout << "DeviceFirmware available: " << (device->get_device_firmware() ? "Yes" : "No") << std::endl;
         std::cout << "FirmwareTelemetryReader available: " << (device->get_firmware_telemetry_reader() ? "Yes" : "No")
                   << std::endl;
 

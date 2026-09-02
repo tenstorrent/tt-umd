@@ -8,12 +8,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/firmware/wormhole_arc_window.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
@@ -46,6 +48,12 @@ public:
     ~WormholeDeviceFirmware() override;
 
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    DeviceCommandResult send_device_command(
+        uint32_t msg_code,
+        const std::vector<uint32_t>& args,
+        std::chrono::milliseconds timeout,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     /**
      * @brief Telemetry published by the management firmware.
@@ -91,6 +99,8 @@ private:
     // Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_/arc_csm_.
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
     void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     // All non-owning; they belong to the object that owns this one and must outlive it.
@@ -110,6 +120,10 @@ private:
 
     WormholeArcWindow arc_apb_;
     WormholeArcWindow arc_csm_;
+
+    // Serializes ARC messages against other processes driving the same device, exactly as
+    // ArcMessenger does for the path this replaces.
+    LockManager lock_manager_;
 
     // Created by init_firmware(), not the constructor: they read state the firmware publishes, so
     // this is the earliest they can exist. The info provider holds a raw pointer to the telemetry

@@ -17,7 +17,6 @@
 
 #include "noc_access.hpp"
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
@@ -25,6 +24,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
@@ -186,13 +186,25 @@ uint32_t BlackholeTTDevice::get_min_clock_freq() { return get_architecture_imple
 
 void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
-    int exit_code = 0;
+    uint32_t exit_code = 0;
     switch (state) {
         case TTDevice::PowerState::BUSY:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            exit_code = get_device_firmware()
+                            ->send_device_command(
+                                (uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY,
+                                {},
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
+                            .exit_code;
             break;
         case TTDevice::PowerState::IDLE:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            exit_code = get_device_firmware()
+                            ->send_device_command(
+                                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE,
+                                {},
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
+                            .exit_code;
             break;
         default:
             UMD_THROW(error::RuntimeError, "Unrecognized power state.");
@@ -284,8 +296,13 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
 void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    uint32_t ret_code = get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
+    uint32_t ret_code = get_device_firmware()
+                            ->send_device_command(
+                                static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
+                                {dram_channel},
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
+                            .exit_code;
     if (ret_code != 0) {
         UMD_THROW(
             error::RuntimeError,

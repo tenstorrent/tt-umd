@@ -17,13 +17,13 @@
 
 #include "noc_access.hpp"
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -55,33 +55,34 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
 ChipInfo WormholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
 
-    std::vector<uint32_t> arc_msg_return_values = {0};
-    uint32_t ret_code = get_arc_messenger()->send_message(
+    DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
-        arc_msg_return_values,
-        {0, 0});
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
 
-    if (ret_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", ret_code));
+    if (result.exit_code != 0) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", result.exit_code));
     }
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
-        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
+        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0));
 
     return chip_info;
 }
 
 uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
-    std::vector<uint32_t> arc_msg_return_values = {0};
-    auto exit_code = get_arc_messenger()->send_message(
+    DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-        arc_msg_return_values,
-        {0xFFFF, 0xFFFF});
-    if (exit_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", exit_code));
+        {0xFFFF, 0xFFFF},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
+    if (result.exit_code != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
     }
-    return arc_msg_return_values[0];
+    return result.return_values.at(0);
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
@@ -106,11 +107,12 @@ uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
 void WormholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
     uint32_t msg = get_power_state_arc_msg(state);
-    int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
+    DeviceCommandResult result =
+        get_device_firmware()->send_device_command(msg, {0, 0}, timeout::ARC_MESSAGE_TIMEOUT, get_selected_noc_id());
     UMD_ASSERT(
-        exit_code == 0,
+        result.exit_code == 0,
         error::RuntimeError,
-        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
     wait_for_aiclk_value(state);
 }
 
@@ -133,10 +135,12 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 1 * 4, dest_bar_lo);
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 2 * 4, dest_bar_hi);
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 3 * 4, region_size);
-    get_arc_messenger()->send_message(
+    get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX |
             static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER),
-        {0, 0});
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
 
     // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;

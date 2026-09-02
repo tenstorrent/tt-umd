@@ -4,13 +4,12 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
-#include <algorithm>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <utility>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -43,7 +42,7 @@ tlb_data TlbWindow::make_tlb_config(
     tt_xy_pair core_end,
     NocId noc_id,
     uint64_t ordering,
-    TlbVcDirection direction,
+    WindowFlags flags,
     bool mcast,
     tt_xy_pair core_start) const {
     tlb_data config{};
@@ -52,7 +51,7 @@ tlb_data TlbWindow::make_tlb_config(
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(direction));
+    config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(flags));
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;
@@ -61,52 +60,44 @@ tlb_data TlbWindow::make_tlb_config(
     return config;
 }
 
-template <typename buffer_pointer, typename io_operation>
-void TlbWindow::transfer_and_reconfigure(tlb_data config, buffer_pointer buffer, size_t size, io_operation op) {
-    while (size > 0) {
-        configure(config);
-        size_t transfer_size = std::min(size, get_size());
-        op(buffer, transfer_size);
-        size -= transfer_size;
-        config.local_offset += transfer_size;
-        buffer += transfer_size;
-    }
-}
-
+// Thin forwarders onto the free-function family in io_window_reconfigure.hpp, kept as virtual
+// members solely so SiliconTlbWindow's safe_* variants (execute_safe, taking a pointer-to-member)
+// keep working unchanged. Callers with no safe/unsafe distinction to make should call the free
+// functions directly instead of going through a TlbWindow.
 void TlbWindow::read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_READ),
-        static_cast<uint8_t*>(mem_ptr),
-        size,
-        [this](uint8_t* buf, size_t sz) { read_block(0, buf, sz); });
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::read_block_reconfigure");
+    tt::umd::read_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::read_register_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_READ),
-        static_cast<uint8_t*>(mem_ptr),
-        size,
-        [this](uint8_t* buf, size_t sz) { read_register(0, buf, sz); });
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::read_register_reconfigure");
+    tt::umd::read_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_WRITE),
-        static_cast<const uint8_t*>(mem_ptr),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::write_block_reconfigure");
+    tt::umd::write_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_register_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_WRITE),
-        static_cast<const uint8_t*>(mem_ptr),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_register(0, buf, sz); });
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::write_register_reconfigure");
+    tt::umd::write_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::noc_multicast_write_reconfigure(
@@ -117,11 +108,12 @@ void TlbWindow::noc_multicast_write_reconfigure(
     uint64_t addr,
     NocId noc_id,
     uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core_end, noc_id, ordering, TlbVcDirection::MULTICAST_WRITE, true, core_start),
-        static_cast<const uint8_t*>(src),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::noc_multicast_write_reconfigure");
+    tt::umd::noc_multicast_write_reconfigure(
+        *this, src, size, core_start, core_end, addr, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 TlbHandle& TlbWindow::handle_ref() const { return *tlb_handle; }
@@ -160,11 +152,12 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
 void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
-    // A TLB mapping has no way to express these; failing loudly beats silently dropping them.
+    // A TLB mapping has no way to express anything outside the direction field; failing loudly beats
+    // silently dropping it.
     UMD_ASSERT(
-        config.flags == WindowFlags::None,
+        (config.flags & ~WindowFlags::DirectionMask) == WindowFlags::None,
         error::RuntimeError,
-        "WindowFlags are not supported by TLB-backed IoWindows.");
+        "WindowFlags other than the direction field are not supported by TLB-backed IoWindows.");
 
     UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
 
@@ -174,7 +167,7 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         mcast ? config.core_end.value() : config.core_start,
         config.noc.value(),
         static_cast<uint64_t>(ordering),
-        TlbVcDirection::BIDIRECTIONAL,
+        config.flags,
         mcast,
         config.core_start));
 }

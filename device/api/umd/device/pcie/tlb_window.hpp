@@ -149,16 +149,12 @@ protected:
         tt_xy_pair core_end,
         NocId noc_id,
         uint64_t ordering,
-        TlbVcDirection direction,
+        WindowFlags flags,
         bool mcast = false,
         tt_xy_pair core_start = {}) const;
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
-
-private:
-    template <typename buffer_pointer, typename io_operation>
-    void transfer_and_reconfigure(tlb_data config, buffer_pointer buffer, size_t size, io_operation op);
 };
 
 }  // namespace tt::umd

@@ -39,8 +39,9 @@ tlb_configuration ArchitectureTlbs::get_configuration(const uint32_t tlb_index) 
     UMD_THROW(error::RuntimeError, fmt::format("No TLB window with index {}.", tlb_index));
 }
 
-tlb_static_vc ArchitectureTlbs::get_static_vc(const TlbVcDirection direction) const {
-    if (!static_vc_is_configurable || direction == TlbVcDirection::BIDIRECTIONAL) {
+tlb_static_vc ArchitectureTlbs::get_static_vc(const WindowFlags flags) const {
+    const WindowFlags direction = flags & WindowFlags::DirectionMask;
+    if (!static_vc_is_configurable || direction == WindowFlags::Bidirectional) {
         // Nothing left to choose: either the architecture wires the channel up itself, or the window
         // carries both directions and so cannot be given one of its own.
         return {.static_vc = use_static_vc};
@@ -50,8 +51,8 @@ tlb_static_vc ArchitectureTlbs::get_static_vc(const TlbVcDirection direction) co
     // and multicast writes get a class of their own.
     return {
         .static_vc = 1,
-        .static_vc_buddy = direction == TlbVcDirection::UNICAST_READ ? 1ULL : 0ULL,
-        .static_vc_class = direction == TlbVcDirection::MULTICAST_WRITE ? 0b10ULL : 0b00ULL,
+        .static_vc_buddy = direction == WindowFlags::UnicastRead ? 1ULL : 0ULL,
+        .static_vc_class = direction == WindowFlags::MulticastWrite ? 0b10ULL : 0b00ULL,
     };
 }
 

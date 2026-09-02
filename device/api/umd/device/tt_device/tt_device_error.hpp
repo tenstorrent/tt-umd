@@ -16,7 +16,6 @@
 
 namespace tt::umd {
 class TTDevice;
-class DeviceFirmware;
 }  // namespace tt::umd
 
 namespace tt::umd::error {
@@ -57,26 +56,6 @@ struct ArcStartupError : UmdError<ArcStartupData> {
         std::optional<uint32_t> smc_init_status = std::nullopt);
     ArcStartupError(
         const TTDevice& tt_device,
-        NocId noc_id,
-        xy_pair arc_core,
-        uint32_t scratch_status,
-        uint32_t postcode,
-        std::chrono::milliseconds timeout,
-        std::optional<uint32_t> message_id = std::nullopt,
-        std::optional<uint32_t> smc_init_status = std::nullopt);
-};
-
-struct FirmwareStartupError : UmdError<ArcStartupData> {
-    FirmwareStartupError(
-        const DeviceFirmware& device_firmware,
-        NocId noc_id,
-        xy_pair arc_core,
-        uint32_t scratch_status,
-        uint32_t postcode,
-        std::optional<uint32_t> message_id = std::nullopt,
-        std::optional<uint32_t> smc_init_status = std::nullopt);
-    FirmwareStartupError(
-        const DeviceFirmware& device_firmware,
         NocId noc_id,
         xy_pair arc_core,
         uint32_t scratch_status,

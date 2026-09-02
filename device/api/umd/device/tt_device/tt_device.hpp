@@ -586,7 +586,7 @@ protected:
     virtual void set_arc_coordinate() {}
 
     // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
-    // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
+    // can implement it. Goes away once firmware startup moves out of TTDevice.
     virtual void probe_arc() {}
 
 private:

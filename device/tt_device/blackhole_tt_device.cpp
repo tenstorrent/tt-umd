@@ -284,14 +284,6 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
     bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    UMD_THROW(error::RuntimeError, "CSM write not supported for Blackhole.");
-}
-
-void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    UMD_THROW(error::RuntimeError, "CSM read not supported for Blackhole.");
-}
-
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);

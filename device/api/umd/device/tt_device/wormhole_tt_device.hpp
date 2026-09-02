@@ -40,10 +40,6 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(

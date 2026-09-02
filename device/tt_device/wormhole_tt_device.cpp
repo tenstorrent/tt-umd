@@ -24,6 +24,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -191,48 +192,6 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
     bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
-void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
-    }
-    if (is_remote()) {
-        read_from_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
-        return;
-    }
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        get_device_protocol()->read_ctrl(
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0],
-            wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset,
-            sizeof(uint32_t),
-            NocId::DEFAULT_NOC);
-        return;
-    }
-    auto result = bar_read32(wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset);
-    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
-}
-
-void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
-    }
-    if (is_remote()) {
-        write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
-        return;
-    }
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        get_device_protocol()->write_ctrl(
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0],
-            wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset,
-            sizeof(uint32_t),
-            NocId::DEFAULT_NOC);
-        return;
-    }
-    bar_write32(
-        wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
-}
-
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -299,120 +258,9 @@ void WormholeTTDevice::probe_arc() {
 }
 
 void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    // Status codes.
-    constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
-    constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
-    constexpr uint32_t STATUS_BOOT_INCOMPLETE_1 = 0x00000060;
-    constexpr uint32_t STATUS_BOOT_INCOMPLETE_2 = 0x11110000;
-    constexpr uint32_t STATUS_ASLEEP_1 = 0x0000AA00;
-    constexpr uint32_t STATUS_ASLEEP_2 = 0x55;
-    constexpr uint32_t STATUS_INIT_DONE_1 = 0x00000001;
-    constexpr uint32_t STATUS_INIT_DONE_2 = 0xFFFFDEAD;
-    constexpr uint32_t STATUS_OLD_POST_CODE = 0;
-    constexpr uint32_t STATUS_MESSAGE_QUEUED_MASK = 0xFFFFFF00;
-    constexpr uint32_t STATUS_MESSAGE_QUEUED_VAL = 0x0000AA00;
-    constexpr uint32_t STATUS_HANDLING_MESSAGE_MASK = 0xFF00FFFF;
-    constexpr uint32_t STATUS_HANDLING_MESSAGE_VAL = 0xAA000000;
-    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MASK = 0x0000FFFF;
-    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MIN = 0x00000001;
-
-    // Post codes.
-    constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
-    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
-    constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
-
-    uint32_t bar_read_arc_reset_scratch_status = 0;
-    uint32_t bar_read_arc_post_code = 0;
-    uint32_t message_id = 0;
-
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-
-    const bool arc_core_started = utils::poll_until(
-        [this, &bar_read_arc_reset_scratch_status, &bar_read_arc_post_code, &message_id]() {
-            read_from_arc_apb(
-                &bar_read_arc_reset_scratch_status,
-                wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
-                sizeof(bar_read_arc_reset_scratch_status));
-
-            read_from_arc_apb(
-                &bar_read_arc_post_code, registers_.arc_reset_scratch_offset, sizeof(bar_read_arc_post_code));
-
-            uint32_t bar_read_arc_csm_pcie_dma_request = 0;
-            read_from_arc_csm(
-                &bar_read_arc_csm_pcie_dma_request,
-                wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
-                sizeof(bar_read_arc_csm_pcie_dma_request));
-
-            switch (bar_read_arc_reset_scratch_status) {
-                case STATUS_NO_ACCESS:
-                case STATUS_WATCHDOG_TRIGGERED:
-                    UMD_THROW(
-                        error::FirmwareStartupError,
-                        get_communication_device_type(),
-                        get_communication_device_id(),
-                        get_arch(),
-                        get_selected_noc_id(),
-                        get_arc_core(),
-                        bar_read_arc_reset_scratch_status,
-                        bar_read_arc_post_code);
-
-                case STATUS_INIT_DONE_1:
-                case STATUS_INIT_DONE_2:
-                    return true;
-
-                case STATUS_OLD_POST_CODE: {
-                    const bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
-                                         (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
-                                          bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
-                    if (pc_idle) {
-                        return true;
-                    }
-                    break;
-                }
-                case STATUS_BOOT_INCOMPLETE_1:
-                case STATUS_BOOT_INCOMPLETE_2:
-                case STATUS_ASLEEP_1:
-                case STATUS_ASLEEP_2:
-                default:
-                    break;
-            }
-
-            const bool is_queued =
-                ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL);
-            const bool is_handling =
-                ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL);
-            const bool is_complete =
-                ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
-            const bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
-
-            if (is_queued) {
-                message_id = bar_read_arc_reset_scratch_status & 0xFF;
-            } else if (is_handling) {
-                message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-            } else if (is_complete && !dma_request) {
-                // We only return if the message says complete and DMA is idle.
-                return true;
-            }
-            return false;
-        },
-        timeout_ms,
-        busy_poll_window,
-        poll_interval);
-
-    if (!arc_core_started) {
-        UMD_THROW(
-            error::FirmwareStartupError,
-            get_communication_device_type(),
-            get_communication_device_id(),
-            get_arch(),
-            get_selected_noc_id(),
-            get_arc_core(),
-            bar_read_arc_reset_scratch_status,
-            bar_read_arc_post_code,
-            timeout_ms,
-            message_id);
-    }
+    // Transitional shim: the wait moved into WormholeDeviceFirmware; this override goes away with
+    // the API once every backend has moved.
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

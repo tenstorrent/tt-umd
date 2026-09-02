@@ -523,4 +523,22 @@ void WormholeDeviceFirmware::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_
     arc_csm_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
 
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t address = 0;
+    read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address), noc_id);
+    return address;
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t size = 0;
+    read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size), noc_id);
+    return size;
+}
+
 }  // namespace tt::umd

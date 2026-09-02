@@ -199,22 +199,7 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          # --build-dir must match what tt-metal's own CI uses (build-artifact.yaml passes
-          # "--build-dir build"), or nothing that touches the build tree can ever hit the shared
-          # ccache. Without the flag build_metal.sh defaults to "build_$build_type" => build_Release,
-          # and ccache hashes the compiler command line *after* CCACHE_BASEDIR rewriting, so every
-          # translation unit whose command line names a build-tree path hashes differently on the
-          # two sides. That is not a rare corner: with unity builds on (the default) the compiled
-          # source itself lives in the build tree
-          # (<build-dir>/.../CMakeFiles/<tgt>.dir/Unity/unity_0_cxx.cxx), FetchContent dependency
-          # sources live under <build-dir>/_deps/*-src, and generated headers such as
-          # <build-dir>/ttnn/flatbuffers land on the include path. All of those miss unconditionally
-          # when the directory is named build_Release instead of build.
-          #
-          # Downstream steps are unaffected: they already reference $TT_METAL_HOME/build/..., which
-          # today only resolves via the "ln -nsf $build_dir build" symlink build_metal.sh creates.
-          # With --build-dir build that same path is the real directory.
-          ./build_metal.sh --build-dir build --build-all --build-umd-tests --enable-ccache
+          ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
       # Surfaces the remote hit rate, which is the only way to tell whether the read-only cache is

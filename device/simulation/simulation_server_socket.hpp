@@ -20,16 +20,18 @@ namespace tt::umd {
 // ("the card"). One socket per simulated chip, kept in a per-server directory
 // (allocate_server_directory) so distinct hosts on the same machine never collide.
 //
-// The socket acts as a presence indicator: if a process can bind the path it becomes the
-// host; if a live host already exists, try_create() returns nullptr so the caller
-// (SimulationConnector) can attach as a client instead, while create() throws. Stale
+// The socket acts as a presence indicator: if a process can bind the path it becomes the host,
+// and create() throws if a live host already holds it. Which role a process takes is decided
+// from the path by SimulationConnector, not by racing for the bind; is_live() answers whether a
+// host has the path bound and listening, which the socket file's presence alone does not (it says
+// nothing about whether that host is still alive, only that one bound it once). Stale
 // sockets left by crashed owners are automatically reclaimed. On destruction the host closes
 // the socket and removes the file.
 //
 // Request handling is split from binding, so the owner can claim the socket first and begin
 // serving only once its backend is ready (the handler dispatches into that backend, which does
 // not exist at bind time -- see the host device's adopt_socket()):
-//   - bind (try_create/create): the socket is bound and connectable -- pure presence/liveness --
+//   - bind (create): the socket is bound and connectable -- pure presence/liveness --
 //     but accepts nothing until serve() is called.
 //   - serve(handler): starts the accept loop; each accepted connection is served on its own
 //     thread, which reads one length-prefixed request at a time (see simulation_server_transport),
@@ -55,14 +57,19 @@ public:
     SimulationServerSocket(const SimulationServerSocket&) = delete;
     SimulationServerSocket& operator=(const SimulationServerSocket&) = delete;
 
-    // Binds and listens, reclaiming a stale socket. Returns nullptr if a *live* owner already
-    // holds the path (so the caller can attach as a client). Throws on real socket errors. The
-    // socket is presence-only (bound + connectable) until serve() installs a handler.
-    static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
-
-    // Like try_create(), but throws (instead of returning nullptr) when a live owner already
-    // holds the path. For callers that require ownership and have no client path to fall back to.
+    // Binds and listens, reclaiming a socket left behind by a crashed owner, and throws when a
+    // *live* owner already holds the path. Throws on real socket errors too. The socket is
+    // presence-only (bound + connectable) until serve() installs a handler.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
+
+    // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
+    // listening, as opposed to the path being free or holding a socket file a crashed owner left
+    // behind, which are indistinguishable on disk. Does not claim the path.
+    //
+    // Note this is liveness of the bind, not of request handling: a host binds before serve()
+    // installs its handler (see the split described above), so a host still coming up reads as
+    // live and a client attaching to it will wait on the accept that has not started yet.
+    static bool is_live(const std::filesystem::path& socket_path);
 
     // Starts serving accepted connections through request_handler (see the class comment). Call
     // once, after the backend the handler dispatches into is ready. The handler is installed
@@ -110,13 +117,15 @@ private:
     // the try_create()/create() factories.
     explicit SimulationServerSocket(const std::filesystem::path& socket_path);
 
+    // Like create(), but returns nullptr instead of throwing when a live owner already holds the
+    // path. An implementation detail of create(): nothing outside needs the null return, since the
+    // role a process takes is decided from the path rather than by racing for the bind.
+    static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
+
     // Binds + listens (claims the path; connectable for liveness). Does not accept yet -- the
     // accept loop starts in serve(). Returns false if a live owner holds the path; throws on real
     // socket errors.
     bool bind_and_listen();
-
-    // True if a listener is currently reachable at socket_path_.
-    bool is_live();
 
     // Re-arms the async accept; each accepted connection is handed to a serving thread. Only ever
     // runs while serving (serve() started it), so request_handler_ is always set here.

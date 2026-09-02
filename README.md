@@ -271,3 +271,5 @@ There is an automated workflow for creating releases. It is triggered by merging
 You can change the VERSION as part of another PR or as an isolated PR. Please also update the CHANGELOG with the exact version you are changeing to.
 
 Once the PR is merged, a draft Release will be created with the generated changelog and artifacts. Please review it and publish it using the tag which exactly matches the version of the release.
+
+Test change for GitLab CI verification

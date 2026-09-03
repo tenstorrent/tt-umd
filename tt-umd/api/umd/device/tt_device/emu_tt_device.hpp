@@ -5,4 +5,4 @@
 #pragma once
 
 // Deprecated forwarding header, see #2751.
-#include "tt-umd/tt_device/grendel_emu_tt_device.hpp"
+#include "tt-umd/tt_device/emu_tt_device.hpp"

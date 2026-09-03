@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
@@ -95,5 +97,10 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    // Path to a simulator (a libttsim .so) whose chips discovery should walk instead of the host's.
+    // A simulation backend has no OS device enumeration, so the image is asked which endpoints it
+    // exposes and a device is created for each. io_device_type stays PCIe: a simulator models PCIe.
+    std::string simulator_path;
 };
 }  // namespace tt::umd

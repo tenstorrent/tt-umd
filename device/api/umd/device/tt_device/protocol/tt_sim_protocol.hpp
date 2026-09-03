@@ -17,6 +17,7 @@ namespace tt::umd {
 
 class TTSimCommunicator;
 class SimulationTTDevice;
+class SimulationTTDeviceModel;
 
 /**
  * @brief Transport for a chip modelled by a TTSim simulator image.
@@ -31,7 +32,10 @@ class SimulationTTDevice;
  */
 class TTSimProtocol : public DeviceProtocol, public PcieInterface {
 public:
-    TTSimProtocol() = default;
+    // The model that owns this protocol, so that attaching a working transport can hand it the
+    // architecture's firmware -- which cannot exist any earlier, since it reads the device as it is
+    // constructed.
+    explicit TTSimProtocol(SimulationTTDeviceModel* model);
 
     // The device that owns this protocol, wired in once it exists: a model builds its components
     // before the TTDevice that consumes them, so this cannot be a constructor argument.
@@ -68,6 +72,7 @@ private:
     // decodes the whole window, so a BAR offset is added to this base directly.
     uint64_t bar0_base();
 
+    SimulationTTDeviceModel* model_ = nullptr;
     SimulationTTDevice* device_ = nullptr;
     TTSimCommunicator* communicator_ = nullptr;
     // -1 until attach() runs. RTL simulation and client mode build this model but never attach a

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "umd/device/tt_device_model/tt_device_model.hpp"
@@ -31,7 +32,17 @@ public:
     // whenever one is present, and refuses to proceed without a detector to ask.
     HangDetector *get_hang_detector() override;
 
+    // Replace the firmware that reports nothing with the architecture's own, which reads what the
+    // simulator publishes. Called only once a usable protocol is attached: an architecture firmware
+    // reads the device in its constructor. A no-op for architectures that publish no firmware state.
+    void use_arch_device_firmware();
+
     DeviceFirmware *get_device_firmware() override;
+
+    // Lent onward from the firmware, exactly as the silicon models do.
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
+
+    FirmwareInfoProvider *get_firmware_info_provider() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
 
@@ -40,10 +51,17 @@ public:
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
+    // Which architecture's firmware use_arch_device_firmware() installs.
+    tt::ARCH arch_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<TTSimProtocol> tt_sim_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
-    std::unique_ptr<SimulationDeviceFirmware> device_firmware_;
+    std::unique_ptr<DeviceFirmware> device_firmware_;
+    // The telemetry reader and info provider belong to the concrete architecture firmwares rather
+    // than to the DeviceFirmware interface, and exist only once init_firmware has run, so they are
+    // captured as lookups read at call time. Empty while the firmware reports nothing.
+    std::function<FirmwareTelemetryReader *()> telemetry_reader_lookup_;
+    std::function<FirmwareInfoProvider *()> info_provider_lookup_;
 };
 
 }  // namespace tt::umd

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -47,7 +48,8 @@ public:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
-        int num_host_mem_channels = 0);
+        int num_host_mem_channels = 0,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     SimulationChip(
         const std::filesystem::path& simulator_directory,

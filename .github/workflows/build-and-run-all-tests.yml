@@ -358,11 +358,12 @@ jobs:
     secrets: inherit
     # needs build-tests for the UMD wheel, and build-exalens-kernels for ordering (the artifact
     # must be uploaded before the tests download it). When build-exalens-kernels is skipped
-    # (a caller built it once and provided it), always() lets this run anyway; it still requires
-    # build-tests to have succeeded for the wheel.
+    # (a caller built it once and provided it), !cancelled() lets this run anyway; it still
+    # requires build-tests to have succeeded for the wheel. always() would do the same for the
+    # skip, but would also start this matrix inside an already-cancelled run.
     # TSan builds only run the unified tests, so exalens is skipped for them.
     needs: [build-tests, build-exalens-kernels]
-    if: always() && needs.build-tests.result == 'success' && inputs.build-type != 'TSan'
+    if: ${{ !cancelled() && needs.build-tests.result == 'success' && inputs.build-type != 'TSan' }}
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
@@ -405,9 +406,14 @@ jobs:
   # up to the sibling top-level builds (Release/ASan/TSan), giving end-to-end fail-fast.
   # One watcher per job by design — a single watcher with multi-job `needs` would wait for
   # every need to settle before evaluating `if: failure()`, defeating the purpose.
+  #
+  # The !cancelled() gate keeps a run cancellation (manual, or by one of these watchers) from
+  # spawning the remaining watchers to re-cancel a run that is already going away. 'cancelled'
+  # stays in the watched result list so a job killed by its own timeout-minutes, which leaves
+  # the run itself alive, still trips fail-fast.
   fail-fast-build-tests:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.build-tests.result)
     needs: [build-tests]
     runs-on: ubuntu-latest
@@ -418,7 +424,7 @@ jobs:
 
   fail-fast-test-all:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.test-all.result)
     needs: [test-all]
     runs-on: ubuntu-latest
@@ -429,7 +435,7 @@ jobs:
 
   fail-fast-ttsim:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-ttsim-tests.result)
     needs: [run-ttsim-tests]
     runs-on: ubuntu-latest
@@ -440,7 +446,7 @@ jobs:
 
   fail-fast-tooling:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-tooling-tests.result)
     needs: [run-tooling-tests]
     runs-on: ubuntu-latest
@@ -451,7 +457,7 @@ jobs:
 
   fail-fast-exalens:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-exalens-tests.result)
     needs: [run-exalens-tests]
     runs-on: ubuntu-latest
@@ -462,7 +468,7 @@ jobs:
 
   fail-fast-tracy:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-tracy.result)
     needs: [run-tracy]
     runs-on: ubuntu-latest

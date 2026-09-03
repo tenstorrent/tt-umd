@@ -83,9 +83,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         is_pcie_hung();
     }
     // The hang detector is an optional component, so a model that provides none simply skips the check.
-    HangDetector *hang_detector = model_->get_hang_detector();
+    // Going through is_noc_hung() rather than the detector directly picks up its warning for a
+    // protocol that cannot run the check at all.
     const NocId hang_check_noc = is_selected_noc1() ? NocId::NOC1 : NocId::NOC0;
-    if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
+    if (model_->get_hang_detector() != nullptr && is_noc_hung(hang_check_noc, HangAction::RETURN)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
     // Waits for the firmware and builds the components that read what it publishes; the model's

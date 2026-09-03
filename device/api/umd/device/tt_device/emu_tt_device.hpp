@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+#include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -47,6 +48,14 @@ public:
         const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port);
 
     ~EmuTTDevice() override;
+
+    /**
+     * Address windows for a single-Mimir package, in the local addressing the emu path uses.
+     *
+     * Exposed so the mapping has one definition: tests assert against it directly rather than
+     * restating the bases, and a caller building its own resolver cannot drift from the device.
+     */
+    static GrendelAddressWindows mimir_address_windows(const SocDescriptor& soc_descriptor);
 
 protected:
     SimulationBackendType backend_type() const override;

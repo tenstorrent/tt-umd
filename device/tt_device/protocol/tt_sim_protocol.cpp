@@ -6,14 +6,22 @@
 
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
+#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+TTSimProtocol::TTSimProtocol(SimulationTTDeviceModel* model) : model_(model) {}
 
 void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* communicator, int chip_id) {
     device_ = device;
     communicator_ = communicator;
     chip_id_ = chip_id;
+    // The transport works from here on, so the architecture's own firmware can read this device
+    // rather than a simulation firmware reporting defaults it cannot know.
+    if (model_ != nullptr) {
+        model_->use_arch_device_firmware();
+    }
 }
 
 void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId /*noc_id*/) {

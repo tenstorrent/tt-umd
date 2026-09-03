@@ -37,22 +37,15 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-protected:
     explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
+protected:
     virtual bool is_arc_available_over_axi();
 
-    // Number of retrain attempts is chosen based on syseng team testing.
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::BLACKHOLE);
 
     int get_pcie_x_coordinate();
-
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        int device_number,
-        IODeviceType device_type,
-        bool use_safe_api,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

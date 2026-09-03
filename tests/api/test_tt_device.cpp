@@ -25,6 +25,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -40,7 +41,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<uint32_t> data_read(data_write.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -70,7 +71,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     std::vector<uint32_t> data_read(data_write0.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         uint64_t address = get_architecture_registers(tt_device->get_arch()).riscv_debug_bus_cntl_reg;
@@ -97,7 +98,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -119,7 +120,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
 TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -144,7 +145,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     const uint32_t num_loops = 1000;
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -251,7 +252,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<uint8_t> data_read(data_write.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -293,7 +294,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -331,7 +332,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
 TEST(ApiTTDeviceTest, UninitializedError) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
         // These methods should work without initialization.
@@ -378,7 +379,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
 TEST(ApiTTDeviceTest, UninitializedIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -387,7 +388,7 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
             tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
         tt_device.reset();
 
-        tt_device = TTDevice::create(pci_device_id);
+        tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         using err = error::UmdException<error::UnresolvableCoordinateError>;
 

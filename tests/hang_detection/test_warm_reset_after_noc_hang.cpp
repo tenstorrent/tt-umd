@@ -16,6 +16,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -67,7 +68,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids.at(0));
     tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->init_tt_device();
 
@@ -99,7 +100,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
 
     tt_device.reset();
 
-    tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device = create_tt_device(pci_device_ids.at(0));
     tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->init_tt_device();
 

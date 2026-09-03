@@ -91,7 +91,7 @@ struct TopologyDiscoveryOptions {
 
     /**
      * @brief If true, TTDevice instances created during discovery will use the safe API
-     * (forwarded as the use_safe_api argument to TTDevice::create).
+     * (forwarded as the use_safe_api argument to create_tt_device).
      * Defaults to false.
      */
     bool use_safe_api = false;

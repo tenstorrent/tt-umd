@@ -25,6 +25,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -66,7 +67,7 @@ protected:
     }
 
     void init_device(int pci_device_id) {
-        tt_device_ = TTDevice::create(pci_device_id);
+        tt_device_ = create_tt_device(pci_device_id);
         tt_device_->init_tt_device();
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }

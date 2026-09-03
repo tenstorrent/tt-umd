@@ -15,6 +15,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -29,7 +30,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
@@ -48,7 +49,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
@@ -69,7 +70,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
@@ -90,7 +91,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -125,7 +126,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
     const uint32_t num_loops = 1000;
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 

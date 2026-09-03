@@ -33,6 +33,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -229,7 +230,7 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
 
     // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
     // instead of letting init_tt_device construct one.
-    auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+    auto remote_tt_device = create_simulation_remote_tt_device(std::move(remote_communication), soc_desc);
     return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
 }
 #endif  // TT_UMD_BUILD_SIMULATION

@@ -36,6 +36,7 @@
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -174,7 +175,7 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+            create_tt_device(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(

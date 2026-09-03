@@ -37,7 +37,7 @@ public:
     static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
 #ifdef TT_UMD_BUILD_SIMULATION
     // Simulation-only factory for a simulated remote chip (no ARC to probe), matching
-    // TTDevice::create_simulation_remote. Compiled in only for simulation builds so the simulation-specific
+    // create_simulation_remote_tt_device. Compiled in only for simulation builds so the simulation-specific
     // construction path is not exposed in silicon builds.
     static std::unique_ptr<RemoteChip> create_for_simulation(
         std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info);

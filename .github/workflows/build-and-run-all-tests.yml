@@ -97,6 +97,17 @@ on:
         type: string
         default: ""
 
+# Must be declared here, and not left to the default token, because a workflow this one calls only
+# receives the permissions its caller declares explicitly. Without this block, run-ttsim-tests.yml
+# is handed no `actions` scope, and its nested regression-check job - which needs `actions: read` for
+# the download-artifact API - fails workflow validation on a direct dispatch of this workflow.
+# `actions: write` is what the merge-queue fail-fast watchers below need for the cancel-workflow API;
+# `contents: read` and `packages: read` cover checkout and ghcr.io image pulls in the called workflows.
+permissions:
+  contents: read
+  actions: write
+  packages: read
+
 jobs:
   # Define all available cards which will be used for testing.
   cards:

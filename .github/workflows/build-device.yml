@@ -22,6 +22,20 @@ on:
   push:
     branches: ["main"]
 
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   merge_group - queue entries are independent merge candidates over different commit sets;
+#                 dequeuing them is the merge queue's job, not concurrency's.
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 env:
   TT_UMD_DIR: tt-umd
   # Note that $GITHUB_WORKSPACE can only be used in the shell step.

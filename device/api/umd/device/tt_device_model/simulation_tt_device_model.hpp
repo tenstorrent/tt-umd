@@ -9,6 +9,8 @@
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
+
+class TTSimProtocol;
 class SimulationDeviceFirmware;
 
 // Model for a simulated device. A simulation backend is reached in-process rather than over a host
@@ -28,6 +30,10 @@ public:
 
     DeviceProtocol *get_device_protocol() override;
 
+    // Serving a PcieInterface obliges this: TTDevice runs its bus-hang check during startup
+    // whenever one is present, and refuses to proceed without a detector to ask.
+    HangDetector *get_hang_detector() override;
+
     DeviceFirmware *get_device_firmware() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
@@ -39,6 +45,8 @@ public:
 private:
     tt::ARCH arch_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    std::unique_ptr<TTSimProtocol> tt_sim_protocol_;
+    std::unique_ptr<HangDetector> hang_detector_;
     std::unique_ptr<SimulationDeviceFirmware> device_firmware_;
 };
 

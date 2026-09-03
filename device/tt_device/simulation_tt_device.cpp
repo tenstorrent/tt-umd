@@ -160,37 +160,45 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
-void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
+void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    if (handle_special_write(mem_ptr, translated_core, addr, size)) {
+    if (handle_special_write(mem_ptr, core, addr, size)) {
         return;
     }
     if (should_use_cached_tlb_window()) {
-        write_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        tile_write_bytes(translated_core, addr, mem_ptr, size);
+        tile_write_bytes(core, addr, mem_ptr, size);
     }
 }
 
-void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
+void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    if (handle_special_read(mem_ptr, translated_core, addr, size)) {
+    if (handle_special_read(mem_ptr, core, addr, size)) {
         return;
     }
     if (should_use_cached_tlb_window()) {
-        read_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        tile_read_bytes(translated_core, addr, mem_ptr, size);
+        tile_read_bytes(core, addr, mem_ptr, size);
     }
     after_read();
+}
+
+void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
+    noc_write_translated(
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()), addr, mem_ptr, size);
+}
+
+void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
+    noc_read_translated(
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()), addr, mem_ptr, size);
 }
 
 void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {

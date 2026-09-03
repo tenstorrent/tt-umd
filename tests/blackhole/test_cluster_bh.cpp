@@ -18,7 +18,6 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -49,7 +48,7 @@ TEST(ClusterBH, CreateDestroy) {
     }
 }
 
-TEST(ClusterBH, UnalignedStaticTLB_RW) {
+TEST(ClusterBH, UnalignedTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -57,11 +56,6 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
     // Do this only for a single chip to speed up the test.
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
-    }
 
     test_utils::safe_test_cluster_start(&cluster);
 
@@ -86,50 +80,6 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
             }
             address += 0x20;
         }
-    }
-    cluster.close_device();
-}
-
-TEST(ClusterBH, StaticTLB_RW) {
-    auto cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
-    set_barrier_params(cluster);
-
-    // Do this only for a single chip to speed up the test.
-    auto chip_id = *cluster.get_target_mmio_device_ids().begin();
-    auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
-    }
-
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
-    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
-    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
-    for (int loop = 0; loop < 100; loop++) {
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            cluster.write_to_device(
-                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-            // Barrier to ensure that all writes over ethernet were commited.
-            cluster.wait_for_non_mmio_flush();
-            test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
-            ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
-            cluster.wait_for_non_mmio_flush();
-            cluster.write_to_device(
-                zeros.data(),
-                zeros.size() * sizeof(std::uint32_t),
-                chip_id,
-                core,
-                address);  // Clear any written data
-            cluster.wait_for_non_mmio_flush();
-            readback_vec = {};
-        }
-        address += 0x20;  // Increment by uint32_t size for each write
     }
     cluster.close_device();
 }
@@ -246,8 +196,7 @@ TEST(ClusterBH, DISABLED_MultiThreadedDevice) {
 }
 
 TEST(ClusterBH, MultiThreadedMemBar) {
-    // Have 2 threads read and write from a single device concurrently
-    // All (fairly large) transactions go through a static TLB.
+    // Have 2 threads read and write from a single device concurrently.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
@@ -255,14 +204,6 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    for (auto chip_id : cluster.get_target_device_ids()) {
-        // Iterate over devices and only setup static TLBs for functional worker cores.
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 2MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, base_addr);
-        }
-    }
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {

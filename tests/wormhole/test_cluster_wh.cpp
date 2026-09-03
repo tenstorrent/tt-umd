@@ -161,17 +161,6 @@ TEST(ClusterWH, HarvestingRuntime) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    // Iterate over MMIO devices and only setup static TLBs for worker cores.
-    for (auto chip_id : mmio_devices) {
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-        }
-    }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_readback_vec = {};
@@ -226,7 +215,7 @@ TEST(ClusterWH, HarvestingRuntime) {
     cluster.close_device();
 }
 
-TEST(ClusterWH, UnalignedStaticTLB_RW) {
+TEST(ClusterWH, UnalignedTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -234,11 +223,6 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
     // Do this only for a single chip to speed up the test.
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-    }
 
     test_utils::safe_test_cluster_start(&cluster);
 
@@ -263,50 +247,6 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
             }
             address += 0x20;
         }
-    }
-    cluster.close_device();
-}
-
-TEST(ClusterWH, StaticTLB_RW) {
-    auto cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
-    set_barrier_params(cluster);
-
-    // Do this only for a single chip to speed up the test.
-    auto chip_id = *cluster.get_target_mmio_device_ids().begin();
-    auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-    }
-
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
-    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
-    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
-    for (int loop = 0; loop < 100; loop++) {
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            cluster.write_to_device(
-                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-            // Barrier to ensure that all writes over ethernet were commited.
-            cluster.wait_for_non_mmio_flush();
-            test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
-            ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
-            cluster.wait_for_non_mmio_flush();
-            cluster.write_to_device(
-                zeros.data(),
-                zeros.size() * sizeof(std::uint32_t),
-                chip_id,
-                core,
-                address);  // Clear any written data
-            cluster.wait_for_non_mmio_flush();
-            readback_vec = {};
-        }
-        address += 0x20;  // Increment by uint32_t size for each write
     }
     cluster.close_device();
 }
@@ -397,8 +337,7 @@ TEST(ClusterWH, DISABLED_MultiThreadedDevice) {
 }
 
 TEST(ClusterWH, MultiThreadedMemBar) {
-    // Have 2 threads read and write from a single device concurrently
-    // All (fairly large) transactions go through a static TLB.
+    // Have 2 threads read and write from a single device concurrently.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
@@ -407,16 +346,6 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    // Iterate over MMIO devices and only setup static TLBs for worker cores.
-    for (auto chip_id : mmio_devices) {
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, base_addr);
-        }
-    }
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -1074,9 +1003,6 @@ TEST(ClusterWH, LargeAddressTlb) {
     // Offset to the scratch registers in the reset unit:
     uint64_t scratch_offset = 0x60;
 
-    // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, tt::umd::wormhole::STATIC_TLB_SIZE, arc_reset_noc);
-
     // Address of the scratch register in the reset unit:
     uint64_t addr = arc_reset_noc + scratch_offset;
 
@@ -1087,10 +1013,10 @@ TEST(ClusterWH, LargeAddressTlb) {
     // Read the scratch register via BAR0:
     value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
 
-    // Read the scratch register via the TLB:
+    // Read the scratch register via a dynamically mapped TLB:
     cluster.read_from_device(&value1, 0, ARC_CORE, addr, sizeof(uint32_t));
 
-    // Read the scratch register via a different TLB, different code path:
+    // Read again, to confirm the mapping is stable across ops:
     cluster.read_from_device(&value2, 0, ARC_CORE, addr, sizeof(uint32_t));
 
     // Mask off lower 16 bits; FW changes these dynamically:

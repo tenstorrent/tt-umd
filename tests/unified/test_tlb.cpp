@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -595,6 +596,109 @@ TEST_F(TestTlb, IoWindowInterface) {
     // WindowFlags have no TLB equivalent and must be rejected rather than silently dropped.
     target.flags = WindowFlags::Atomic;
     EXPECT_ANY_THROW(window.configure(target));
+}
+
+// The Base API factory: a caller asks for the bytes it needs on a core and gets a window that
+// covers them, without naming a window size the architecture happens to provide.
+TEST_F(TestTlb, CreateIoWindow) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t l1_addr = 0x100;
+    // Not a size class on any architecture, so it can only be served by rounding up.
+    const size_t requested_size = 4096;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    TTDevice* tt_device = cluster->get_tt_device(chip);
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    // No NOC named, so the window is routed over the one selected for this thread.
+    TargetIoWindowConfig target;
+    target.core_start = tt_xy_pair(tensix_core.x, tensix_core.y);
+    target.addr = l1_addr;
+
+    std::unique_ptr<IoWindow> window =
+        tt_device->create_io_window(target, {.mapping = HostMemoryCaching::WC, .size = requested_size});
+
+    EXPECT_GE(window->get_size(), requested_size);
+    EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
+    // create_io_window() configures through the single-argument configure(), which applies Strict.
+    EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
+
+    const TargetIoWindowConfig readback = window->get_target_config();
+    EXPECT_EQ(readback.core_start, target.core_start);
+    EXPECT_EQ(readback.addr, l1_addr);
+    EXPECT_EQ(readback.noc, get_selected_noc_id());
+
+    window->write32(0, 0x5a5a5a5a);
+    EXPECT_EQ(window->read32(0), 0x5a5a5a5au);
+
+    // No architecture has a window this large, so the request cannot be served.
+    EXPECT_ANY_THROW(tt_device->create_io_window(target, {.size = std::numeric_limits<size_t>::max()}));
+
+    // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
+    // TTDevice nor translated coordinates ask for a window.
+    std::unique_ptr<IoWindow> chip_window =
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size});
+    ASSERT_NE(chip_window, nullptr);
+    EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
+    EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
+
+    chip_window->write32(0, 0xa5a5a5a5);
+    EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
+}
+
+// A target naming two corners is a multicast grid, and the window comes back already programmed for
+// it -- the caller never reconfigures to reach every core in the rectangle.
+TEST_F(TestTlb, CreateMulticastIoWindow) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t l1_addr = 0x100;
+    const uint32_t pattern = 0xc0ffee00;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (!cluster->get_soc_descriptor(chip).noc_translation_enabled) {
+        GTEST_SKIP() << "Multicast requires NOC translation.";
+    }
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_GE(tensix_cores.size(), 2u);
+
+    // The two ends of one row bound a rectangle a row tall. The corners have to be ordered, since a
+    // grid is named upper-left first and get_cores() promises no particular order.
+    std::vector<CoreCoord> row;
+    for (const CoreCoord& core : tensix_cores) {
+        if (core.y == tensix_cores[0].y) {
+            row.push_back(core);
+        }
+    }
+    ASSERT_GE(row.size(), 2u);
+    const auto [left, right] =
+        std::minmax_element(row.begin(), row.end(), [](const CoreCoord& a, const CoreCoord& b) { return a.x < b.x; });
+    const CoreCoord grid_start = *left;
+    const CoreCoord grid_end = *right;
+
+    // Clear the targets first, so the readback can only be explained by the multicast.
+    const uint32_t zero = 0;
+    for (const CoreCoord& core : {grid_start, grid_end}) {
+        cluster->write_to_device(&zero, sizeof(zero), chip, core, l1_addr);
+    }
+
+    std::unique_ptr<IoWindow> window = cluster->create_io_window(
+        chip, grid_start, l1_addr, {.size = sizeof(pattern)}, grid_end, WindowFlags::MulticastWrite);
+    ASSERT_NE(window, nullptr);
+
+    window->write32(0, pattern);
+
+    for (const CoreCoord& core : {grid_start, grid_end}) {
+        uint32_t readback = 0;
+        cluster->read_from_device(&readback, chip, core, l1_addr, sizeof(readback));
+        EXPECT_EQ(readback, pattern) << "Core " << core.str() << " was not covered by the multicast grid";
+    }
 }
 
 TEST_F(TestTlb, TLBStaticTensix) {

@@ -365,6 +365,59 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
+// Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
+// virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
+// SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
+// the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
+// without touching this signature or any caller.
+std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
+    // which harvesting shifts, so the rectangle they bound is not the one the caller asked for.
+    UMD_ASSERT(
+        !target.core_end.has_value() || get_soc_descriptor().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
+
+    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+
+    // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
+    // request is served by the smallest one that covers it and get_size() reports what the caller got.
+    // This keeps the caller from having to know the architecture's window sizes; a request of 0 leaves
+    // the choice to the backend entirely.
+    size_t size = host.size;
+    if (size != 0) {
+        // A mapping is anchored at the start of an aligned block of its own size, so the span reachable
+        // from target.addr is what is left of that block -- the class has to cover the address's offset
+        // into it as well. Size classes are ordered smallest first, so the first fit is the smallest.
+        const std::vector<TlbSizeClass> &size_classes = get_architecture_tlbs(get_arch()).size_classes;
+        auto size_class =
+            std::find_if(size_classes.begin(), size_classes.end(), [&target, size](const TlbSizeClass &candidate) {
+                // Written as a subtraction so a huge requested size cannot overflow the sum.
+                return size <= candidate.size - (target.addr % candidate.size);
+            });
+        UMD_ASSERT(
+            size_class != size_classes.end(),
+            error::RuntimeError,
+            fmt::format(
+                "Requested I/O window of {} bytes at address {:#x} does not fit in the largest window {} provides "
+                "({} bytes).",
+                size,
+                target.addr,
+                tt::arch_to_str(get_arch()),
+                size_classes.back().size));
+        size = size_class->size;
+    }
+
+    // Routing follows the caller's selected NOC unless the target names one explicitly.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+
+    std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
+    window->configure(target);
+    return window;
+}
+
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
     get_device_protocol()->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);

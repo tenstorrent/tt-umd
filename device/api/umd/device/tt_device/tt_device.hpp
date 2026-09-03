@@ -483,6 +483,26 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     /**
+     * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
+     *
+     * The returned window supports direct pointer-style reads and writes to device memory.
+     * It can be reconfigured at runtime to point to different device addresses.
+     *
+     * The window is created large enough to cover the requested size, rounded up to a size the
+     * architecture provides; @ref IoWindow::get_size reports what was actually created. A requested
+     * size of 0 leaves the choice to the implementation. Cores are named in the translated coordinate
+     * system, and a target without a NOC is routed over the NOC selected for this thread. Naming a
+     * second corner makes the window a multicast grid, which requires NOC translation.
+     *
+     * @param target Device-side target describing the core(s), address, optional NOC and flags.
+     * See @ref TargetIoWindowConfig.
+     * @param host Host-side properties (caching strategy and requested size).
+     * See @ref HostIoWindowConfig.
+     * @return An exclusively owned handle to the newly created @ref IoWindow.
+     */
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
+
+    /**
      * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
      * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
      * caller owns the returned fd and must close() it.

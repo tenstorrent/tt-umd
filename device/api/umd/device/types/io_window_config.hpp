@@ -82,7 +82,7 @@ constexpr WindowFlags& operator&=(WindowFlags& lhs, WindowFlags rhs) noexcept {
 }
 
 /**
- * @brief Device-side target for an IoWindow: core, address, optional NOC, and transaction flags.
+ * @brief Device-side target for an IoWindow: core(s), address, optional NOC, and transaction flags.
  */
 struct TargetIoWindowConfig {
     tt_xy_pair core_start;  ///< Target core, or upper-left corner of a multicast grid.

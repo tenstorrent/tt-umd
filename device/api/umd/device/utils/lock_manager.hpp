@@ -87,7 +87,8 @@ private:
     std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
 
     // Maps from mutex name to an initialized mutex.
-    // Mutex names are made from the mutex type name, combined with device number for chip specific ones.
+    // Mutex names are made from the mutex type name, combined with the device number and device type for chip
+    // specific ones.
     // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.
     std::unordered_map<std::string, std::unique_ptr<MutexInterface>> mutexes;
 };

@@ -4,7 +4,12 @@
 
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 
+#include <filesystem>
+
+#include "soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/simulation_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
@@ -14,6 +19,19 @@
 namespace tt::umd {
 
 namespace {
+
+// A simulated device's SoC descriptor comes from the simulator's own YAML, which need not agree with
+// the architecture's constants, so prefer that YAML when none is supplied -- but only while the file
+// exists. A socket client rebuilds its descriptor through a temp YAML that is deleted at once, so on
+// that path the recorded path is stale and the constants are the right fallback.
+std::shared_ptr<SocArchDescriptor> resolve(
+    const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    if (soc_arch_descriptor == nullptr && !soc_descriptor.device_descriptor_file_path.empty() &&
+        std::filesystem::exists(soc_descriptor.device_descriptor_file_path)) {
+        return std::make_shared<SocArchDescriptor>(soc_descriptor.device_descriptor_file_path);
+    }
+    return resolve_soc_arch_descriptor(soc_descriptor.arch, soc_arch_descriptor);
+}
 
 // A simulator cannot hang the way a bus can: an access either reaches it in-process or throws. So
 // reporting healthy is accurate rather than a stub, and a detector must exist because a device
@@ -31,12 +49,14 @@ protected:
 
 }  // namespace
 
-SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) :
-    arch_(arch),
-    architecture_impl_(ArchitectureImplementation::create(arch)),
+SimulationTTDeviceModel::SimulationTTDeviceModel(
+    const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    arch_(soc_descriptor.arch),
+    soc_arch_descriptor_(resolve(soc_descriptor, soc_arch_descriptor)),
+    architecture_impl_(ArchitectureImplementation::create(soc_descriptor.arch)),
     tt_sim_protocol_(std::make_unique<TTSimProtocol>(this)),
     hang_detector_(std::make_unique<SimulationHangDetector>()),
-    device_firmware_(std::make_unique<SimulationDeviceFirmware>(arch)) {}
+    device_firmware_(std::make_unique<SimulationDeviceFirmware>(soc_descriptor.arch)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
@@ -98,8 +118,10 @@ ArchitectureImplementation *SimulationTTDeviceModel::get_architecture_impl() { r
 
 // A simulation backend supplies a full SocDescriptor of its own rather than an architecture
 // descriptor for TTDevice to build one from.
-SocArchDescriptor *SimulationTTDeviceModel::get_soc_arch_descriptor() { return nullptr; }
+SocArchDescriptor *SimulationTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
-std::shared_ptr<SocArchDescriptor> SimulationTTDeviceModel::get_shared_soc_arch_descriptor() { return nullptr; }
+std::shared_ptr<SocArchDescriptor> SimulationTTDeviceModel::get_shared_soc_arch_descriptor() {
+    return soc_arch_descriptor_;
+}
 
 }  // namespace tt::umd

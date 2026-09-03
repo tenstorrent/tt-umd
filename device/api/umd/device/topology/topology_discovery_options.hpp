@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
@@ -95,5 +97,15 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    // Path to a simulator (a libttsim .so) whose chips discovery should walk instead of the host's.
+    // A simulation backend has no OS device enumeration, so when this is set the simulator image is
+    // asked which endpoints it exposes and a device is created for each.
+    //
+    // io_device_type stays PCIe: a simulator models PCIe -- config space, BAR decode, iATU -- so
+    // that remains the honest description of the transport, and the cluster descriptor discovery
+    // produces says so truthfully. Simulation is a separate axis from the transport, exactly as
+    // ClusterOptions keeps chip_type and io_device_type separate.
+    std::string simulator_path;
 };
 }  // namespace tt::umd

@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "emu_axi_transport.h"  // chippy
+#include "mimir.h"              // chippy
 #include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -22,17 +23,20 @@ namespace {
 // bulk throughput -- it only sets the granule an unaligned or partial access is decomposed into.
 constexpr size_t kMinWordSizeBytes = 4;
 
-// Mimir's SPA layout, mirroring chippy's lib/arch/grendel/mimir.h. GrendelAddressWindows defaults
-// describe a Quasar mesh -- a per-tile config aperture indexed row-major over a 10x6 mesh -- which
-// does not describe a lone Mimir: its config region sits at kMimir_0_SpaBaseAddr with one slot per
-// chiplet instance, and the SMC's own registers start at offset 0 within it.
-constexpr uint64_t kMimirConfigSpaBase = 0x1300000000ULL;      // kMimir_0_SpaBaseAddr
-constexpr uint64_t kMimirConfigStride = 0x8000000ULL;          // kMimirConfigSize
-constexpr uint64_t kMimirGddrDramSpaBase = 0x1000000000000ULL;  // kMimirGddrDramTile0SpaBaseAddr
-// kMimirGddrDramTile1SpaBaseAddr - kMimirGddrDramTile0SpaBaseAddr. Note this is NOT the 8 GiB bank
-// size: the GDDR tiles are spaced 128 GiB apart in SPA, so indexing DRAM by the bank size (as the
-// Quasar defaults do) would alias channel 1 into channel 0's window.
-constexpr uint64_t kMimirGddrDramStride = 0x2000000000ULL;
+// Mimir's SPA layout comes from chippy (lib/arch/grendel/mimir.h), which owns every address below
+// the flat one: taking the bases from there rather than restating them keeps one source of truth.
+// GrendelAddressWindows' defaults describe a Quasar mesh -- a per-tile config aperture indexed
+// row-major over a 10x6 mesh -- which does not describe a lone Mimir, whose config region has one
+// slot per chiplet instance with the SMC's registers at offset 0 within it.
+const uint64_t kMimirConfigSpaBase = chippy::grendel::get_config_spa_baseaddr_for_mimir(0);
+const uint64_t kMimirConfigStride =
+    chippy::grendel::get_config_spa_baseaddr_for_mimir(1) - chippy::grendel::get_config_spa_baseaddr_for_mimir(0);
+const uint64_t kMimirGddrDramSpaBase = chippy::grendel::kMimirGddrDramTile0SpaBaseAddr;
+// Derived, not assumed: the GDDR tiles are spaced by this much in SPA, which is NOT the 8 GiB bank
+// size the descriptor reports. Indexing DRAM by bank size (as the Quasar defaults do) would alias
+// channel 1 into channel 0's window.
+const uint64_t kMimirGddrDramStride =
+    chippy::grendel::kMimirGddrDramTile1SpaBaseAddr - chippy::grendel::kMimirGddrDramTile0SpaBaseAddr;
 
 // A windows table for a single-Mimir package. The config window is indexed by chiplet instance
 // rather than by mesh position, so the mesh is collapsed to 1x1 anchored on the SMC core: the one

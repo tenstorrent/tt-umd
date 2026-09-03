@@ -119,6 +119,7 @@ target_sources(
         src/coordinates/wormhole_coordinate_manager.cpp
         src/coordinates/blackhole_coordinate_manager.cpp
         src/coordinates/quasar_coordinate_manager.cpp
+        src/coordinates/grendel_noc_address_resolver.cpp
         src/coordinates/att/att_resolver.cpp
         src/arc/arc_telemetry_reader.cpp
         src/arc/wormhole_arc_telemetry_reader.cpp
@@ -222,6 +223,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/chip_helpers/simulation_tlb_allocator.hpp
                 api/tt-umd/cluster.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
+                api/tt-umd/coordinates/noc_address_resolver.hpp
+                api/tt-umd/coordinates/grendel_noc_address_resolver.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp
                 api/tt-umd/utils/kmd_versions.hpp
@@ -247,6 +250,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
+                api/tt-umd/tt_device/grendel_emu_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
                 api/tt-umd/simulation/simulation_host.hpp
@@ -339,6 +343,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/umd/device/coordinates/att/configs/horizon_2x3_att_map.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
+                api/umd/device/coordinates/noc_address_resolver.hpp
+                api/umd/device/coordinates/grendel_noc_address_resolver.hpp
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_info_provider_implementation.hpp
@@ -376,6 +382,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/device_protocol.hpp
                 api/umd/device/tt_device/protocol/jtag_interface.hpp
                 api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
+                api/umd/device/tt_device/grendel_emu_tt_device.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
@@ -459,13 +466,19 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
-    # The Grendel protocol translation unit includes chippy headers and must
-    # compile as C++20. Confine the bump to this one source (the -std override
-    # comes after the target's -std=c++17, so it wins); UMD's public standard
-    # stays C++17.
-    target_sources(tt-umd PRIVATE src/tt_device/protocol/grendel_jtag_protocol.cpp)
+    # These translation units include chippy headers and must compile as C++20.
+    # Confine the bump to them (the -std override comes after the target's
+    # -std=c++17, so it wins); UMD's public standard stays C++17.
+    set(GRENDEL_CHIPPY_SRCS src/tt_device/protocol/grendel_jtag_protocol.cpp)
+    if(TT_UMD_BUILD_SIMULATION)
+        # The emu backend derives from SimulationTTDevice, which only exists in a simulation
+        # build -- it is a pre-silicon backend, so it belongs to that layer rather than beside
+        # the silicon protocol.
+        list(APPEND GRENDEL_CHIPPY_SRCS src/tt_device/grendel_emu_tt_device.cpp)
+    endif()
+    target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
     set_source_files_properties(
-        src/tt_device/protocol/grendel_jtag_protocol.cpp
+        ${GRENDEL_CHIPPY_SRCS}
         PROPERTIES
             COMPILE_OPTIONS
                 "-std=c++20"

@@ -176,7 +176,8 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         arch_desc_->get_l2cpu_cores(),
         arch_desc_->get_dispatch_cores(),
         arch_desc_->get_noc0_x_to_noc1_x(),
-        arch_desc_->get_noc0_y_to_noc1_y());
+        arch_desc_->get_noc0_y_to_noc1_y(),
+        arch_desc_->get_smc_cores());
 }
 
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
@@ -376,6 +377,10 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::DISPATCH);
     out << YAML::EndSeq;
 
+    out << YAML::Key << "smc" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::SMC);
+    out << YAML::EndSeq;
+
     // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
@@ -496,7 +501,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_syst
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
           CoreType::L2CPU,
-          CoreType::DISPATCH}) {
+          CoreType::DISPATCH,
+          CoreType::SMC}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -514,7 +520,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
           CoreType::L2CPU,
-          CoreType::DISPATCH}) {
+          CoreType::DISPATCH,
+          CoreType::SMC}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

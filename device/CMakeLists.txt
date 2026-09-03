@@ -362,13 +362,19 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
-    # The Grendel protocol translation unit includes chippy headers and must
-    # compile as C++20. Confine the bump to this one source (the -std override
-    # comes after the target's -std=c++17, so it wins); UMD's public standard
-    # stays C++17.
-    target_sources(tt-umd PRIVATE tt_device/protocol/grendel_jtag_protocol.cpp)
+    # These translation units include chippy headers and must compile as C++20.
+    # Confine the bump to them (the -std override comes after the target's
+    # -std=c++17, so it wins); UMD's public standard stays C++17.
+    set(GRENDEL_CHIPPY_SRCS tt_device/protocol/grendel_jtag_protocol.cpp)
+    if(TT_UMD_BUILD_SIMULATION)
+        # The emu backend derives from SimulationTTDevice, which only exists in a simulation
+        # build -- it is a pre-silicon backend, so it belongs to that layer rather than beside
+        # the silicon protocol.
+        list(APPEND GRENDEL_CHIPPY_SRCS tt_device/grendel_emu_tt_device.cpp)
+    endif()
+    target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
     set_source_files_properties(
-        tt_device/protocol/grendel_jtag_protocol.cpp
+        ${GRENDEL_CHIPPY_SRCS}
         PROPERTIES
             COMPILE_OPTIONS
                 "-std=c++20"

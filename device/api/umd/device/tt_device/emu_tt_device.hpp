@@ -33,7 +33,7 @@ class TlbWindow;
  * chippy's headers require C++20 and must not leak into UMD's public API, so the transport lives
  * behind a pimpl and every chippy type stays inside the (C++20) translation unit.
  */
-class GrendelEmuTTDevice : public SimulationTTDevice {
+class EmuTTDevice : public SimulationTTDevice {
 public:
     /**
      * Connect to an emu_axi command server.
@@ -43,10 +43,10 @@ public:
      * @param host Server host, as published by the orchestrator in silval_server_info.json.
      * @param port Server port.
      */
-    static std::unique_ptr<GrendelEmuTTDevice> create(
+    static std::unique_ptr<EmuTTDevice> create(
         const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port);
 
-    ~GrendelEmuTTDevice() override;
+    ~EmuTTDevice() override;
 
 protected:
     SimulationBackendType backend_type() const override;
@@ -64,7 +64,7 @@ protected:
 private:
     struct Impl;
 
-    GrendelEmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl);
+    EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl);
 
     std::unique_ptr<Impl> impl_;
 };

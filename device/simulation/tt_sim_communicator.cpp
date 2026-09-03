@@ -64,11 +64,16 @@ std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
 }
 
 TTSimCommunicator::TTSimCommunicator(
-    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    const std::filesystem::path &simulator_directory,
+    bool copy_sim_binary,
+    uint32_t chip_id,
+    uint32_t num_chips,
+    std::optional<uint32_t> image_endpoint_count) :
     simulator_directory_(simulator_directory),
     copy_sim_binary_(copy_sim_binary),
     chip_id_(chip_id),
-    num_chips_(num_chips) {}
+    num_chips_(num_chips),
+    image_endpoint_count_(image_endpoint_count) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
     // Unregister from the process-global DMA routing tables first. The shared simulator may still be
@@ -204,13 +209,18 @@ void TTSimCommunicator::initialize() {
     // (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id, no virtual eth switch (the simulator
     // routes inter-chip eth internally).
     //
-    // The signal is a cluster_descriptor.yaml shipped beside the .so (e.g. P300 bh_x2): the .so declares
-    // the topology it hosts. A plain multi-chip cluster that replicates a *single-chip* .so per chip
-    // (e.g. galaxy wormhole, driven by an external mock cluster desc) has no such file -- it must keep
-    // the per-chip isolated dlopen (legacy memfd path below) so each chip is its own simulator process.
-    const bool self_describing_multi_mmio =
-        num_chips_ > 1 &&
-        std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+    // Whether the image hosts several chips is a property of the image, so it is answered by
+    // enumerating its endpoints (enumerate_mmio_device_bdfs) and passing the count in. A caller that
+    // has not enumerated falls back to the pre-enumeration signal: a cluster_descriptor.yaml shipped
+    // beside the .so (e.g. P300 bh_x2), by which the .so declared the topology it hosts. A plain
+    // multi-chip cluster that replicates a *single-chip* .so per chip has no such file and must keep
+    // the per-chip isolated dlopen (legacy memfd path below), so each chip is its own simulator.
+    const bool image_hosts_multiple_chips =
+        image_endpoint_count_.has_value()
+            ? *image_endpoint_count_ > 1
+            : std::filesystem::exists(
+                  SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+    const bool self_describing_multi_mmio = num_chips_ > 1 && image_hosts_multiple_chips;
     if (self_describing_multi_mmio) {
         std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!shared_lib) {

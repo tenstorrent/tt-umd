@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
@@ -41,6 +42,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     const SocDescriptor &soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels = 0);
+    int num_host_mem_channels = 0,
+    std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
 }  // namespace tt::umd

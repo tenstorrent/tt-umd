@@ -40,9 +40,9 @@ enum class MutexType {
 std::string to_string(MutexType mutex_type);
 
 // Note that the returned std::unique_lock<MutexInterface> should never outlive the LockManager which holds
-// underlying mutexes, which are cleared when the LockManager goes out of scope. We could implement these lock such that
-// initialization is not needed, and they are initialized every time they're locked, but since that communicates with
-// the OS filesystem it might be slower do to it each time. This way, locking/unlocking should be faster.
+// underlying mutexes, which are cleared when the LockManager goes out of scope. We could implement these locks such
+// that initialization is not needed, and they are initialized every time they're locked, but since that communicates
+// with the OS filesystem it might be slower to do it each time. This way, locking/unlocking should be faster.
 class LockManager {
 public:
     // Mutex types that are initialized per chip (combined with device_id + device_type).

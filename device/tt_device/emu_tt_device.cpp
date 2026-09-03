@@ -23,20 +23,19 @@ namespace {
 // bulk throughput -- it only sets the granule an unaligned or partial access is decomposed into.
 constexpr size_t kMinWordSizeBytes = 4;
 
-// Mimir's SPA layout comes from chippy (lib/arch/grendel/mimir.h), which owns every address below
-// the flat one: taking the bases from there rather than restating them keeps one source of truth.
-// GrendelAddressWindows' defaults describe a Quasar mesh -- a per-tile config aperture indexed
-// row-major over a 10x6 mesh -- which does not describe a lone Mimir, whose config region has one
-// slot per chiplet instance with the SMC's registers at offset 0 within it.
-const uint64_t kMimirConfigSpaBase = chippy::grendel::get_config_spa_baseaddr_for_mimir(0);
-const uint64_t kMimirConfigStride =
-    chippy::grendel::get_config_spa_baseaddr_for_mimir(1) - chippy::grendel::get_config_spa_baseaddr_for_mimir(0);
-const uint64_t kMimirGddrDramSpaBase = chippy::grendel::kMimirGddrDramTile0SpaBaseAddr;
-// Derived, not assumed: the GDDR tiles are spaced by this much in SPA, which is NOT the 8 GiB bank
-// size the descriptor reports. Indexing DRAM by bank size (as the Quasar defaults do) would alias
-// channel 1 into channel 0's window.
-const uint64_t kMimirGddrDramStride =
-    chippy::grendel::kMimirGddrDramTile1SpaBaseAddr - chippy::grendel::kMimirGddrDramTile0SpaBaseAddr;
+// Mimir's address layout comes from chippy (lib/arch/grendel/mimir.h), which owns every address
+// below the flat one.
+//
+// LOCAL, not SPA. chippy reaches an emu chiplet in local addressing -- GrendelAxiEmu constructs its
+// chiplets with init_chiplets(metadata, /*use_spa_addressing_for_local_chiplet=*/false, false) --
+// and the model agrees: test_sival_server.py wires the protocol straight to tb.axi.read_reg32, the
+// chiplet's own AXI master, and the model's run_cce_via_sival.py addresses CCE SRAM at its local
+// 0x40000000 while listing the SPA base 0x1280000000 as a separate constant. The package SPA bases
+// (kMimir_0_SpaBaseAddr and friends) apply when a Mimir is reached through the fabric of a larger
+// package, which is not this path.
+const uint64_t kMimirConfigLocalBase = chippy::grendel::kMimirSmcLocalAddr;
+const uint64_t kMimirConfigStride = chippy::grendel::kMimirConfigSize;
+const uint64_t kMimirGddrDramLocalBase = chippy::grendel::kMimirGddrDramLocalAddr;
 
 // A windows table for a single-Mimir package. The config window is indexed by chiplet instance
 // rather than by mesh position, so the mesh is collapsed to 1x1 anchored on the SMC core: the one
@@ -51,15 +50,19 @@ GrendelAddressWindows mimir_windows(const SocDescriptor& soc_descriptor) {
         fmt::format("A Mimir descriptor must carry exactly one SMC core, found {}.", smc_cores.size()));
 
     GrendelAddressWindows windows{};
-    windows.config_base = kMimirConfigSpaBase;
+    windows.config_base = kMimirConfigLocalBase;
     windows.config_stride = kMimirConfigStride;
     windows.quasar_origin_x = smc_cores.front().x;
     windows.quasar_origin_y = smc_cores.front().y;
     windows.mesh_x_size = 1;
     windows.mesh_y_size = 1;
 
-    windows.dram_base = kMimirGddrDramSpaBase;
-    windows.dram_stride = kMimirGddrDramStride;
+    windows.dram_base = kMimirGddrDramLocalBase;
+    // In local addressing chippy names one DRAM base, not a base per GDDR tile (only the SPA view
+    // has Tile0/Tile1), so the channel spacing comes from the descriptor's own bank size. The
+    // DramCoresDoNotAlias test is what proves this against a real model: too small a stride would
+    // land channel 1 inside channel 0.
+    windows.dram_stride = soc_descriptor.get_arch_descriptor().get_dram_bank_size();
 
     const tt_xy_pair grid = soc_descriptor.get_grid_size(CoreType::SMC);
     windows.neo_x_start = std::max<uint32_t>(grid.x, 1) + 1;

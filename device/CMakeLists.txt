@@ -83,7 +83,6 @@ target_sources(
         cluster.cpp
         tt_device_model/wormhole_tt_device_model.cpp
         tt_device_model/blackhole_tt_device_model.cpp
-        tt_device_model/simulation_tt_device_model.cpp
         tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -168,6 +167,10 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
+            tt_device/protocol/tt_sim_protocol.cpp
+            # Composes the protocol above, so it cannot be built without it. Every user of it is a
+            # simulation device, all of which are in this block too.
+            tt_device_model/simulation_tt_device_model.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp

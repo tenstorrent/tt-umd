@@ -1399,6 +1399,7 @@ std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
         case BoardType::UBB_WORMHOLE:
             return ubb_tray_id(wormhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
         case BoardType::UBB_BLACKHOLE:
+        case BoardType::UBB_BLACKHOLE_BIN6:
             return ubb_tray_id(blackhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
         default:
             return std::nullopt;

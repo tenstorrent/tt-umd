@@ -109,7 +109,8 @@ private:
 inline bool is_galaxy_configuration(Cluster* cluster) {
     return !cluster->get_target_device_ids().empty() &&
            (cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_WORMHOLE ||
-            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE);
+            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE ||
+            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE_BIN6);
 }
 
 // Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores

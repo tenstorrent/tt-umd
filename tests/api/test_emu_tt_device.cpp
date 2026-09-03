@@ -69,6 +69,12 @@ SocDescriptor mimir_descriptor() {
         GTEST_SKIP() << "Set TT_UMD_EMU_SERVER=host:port to run this test.";   \
     }
 
+// Mimir's SMC is the only thing reachable on a freshly reset DUT, so it is what the default tests
+// use. Its SRAM appears at 0x0006_0000 in the AXI view the emu server drives (the emulation rules'
+// "AXI bus SRAM 0x0006_0000-0x0016_0000"; 0xC006_0000 is the same memory through the SMC's
+// core-local alias, which is what firmware download and reset vectors use).
+constexpr uint64_t kSmcSramOffset = 0x00060000;
+
 // A write through the public TTDevice API must land at the flat address the resolver derives for
 // that core -- verified by reading it back through a raw chippy transport, which shares nothing
 // with UMD's path but the server.
@@ -78,29 +84,64 @@ TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
 
-    const CoreCoord dram_core = soc_descriptor.get_cores(CoreType::DRAM).front();
-    constexpr uint64_t kOffset = 0x400;
+    const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
     const uint32_t written = 0xC0FFEE01;
 
-    device->write_to_device(&written, dram_core, kOffset, sizeof(written));
+    device->write_to_device(&written, smc_core, kSmcSramOffset, sizeof(written));
 
     uint32_t read_back = 0;
-    device->read_from_device(&read_back, dram_core, kOffset, sizeof(read_back));
+    device->read_from_device(&read_back, smc_core, kSmcSramOffset, sizeof(read_back));
     EXPECT_EQ(read_back, written);
 
     // Independently confirm the address, not just the round trip: a resolver bug that flattened
     // consistently but wrongly would pass the read-back above on its own.
     chippy::transport::emu_axi::EmuAxiTransport raw(server->host, server->port);
     raw.initialize();
-    const uint64_t expected = GrendelNocAddressResolver(soc_descriptor).to_flat_address(dram_core, kOffset, NocId::NOC0);
+    const uint64_t expected =
+        GrendelNocAddressResolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor))
+            .to_flat_address(smc_core, kSmcSramOffset, NocId::NOC0);
     EXPECT_EQ(raw.read32(expected), written);
     // No teardown(): that sends QUIT, which shuts the server down under the tests that follow.
 }
 
-// The two DRAM cores are separate GDDR instances and must not alias: chippy spaces the Mimir GDDR
-// tiles 128 GiB apart in SPA, not by the 8 GiB bank size.
+// Consecutive words must not collide -- the cheapest check that the flat address tracks the offset
+// rather than being pinned to a window base.
+TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
+
+    const uint32_t first = 0xAAAA1111;
+    const uint32_t second = 0xBBBB2222;
+    device->write_to_device(&first, smc_core, kSmcSramOffset, sizeof(first));
+    device->write_to_device(&second, smc_core, kSmcSramOffset + sizeof(second), sizeof(second));
+
+    uint32_t read_first = 0;
+    uint32_t read_second = 0;
+    device->read_from_device(&read_first, smc_core, kSmcSramOffset, sizeof(read_first));
+    device->read_from_device(&read_second, smc_core, kSmcSramOffset + sizeof(read_second), sizeof(read_second));
+
+    EXPECT_EQ(read_first, first);
+    EXPECT_EQ(read_second, second);
+}
+
+// DRAM is opt-in, and deliberately so.
+//
+// The SiVal server runs preload and reset only -- test_sival_server.py skips tb.configure() -- so
+// GDDR has had no bringup and its window answers nothing. On a real model an access there does not
+// merely fail: the testbench AXI master stalls with no slave responding (`axi4m WR_STALL stalled at
+// 0x800000400, AWREADY=0`), the server drops the client, and the stalled transaction survives the
+// server's own DUT re-init -- every later access, reads included, reports the same stale stall. One
+// stray DRAM write wedges the model for the rest of the session.
+//
+// Set TT_UMD_EMU_DRAM=1 only against a model whose GDDR has been brought up.
 TEST(EmuTTDevice, DramCoresDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
+    if (std::getenv("TT_UMD_EMU_DRAM") == nullptr) {
+        GTEST_SKIP() << "DRAM needs GDDR bringup; set TT_UMD_EMU_DRAM=1 on a configured model.";
+    }
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
@@ -121,29 +162,6 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
 
     EXPECT_EQ(read_first, first);
     EXPECT_EQ(read_second, second);
-}
-
-// The SMC is reached through the Mimir config aperture rather than a DRAM window, so it must not
-// collide with either DRAM core.
-TEST(EmuTTDevice, SmcUsesTheConfigApertureNotADramWindow) {
-    SKIP_WITHOUT_SERVER(server);
-
-    const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
-
-    const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
-    const CoreCoord dram_core = soc_descriptor.get_cores(CoreType::DRAM).front();
-    constexpr uint64_t kOffset = 0x40;
-
-    const uint32_t smc_value = 0x5A5A5A5A;
-    const uint32_t dram_value = 0xA5A5A5A5;
-    device->write_to_device(&smc_value, smc_core, kOffset, sizeof(smc_value));
-    device->write_to_device(&dram_value, dram_core, kOffset, sizeof(dram_value));
-
-    uint32_t read_smc = 0;
-    device->read_from_device(&read_smc, smc_core, kOffset, sizeof(read_smc));
-    // The SMC write must survive the DRAM write to the same core-local offset.
-    EXPECT_EQ(read_smc, smc_value);
 }
 
 }  // namespace tt::umd::test

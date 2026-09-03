@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -40,7 +41,8 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
-        size_t num_chips = 1);
+        size_t num_chips = 1,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     ~TTSimTTDevice();
 

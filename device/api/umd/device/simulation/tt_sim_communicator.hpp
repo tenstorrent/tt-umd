@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 namespace tt::umd {
@@ -31,12 +32,18 @@ public:
      * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
      *   in multichip mode. Default 0
      *   for legacy single-chip consumers.
+     * @param image_endpoint_count How many host-visible PCI endpoints the .so itself exposes, as
+     *   reported by enumerate_mmio_device_bdfs(). Distinguishes an image that hosts several PCIe
+     *   chips from one single-chip image replicated per chip, which is what selects shared-BDF
+     *   addressing. Unset means the caller has not enumerated, and the pre-enumeration signal --
+     *   a cluster_descriptor.yaml shipped beside the .so -- is used instead.
      */
     TTSimCommunicator(
         const std::filesystem::path &simulator_directory,
         bool copy_sim_binary = false,
         uint32_t chip_id = 0,
-        uint32_t num_chips = 1);
+        uint32_t num_chips = 1,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -228,6 +235,7 @@ private:
 
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
+    std::optional<uint32_t> image_endpoint_count_;
 
     // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
     // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter

@@ -85,6 +85,14 @@ public:
     // tell what its simulation is backed by.
     virtual SimulationBackendType backend_type() const = 0;
 
+    // NOC access at an already-translated coordinate: the special-case fast paths, the
+    // TLB-window-or-tile choice, and the post-read clocking, without the coordinate translation
+    // host_read/host_write do first. Exposed so a DeviceProtocol serving this backend can reach the
+    // same path the device uses rather than reimplementing it -- the arch decision between the
+    // cached TLB window and direct tile access lives here and is shared.
+    void noc_read_translated(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
+    void noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
+
 protected:
     SimulationTTDevice(
         std::unique_ptr<TTDeviceModel> model,

@@ -24,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -62,7 +63,7 @@ protected:
 
         for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
             DeviceData device_data;
-            device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
+            device_data.tt_device_ = create_tt_device(jlink_device_id, IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
             device_data.tensix_core_ = device_data.tt_device_->get_soc_descriptor()
                                            .get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0]
@@ -162,7 +163,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
 
     // Test shouldn't last long since there's a limited number of PCIe devices on the system.
     for (const auto& pci_device_id : pci_device_ids) {
-        auto pci_tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        auto pci_tt_device = create_tt_device(pci_device_id, IODeviceType::PCIe);
         if (!pci_tt_device) {
             UMD_THROW(error::RuntimeError, "Failed to create PCI TT device.");
         }

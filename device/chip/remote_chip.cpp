@@ -50,7 +50,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
         error::RuntimeError,
         "RemoteTTDevice passed to RemoteChip::create_for_simulation must have a RemoteCommunication.");
     // The remote TTDevice for a simulated chip is never run through init_tt_device() (it has no ARC to probe), so
-    // its SocDescriptor is supplied to TTDevice::create() instead. get_soc_descriptor() can then keep delegating
+    // its SocDescriptor is supplied to create_tt_device() instead. get_soc_descriptor() can then keep delegating
     // to the TTDevice like every other chip.
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device), chip_info));
 }

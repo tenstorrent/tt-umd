@@ -41,6 +41,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -110,7 +111,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
     CoreCoord tensix_core;
 
     for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id] = create_tt_device(pci_device_id, IODeviceType::PCIe, true);
         tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
         tt_devices[pci_device_id]->init_tt_device();
@@ -184,7 +185,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
     CoreCoord tensix_core;
 
     for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id] = create_tt_device(pci_device_id, IODeviceType::PCIe, true);
         tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
         tt_devices[pci_device_id]->init_tt_device();
@@ -244,7 +245,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
             CoreCoord tensix_core;
 
             for (int pci_device_id : pci_device_ids) {
-                tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+                tt_devices[pci_device_id] = create_tt_device(pci_device_id, IODeviceType::PCIe, true);
                 tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
                 tt_devices[pci_device_id]->init_tt_device();

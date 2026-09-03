@@ -18,6 +18,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -29,7 +30,7 @@ TEST(TestTelemetry, BasicTelemetry) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         if (tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
@@ -57,7 +58,7 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();

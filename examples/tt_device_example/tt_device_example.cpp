@@ -10,6 +10,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_factory.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
@@ -27,7 +28,7 @@ int main(int argc, char* argv[]) {
     for (int device_id : pci_devices) {
         std::cout << "\n=== Device " << device_id << " (Before Initialization) ===" << std::endl;
 
-        std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
+        std::unique_ptr<TTDevice> device = create_tt_device(device_id);
 
         std::cout << "Architecture: "
                   << (device->get_arch() == tt::ARCH::WORMHOLE_B0 ? "Wormhole B0"

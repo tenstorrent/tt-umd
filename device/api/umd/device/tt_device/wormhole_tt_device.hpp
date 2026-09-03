@@ -36,25 +36,9 @@ public:
 
     ~WormholeTTDevice() override = default;
 
-protected:
     explicit WormholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
-
-    // Builds the ARC message (with the common prefix) that requests the given clock state.
-
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        int device_number,
-        IODeviceType device_type,
-        bool use_safe_api,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-#ifdef TT_UMD_BUILD_SIMULATION
-    friend std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
-        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
-#endif  // TT_UMD_BUILD_SIMULATION
 };
 }  // namespace tt::umd

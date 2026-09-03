@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -44,5 +45,19 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     size_t num_chips,
     int num_host_mem_channels = 0,
     std::optional<uint32_t> image_endpoint_count = std::nullopt);
+
+/**
+ * Enumerate a simulator image's host-visible endpoints and create one device per endpoint.
+ *
+ * The counterpart, for a backend with no OS device enumeration, of PCIDevice::enumerate_devices()
+ * followed by TTDevice::create() per device. The image reports how many chips it models, so the
+ * caller does not have to be told by a cluster descriptor.
+ *
+ * @param simulator_path Path to the libttsim .so.
+ * @param num_host_mem_channels Host memory channels per device.
+ * @return One device per endpoint, keyed by chip id, in endpoint order.
+ */
+std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
+    const std::filesystem::path &simulator_path, int num_host_mem_channels = 0);
 
 }  // namespace tt::umd

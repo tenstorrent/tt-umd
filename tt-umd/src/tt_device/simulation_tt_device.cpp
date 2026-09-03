@@ -48,6 +48,8 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :
     TTDevice(std::move(model.model)), client_(std::move(client)), simulation_model_(model.simulation_model) {}
 
+SimulationTTDevice::SimulationTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
+
 SimulationTTDevice::~SimulationTTDevice() = default;
 
 void SimulationTTDevice::attach_client() { client_->attach(); }

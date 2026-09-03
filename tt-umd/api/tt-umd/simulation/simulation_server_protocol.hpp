@@ -40,6 +40,9 @@ enum class SimulationServerCommand : int8_t {
 enum class SimulationBackendType : int8_t {
     TTSIM = 0,
     RTL = 1,
+    // A Grendel package reached over chippy's emu_axi transport. Unlike TTSIM and RTL, the backend
+    // is not a simulator this process owns: it is a command server in the emulation environment.
+    EMU_AXI = 2,
 };
 
 // A device-memory access request addressed by (core x/y, address, size).

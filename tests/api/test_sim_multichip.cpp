@@ -211,17 +211,35 @@ TEST_F(TTSimCommunicatorTest, WriteAfterCloseIsNoOp) {
 // Two TTSimTTDevice instances with distinct chip_ids writing and reading back
 // independently. Exercises select_chip_if_needed for each I/O call.
 TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
-    // Use the chip_id overload so the two devices target different simulated chips.
-    auto dev_0 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(0));
-    ASSERT_NE(dev_0, nullptr);
-
-    // If the simulator binary is single-chip, we cannot open a second device.
-    std::unique_ptr<TTSimTTDevice> dev_1;
-    try {
-        dev_1 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(1));
-    } catch (const std::exception&) {
-        GTEST_SKIP() << "Simulator does not support multiple devices; skipping multi-device I/O test.";
+    // Enumerate before bringing anything up -- both because that is the documented order and
+    // because a single-endpoint image cannot host a second device. The simulator aborts the process
+    // rather than throwing when asked to start twice, so this has to be decided up front: there is
+    // no failure here that a try/catch could recover from.
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    if (bdfs.size() < 2) {
+        GTEST_SKIP() << "Simulator image exposes " << bdfs.size()
+                     << " endpoint(s); multi-device I/O needs at least two.";
     }
+    const size_t num_chips = bdfs.size();
+    const auto endpoint_count = static_cast<uint32_t>(bdfs.size());
+
+    // Passing the endpoint count selects shared-BDF addressing, so the two devices share one image
+    // and are told apart by PCI device number.
+    auto dev_0 = TTSimTTDevice::create_for_chip(
+        simulator_path_,
+        static_cast<ChipId>(0),
+        /*num_host_mem_channels=*/0,
+        /*copy_sim_binary=*/false,
+        num_chips,
+        endpoint_count);
+    ASSERT_NE(dev_0, nullptr);
+    auto dev_1 = TTSimTTDevice::create_for_chip(
+        simulator_path_,
+        static_cast<ChipId>(1),
+        /*num_host_mem_channels=*/0,
+        /*copy_sim_binary=*/false,
+        num_chips,
+        endpoint_count);
     ASSERT_NE(dev_1, nullptr);
 
     const auto& soc_0 = dev_0->get_soc_descriptor();

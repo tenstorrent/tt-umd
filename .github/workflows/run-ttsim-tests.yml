@@ -226,6 +226,31 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
+      # TTSimCommunicatorTest covers the simulator-facing plumbing rather than device IO: the shared
+      # dlopen, endpoint enumeration, the closed-device guard, and independent IO across two chips of
+      # one image. The multi-chip case skips on single-endpoint images, so the same filter is useful
+      # on every variant below.
+      - name: Run UMD TTSimCommunicatorTest on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
+      - name: Run UMD TTSimCommunicatorTest on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
+      - name: Run UMD TTSimCommunicatorTest on tt-sim blackhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:

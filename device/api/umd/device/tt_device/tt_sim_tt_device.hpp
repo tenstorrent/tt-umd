@@ -58,7 +58,9 @@ public:
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
         int num_host_mem_channels = 0,
-        bool copy_sim_binary = false);
+        bool copy_sim_binary = false,
+        size_t num_chips = 1,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     // Builds a client-mode device from device identity the connector already fetched over the
     // socket (build_soc_descriptor(device_info)); discovery uses this for a client that talks to a

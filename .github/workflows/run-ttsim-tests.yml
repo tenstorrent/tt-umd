@@ -29,20 +29,16 @@ jobs:
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
     env:
-      # Read-only consumer of the shared Garage ccache that tt-metal's own CI populates
-      # (see tt-metal's .github/workflows/build-artifact.yaml, which uses the same
-      # bucket/prefix with CCACHE_S3_READONLY=false).
+      # Shared Garage ccache, same bucket and endpoint tt-metal's own CI uses
+      # (see tt-metal's .github/workflows/build-artifact.yaml).
       #
-      # The prefix is deliberately "tt-metal", NOT "tt-umd": the compilation this job
-      # caches *is* a tt-metal build, so tt-metal's prefix is the only namespace that
-      # holds usable entries. A UMD-specific prefix would be a permanently empty
-      # namespace and would never produce a hit.
-      #
-      # READONLY is forced to "true" so UMD's CI can never write to or evict from a
-      # cache it does not own. tt-metal's CI stays the single writer.
+      # The prefix is "tt-metal-for-umd": the compilation this job caches *is* a
+      # tt-metal build, but it is built against UMD's tip rather than the pinned
+      # submodule, so it gets its own namespace instead of sharing (and evicting
+      # from) the "tt-metal" one that tt-metal's CI owns. This job is both the
+      # reader and the writer of that namespace, so it warms itself run over run.
       CCACHE_S3_BUCKET: ccache
-      CCACHE_S3_PREFIX: tt-metal
-      CCACHE_S3_READONLY: "true"
+      CCACHE_S3_PREFIX: tt-metal-for-umd
       CCACHE_S3_DEBUG: "false"
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
@@ -139,30 +135,27 @@ jobs:
           fileName: "libttsim_bh_x32.so"
           out-file-path: /tmp/ttsim-bh-x32
 
-      # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with two
-      # deliberate deviations, both consequences of UMD being a read-only consumer:
-      #   1. CCACHE_S3_READONLY is pinned to "true" (job env above), so |read-only=true is always
-      #      appended and this CI can never write to tt-metal's cache.
-      #   2. Missing credentials are a warning, not a hard failure. tt-metal exits 1 there because a
-      #      cold cache in its own CI is a real regression; here the remote cache is pure upside, so
-      #      a build that cannot reach it should still succeed exactly as it did before this wiring.
-      - name: Configure S3 ccache storage (read-only)
+      # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
+      # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
+      # there because a cold cache in its own CI is a real regression; here the remote cache is pure
+      # upside, so a build that cannot reach it should still succeed exactly as it did before this
+      # wiring.
+      - name: Configure S3 ccache storage
         # Forks never have secrets; don't fail or warn noisily for them, they just build uncached.
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
         run: |
           mkdir -p /tmp/ccache
-          # Strip the tt-metal checkout prefix from hashed paths so entries are shareable with
-          # tt-metal's own CI, which builds the same sources at a different absolute path (/work
-          # there, because build-artifact.yaml mounts its workspace at /work and hardcodes
-          # CCACHE_BASEDIR=/work).
+          # Strip the tt-metal checkout prefix from hashed paths, so entries stay reusable if the
+          # workspace ever lands at a different absolute path (a differently-mounted runner, or this
+          # workflow being called from another repo's workspace) instead of being invalidated
+          # wholesale. tt-metal does the same thing with a hardcoded CCACHE_BASEDIR=/work.
           #
           # This MUST be computed at runtime inside the container, exactly like TT_METAL_HOME in
           # the "Build tt-metal" step below. The ${{ github.workspace }} expression is evaluated on
           # the host and yields /opt/runner/_work/tt-umd/tt-umd; inside the container that tree is
           # mounted at /__w, so the compiler only ever sees /__w/... paths. A host-path basedir
-          # matches no prefix, ccache's path rewriting never fires, every translation unit is hashed
-          # with its full /__w/... path, and nothing can ever match tt-metal's /work-relative
-          # entries — a guaranteed 0% hit rate.
+          # matches no prefix, ccache's path rewriting never fires, and every translation unit is
+          # hashed with its full /__w/... path.
           echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}/tt-metal" >> $GITHUB_ENV
           echo "CCACHE_BASEDIR: ${GITHUB_WORKSPACE}/tt-metal"
           if [ -z "${{ secrets.GARAGE_S3_ACCESS_KEY }}" ] || [ -z "${{ secrets.GARAGE_S3_SECRET_KEY }}" ]; then
@@ -174,14 +167,10 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.GARAGE_S3_SECRET_KEY }}" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=garage" >> $GITHUB_ENV
           CCACHE_REMOTE_STORAGE="s3://${CCACHE_S3_BUCKET}|region=garage|prefix=${CCACHE_S3_PREFIX}|endpoint_url=http://garage.garage.svc.cluster.local:3900"
-          if [ "${CCACHE_S3_READONLY}" = "true" ]; then
-            CCACHE_REMOTE_STORAGE="${CCACHE_REMOTE_STORAGE}|read-only=true"
-          fi
           echo "CCACHE_REMOTE_STORAGE=${CCACHE_REMOTE_STORAGE}" >> $GITHUB_ENV
           echo "CCACHE_REMOTE_STORAGE: ${CCACHE_REMOTE_STORAGE}"
-          # Only meaningful now that a remote is actually configured. Combined with read-only this
-          # means ccache never writes anywhere: no local cache is worth keeping on this ephemeral
-          # runner, and the remote is not ours to write to.
+          # Only meaningful now that a remote is actually configured: writes go straight to the
+          # remote and skip the local cache, which is worthless on this ephemeral runner.
           echo "CCACHE_REMOTE_ONLY=true" >> $GITHUB_ENV
           if [ "${CCACHE_S3_DEBUG}" = "true" ]; then
             echo "CRSH_LOGFILE=/tmp/ccache-storage-s3.log" >> $GITHUB_ENV
@@ -202,7 +191,7 @@ jobs:
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
-      # Surfaces the remote hit rate, which is the only way to tell whether the read-only cache is
+      # Surfaces the remote hit rate, which is the only way to tell whether the remote cache is
       # actually helping. always() so a failed build still reports why it was slow.
       - name: Publish ccache summary
         if: ${{ always() }}

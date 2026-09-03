@@ -11,6 +11,7 @@
 
 namespace tt::umd {
 
+class SocDescriptor;
 class TTSimProtocol;
 class SimulationDeviceFirmware;
 
@@ -21,7 +22,13 @@ class SimulationDeviceFirmware;
 // actually differ between them.
 class SimulationTTDeviceModel : public TTDeviceModel {
 public:
-    explicit SimulationTTDeviceModel(tt::ARCH arch);
+    // The architecture descriptor is resolved from, in order: one supplied by the caller (topology
+    // discovery hands the same instance to every device it creates, as it does on silicon), the
+    // simulator's own SoC descriptor YAML, and finally the architecture's constants. Resolving it
+    // here is what stops construct_soc_descriptor() from rebuilding a simulated device's descriptor
+    // from architecture defaults and silently discarding the simulator's own.
+    explicit SimulationTTDeviceModel(
+        const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     ~SimulationTTDeviceModel() override;
 
@@ -58,6 +65,7 @@ public:
 
 private:
     tt::ARCH arch_;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<TTSimProtocol> tt_sim_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;

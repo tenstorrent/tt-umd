@@ -17,7 +17,7 @@ namespace tt::umd {
 // actually differ between them.
 class SimulationTTDeviceModel : public TTDeviceModel {
 public:
-    explicit SimulationTTDeviceModel(tt::ARCH arch);
+    SimulationTTDeviceModel(tt::ARCH arch, int communication_device_id);
 
     ~SimulationTTDeviceModel() override;
 
@@ -35,6 +35,7 @@ public:
 
 private:
     tt::ARCH arch_;
+    int communication_device_id_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
 };
 

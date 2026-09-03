@@ -100,7 +100,7 @@ TTSimTTDevice::TTSimTTDevice(
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch, chip_id),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
@@ -183,7 +183,7 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch, chip_id), std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
 

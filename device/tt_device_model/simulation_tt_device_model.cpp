@@ -8,8 +8,10 @@
 
 namespace tt::umd {
 
-SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) :
-    arch_(arch), architecture_impl_(ArchitectureImplementation::create(arch)) {}
+SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch, int communication_device_id) :
+    arch_(arch),
+    communication_device_id_(communication_device_id),
+    architecture_impl_(ArchitectureImplementation::create(arch)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
@@ -17,9 +19,11 @@ SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 
 tt::ARCH SimulationTTDeviceModel::get_arch() const { return arch_; }
 
-// A simulation backend has no host transport to be addressed within, so it reports no communication
-// device at all.
-int SimulationTTDeviceModel::get_communication_device_id() const { return -1; }
+// A simulation backend has no host transport to be addressed within, but the id still identifies
+// the device: it keys the per-device mutexes taken on its behalf (the NON_MMIO mutex a
+// RemoteCommunication built over this device initializes and acquires) and names the device in
+// errors raised against it. The simulated chip id serves that role.
+int SimulationTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }
 
 // A simulation backend reaches its device directly rather than over a transport protocol; the
 // simulation TTDevice overrides the read/write paths instead of routing them through one.

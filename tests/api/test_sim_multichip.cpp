@@ -12,8 +12,10 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
@@ -149,6 +151,31 @@ TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     // The device should have a valid soc descriptor.
     const auto& soc = device->get_soc_descriptor();
     EXPECT_NE(soc.arch, ARCH::Invalid);
+}
+
+// The endpoint count a simulator image exposes must come from the image itself, since it is what
+// tells UMD how many chips a multichip build models without a cluster descriptor to declare it.
+TEST_F(TTSimCommunicatorTest, EnumerateMmioDeviceBdfs) {
+    // Enumeration stands on its own: no device is constructed first, mirroring how the silicon path
+    // enumerates before creating anything.
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+
+    // Every image exposes at least one endpoint, at bus 0 device 0. The count itself is a property
+    // of the image, so it is reported rather than asserted; bus 0 holds at most 32 endpoints.
+    ASSERT_FALSE(bdfs.empty());
+    EXPECT_EQ(bdfs.front(), 0u);
+    EXPECT_LE(bdfs.size(), 32u);
+    std::cout << "simulator exposes " << bdfs.size() << " host-visible PCI endpoint(s)" << std::endl;
+
+    // Endpoints live on bus 0 with the device field in bits [7:3] and function 0, and are reported
+    // in ascending order without duplicates.
+    for (size_t i = 0; i < bdfs.size(); ++i) {
+        EXPECT_EQ(bdfs[i] & 0xFF00u, 0u) << "endpoint " << i << " is not on bus 0";
+        EXPECT_EQ(bdfs[i] & 0x7u, 0u) << "endpoint " << i << " is not function 0";
+        if (i > 0) {
+            EXPECT_GT(bdfs[i], bdfs[i - 1]) << "endpoints are not ascending";
+        }
+    }
 }
 
 // Verify that write_to_device after close_device() is a no-op (closed_ guard).

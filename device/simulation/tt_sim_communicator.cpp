@@ -370,6 +370,47 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
+std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+    std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+
+    void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
+    if (handle == nullptr) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+    }
+
+    auto config_read32 = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t)>(dlsym(handle, "libttsim_pci_config_rd32"));
+    auto sim_init = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_init"));
+    auto sim_exit = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_exit"));
+    if (config_read32 == nullptr || sim_init == nullptr || sim_exit == nullptr) {
+        dlclose(handle);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Simulator library {} does not export the symbols needed to enumerate it.", simulator_path.string()));
+    }
+
+    // Config space only reports endpoints while the image is running. Starting an image that is
+    // already running is fatal inside the simulator, which is why this must run before any
+    // simulator is brought up -- see the header.
+    sim_init();
+
+    // The device field is 5 bits, so bus 0 holds at most 32 endpoints; anything beyond would carry
+    // into the bus field, which the simulator rejects fatally.
+    constexpr uint32_t ABSENT_ENDPOINT = 0xFFFFFFFF;
+    constexpr uint32_t MAX_DEVICES_PER_BUS = 32;
+    std::vector<uint32_t> bdfs;
+    for (uint32_t device = 0; device < MAX_DEVICES_PER_BUS; ++device) {
+        const uint32_t bdf = device << 3;
+        if (config_read32(bdf, 0) != ABSENT_ENDPOINT) {
+            bdfs.push_back(bdf);
+        }
+    }
+
+    sim_exit();
+    dlclose(handle);
+    return bdfs;
+}
+
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     std::lock_guard<std::mutex> lock(device_lock_);
     if (multichip_mode_ && pfn_libttsim_clock_all_devices_) {

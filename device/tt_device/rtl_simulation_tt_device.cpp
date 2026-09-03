@@ -92,7 +92,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels) :
     SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
@@ -107,7 +107,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired

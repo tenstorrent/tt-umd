@@ -37,7 +37,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     std::unique_ptr<PCIDevice> pci_device,
     bool use_safe_api,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    communication_device_id_(pci_device->get_device_num()),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::BLACKHOLE>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<BlackholeImplementation>()),
     pci_device_(pci_device.get()) {
@@ -59,7 +58,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    communication_device_id_(jlink_id),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::BLACKHOLE>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<BlackholeImplementation>()) {
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
@@ -75,10 +73,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
 BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
-
-tt::ARCH BlackholeTTDeviceModel::get_arch() const { return tt::ARCH::BLACKHOLE; }
-
-int BlackholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }
 
 DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 

@@ -25,7 +25,6 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     std::unique_ptr<PCIDevice> pci_device,
     bool use_safe_api,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    communication_device_id_(pci_device->get_device_num()),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<WormholeImplementation>()),
     pci_device_(pci_device.get()) {
@@ -46,7 +45,6 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    communication_device_id_(jlink_id),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<WormholeImplementation>()) {
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
@@ -58,11 +56,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
         protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
 
-// A remote device is reached through a local one, so it takes the local device's identity.
 WormholeTTDeviceModel::WormholeTTDeviceModel(
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<WormholeImplementation>()) {
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
@@ -78,10 +74,6 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
 WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
-
-tt::ARCH WormholeTTDeviceModel::get_arch() const { return tt::ARCH::WORMHOLE_B0; }
-
-int WormholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }
 
 DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 

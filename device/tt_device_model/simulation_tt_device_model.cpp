@@ -10,19 +10,12 @@
 namespace tt::umd {
 
 SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) :
-    arch_(arch),
     architecture_impl_(ArchitectureImplementation::create(arch)),
     device_firmware_(std::make_unique<SimulationDeviceFirmware>(arch)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
 SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
-
-tt::ARCH SimulationTTDeviceModel::get_arch() const { return arch_; }
-
-// A simulation backend has no host transport to be addressed within, so it reports no communication
-// device at all.
-int SimulationTTDeviceModel::get_communication_device_id() const { return -1; }
 
 // A simulation backend reaches its device directly rather than over a transport protocol; the
 // simulation TTDevice overrides the read/write paths instead of routing them through one.

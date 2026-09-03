@@ -22,6 +22,7 @@
 #include "tracy.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -33,6 +34,7 @@
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
@@ -81,9 +83,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         is_pcie_hung();
     }
     // The hang detector is an optional component, so a model that provides none simply skips the check.
-    HangDetector *hang_detector = model_->get_hang_detector();
+    // Going through is_noc_hung() rather than the detector directly picks up its warning for a
+    // protocol that cannot run the check at all.
     const NocId hang_check_noc = is_selected_noc1() ? NocId::NOC1 : NocId::NOC0;
-    if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
+    if (model_->get_hang_detector() != nullptr && is_noc_hung(hang_check_noc, HangAction::RETURN)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
     // Waits for the firmware and builds the components that read what it publishes; the model's
@@ -254,7 +257,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
     return remote_interface;
 }
 
-tt::ARCH TTDevice::get_arch() const { return model_->get_arch(); }
+tt::ARCH TTDevice::get_arch() const { return model_->get_architecture_impl()->get_architecture(); }
 
 bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     HangDetector *hang_detector = model_->get_hang_detector();
@@ -494,7 +497,12 @@ void TTDevice::wait_for_non_mmio_flush() {
 
 bool TTDevice::is_remote() { return model_->get_remote_interface() != nullptr; }
 
-int TTDevice::get_communication_device_id() const { return model_->get_communication_device_id(); }
+// A simulation model reaches its device in-process, so it has no protocol and no communication
+// device to be addressed within.
+int TTDevice::get_communication_device_id() const {
+    DeviceProtocol *device_protocol = model_->get_device_protocol();
+    return device_protocol != nullptr ? device_protocol->get_mmio_id() : -1;
+}
 
 // Derived from the transport the device actually has, rather than stored: exactly one of these
 // interfaces is present, and a remote device reports the transport of the local device it is

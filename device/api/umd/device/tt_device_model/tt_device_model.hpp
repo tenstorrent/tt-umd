@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
-#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 class DeviceFirmware;
@@ -43,16 +42,6 @@ class SocArchDescriptor;
 class TTDeviceModel {
 public:
     virtual ~TTDeviceModel() = default;
-
-    // TODO: temporary - not part of the Base API. Answered by
-    // get_architecture_impl()->get_architecture() once ArchitectureImplementation moves here.
-    virtual tt::ARCH get_arch() const = 0;
-
-    // Identifies the device within its transport: the PCI device number for PCIe, the JLink id for
-    // JTAG. A remote device reports the identity of the local device it is reached through.
-    // TODO: temporary - not part of the Base API. Answered by get_device_protocol()->get_mmio_id()
-    // once DeviceProtocol moves here.
-    virtual int get_communication_device_id() const = 0;
 
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;

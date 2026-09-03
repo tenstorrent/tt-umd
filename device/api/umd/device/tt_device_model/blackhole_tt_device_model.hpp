@@ -33,10 +33,6 @@ public:
 
     ~BlackholeTTDeviceModel() override;
 
-    tt::ARCH get_arch() const override;
-
-    int get_communication_device_id() const override;
-
     DeviceProtocol *get_device_protocol() override;
 
     DeviceFirmware *get_device_firmware() override;
@@ -64,7 +60,6 @@ public:
     PCIDevice *get_pci_device() override;
 
 private:
-    int communication_device_id_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
 

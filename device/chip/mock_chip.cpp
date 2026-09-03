@@ -26,8 +26,6 @@ TTDevice* MockChip::get_tt_device() { return nullptr; }
 
 SysmemManager* MockChip::get_sysmem_manager() { return nullptr; }
 
-TLBManager* MockChip::get_tlb_manager() { return nullptr; }
-
 int MockChip::get_num_host_channels() { return 0; }
 
 int MockChip::get_host_channel_size(std::uint32_t channel) { return 0; }

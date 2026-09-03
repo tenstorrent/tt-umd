@@ -26,7 +26,6 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
@@ -47,7 +46,6 @@ namespace tt::umd {
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
-    std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
 
     if (tt_device == nullptr) {
@@ -55,25 +53,20 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
     }
 
     if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
 
-    return std::unique_ptr<LocalChip>(
-        new LocalChip(std::move(tt_device), std::move(tlb_manager), std::move(sysmem_manager)));
+    return std::unique_ptr<LocalChip>(new LocalChip(std::move(tt_device), std::move(sysmem_manager)));
 }
 
-LocalChip::LocalChip(
-    std::unique_ptr<TTDevice> tt_device,
-    std::unique_ptr<TLBManager> tlb_manager,
-    std::unique_ptr<SysmemManager> sysmem_manager) :
+LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager) :
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
-    tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
-    if (tlb_manager_ != nullptr) {
+
+    if (tt_device_->get_communication_device_type() == IODeviceType::PCIe) {
         initialize_default_chip_mutexes();
     }
 }
@@ -85,7 +78,6 @@ LocalChip::~LocalChip() {
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     sysmem_manager_.reset();
-    tlb_manager_.reset();
     tt_device_.reset();
 }
 
@@ -133,8 +125,6 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
-
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device(uint32_t dram_membar_subchannel) {
@@ -162,9 +152,6 @@ void LocalChip::close_device() {
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
-        }
-        if (tlb_manager_) {
-            tlb_manager_->clear_mapped_tlbs();
         }
     }
     chip_started_lock_.reset();
@@ -254,20 +241,11 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         return;
     }
 
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
-    } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        write_block_reconfigure(
-            *get_cached_wc_tlb_window(),
-            src,
-            translated_core,
-            l1_dest,
-            size,
-            get_selected_noc_id(),
-            IoOrdering::Relaxed);
-    }
+    // Relaxed, overriding the reconfigure default: this is the bulk-transfer path, and Strict cuts write
+    // throughput. A caller needing ordering uses the register path or its own window.
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    write_block_reconfigure(
+        *get_cached_wc_tlb_window(), src, translated_core, l1_dest, size, get_selected_noc_id(), IoOrdering::Relaxed);
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
@@ -286,20 +264,9 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
         return;
     }
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
-    } else {
-        std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        read_block_reconfigure(
-            *get_cached_wc_tlb_window(),
-            dest,
-            translated_core,
-            l1_src,
-            size,
-            get_selected_noc_id(),
-            IoOrdering::Relaxed);
-    }
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+    read_block_reconfigure(
+        *get_cached_wc_tlb_window(), dest, translated_core, l1_src, size, get_selected_noc_id(), IoOrdering::Relaxed);
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {

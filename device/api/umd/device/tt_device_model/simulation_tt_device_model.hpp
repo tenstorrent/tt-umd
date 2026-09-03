@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "umd/device/tt_device_model/tt_device_model.hpp"
@@ -34,7 +35,20 @@ public:
     // whenever one is present, and refuses to proceed without a detector to ask.
     HangDetector *get_hang_detector() override;
 
+    // Replace the firmware that reports nothing with the architecture's own, which reads what the
+    // simulator publishes. Called by a device that has attached a usable protocol, and only then: an
+    // architecture firmware reads the device in its constructor -- Blackhole resolves its ARC
+    // coordinates from NOC translation state over BAR -- so it cannot exist before the transport
+    // works. A no-op for architectures a simulator publishes no firmware state for.
+    void use_arch_device_firmware();
+
     DeviceFirmware *get_device_firmware() override;
+
+    // Lent onward from the firmware, exactly as the silicon models do: whatever it built while
+    // reading the device is what callers asking this model should see.
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
+
+    FirmwareInfoProvider *get_firmware_info_provider() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
 
@@ -47,7 +61,13 @@ private:
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<TTSimProtocol> tt_sim_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
-    std::unique_ptr<SimulationDeviceFirmware> device_firmware_;
+    std::unique_ptr<DeviceFirmware> device_firmware_;
+    // The telemetry reader and info provider are accessors of the concrete architecture firmwares
+    // rather than of the DeviceFirmware interface, and they only exist once init_firmware has run.
+    // Captured as lookups when the firmware is installed, so they are read at call time rather than
+    // sampled too early. Empty while the firmware reports nothing, which has neither.
+    std::function<FirmwareTelemetryReader *()> telemetry_reader_lookup_;
+    std::function<FirmwareInfoProvider *()> info_provider_lookup_;
 };
 
 }  // namespace tt::umd

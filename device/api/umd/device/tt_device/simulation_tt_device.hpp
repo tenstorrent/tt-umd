@@ -59,11 +59,8 @@ public:
 
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
-    bool get_noc_translation_enabled() override;
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,
@@ -92,8 +89,6 @@ protected:
         std::unique_ptr<TTDeviceModel> model,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<SimulationSysmemManager> sysmem_manager);
-
-    void retrain_dram_core(const uint32_t dram_channel) override;
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes

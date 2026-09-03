@@ -11,6 +11,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
@@ -36,6 +37,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
+
+    device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+        protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
 
 WormholeTTDeviceModel::WormholeTTDeviceModel(
@@ -49,6 +53,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
     hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
+
+    device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+        protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
 
 // A remote device is reached through a local one, so it takes the local device's identity.
@@ -63,6 +70,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     protocol_ = std::move(remote_protocol);
     hang_detector_ = std::make_unique<WormholeHangDetector>(
         remote_interface_->get_remote_communication()->get_local_device()->get_device_protocol());
+
+    device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+        protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
@@ -74,6 +84,16 @@ tt::ARCH WormholeTTDeviceModel::get_arch() const { return tt::ARCH::WORMHOLE_B0;
 int WormholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }
 
 DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }
+
+DeviceFirmware *WormholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
+
+FirmwareTelemetryReader *WormholeTTDeviceModel::get_firmware_telemetry_reader() {
+    return device_firmware_->get_firmware_telemetry_reader();
+}
+
+FirmwareInfoProvider *WormholeTTDeviceModel::get_firmware_info_provider() {
+    return device_firmware_->get_firmware_info_provider();
+}
 
 SocArchDescriptor *WormholeTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 

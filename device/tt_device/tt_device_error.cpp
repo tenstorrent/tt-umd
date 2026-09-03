@@ -38,18 +38,21 @@ PcieHangError::PcieHangError(const TTDevice& tt_device, uint32_t data_read) :
             tt_device.get_communication_device_id()),
         {{tt_device}, data_read}) {}
 
-ArcStartupError::ArcStartupError(
-    const TTDevice& tt_device,
+FirmwareStartupError::FirmwareStartupError(
+    IODeviceType io_device_type,
+    ChipId chip_id,
+    tt::ARCH arch,
     NocId noc_id,
-    xy_pair arc_core,
+    xy_pair fw_core,
     uint32_t scratch_status,
     uint32_t postcode,
     std::optional<uint32_t> message_id,
     std::optional<uint32_t> smc_init_status) :
-    UmdError<ArcStartupData>(
+    UmdError<FirmwareStartupData>(
         fmt::format(
-            "ARC startup error at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
-            arc_core.str(),
+            "Firmware startup error on device {} at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
+            chip_id,
+            fw_core.str(),
             noc_to_str(noc_id),
             scratch_status,
             postcode,
@@ -59,59 +62,35 @@ ArcStartupError::ArcStartupError(
                                               smc_init_status.value(),
                                               blackhole::interpret_smc_init_status(smc_init_status.value()))
                                         : ""),
-        {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id, smc_init_status}) {}
+        {{TTDeviceData(io_device_type, chip_id, arch), fw_core, noc_id},
+         scratch_status,
+         postcode,
+         message_id,
+         smc_init_status}) {}
 
-ArcStartupError::ArcStartupError(
-    const TTDevice& tt_device,
+FirmwareStartupError::FirmwareStartupError(
+    IODeviceType io_device_type,
+    ChipId chip_id,
+    tt::ARCH arch,
     NocId noc_id,
-    xy_pair arc_core,
+    xy_pair fw_core,
     uint32_t scratch_status,
     uint32_t postcode,
     std::chrono::milliseconds timeout,
     std::optional<uint32_t> message_id,
     std::optional<uint32_t> smc_init_status) :
-    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id, smc_init_status) {
+    FirmwareStartupError(
+        io_device_type, chip_id, arch, noc_id, fw_core, scratch_status, postcode, message_id, smc_init_status) {
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
 
-// device_firmware is not read: a DeviceFirmware carries no device identity, so the TTDeviceData part
-// of the payload (io_device_type, chip_id, arch) keeps its defaults. It stays in the signature so
-// these errors can be filled in properly once the firmware component can name its device.
-FirmwareStartupError::FirmwareStartupError(
-    const DeviceFirmware& device_firmware,
-    NocId noc_id,
-    xy_pair arc_core,
-    uint32_t scratch_status,
-    uint32_t postcode,
-    std::optional<uint32_t> message_id,
-    std::optional<uint32_t> smc_init_status) :
-    UmdError<ArcStartupData>(
-        fmt::format(
-            "Firmware startup error at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
-            arc_core.str(),
-            noc_to_str(noc_id),
-            scratch_status,
-            postcode,
-            message_id.has_value() ? fmt::format(", message_id={:#x}", message_id.value()) : "",
-            smc_init_status.has_value() ? fmt::format(
-                                              ", smc_init_status={:#x} ({})",
-                                              smc_init_status.value(),
-                                              blackhole::interpret_smc_init_status(smc_init_status.value()))
-                                        : ""),
-        {{TTDeviceData{}, arc_core, noc_id}, scratch_status, postcode, message_id, smc_init_status}) {}
+TTDeviceData::TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
+    io_device_type(io_device_type), chip_id(chip_id), arch(arch) {}
 
-FirmwareStartupError::FirmwareStartupError(
-    const DeviceFirmware& device_firmware,
-    NocId noc_id,
-    xy_pair arc_core,
-    uint32_t scratch_status,
-    uint32_t postcode,
-    std::chrono::milliseconds timeout,
-    std::optional<uint32_t> message_id,
-    std::optional<uint32_t> smc_init_status) :
-    FirmwareStartupError(device_firmware, noc_id, arc_core, scratch_status, postcode, message_id, smc_init_status) {
-    message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
-}
+PcieHangError::PcieHangError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch, uint32_t data_read) :
+    UmdError<PcieHangData>(
+        fmt::format("Read {:#x} over PCIe ID {}: the board should be reset.", data_read, chip_id),
+        {TTDeviceData(io_device_type, chip_id, arch), data_read}) {}
 
 UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
     UmdError<TTDeviceData>(
@@ -119,6 +98,11 @@ UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
             "This method cannot be called before initializing TTDevice. Device ID: {}",
             tt_device.get_communication_device_id()),
         tt_device) {}
+
+UninitializedDeviceError::UninitializedDeviceError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
+    UmdError<TTDeviceData>(
+        fmt::format("This method cannot be called before initializing TTDevice. Device ID: {}", chip_id),
+        TTDeviceData(io_device_type, chip_id, arch)) {}
 
 UnresolvableCoordinateError::UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc) :
     UmdError<DeviceCoreData>(

@@ -12,6 +12,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -169,7 +170,7 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
         return;
     }
     if (should_use_cached_tlb_window()) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        write_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
         tile_write_bytes(translated_core, addr, mem_ptr, size);
     }
@@ -185,7 +186,7 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
         return;
     }
     if (should_use_cached_tlb_window()) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        read_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
         tile_read_bytes(translated_core, addr, mem_ptr, size);
     }
@@ -299,12 +300,6 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 
-bool SimulationTTDevice::get_noc_translation_enabled() {
-    // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is never
-    // applied.
-    return false;
-}
-
 void SimulationTTDevice::noc_multicast_write(
     const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
@@ -329,24 +324,12 @@ void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr
     UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
-}
-
-void SimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
-}
-
 uint32_t SimulationTTDevice::get_clock() {
     UMD_THROW(error::RuntimeError, "Getting clock is not supported for simulation devices.");
 }
 
 uint32_t SimulationTTDevice::get_min_clock_freq() {
     UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported for simulation devices.");
-}
-
-void SimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported for simulation devices.");
 }
 
 }  // namespace tt::umd

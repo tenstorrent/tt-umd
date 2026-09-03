@@ -9,44 +9,63 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
 
 // How this class picks a route for ARC accesses: a non-null RemoteInterface means the device is
 // reached over ethernet through a gateway, a non-null JtagInterface means it is reached over JTAG,
-// and otherwise it is reached over PCIe. Inferring the route from which optional interface is present
-// is sound because a TTDevice is built for exactly one communication protocol. The routing itself
-// lives in WormholeArcWindow.
+// and otherwise it is reached over PCIe. Inferring the route from which optional interface is
+// present is sound because a TTDevice is built for exactly one communication protocol. The routing
+// itself lives in WormholeArcWindow.
 
 WormholeDeviceFirmware::WormholeDeviceFirmware(
     DeviceProtocol* device_protocol,
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
-    ArchitectureImplementation* architecture_impl,
-    FirmwareInfoProvider* firmware_info_provider) :
+    ArchitectureImplementation* architecture_impl) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
     remote_interface_(remote_interface),
     architecture_impl_(architecture_impl),
-    firmware_info_provider_(firmware_info_provider),
-    device_id_(device_protocol->get_mmio_id()),
     arc_apb_(WormholeArcWindow::arc_apb(device_protocol, pcie_interface, jtag_interface, remote_interface)),
     arc_csm_(WormholeArcWindow::arc_csm(device_protocol, pcie_interface, jtag_interface, remote_interface)) {
+    UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "WormholeDeviceFirmware requires a DeviceProtocol.");
+    UMD_ASSERT(
+        architecture_impl_ != nullptr,
+        error::RuntimeError,
+        "WormholeDeviceFirmware requires an ArchitectureImplementation.");
+    const int transports = (pcie_interface_ != nullptr) + (jtag_interface_ != nullptr) + (remote_interface_ != nullptr);
+    UMD_ASSERT(
+        transports == 1,
+        error::RuntimeError,
+        "WormholeDeviceFirmware requires exactly one of a PcieInterface, a JtagInterface or a RemoteInterface, since "
+        "which one is present is how it picks the route for an access.");
+
+    // Read after the checks above, not in the member initialiser list: that runs first, so a null
+    // protocol faulted there before the assert could report it.
+    device_id_ = device_protocol_->get_mmio_id();
+
     // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one:
     // several topology discovery instances can reach the same remote chip through different local
     // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors
@@ -61,11 +80,54 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
+WormholeDeviceFirmware::~WormholeDeviceFirmware() = default;
+
 IODeviceType WormholeDeviceFirmware::get_io_device_type() const {
     return jtag_interface_ != nullptr ? IODeviceType::JTAG : IODeviceType::PCIe;
 }
 
 void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // TODO: temporary. init_firmware() does two jobs - waiting for the firmware and building what
+    // depends on it - so callers that only need the first (warm reset, for one) still run the
+    // second, and a rebuild here would discard a live set. The intended fix is to split the two
+    // into separate API calls, at which point this guard goes away.
+    //
+    // Safe today only because every caller creates the TTDevice after a reset rather than reusing
+    // one across it, so there is never pre-reset state to preserve.
+    if (firmware_info_provider_ != nullptr) {
+        return;
+    }
+
+    wait_firmware_ready(timeout_ms, noc_id);
+
+    // The telemetry reader and info provider read state the firmware publishes, so this is the
+    // earliest point they can exist.
+    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
+        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
+
+    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
+}
+
+FirmwareTelemetryReader* WormholeDeviceFirmware::get_firmware_telemetry_reader() const {
+    return firmware_telemetry_reader_.get();
+}
+
+FirmwareInfoProvider* WormholeDeviceFirmware::get_firmware_info_provider() const {
+    return firmware_info_provider_.get();
+}
+
+void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // Deliberate difference from the deleted TTDevice wait: its JTAG reads were pinned to the NOC0
+    // ARC coordinate over the default NOC whatever NOC the caller asked for. Every read here uses
+    // noc_id consistently, coordinate and routing both; with the default NOC0 the two are
+    // bit-identical on every transport.
+    // One throwaway read before the poll, so a dead ARC APB path faults on an access that is
+    // clearly a probe rather than partway into the boot-status loop. This was
+    // TTDevice::probe_arc(), moved here with its only caller.
+    uint32_t dummy;
+    read_from_arc_apb(&dummy, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(dummy), noc_id);
+
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -117,7 +179,9 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
                 case STATUS_WATCHDOG_TRIGGERED:
                     UMD_THROW(
                         error::FirmwareStartupError,
-                        *this,
+                        get_io_device_type(),
+                        device_id_,
+                        tt::ARCH::WORMHOLE_B0,
                         noc_id,
                         get_firmware_noc_coord(noc_id),
                         arc_reset_scratch_status,
@@ -169,7 +233,9 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
     if (!arc_core_started) {
         UMD_THROW(
             error::FirmwareStartupError,
-            *this,
+            get_io_device_type(),
+            device_id_,
+            tt::ARCH::WORMHOLE_B0,
             noc_id,
             get_firmware_noc_coord(noc_id),
             arc_reset_scratch_status,
@@ -181,6 +247,13 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
+    // No commands before the firmware is up. Wormhole messages go through scratch registers that are
+    // readable either way, so nothing stops the access -- it would just be talking to firmware that
+    // has not reported ready.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }
@@ -281,9 +354,130 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     return DeviceCommandResult{exit_code, std::move(return_values)};
 }
 
+void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
+    // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
+    // which matches what TTDevice::set_power_state did by returning early for them.
+    if (pcie_interface_ == nullptr) {
+        return;
+    }
+    pcie_interface_->set_power_state(state);
+}
+
+void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
+    // The BUSY branch reads the info provider before send_device_command can run its own pre-init
+    // check, so refuse here with the same error the deleted TTDevice path produced.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+
+    uint32_t msg_code = wormhole::ARC_MSG_COMMON_PREFIX;
+    uint32_t target_aiclk = 0;
+    switch (state) {
+        case ClockState::BUSY:
+            msg_code |= architecture_impl_->get_firmware_message_go_busy();
+            target_aiclk = firmware_info_provider_->get_max_clock_freq().value_or(0);
+            break;
+        case ClockState::IDLE:
+            msg_code |= architecture_impl_->get_firmware_message_go_idle();
+            target_aiclk = wormhole::AICLK_IDLE_VAL;
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized clock state.");
+    }
+
+    DeviceCommandResult result = send_device_command(msg_code, {0, 0}, timeout::ARC_MESSAGE_TIMEOUT, noc_id);
+    UMD_ASSERT(
+        result.exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
+
+    wait_for_aiclk_value(target_aiclk, noc_id);
+}
+
+void WormholeDeviceFirmware::log_aiclk_timeout_warning(
+    uint32_t target_aiclk, uint32_t observed_aiclk, std::chrono::milliseconds timeout_ms) {
+    std::string arb_max_info;
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+        const uint32_t arb_max = firmware_telemetry_reader_->read_entry(TelemetryTag::AICLK_ARB_MAX);
+        arb_max_info = fmt::format(
+            ", AICLK clamped by max-arbiter index {} at {} MHz", (arb_max >> 16) & 0xFFFF, arb_max & 0xFFFF);
+    }
+
+    log_warning(
+        LogUMD,
+        "AICLK failed to settle after {} ms. Expected {}, observed {}. ASIC temperature: {}{}",
+        timeout_ms.count(),
+        target_aiclk,
+        observed_aiclk,
+        firmware_info_provider_->get_asic_temperature().value_or(0.0),
+        arb_max_info);
+
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+        const uint32_t update_telem_speed_ms = firmware_telemetry_reader_->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+        if (timeout_ms.count() <= update_telem_speed_ms) {
+            log_warning(
+                LogUMD,
+                "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the observed "
+                "AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                timeout_ms.count(),
+                update_telem_speed_ms);
+        }
+    }
+}
+
+void WormholeDeviceFirmware::wait_for_aiclk_value(
+    uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms) {
+    constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
+
+    uint32_t aiclk = 0;
+    const bool settled = utils::poll_until(
+        [&] {
+            // Wormhole reads AICLK through an ARC message rather than telemetry. The 0xFFFF pair
+            // packs to the firmware's no-argument sentinel, exactly as TTDevice::get_clock sends it;
+            // a failed read throws rather than settling on garbage, as the deleted path did.
+            DeviceCommandResult result = send_device_command(
+                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
+                {0xFFFF, 0xFFFF},
+                timeout::ARC_MESSAGE_TIMEOUT,
+                noc_id);
+            if (result.exit_code != 0) {
+                UMD_THROW(
+                    error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
+            }
+            aiclk = result.return_values.at(0);
+            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
+        },
+        timeout_ms,
+        std::chrono::microseconds(500),
+        std::chrono::microseconds(100));
+
+    if (!settled) {
+        log_aiclk_timeout_warning(target_aiclk, aiclk, timeout_ms);
+        return;
+    }
+
+    if (aiclk != target_aiclk) {
+        log_warning(
+            LogUMD,
+            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
+            aiclk,
+            AICLK_TOLERANCE_PERCENT,
+            target_aiclk);
+    }
+}
+
+bool WormholeDeviceFirmware::get_noc_translation_enabled(NocId noc_id) {
+    constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
+    constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
+
+    uint32_t niu_cfg = 0x0;
+    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof(niu_cfg), noc_id);
+    return (niu_cfg & (1 << 14)) != 0;
+}
+
 ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
     if (firmware_info_provider_ == nullptr) {
-        UMD_THROW(error::RuntimeError, "Chip info is unavailable without a FirmwareInfoProvider.");
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
     }
     ChipInfo chip_info;
 
@@ -308,15 +502,6 @@ ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
         CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0));
 
     return chip_info;
-}
-
-bool WormholeDeviceFirmware::get_noc_translation_enabled(NocId noc_id) {
-    constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
-    constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
-
-    uint32_t niu_cfg = 0x0;
-    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof(niu_cfg), noc_id);
-    return (niu_cfg & (1 << 14)) != 0;
 }
 
 tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
@@ -418,95 +603,6 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
             start,
             timeout_ms,
             fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
-    }
-}
-
-DramTrainingStatus WormholeDeviceFirmware::get_dram_channel_training_status(uint32_t dram_channel, NocId noc_id) {
-    const uint32_t dram_banks_number = architecture_impl_->get_dram_banks_number();
-    if (dram_channel >= dram_banks_number) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
-                dram_channel,
-                dram_banks_number - 1));
-    }
-
-    std::vector<DramTrainingStatus> dram_training_status =
-        firmware_info_provider_->get_dram_training_status(dram_banks_number);
-    if (dram_training_status.empty()) {
-        UMD_THROW(error::RuntimeError, "DRAM training status is not available.");
-    }
-    return dram_training_status.at(dram_channel);
-}
-
-void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
-    // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
-    // which matches TTDevice::set_power_state returning early for them.
-    if (pcie_interface_ == nullptr) {
-        return;
-    }
-    pcie_interface_->set_power_state(state);
-}
-
-void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
-    uint32_t msg_code = wormhole::ARC_MSG_COMMON_PREFIX;
-    uint32_t target_aiclk = 0;
-    switch (state) {
-        case ClockState::BUSY:
-            msg_code |= architecture_impl_->get_firmware_message_go_busy();
-            target_aiclk = firmware_info_provider_->get_max_clock_freq().value_or(0);
-            break;
-        case ClockState::IDLE:
-            msg_code |= architecture_impl_->get_firmware_message_go_idle();
-            target_aiclk = wormhole::AICLK_IDLE_VAL;
-            break;
-        default:
-            UMD_THROW(error::RuntimeError, "Unrecognized clock state.");
-    }
-
-    DeviceCommandResult result = send_device_command(msg_code, {0, 0}, timeout::ARC_MESSAGE_TIMEOUT, noc_id);
-    UMD_ASSERT(
-        result.exit_code == 0,
-        error::RuntimeError,
-        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
-
-    wait_for_aiclk_value(target_aiclk, noc_id);
-}
-
-void WormholeDeviceFirmware::wait_for_aiclk_value(
-    uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms) {
-    constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
-
-    uint32_t aiclk = 0;
-    const bool settled = utils::poll_until(
-        [&] {
-            // Wormhole reads AICLK through an ARC message rather than telemetry.
-            DeviceCommandResult result = send_device_command(
-                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-                {0, 0},
-                timeout::ARC_MESSAGE_TIMEOUT,
-                noc_id);
-            aiclk = result.return_values.at(0);
-            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
-        },
-        timeout_ms,
-        std::chrono::microseconds(500),
-        std::chrono::microseconds(100));
-
-    if (!settled) {
-        log_warning(
-            LogUMD, "AICLK did not reach {} MHz within {} ms. Proceeding anyway.", target_aiclk, timeout_ms.count());
-        return;
-    }
-
-    if (aiclk != target_aiclk) {
-        log_warning(
-            LogUMD,
-            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
-            aiclk,
-            AICLK_TOLERANCE_PERCENT,
-            target_aiclk);
     }
 }
 

@@ -10,9 +10,11 @@
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class DeviceFirmware;
 
 class ArchitectureImplementation;
 class DmaInterface;
+class FirmwareInfoProvider;
 class FirmwareTelemetryReader;
 class HangDetector;
 class JtagInterface;
@@ -55,6 +57,14 @@ public:
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;
 
+    /**
+     * @brief The device's management firmware component.
+     *
+     * Created and owned by the concrete model, like every other component: the model knows its
+     * architecture and backend statically, so no dispatch is involved in picking the implementation.
+     */
+    virtual DeviceFirmware *get_device_firmware() = 0;
+
     virtual ArchitectureImplementation *get_architecture_impl() = 0;
 
     // The model resolves this from what the caller supplied, or from its architecture's constants.
@@ -63,7 +73,12 @@ public:
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
+    // Lent from the firmware component, which owns them because they read state the firmware
+    // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the
+    // default - a simulated device has no firmware-published state to read.
     virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() { return nullptr; }
+
+    virtual FirmwareInfoProvider *get_firmware_info_provider() { return nullptr; }
 
     // Optional transport interfaces.
     virtual PcieInterface *get_pcie_interface() { return nullptr; }

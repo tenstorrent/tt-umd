@@ -18,19 +18,19 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
@@ -60,9 +60,6 @@
 namespace tt::umd {
 enum class RiscType : std::uint64_t;
 
-// AICLK rarely settles on the exact target; accept any value within this percentage of the target.
-constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
-
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
@@ -76,6 +73,8 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
     wire_hang_detector();
 }
 
+DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
+
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (model_->get_pcie_interface() != nullptr) {
@@ -87,17 +86,9 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
-    probe_arc();
-    wait_arc_core_start(timeout_ms);
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
-        get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);
-    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        get_arch(),
-        get_device_protocol(),
-        get_arc_core(NocId::NOC0),
-        get_arc_core(NocId::NOC1),
-        get_firmware_telemetry_reader());
+    // Waits for the firmware and builds the components that read what it publishes; the model's
+    // firmware owns them, and the accessors below lend them onward.
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
     construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
@@ -209,87 +200,24 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();
 }
 
-void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    if (is_remote() || model_->get_pcie_interface() == nullptr) {
-        return;
-    }
-    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
+    // TTDevice::PowerState is BUSY/IDLE and the firmware's is HIGH/LOW; converting here rather than
+    // at every call site keeps the ~90 existing TTDevice::PowerState uses compiling while the two
+    // enums are collapsed separately.
+    get_device_firmware()->set_power_state(
+        state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
 }
 
-void TTDevice::set_clock_state(TTDevice::PowerState /*state*/, NocId /*noc_id*/) {
-    // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
-    // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
+void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
+    // The per-arch overrides this replaces ignored the parameter and let ArcMessenger route on the
+    // thread-selected NOC; keep that until the parameter is honored end-to-end.
+    get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
-void TTDevice::wait_for_aiclk_value(TTDevice::PowerState power_state, const std::chrono::milliseconds timeout_ms) {
-    uint32_t target_aiclk = 0;
-    switch (power_state) {
-        case TTDevice::PowerState::BUSY:
-            target_aiclk = get_max_clock_freq();
-            break;
-        case TTDevice::PowerState::IDLE:
-            target_aiclk = get_min_clock_freq();
-            break;
-        default:
-            UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
-    }
-
-    uint32_t aiclk = 0;
-    const bool settled = utils::poll_until(
-        [&] {
-            aiclk = get_clock();
-            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
-        },
-        timeout_ms,
-        std::chrono::microseconds(500),
-        std::chrono::microseconds(100));
-
-    if (!settled) {
-        log_aiclk_timeout_warning(target_aiclk, timeout_ms);
-        return;
-    }
-
-    if (aiclk != target_aiclk) {
-        log_warning(
-            LogUMD,
-            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
-            aiclk,
-            AICLK_TOLERANCE_PERCENT,
-            target_aiclk);
-    }
-}
-
-void TTDevice::log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms) {
-    const uint32_t aiclk = get_clock();
-
-    auto *telemetry = get_firmware_telemetry_reader();
-    std::string arb_max_info;
-    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
-        const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
-        arb_max_info = fmt::format(
-            ", AICLK clamped by max-arbiter index {} at {} MHz", (arb_max >> 16) & 0xFFFF, arb_max & 0xFFFF);
-    }
-
-    log_warning(
-        LogUMD,
-        "AICLK failed to settle after {} ms. Expected {}, observed {}. ASIC temperature: {}{}",
-        timeout_ms.count(),
-        target_aiclk,
-        aiclk,
-        get_asic_temperature(),
-        arb_max_info);
-
-    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
-        const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
-        if (timeout_ms.count() <= update_telem_speed_ms) {
-            log_warning(
-                LogUMD,
-                "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the observed "
-                "AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
-                timeout_ms.count(),
-                update_telem_speed_ms);
-        }
-    }
+bool TTDevice::get_noc_translation_enabled() {
+    // The overrides this replaces routed their device reads per the thread-selected NOC (via the
+    // TTDevice accessors); keep that.
+    return get_device_firmware()->get_noc_translation_enabled(get_selected_noc_id());
 }
 
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
@@ -410,7 +338,7 @@ void TTDevice::wire_hang_detector() {
             // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
             // rather than silently masking it as a hang.
             uint32_t value = 0;
-            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+            read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
             return value;
         });
 }
@@ -435,6 +363,59 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     }
 
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+}
+
+// Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
+// virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
+// SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
+// the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
+// without touching this signature or any caller.
+std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
+    // which harvesting shifts, so the rectangle they bound is not the one the caller asked for.
+    UMD_ASSERT(
+        !target.core_end.has_value() || get_soc_descriptor().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
+
+    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+
+    // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
+    // request is served by the smallest one that covers it and get_size() reports what the caller got.
+    // This keeps the caller from having to know the architecture's window sizes; a request of 0 leaves
+    // the choice to the backend entirely.
+    size_t size = host.size;
+    if (size != 0) {
+        // A mapping is anchored at the start of an aligned block of its own size, so the span reachable
+        // from target.addr is what is left of that block -- the class has to cover the address's offset
+        // into it as well. Size classes are ordered smallest first, so the first fit is the smallest.
+        const std::vector<TlbSizeClass> &size_classes = get_architecture_tlbs(get_arch()).size_classes;
+        auto size_class =
+            std::find_if(size_classes.begin(), size_classes.end(), [&target, size](const TlbSizeClass &candidate) {
+                // Written as a subtraction so a huge requested size cannot overflow the sum.
+                return size <= candidate.size - (target.addr % candidate.size);
+            });
+        UMD_ASSERT(
+            size_class != size_classes.end(),
+            error::RuntimeError,
+            fmt::format(
+                "Requested I/O window of {} bytes at address {:#x} does not fit in the largest window {} provides "
+                "({} bytes).",
+                size,
+                target.addr,
+                tt::arch_to_str(get_arch()),
+                size_classes.back().size));
+        size = size_class->size;
+    }
+
+    // Routing follows the caller's selected NOC unless the target names one explicitly.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+
+    std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
+    window->configure(target);
+    return window;
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
@@ -463,80 +444,43 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (dram_channel >= get_architecture_implementation()->get_dram_banks_number()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
-                dram_channel,
-                get_architecture_implementation()->get_dram_banks_number() - 1));
-    }
-    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
-    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
+    get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
+}
+
+std::chrono::milliseconds TTDevice::wait_eth_core_training(
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    // The overrides this replaces measured the poll loop's duration; measuring around the firmware
+    // call reports the same thing to the callers that subtract it from a timeout budget.
+    const NocId noc_id = get_selected_noc_id();
     auto start = std::chrono::steady_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_firmware_info_provider()->get_dram_training_status(
-            get_architecture_implementation()->get_dram_banks_number());
+    get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+}
 
-        if (dram_training_status.empty()) {
-            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
-            return;
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            if (num_retrain_dram_core > 0) {
-                log_warning(
-                    LogUMD,
-                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
-                    dram_channel,
-                    num_retrain_dram_core - 1);
-                retrain_dram_core(dram_channel);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                num_retrain_dram_core--;
-            } else {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "DRAM training failed for channel {} after {} retrain attempts.",
-                        dram_channel,
-                        MAX_DRAM_RETRAIN_ATTEMPTS));
-            }
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
-            return;
-        }
-
-        utils::check_timeout(
-            start,
-            timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
-    }
+EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
+    const NocId noc_id = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
 
-ArcMessenger *TTDevice::get_arc_messenger() const {
-    if (arc_messenger_ == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    return arc_messenger_.get();
-}
-
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
-    if (telemetry == nullptr) {
+    FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();
+    if (telemetry_reader == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
-    return telemetry.get();
+    return telemetry_reader;
 }
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
-    if (firmware_info_provider == nullptr) {
+    FirmwareInfoProvider *info_provider = model_->get_firmware_info_provider();
+    if (info_provider == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
-    return firmware_info_provider.get();
+    return info_provider;
 }
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
@@ -595,17 +539,9 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
 ChipInfo TTDevice::get_chip_info() {
-    if (firmware_info_provider == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    ChipInfo chip_info;
-
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
-    chip_info.board_id = get_board_id();
-    chip_info.board_type = get_board_type();
-    chip_info.asic_location = get_asic_location();
-
-    return chip_info;
+    // The overrides this replaces read harvesting through ArcMessenger, which routed on the
+    // thread-selected NOC; keep that.
+    return get_device_firmware()->get_chip_info(get_selected_noc_id());
 }
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
@@ -646,10 +582,10 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }
 
 tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
-    return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
+    return get_device_firmware()->get_firmware_noc_coord(noc_id);
 }
 
 void TTDevice::noc_multicast_write(

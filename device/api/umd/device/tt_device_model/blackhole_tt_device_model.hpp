@@ -9,6 +9,7 @@
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
+class BlackholeDeviceFirmware;
 
 class ArchitectureImplementation;
 class HangDetector;
@@ -37,6 +38,12 @@ public:
     int get_communication_device_id() const override;
 
     DeviceProtocol *get_device_protocol() override;
+
+    DeviceFirmware *get_device_firmware() override;
+
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
+
+    FirmwareInfoProvider *get_firmware_info_provider() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
 
@@ -72,6 +79,9 @@ private:
     // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs
     // the protocol's PCIDevice alive when it is released.
     std::unique_ptr<HangDetector> hang_detector_;
+
+    // Declared after the transports: it borrows them, so it must be destroyed first.
+    std::unique_ptr<BlackholeDeviceFirmware> device_firmware_;
 };
 
 }  // namespace tt::umd

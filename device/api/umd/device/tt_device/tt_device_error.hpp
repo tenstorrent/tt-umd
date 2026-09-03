@@ -16,7 +16,6 @@
 
 namespace tt::umd {
 class TTDevice;
-class DeviceFirmware;
 }  // namespace tt::umd
 
 namespace tt::umd::error {
@@ -24,6 +23,9 @@ namespace tt::umd::error {
 struct TTDeviceData {
     TTDeviceData() = default;
     TTDeviceData(const TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id = std::nullopt);
+
+    // For components that report a device-scoped error without holding a TTDevice.
+    TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch);
 
     IODeviceType io_device_type = IODeviceType::UNDEFINED;
     ChipId chip_id = 0;
@@ -36,46 +38,32 @@ struct DeviceCoreData : public TTDeviceData {
     NocId noc_id = NocId::DEFAULT_NOC;
 };
 
-struct ArcStartupData : public DeviceCoreData {
+struct FirmwareStartupData : public DeviceCoreData {
     uint32_t scratch_status = 0;
     uint32_t postcode = 0;
     std::optional<uint32_t> message_id = std::nullopt;
     std::optional<uint32_t> smc_init_status = std::nullopt;
 };
 
-struct ArcStartupError : UmdError<ArcStartupData> {
-    ArcStartupError(
-        const TTDevice& tt_device,
-        NocId noc_id,
-        xy_pair arc_core,
-        uint32_t scratch_status,
-        uint32_t postcode,
-        std::optional<uint32_t> message_id = std::nullopt,
-        std::optional<uint32_t> smc_init_status = std::nullopt);
-    ArcStartupError(
-        const TTDevice& tt_device,
-        NocId noc_id,
-        xy_pair arc_core,
-        uint32_t scratch_status,
-        uint32_t postcode,
-        std::chrono::milliseconds timeout,
-        std::optional<uint32_t> message_id = std::nullopt,
-        std::optional<uint32_t> smc_init_status = std::nullopt);
-};
-
-struct FirmwareStartupError : UmdError<ArcStartupData> {
+// Thrown by DeviceFirmware, which takes protocol interfaces rather than a TTDevice, so the device
+// identity is passed as the fields a TTDevice would have supplied.
+struct FirmwareStartupError : UmdError<FirmwareStartupData> {
     FirmwareStartupError(
-        const DeviceFirmware& device_firmware,
+        IODeviceType io_device_type,
+        ChipId chip_id,
+        tt::ARCH arch,
         NocId noc_id,
-        xy_pair arc_core,
+        xy_pair fw_core,
         uint32_t scratch_status,
         uint32_t postcode,
         std::optional<uint32_t> message_id = std::nullopt,
         std::optional<uint32_t> smc_init_status = std::nullopt);
     FirmwareStartupError(
-        const DeviceFirmware& device_firmware,
+        IODeviceType io_device_type,
+        ChipId chip_id,
+        tt::ARCH arch,
         NocId noc_id,
-        xy_pair arc_core,
+        xy_pair fw_core,
         uint32_t scratch_status,
         uint32_t postcode,
         std::chrono::milliseconds timeout,
@@ -97,10 +85,17 @@ struct PcieHangData : TTDeviceData {
 
 struct PcieHangError : UmdError<PcieHangData> {
     PcieHangError(const TTDevice& tt_device, uint32_t data_read);
+
+    // For components that report the same condition without holding a TTDevice.
+    PcieHangError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch, uint32_t data_read);
 };
 
 struct UninitializedDeviceError : UmdError<TTDeviceData> {
     UninitializedDeviceError(const TTDevice& tt_device);
+
+    // For components that report the same condition without holding a TTDevice -- DeviceFirmware
+    // takes protocol interfaces, not a device, so it supplies the identity fields itself.
+    UninitializedDeviceError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch);
 };
 
 struct UnresolvableCoordinateError : UmdError<DeviceCoreData> {

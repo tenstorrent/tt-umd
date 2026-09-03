@@ -86,8 +86,4 @@ uint64_t TTSimTlbWindow::get_physical_address(uint64_t offset) const {
     return reinterpret_cast<uint64_t>(tlb_handle->get_base()) + get_total_offset(offset);
 }
 
-void TTSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
-
-uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
-
 }  // namespace tt::umd

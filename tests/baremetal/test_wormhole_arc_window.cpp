@@ -21,6 +21,8 @@ using ::testing::Return;
 
 namespace {
 
+// Arbitrary offset inside the window, not a hardware-defined location: the tests only check that
+// an access at it is routed and bounded correctly.
 constexpr uint64_t APB_OFFSET = 0x100;
 const tt_xy_pair ARC_CORE = {0, 10};
 
@@ -160,6 +162,7 @@ TEST_F(WormholeArcApbWindowTest, ZeroLengthAccessIsRejected) {
     EXPECT_THROW(window.write(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
 }
 
+// Arbitrary offset inside the window, not a hardware-defined location.
 constexpr uint64_t CSM_OFFSET = 0x200;
 
 class WormholeArcCsmWindowTest : public ::testing::Test {
@@ -203,7 +206,7 @@ TEST_F(WormholeArcCsmWindowTest, RemoteWriteIsADataAccess) {
 }
 
 // The memory-vs-registers distinction is a remote-route one only: JTAG reaches every window over
-// the register path, as WormholeTTDevice::read_from_arc_csm did.
+// the register path, as the TTDevice-era CSM accessor this replaced did.
 TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
     auto window = over_jtag();
 

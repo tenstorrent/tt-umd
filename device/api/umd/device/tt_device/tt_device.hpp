@@ -16,7 +16,6 @@
 #include <utility>
 
 #include "tt_device_error.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -27,6 +26,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -47,8 +47,8 @@
 
 namespace tt::umd {
 
-class ArcMessenger;
 class ArcTelemetryReader;
+class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
 class DmaInterface;
@@ -319,40 +319,6 @@ public:
     virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     /**
-     * Read function that will send read message to the ARC core CSM.
-     *
-     * @param mem_ptr pointer to memory which will receive the data
-     * @param arc_addr_offset address offset in ARC core CSM
-     * @param size number of bytes
-     *
-     * NOTE: This function will read from CSM. It will use the AXI interface to read the data if the chip is local/PCIe,
-     * while the remote chip will use the NOC interface to read the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
-     * Write function that will send write message to the ARC core CSM.
-     *
-     * @param mem_ptr pointer to memory from which the data is sent
-     * @param arc_addr_offset address offset in ARC core CSM
-     * @param size number of bytes
-     *
-     * NOTE: This function will write to CSM. It will use the AXI interface to write the data if the chip is local/PCIe,
-     * while the remote chip will use the NOC interface to write the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
      * Configures a PCIe Address Translation Unit (iATU) region.
      *
      * Device software expects to be able to access memory that is shared with
@@ -380,16 +346,15 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info();
+    ChipInfo get_chip_info();
 
     FirmwareBundleVersion get_firmware_version();
 
     /**
-     * Waits for ARC core to be fully ready for communication.
-     * Must be called before using ArcMessenger.
-     * This ensures the ARC core is completely initialized and operational.
+     * Interface to the device's management firmware. Owned by the model, so never null; created
+     * with the device, initialized by init_tt_device() through DeviceFirmware::init_firmware().
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    DeviceFirmware *get_device_firmware() const;
 
     /**
      * Waits for ETH core training to complete.
@@ -397,8 +362,8 @@ public:
      * @param timeout_ms Timeout in ms.
      * @return Time taken in ms.
      */
-    virtual std::chrono::milliseconds wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+    std::chrono::milliseconds wait_eth_core_training(
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -406,8 +371,6 @@ public:
     void bar_write32(uint32_t addr, uint32_t data);
 
     uint32_t bar_read32(uint32_t addr);
-
-    ArcMessenger *get_arc_messenger() const;
 
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
@@ -429,12 +392,12 @@ public:
     /**
      * @brief Sets the device clock frequency.
      *
-     * Controls the AICLK frequency the device runs at. Distinct from
-     * set_power_state(), which manages hardware power domains.
+     * Controls the AICLK frequency the device runs at. Distinct from set_power_state(), which
+     * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    virtual void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
+    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual uint32_t get_clock() = 0;
 
@@ -454,7 +417,7 @@ public:
 
     BoardType get_board_type();
 
-    virtual bool get_noc_translation_enabled() = 0;
+    bool get_noc_translation_enabled();
 
     double get_asic_temperature();
 
@@ -520,6 +483,26 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     /**
+     * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
+     *
+     * The returned window supports direct pointer-style reads and writes to device memory.
+     * It can be reconfigured at runtime to point to different device addresses.
+     *
+     * The window is created large enough to cover the requested size, rounded up to a size the
+     * architecture provides; @ref IoWindow::get_size reports what was actually created. A requested
+     * size of 0 leaves the choice to the implementation. Cores are named in the translated coordinate
+     * system, and a target without a NOC is routed over the NOC selected for this thread. Naming a
+     * second corner makes the window a multicast grid, which requires NOC translation.
+     *
+     * @param target Device-side target describing the core(s), address, optional NOC and flags.
+     * See @ref TargetIoWindowConfig.
+     * @param host Host-side properties (caching strategy and requested size).
+     * See @ref HostIoWindowConfig.
+     * @return An exclusively owned handle to the newly created @ref IoWindow.
+     */
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
+
+    /**
      * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
      * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
      * caller owns the returned fd and must close() it.
@@ -545,7 +528,7 @@ public:
      * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
     const SocDescriptor &get_soc_descriptor() const;
 
@@ -556,8 +539,6 @@ protected:
     // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
     // architecture descriptor.
     explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
-
-    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
@@ -570,28 +551,10 @@ protected:
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC);
 
-    // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
-    // returns on timeout.
-    void wait_for_aiclk_value(
-        PowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
-    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
-
-    xy_pair arc_core_noc0;
-    xy_pair arc_core_noc1;
-
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
-    virtual void set_arc_coordinate() {}
-
-    // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
-    // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
-    virtual void probe_arc() {}
-
 private:
-    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
-
     // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
     // check, and gives the detector a separately-locked window to probe through.
     void wire_hang_detector();
@@ -602,9 +565,6 @@ private:
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
-    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 };
 
 }  // namespace tt::umd

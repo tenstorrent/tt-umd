@@ -16,8 +16,8 @@
 #include <vector>
 
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -125,8 +125,13 @@ int Chip::arc_msg(
         arc_msg_return_values.push_back(0);
     }
 
-    uint32_t exit_code =
-        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, args, timeout_ms);
+    // The ArcMessenger path this replaces read the thread-selected NOC itself; keep that.
+    DeviceCommandResult result =
+        get_tt_device()->get_device_firmware()->send_device_command(msg_code, args, timeout_ms, get_selected_noc_id());
+    const uint32_t exit_code = result.exit_code;
+    for (size_t i = 0; i < arc_msg_return_values.size() && i < result.return_values.size(); i++) {
+        arc_msg_return_values[i] = result.return_values[i];
+    }
 
     if (return_3 != nullptr) {
         *return_3 = arc_msg_return_values[0];
@@ -147,8 +152,7 @@ void Chip::advance_device_execution() {
 
 void Chip::set_clock_state(DevicePowerState state) {
     if (auto* tt_device = get_tt_device()) {
-        tt_device->set_clock_state(
-            state == DevicePowerState::BUSY ? TTDevice::PowerState::BUSY : TTDevice::PowerState::IDLE);
+        tt_device->set_clock_state(state == DevicePowerState::BUSY ? ClockState::BUSY : ClockState::IDLE);
     }
 }
 

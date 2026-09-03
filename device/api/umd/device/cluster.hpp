@@ -35,6 +35,7 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -49,6 +50,7 @@ namespace tt::umd {
 
 class ClusterDescriptor;
 class EthernetBroadcast;
+class IoWindow;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
@@ -278,6 +280,35 @@ public:
         size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
+
+    /**
+     * Maps a core into host address space, anchored at an address on that core. Reads and writes
+     * through the returned window address it as offsets from that anchor. The window is created
+     * large enough to cover the requested size, rounded up to a size the architecture provides.
+     *
+     * The caller owns the window: the mapping is released when it is destroyed, so it must be held
+     * for as long as it is used, and it must not outlive this Cluster. Returns nullptr for chips
+     * with no device behind them (mock and emulated).
+     *
+     * Cores may be given in any coordinate system; they are translated against this chip's mapping.
+     * Naming a second corner makes the window a multicast grid, which requires NOC translation.
+     *
+     * @param chip Device to target.
+     * @param core_start Core to map, or upper-left corner of a multicast grid.
+     * @param addr Address on the core(s) the window is anchored at.
+     * @param host Host-side window properties (caching strategy and requested size).
+     * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
+     * @param flags Transaction attributes.
+     * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
+     */
+    std::unique_ptr<IoWindow> create_io_window(
+        const ChipId chip,
+        CoreCoord core_start,
+        uint64_t addr,
+        HostIoWindowConfig host = {},
+        std::optional<CoreCoord> core_end = std::nullopt,
+        WindowFlags flags = WindowFlags::None,
+        std::optional<NocId> noc = std::nullopt);
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to

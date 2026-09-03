@@ -28,16 +28,6 @@ struct tlb_offsets {
     uint32_t static_vc_class_end;
 };
 
-// What a TLB window will carry. A window carrying a single direction can be given a virtual channel
-// of its own, so reads and writes never share one. BIDIRECTIONAL is for windows that stay
-// configured across both.
-enum class TlbVcDirection {
-    UNICAST_WRITE,
-    UNICAST_READ,
-    MULTICAST_WRITE,
-    BIDIRECTIONAL,
-};
-
 // The virtual channel a TLB window is configured to use.
 struct tlb_static_vc {
     uint64_t static_vc = 0;

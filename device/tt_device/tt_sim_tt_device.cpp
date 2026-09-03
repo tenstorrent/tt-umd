@@ -60,7 +60,12 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, int num_host_mem_channels, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory,
+    ChipId chip_id,
+    int num_host_mem_channels,
+    bool copy_sim_binary,
+    size_t num_chips,
+    std::optional<uint32_t> image_endpoint_count) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
@@ -72,7 +77,13 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        copy_sim_binary,
+        num_host_mem_channels,
+        num_chips,
+        image_endpoint_count);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(

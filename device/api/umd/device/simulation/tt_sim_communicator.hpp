@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 namespace tt::umd {
 
@@ -110,6 +111,20 @@ public:
      * @return 32-bit value read from configuration space
      */
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
+
+    /**
+     * Enumerate the host-visible PCI endpoints a simulator image exposes: the counterpart of
+     * PCIDevice::enumerate_devices(), answering how many chips are present before any device object
+     * exists, so a caller can size the cluster from the image itself.
+     *
+     * MUST be called before any simulator is brought up in this process. Config space only reports
+     * endpoints while the image is running, so this starts and stops it around the walk, and
+     * starting an already-running image is fatal inside the simulator. Only bus 0 is enumerable.
+     *
+     * @param simulator_path Path to the libttsim .so to enumerate.
+     * @return Bus/device/function identifiers of the present endpoints, in ascending order.
+     */
+    static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 
     /**
      * Advance the simulator clock.

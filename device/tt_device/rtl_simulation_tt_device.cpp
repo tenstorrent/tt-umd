@@ -16,6 +16,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -98,6 +99,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -109,6 +111,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
+    // Deliberately no flat-address resolver in client mode: the client sends the translated
+    // coordinate plus the core-local address, and the host resolves it in host_write/host_read.
+    // Installing one here would flatten an address the host then flattens again.
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -116,6 +121,22 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+}
+
+void RtlSimulationTTDevice::setup_noc_address_resolver() {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR) {
+        return;
+    }
+    // Quasar's NOC ATT resolves a flat 64-bit address into a destination (x, y) plus a local
+    // address, so the driver has to flatten the coordinate into the address before issuing it.
+    noc_address_resolver_ = std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor());
+}
+
+bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
+    // Quasar has no real TLBs -- the window it would allocate is a dummy whose only job was to
+    // shuttle (x, y) through tlb_data and rebuild the address on the far side. With the flat
+    // address resolved up front, the tile path is used directly. Mirrors TTSimTTDevice.
+    return get_arch() != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {

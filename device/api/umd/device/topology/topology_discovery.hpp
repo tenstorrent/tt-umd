@@ -174,6 +174,12 @@ private:
     // ASIC ID, and returns false. Rethrows when device_init_failure_action is THROW.
     bool init_device(TTDevice* tt_device, ChipId chip_id, std::chrono::milliseconds timeout);
 
+    // Take an enumerated local device through initialization and file it for discovery: assign its
+    // chip id, initialize it (recording the failure under a mocked ASIC id if that does not
+    // succeed), run the first-device checks, wait on its ethernet cores, note its board id, and
+    // record it under its ASIC id. device_id identifies the device in log messages only.
+    void add_local_device(std::unique_ptr<TTDevice> tt_device, int device_id);
+
     // Next available ChipId.
     ChipId next_chip_id = 0;
 

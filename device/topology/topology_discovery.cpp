@@ -154,6 +154,55 @@ bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const s
     return true;
 }
 
+void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, int device_id) {
+    ChipId chip_id = get_next_chip_id();
+
+    // When coming out of reset, devices can take on the order of minutes to become ready.
+    if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
+        uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
+        devices_to_discover.emplace(asic_id, std::move(tt_device));
+        asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+        log_warning(
+            LogUMD,
+            "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
+            DeviceTypeToString.at(io_device_type),
+            device_id,
+            asic_id);
+        return;
+    }
+
+    // Check some things on first discovered MMIO device.
+    if (devices_to_discover.empty()) {
+        init_first_device(tt_device.get());
+    }
+
+    if (options.wait_on_ethernet_link_training) {
+        wait_eth_cores_training(tt_device.get());
+    }
+
+    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+    std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
+    for (const CoreCoord& eth_core : eth_cores) {
+        uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
+        if (board_id != 0) {
+            board_ids.insert(board_id);
+            break;
+        }
+    }
+
+    uint64_t asic_id = get_asic_id(tt_device.get());
+    devices_to_discover.emplace(asic_id, std::move(tt_device));
+    asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+    log_debug(
+        LogUMD,
+        "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
+        DeviceTypeToString.at(io_device_type),
+        device_id,
+        asic_id);
+}
+
 void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> local_device_ids;
@@ -194,52 +243,7 @@ void TopologyDiscovery::get_connected_devices() {
             continue;
         }
 
-        ChipId chip_id = get_next_chip_id();
-
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
-            uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
-            devices_to_discover.emplace(asic_id, std::move(tt_device));
-            asic_id_to_chip_id.emplace(asic_id, chip_id);
-
-            log_warning(
-                LogUMD,
-                "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
-                DeviceTypeToString.at(io_device_type),
-                device_id,
-                asic_id);
-            continue;
-        }
-
-        // Check some things on first discovered MMIO device.
-        if (devices_to_discover.empty()) {
-            init_first_device(tt_device.get());
-        }
-
-        if (options.wait_on_ethernet_link_training) {
-            wait_eth_cores_training(tt_device.get());
-        }
-
-        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-        std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
-        for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
-            if (board_id != 0) {
-                board_ids.insert(board_id);
-                break;
-            }
-        }
-
-        uint64_t asic_id = get_asic_id(tt_device.get());
-        devices_to_discover.emplace(asic_id, std::move(tt_device));
-        asic_id_to_chip_id.emplace(asic_id, chip_id);
-
-        log_debug(
-            LogUMD,
-            "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
-            DeviceTypeToString.at(io_device_type),
-            device_id,
-            asic_id);
+        add_local_device(std::move(tt_device), device_id);
     }
     log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }

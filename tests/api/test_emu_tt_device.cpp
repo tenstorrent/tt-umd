@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// End-to-end tests for GrendelEmuTTDevice: a TTDevice read/write must leave this process as an
+// End-to-end tests for EmuTTDevice: a TTDevice read/write must leave this process as an
 // emu_axi access at the flat SPA the Grendel ATT expects.
 //
-// These need a live emu_axi command server and are skipped unless TT_UMD_GRENDEL_EMU_SERVER is set
+// These need a live emu_axi command server and are skipped unless TT_UMD_EMU_SERVER is set
 // to host:port. Any server speaking the protocol works; the cheap one is chippy's register-map
 // backed mock, which needs no emulator:
 //
 //   python lib/transport/emu_axi_transport/emu_server/mock_server.py --map mimir_soc --port 8081
-//   TT_UMD_GRENDEL_EMU_SERVER=127.0.0.1:8081 ./api_tests --gtest_filter='GrendelEmuTTDevice.*'
+//   TT_UMD_EMU_SERVER=127.0.0.1:8081 ./api_tests --gtest_filter='EmuTTDevice.*'
 //
 // The mock server hands out a zeroed, fully writable slot for any address its RDL map does not
 // cover, so an access outside the register windows round-trips like RAM. That is what makes the
@@ -32,7 +32,7 @@
 #include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/grendel_emu_tt_device.hpp"
+#include "umd/device/tt_device/emu_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd::test {
@@ -45,7 +45,7 @@ struct ServerEndpoint {
 };
 
 std::optional<ServerEndpoint> endpoint_from_env() {
-    const char* spec = std::getenv("TT_UMD_GRENDEL_EMU_SERVER");
+    const char* spec = std::getenv("TT_UMD_EMU_SERVER");
     if (spec == nullptr) {
         return std::nullopt;
     }
@@ -66,17 +66,17 @@ SocDescriptor mimir_descriptor() {
 #define SKIP_WITHOUT_SERVER(endpoint)                                                  \
     auto endpoint = endpoint_from_env();                                               \
     if (!endpoint.has_value()) {                                                       \
-        GTEST_SKIP() << "Set TT_UMD_GRENDEL_EMU_SERVER=host:port to run this test.";   \
+        GTEST_SKIP() << "Set TT_UMD_EMU_SERVER=host:port to run this test.";   \
     }
 
 // A write through the public TTDevice API must land at the flat address the resolver derives for
 // that core -- verified by reading it back through a raw chippy transport, which shares nothing
 // with UMD's path but the server.
-TEST(GrendelEmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
+TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = GrendelEmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
 
     const CoreCoord dram_core = soc_descriptor.get_cores(CoreType::DRAM).front();
     constexpr uint64_t kOffset = 0x400;
@@ -99,11 +99,11 @@ TEST(GrendelEmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
 
 // The two DRAM cores are separate GDDR instances and must not alias: chippy spaces the Mimir GDDR
 // tiles 128 GiB apart in SPA, not by the 8 GiB bank size.
-TEST(GrendelEmuTTDevice, DramCoresDoNotAlias) {
+TEST(EmuTTDevice, DramCoresDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = GrendelEmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
 
     const std::vector<CoreCoord> dram_cores = soc_descriptor.get_cores(CoreType::DRAM);
     ASSERT_EQ(dram_cores.size(), 2);
@@ -125,11 +125,11 @@ TEST(GrendelEmuTTDevice, DramCoresDoNotAlias) {
 
 // The SMC is reached through the Mimir config aperture rather than a DRAM window, so it must not
 // collide with either DRAM core.
-TEST(GrendelEmuTTDevice, SmcUsesTheConfigApertureNotADramWindow) {
+TEST(EmuTTDevice, SmcUsesTheConfigApertureNotADramWindow) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = GrendelEmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
 
     const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
     const CoreCoord dram_core = soc_descriptor.get_cores(CoreType::DRAM).front();

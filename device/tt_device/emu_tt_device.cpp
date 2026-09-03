@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/grendel_emu_tt_device.hpp"
+#include "umd/device/tt_device/emu_tt_device.hpp"
 
 #include <fmt/format.h>
 
@@ -76,24 +76,24 @@ GrendelAddressWindows mimir_windows(const SocDescriptor& soc_descriptor) {
 // (MultiChipletEmuAxiTransport for a multi-chiplet model, SmcRemapTransport for SMC register
 // access) take a shared inner transport, so a multi-chiplet package will wrap this rather than
 // replace it.
-struct GrendelEmuTTDevice::Impl {
+struct EmuTTDevice::Impl {
     std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> transport;
 
     Impl(const std::string& host, uint32_t port) :
         transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {}
 };
 
-/* static */ std::unique_ptr<GrendelEmuTTDevice> GrendelEmuTTDevice::create(
+/* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
     const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) {
     UMD_ASSERT(
         soc_descriptor.arch == tt::ARCH::GRENDEL,
         error::RuntimeError,
-        fmt::format("GrendelEmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
-    return std::unique_ptr<GrendelEmuTTDevice>(
-        new GrendelEmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
+        fmt::format("EmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
+    return std::unique_ptr<EmuTTDevice>(
+        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
 }
 
-GrendelEmuTTDevice::GrendelEmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
+EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch)), impl_(std::move(impl)) {
     set_soc_descriptor(soc_descriptor);
 
@@ -115,13 +115,13 @@ GrendelEmuTTDevice::GrendelEmuTTDevice(const SocDescriptor& soc_descriptor, std:
 //
 // chippy's transport exposes no close-without-QUIT, and ~EmuAxiTransport is defaulted, so the
 // socket is released when the process exits rather than here. Worth a small chippy addition.
-GrendelEmuTTDevice::~GrendelEmuTTDevice() = default;
+EmuTTDevice::~EmuTTDevice() = default;
 
-SimulationBackendType GrendelEmuTTDevice::backend_type() const { return SimulationBackendType::EMU_AXI; }
+SimulationBackendType EmuTTDevice::backend_type() const { return SimulationBackendType::EMU_AXI; }
 
-bool GrendelEmuTTDevice::should_use_cached_tlb_window() { return false; }
+bool EmuTTDevice::should_use_cached_tlb_window() { return false; }
 
-std::unique_ptr<TlbWindow> GrendelEmuTTDevice::create_tlb_window(
+std::unique_ptr<TlbWindow> EmuTTDevice::create_tlb_window(
     int /*tlb_index*/, size_t /*size*/, TlbMapping /*mapping*/, tlb_data /*config*/) {
     // Unreachable while should_use_cached_tlb_window() is false, but the base declares it pure
     // virtual for the backends that do allocate windows.
@@ -130,11 +130,11 @@ std::unique_ptr<TlbWindow> GrendelEmuTTDevice::create_tlb_window(
 
 // `core` arrives already translated and `addr` already flattened by the base, so the coordinate is
 // deliberately unused: on Grendel the destination travels inside the address, not beside it.
-void GrendelEmuTTDevice::tile_read_bytes(tt_xy_pair /*core*/, uint64_t addr, void* mem_ptr, size_t size) {
+void EmuTTDevice::tile_read_bytes(tt_xy_pair /*core*/, uint64_t addr, void* mem_ptr, size_t size) {
     impl_->transport->read(size, kMinWordSizeBytes, addr, mem_ptr);
 }
 
-void GrendelEmuTTDevice::tile_write_bytes(tt_xy_pair /*core*/, uint64_t addr, const void* mem_ptr, size_t size) {
+void EmuTTDevice::tile_write_bytes(tt_xy_pair /*core*/, uint64_t addr, const void* mem_ptr, size_t size) {
     // chippy's write() takes a non-const void* even though it only reads the buffer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     impl_->transport->write(size, kMinWordSizeBytes, addr, const_cast<void*>(mem_ptr));

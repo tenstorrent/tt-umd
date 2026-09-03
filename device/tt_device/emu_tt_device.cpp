@@ -42,7 +42,9 @@ const uint64_t kMimirGddrDramLocalBase = chippy::grendel::kMimirGddrDramLocalAdd
 // SMC resolves to instance 0. The NEO grid is parked outside the descriptor's grid because Mimir
 // carries no compute and nothing may land in an L1 window -- validate() rejects a zero extent, so
 // it cannot simply be emptied.
-GrendelAddressWindows mimir_windows(const SocDescriptor& soc_descriptor) {
+}  // namespace
+
+GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& soc_descriptor) {
     const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC, CoordSystem::NOC0);
     UMD_ASSERT(
         smc_cores.size() == 1,
@@ -73,8 +75,6 @@ GrendelAddressWindows mimir_windows(const SocDescriptor& soc_descriptor) {
     return windows;
 }
 
-}  // namespace
-
 // Owns the chippy transport. Held by shared_ptr because chippy's decorator transports
 // (MultiChipletEmuAxiTransport for a multi-chiplet model, SmcRemapTransport for SMC register
 // access) take a shared inner transport, so a multi-chiplet package will wrap this rather than
@@ -104,7 +104,7 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // address, so the coordinate has to be flattened into the address before the access is issued.
     // Installed here, in the base's protected slot, so host_read/host_write apply it while the
     // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
-    noc_address_resolver_ = std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_windows(soc_descriptor));
+    noc_address_resolver_ = std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
 
     // INIT opens the session with the command server.
     impl_->transport->initialize();

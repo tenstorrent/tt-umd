@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 
 #include <fmt/format.h>
 #include <unistd.h>
@@ -29,9 +29,9 @@ namespace {
 
 // Wraps a caller-supplied deleter so it is always safe for unique_ptr to run from the destructor.
 // Two things are handled here: an empty std::function deleter makes unique_ptr throw bad_function_call
-// on a non-null pointer, and an exception escaping the deleter would propagate out of ~SysmemBuffer and
+// on a non-null pointer, and an exception escaping the deleter would propagate out of ~SystemMemoryBuffer and
 // terminate the process. Cleanup failures are logged instead.
-SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
+SystemMemoryBuffer::Deleter make_non_throwing(SystemMemoryBuffer::Deleter deleter) {
     return [deleter = std::move(deleter)](void* aligned_va) noexcept {
         if (!deleter) {
             return;
@@ -48,7 +48,7 @@ SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
 
 }  // namespace
 
-SysmemBuffer::AlignedRange SysmemBuffer::page_align(void* buffer_va, size_t buffer_size) {
+SystemMemoryBuffer::AlignedRange SystemMemoryBuffer::page_align(void* buffer_va, size_t buffer_size) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t va = reinterpret_cast<uint64_t>(buffer_va);
     const uint64_t base = va & ~(page_size - 1);
@@ -59,7 +59,7 @@ SysmemBuffer::AlignedRange SysmemBuffer::page_align(void* buffer_va, size_t buff
     return range;
 }
 
-SysmemBuffer::SysmemBuffer(
+SystemMemoryBuffer::SystemMemoryBuffer(
     TTDevice* tt_device,
     void* buffer_va,
     size_t buffer_size,
@@ -82,10 +82,10 @@ SysmemBuffer::SysmemBuffer(
     offset_from_aligned_addr_ = range.offset_from_base;
 
     system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
-    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
+    TracyAllocN(buffer_va_, mapped_buffer_size_, "SystemMemoryBuffer");
 }
 
-void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+void SystemMemoryBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::Yellow);
 
     validate(offset, size);
@@ -95,10 +95,10 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_write_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_write_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
-void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+void SystemMemoryBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::Yellow);
 
     if (device_access_ == DeviceBufferAccess::READ_ONLY) {
@@ -112,28 +112,28 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_read_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_read_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
-SysmemBuffer::~SysmemBuffer() {
-    TracyFreeN(buffer_va_, "SysmemBuffer");
+SystemMemoryBuffer::~SystemMemoryBuffer() {
+    TracyFreeN(buffer_va_, "SystemMemoryBuffer");
     // Destroying system_memory_ptr_ runs the deleter composed at construction: unpin, and free the
     // backing memory if this buffer owns it.
 }
 
-void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
+void SystemMemoryBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
-    memcpy(static_cast<uint8_t*>(get_buffer_va()) + offset, src, size);
+    memcpy(static_cast<uint8_t*>(get_va()) + offset, src, size);
 }
 
-void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
+void SystemMemoryBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
-    memcpy(dest, static_cast<const uint8_t*>(get_buffer_va()) + offset, size);
+    memcpy(dest, static_cast<const uint8_t*>(get_va()) + offset, size);
 }
 
-void SysmemBuffer::bind_noc_address() {
+void SystemMemoryBuffer::bind_noc_address() {
     if (noc_addr_.has_value()) {
         return;
     }
@@ -146,21 +146,21 @@ void SysmemBuffer::bind_noc_address() {
     noc_addr_ = noc_binder_();
 }
 
-void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
+void* SystemMemoryBuffer::get_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
-size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
+size_t SystemMemoryBuffer::get_size() const { return buffer_size_; }
 
-uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
+uint64_t SystemMemoryBuffer::get_iova(const size_t offset) const {
     validate(offset);
     return device_io_addr_ + offset + offset_from_aligned_addr_;
 }
 
-void SysmemBuffer::validate(const size_t offset, const size_t size) const {
+void SystemMemoryBuffer::validate(const size_t offset, const size_t size) const {
     if (offset >= buffer_size_ || size > buffer_size_ - offset) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Range starting at {:#x} with size {:#x} is out of bounds for SysmemBuffer of size {:#x}",
+                "Range starting at {:#x} with size {:#x} is out of bounds for SystemMemoryBuffer of size {:#x}",
                 offset,
                 size,
                 buffer_size_));

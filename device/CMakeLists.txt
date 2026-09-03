@@ -72,7 +72,7 @@ target_sources(
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
-        chip_helpers/sysmem_buffer.cpp
+        chip_helpers/system_memory_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
         pcie/device_memcpy.cpp
@@ -219,6 +219,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/system_memory_allocator.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
+                api/umd/device/chip_helpers/system_memory_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
                 api/umd/device/cluster.hpp

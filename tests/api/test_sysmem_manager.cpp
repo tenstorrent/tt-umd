@@ -25,8 +25,8 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -77,7 +77,7 @@ TEST(ApiSysmemManager, BasicIO) {
     }
 }
 
-TEST(ApiSysmemManager, SysmemBuffers) {
+TEST(ApiSysmemManager, SystemMemoryBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
@@ -97,7 +97,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -105,7 +105,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     std::vector<uint8_t> data_write(one_mb, 0);
     cluster->write_to_device(data_write.data(), one_mb, mmio_chip, tensix_core, 0);
 
-    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_va());
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         sysmem_data[i] = static_cast<uint8_t>(i % 256);
@@ -137,7 +137,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 }
 
-TEST(ApiSysmemManager, SysmemBufferUnaligned) {
+TEST(ApiSysmemManager, SystemMemoryBufferUnaligned) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
     if (!pci_device->is_iommu_enabled()) {
@@ -161,7 +161,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     const size_t unaligned_offset = 100;
     void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -169,10 +169,10 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     std::vector<uint8_t> data_write(one_mb, 0);
     cluster->write_to_device(data_write.data(), one_mb, mmio_chip, tensix_core, 0);
 
-    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_va());
 
     EXPECT_EQ(sysmem_data, mapping_buffer);
-    EXPECT_EQ(sysmem_buffer->get_buffer_size(), one_mb);
+    EXPECT_EQ(sysmem_buffer->get_size(), one_mb);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         sysmem_data[i] = static_cast<uint8_t>(i % 256);
@@ -202,7 +202,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 }
 
-TEST(ApiSysmemManager, SysmemBufferFunctions) {
+TEST(ApiSysmemManager, SystemMemoryBufferFunctions) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
@@ -222,10 +222,10 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
-    EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
-    EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
+    EXPECT_EQ(sysmem_buffer->get_size(), buf_size);
+    EXPECT_EQ(sysmem_buffer->get_va(), mapped_buffer);
 }
 
 namespace {
@@ -265,7 +265,7 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
     const int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
-    { std::unique_ptr<SysmemBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
+    { std::unique_ptr<SystemMemoryBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
 
     const size_t rss_before = read_rss_kib();
     if (rss_before == 0) {
@@ -274,11 +274,11 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
 
     const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
     for (int i = 0; i < iterations; i++) {
-        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SystemMemoryBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
-        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_va());
         for (size_t offset = 0; offset < buf_size; offset += page_size) {
             bytes[offset] = static_cast<uint8_t>(i);
         }
@@ -294,7 +294,7 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
 
 // The manager pins for exactly one device and stamps that device's id into every buffer, so the id
 // on a buffer must match the TTDevice it was pinned against.
-TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
+TEST(ApiSysmemManager, SystemMemoryBufferCommunicationId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
@@ -313,7 +313,7 @@ TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
         EXPECT_EQ(sysmem_manager->get_communication_id(), expected_id);
 
         const size_t buf_size = 1 << 20;
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(sysmem_buffer, nullptr);
         EXPECT_EQ(sysmem_buffer->get_communication_id(), expected_id);
     }
@@ -321,7 +321,7 @@ TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
 
 // Host-side copies must land at the user's VA, not at the page-aligned start the buffer
 // pins internally. This uses a deliberately unaligned mapping to exercise that.
-TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
+TEST(ApiSysmemManager, SystemMemoryBufferHostCopyUnaligned) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
@@ -345,7 +345,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_offset;
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
     const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
 
@@ -371,7 +371,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
     munmap(mapping, mmap_size);
 }
 
-TEST(ApiSysmemManager, SysmemBufferNocAddress) {
+TEST(ApiSysmemManager, SystemMemoryBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
@@ -384,16 +384,16 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
 
-    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+    EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());
 
     // We haven't actually mapped the hugepage yet, since cluster->start_device or
     // sysmem_manager->pin_or_map_sysmem_to_device wasn't called yet. So this will be the first buffer that was mapped,
     // and it is expected to have the starting NOC address.
-    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    EXPECT_EQ(sysmem_buffer->get_noc_address().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
 
-    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_va());
     for (uint32_t i = 0; i < one_mb; ++i) {
         sysmem_data[i] = 0;
     }
@@ -407,12 +407,12 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     // Write to sysmem buffer using NOC address.
     const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
     cluster->write_to_device(
-        data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
+        data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_address().value());
 
     // Perform a read so we're sure that the write object has been flushed to the device.
     std::vector<uint8_t> readback(one_mb, 0);
     // Read back from sysmem buffer using NOC address.
-    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_address().value(), one_mb);
     EXPECT_EQ(readback, data_write);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -422,9 +422,9 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     }
 
     // If we map another buffer it is expected to have a higher NOC address.
-    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
-    EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
-    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    EXPECT_TRUE(sysmem_buffer2->get_noc_address().has_value());
+    EXPECT_GT(sysmem_buffer2->get_noc_address().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
 }
 
 TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
@@ -483,10 +483,10 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::READ_ONLY);
 
     ASSERT_NE(sysmem_buffer, nullptr);
-    EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapping);
-    EXPECT_EQ(sysmem_buffer->get_buffer_size(), mapping_size);
+    EXPECT_EQ(sysmem_buffer->get_va(), mapping);
+    EXPECT_EQ(sysmem_buffer->get_size(), mapping_size);
     EXPECT_EQ(sysmem_buffer->get_device_access(), DeviceBufferAccess::READ_ONLY);
-    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+    EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());
 
     // Device reads the read-only mapping and writes it into Tensix L1 -- the direction read-only pinning exists to
     // serve. Reading it back independently confirms the mapping is genuinely usable, not merely accepted.

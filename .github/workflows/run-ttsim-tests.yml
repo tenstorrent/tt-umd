@@ -28,9 +28,37 @@ jobs:
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
+    env:
+      # Shared Garage ccache, same bucket and endpoint tt-metal's own CI uses
+      # (see tt-metal's .github/workflows/build-artifact.yaml).
+      #
+      # The prefix is "tt-metal-for-umd": the compilation this job caches *is* a
+      # tt-metal build, but it is built against UMD's tip rather than the pinned
+      # submodule, so it gets its own namespace instead of sharing (and evicting
+      # from) the "tt-metal" one that tt-metal's CI owns. This job is both the
+      # reader and the writer of that namespace, so it warms itself run over run.
+      CCACHE_S3_BUCKET: ccache
+      CCACHE_S3_PREFIX: tt-metal-for-umd
+      CCACHE_S3_DEBUG: "false"
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
+        # NOTE: CCACHE_REMOTE_ONLY is deliberately NOT set here (tt-metal sets it at this level).
+        # It is exported by the configure step below instead, so that when that step is skipped or
+        # bails out (forks, missing secrets) ccache is not left with neither a remote nor a local
+        # cache — it just falls back to plain local ccache, exactly as before this wiring.
+        CCACHE_TEMPDIR: /tmp/ccache
+        CCACHE_COMPRESS: "true"
+        CCACHE_COMPRESSLEVEL: "3"
+        # Log ccache operations to a file so remote storage errors are visible in CI.
+        # Errors (storage helper failures, S3 timeouts) would otherwise be silent.
+        CCACHE_LOGFILE: /tmp/ccache.log
+        # NOTE: CCACHE_BASEDIR is deliberately NOT set here. Expressions in this block are
+        # evaluated on the *host*, so ${{ github.workspace }} expands to the runner path
+        # (/opt/runner/_work/tt-umd/tt-umd), while the container only has /opt/runner/_work
+        # bind-mounted at /__w. A host path never prefixes any path the compiler sees inside
+        # the container, so ccache's basedir rewriting would silently never fire. It is
+        # computed from the in-container workspace by the configure step below instead.
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
         TRACY_NO_ISA_EXTENSIONS: 1
@@ -107,6 +135,50 @@ jobs:
           fileName: "libttsim_bh_x32.so"
           out-file-path: /tmp/ttsim-bh-x32
 
+      # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
+      # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
+      # there because a cold cache in its own CI is a real regression; here the remote cache is pure
+      # upside, so a build that cannot reach it should still succeed exactly as it did before this
+      # wiring.
+      - name: Configure S3 ccache storage
+        # Forks never have secrets; don't fail or warn noisily for them, they just build uncached.
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        run: |
+          mkdir -p /tmp/ccache
+          # Strip the tt-metal checkout prefix from hashed paths, so entries stay reusable if the
+          # workspace ever lands at a different absolute path (a differently-mounted runner, or this
+          # workflow being called from another repo's workspace) instead of being invalidated
+          # wholesale. tt-metal does the same thing with a hardcoded CCACHE_BASEDIR=/work.
+          #
+          # This MUST be computed at runtime inside the container, exactly like TT_METAL_HOME in
+          # the "Build tt-metal" step below. The ${{ github.workspace }} expression is evaluated on
+          # the host and yields /opt/runner/_work/tt-umd/tt-umd; inside the container that tree is
+          # mounted at /__w, so the compiler only ever sees /__w/... paths. A host-path basedir
+          # matches no prefix, ccache's path rewriting never fires, and every translation unit is
+          # hashed with its full /__w/... path.
+          echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}/tt-metal" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR: ${GITHUB_WORKSPACE}/tt-metal"
+          if [ -z "${{ secrets.GARAGE_S3_ACCESS_KEY }}" ] || [ -z "${{ secrets.GARAGE_S3_SECRET_KEY }}" ]; then
+            echo "::warning::Garage S3 credentials are missing (need 'secrets: inherit' and the" \
+              "GARAGE_S3_ACCESS_KEY / GARAGE_S3_SECRET_KEY secrets). Building without a remote ccache."
+            exit 0
+          fi
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.GARAGE_S3_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.GARAGE_S3_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=garage" >> $GITHUB_ENV
+          CCACHE_REMOTE_STORAGE="s3://${CCACHE_S3_BUCKET}|region=garage|prefix=${CCACHE_S3_PREFIX}|endpoint_url=http://garage.garage.svc.cluster.local:3900"
+          echo "CCACHE_REMOTE_STORAGE=${CCACHE_REMOTE_STORAGE}" >> $GITHUB_ENV
+          echo "CCACHE_REMOTE_STORAGE: ${CCACHE_REMOTE_STORAGE}"
+          # Only meaningful now that a remote is actually configured: writes go straight to the
+          # remote and skip the local cache, which is worthless on this ephemeral runner.
+          echo "CCACHE_REMOTE_ONLY=true" >> $GITHUB_ENV
+          if [ "${CCACHE_S3_DEBUG}" = "true" ]; then
+            echo "CRSH_LOGFILE=/tmp/ccache-storage-s3.log" >> $GITHUB_ENV
+          fi
+          echo "AWS_ENDPOINT_URL_S3=http://garage.garage.svc.cluster.local:3900" >> $GITHUB_ENV
+          # Zero the stats so the summary below reflects only this build.
+          ccache -z
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -118,6 +190,32 @@ jobs:
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
+
+      # Surfaces the remote hit rate, which is the only way to tell whether the remote cache is
+      # actually helping. always() so a failed build still reports why it was slow.
+      - name: Publish ccache summary
+        if: ${{ always() }}
+        run: |
+          CCACHE_STATS=$(ccache -sv)
+          echo "$CCACHE_STATS"
+          echo '## CCache Summary' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$CCACHE_STATS" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Remote storage errors are otherwise silent; surface them from the ccache log.
+          # tt-metal filters this with .github/scripts/ccache_log_filter.sh, which UMD does not
+          # have — grep for the same signal directly and cap the output.
+          if [ -f /tmp/ccache.log ]; then
+            REMOTE_ERRORS=$(grep -iE 'remote|s3|storage' /tmp/ccache.log \
+              | grep -iE 'error|fail|timeout' | head -50 || true)
+            if [ -n "$REMOTE_ERRORS" ]; then
+              echo '## CCache Remote Storage Errors' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$REMOTE_ERRORS" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: Prepare sim paths
         run: |

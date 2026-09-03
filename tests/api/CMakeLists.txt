@@ -30,6 +30,9 @@ endif()
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
     list(APPEND API_TESTS_SRCS test_grendel_jtag_protocol.cpp)
+    if(TT_UMD_BUILD_SIMULATION)
+        list(APPEND API_TESTS_SRCS test_grendel_emu_tt_device.cpp)
+    endif()
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
@@ -40,8 +43,12 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
     # internal (non-public) protocol impl header.
     target_link_libraries(api_tests PRIVATE umd_grendel_jtag)
     target_include_directories(api_tests PRIVATE ${PROJECT_SOURCE_DIR}/device/tt_device/protocol)
+    set(GRENDEL_CHIPPY_TEST_SRCS test_grendel_jtag_protocol.cpp)
+    if(TT_UMD_BUILD_SIMULATION)
+        list(APPEND GRENDEL_CHIPPY_TEST_SRCS test_grendel_emu_tt_device.cpp)
+    endif()
     set_source_files_properties(
-        test_grendel_jtag_protocol.cpp
+        ${GRENDEL_CHIPPY_TEST_SRCS}
         PROPERTIES
             COMPILE_OPTIONS
                 "-std=c++20"

@@ -94,6 +94,15 @@ std::unique_ptr<TTDevice> make_client_device(
             return TTSimTTDevice::create_client(chip_id, std::move(client), info);
         case SimulationBackendType::RTL:
             return RtlSimulationTTDevice::create_client(chip_id, std::move(client), info);
+        case SimulationBackendType::EMU_AXI:
+            // An emu_axi device is reached through chippy's own connection to the emulation
+            // command server, which a UMD client attaching over this socket does not have. Such a
+            // device is therefore never served to clients; a host reporting one is misconfigured.
+            UMD_THROW(
+                error::RuntimeError,
+                "An emu_axi backend cannot be attached as a UMD simulation client: it is reached "
+                "through chippy's connection to the emulation command server, not over this "
+                "socket.");
     }
     // A value outside the enum means a corrupt/incompatible reply from the host; fail loudly rather
     // than silently defaulting to a backend class.

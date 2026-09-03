@@ -96,6 +96,13 @@ protected:
     // the client here so client_ is initialized through the base, not written by each derived ctor.
     SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client);
 
+    // Remote-backend constructor: the device owns neither a local simulator nor a UMD
+    // SimulationClient. The backend is a server outside this process that the derived device
+    // reaches through its own connection (chippy's emu_axi transport), so there is no simulator
+    // directory, no sysmem manager and no client_ -- which keeps client_mode() false, so accesses
+    // take the host path and resolve addresses here rather than being forwarded to a UMD host.
+    explicit SimulationTTDevice(std::unique_ptr<TTDeviceModel> model);
+
     // Attach to / detach from the remote host in client mode. Both derived devices drive their
     // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.
     void attach_client();

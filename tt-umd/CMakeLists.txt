@@ -231,7 +231,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
-                api/tt-umd/tt_device/grendel_emu_tt_device.hpp
+                api/tt-umd/tt_device/emu_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
                 api/tt-umd/simulation/simulation_host.hpp
@@ -296,7 +296,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/umd/device/coordinates/noc_address_resolver.hpp
                 api/umd/device/coordinates/grendel_noc_address_resolver.hpp
-                api/umd/device/tt_device/grendel_emu_tt_device.hpp
+                api/umd/device/tt_device/emu_tt_device.hpp
     )
 endif()
 
@@ -339,7 +339,7 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         # The emu backend derives from SimulationTTDevice, which only exists in a simulation
         # build -- it is a pre-silicon backend, so it belongs to that layer rather than beside
         # the silicon protocol.
-        list(APPEND GRENDEL_CHIPPY_SRCS src/tt_device/grendel_emu_tt_device.cpp)
+        list(APPEND GRENDEL_CHIPPY_SRCS src/tt_device/emu_tt_device.cpp)
     endif()
     target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
     set_source_files_properties(

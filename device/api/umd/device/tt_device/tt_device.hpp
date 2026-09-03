@@ -396,6 +396,8 @@ public:
      * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
+     * @param noc_id Currently ignored: the call routes on the thread-selected NOC, matching the
+     * per-arch overrides this replaced. Honoring the parameter end-to-end is follow-up work.
      */
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 

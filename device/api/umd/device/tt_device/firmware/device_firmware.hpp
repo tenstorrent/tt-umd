@@ -95,7 +95,8 @@ public:
      * Distinct from set_clock_state(): this manages power domains rather than the clock frequency.
      *
      * @param state The requested power state.
-     * @param noc_id NOC to route through.
+     * @param noc_id Reserved. Power domains are controlled over PCIe only today, so no
+     * implementation routes this over a NOC.
      */
     virtual void set_power_state(PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 

@@ -335,6 +335,15 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
             exit_code = (status & 0xffff0000) >> 16;
             break;
         } else if (status == HANG_READ_VALUE) {
+            // 0xFFFFFFFF in the status register is ambiguous: firmware that does not recognize the
+            // message, or a dead bus answering all-ones to every read. Probe the hang-check register
+            // right here to tell them apart, rather than only at the end of the call.
+            if (pcie_interface_ != nullptr &&
+                pcie_interface_->bar_read32(get_architecture_registers(tt::ARCH::WORMHOLE_B0).noc_node_id_bar_offset) ==
+                    HANG_READ_VALUE) {
+                UMD_THROW(
+                    error::PcieHangError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0, HANG_READ_VALUE);
+            }
             log_warning(LogUMD, "On device {}, message code {:#x} not recognized by FW", device_id_, msg_code);
             exit_code = HANG_READ_VALUE;
             break;
@@ -354,7 +363,7 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     return DeviceCommandResult{exit_code, std::move(return_values)};
 }
 
-void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
+void WormholeDeviceFirmware::set_power_state(PowerState state, [[maybe_unused]] NocId noc_id) {
     // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
     // which matches what TTDevice::set_power_state did by returning early for them.
     if (pcie_interface_ == nullptr) {
@@ -505,6 +514,11 @@ ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
 }
 
 tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
+    // Only the two data NOCs have an ARC coordinate; SYSTEM_NOC routing has no meaning here.
+    UMD_ASSERT(
+        noc_id == NocId::NOC0 || noc_id == NocId::NOC1,
+        error::RuntimeError,
+        "get_firmware_noc_coord expects NOC0 or NOC1.");
     return noc_id == NocId::NOC1 ? arc_core_noc1_ : arc_core_noc0_;
 }
 
@@ -568,6 +582,12 @@ EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pai
 
 bool WormholeDeviceFirmware::wait_dram_channel_training(
     uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // The status comes from the info provider, which exists only once init_firmware() has run; the
+    // deleted TTDevice path threw the same error through its facade getter.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+
     const uint32_t dram_banks_number = architecture_impl_->get_dram_banks_number();
     if (dram_channel >= dram_banks_number) {
         UMD_THROW(

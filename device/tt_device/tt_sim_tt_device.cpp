@@ -26,6 +26,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -159,6 +160,13 @@ void TTSimTTDevice::initialize_backend() {
 
     init_tlb_allocator(bar0_base);
     setup_cached_tlb_window();
+
+    // The protocol is now usable: the backend is up, BAR bases are known, and the TLB window the
+    // NOC path reads through exists. Attaching it here rather than at construction is what lets the
+    // architecture firmware read this device through the same accesses silicon uses.
+    if (auto* protocol = dynamic_cast<TTSimProtocol*>(get_device_protocol())) {
+        protocol->attach(this, communicator_.get(), static_cast<int>(chip_id_));
+    }
 
     // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):
     // one region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host

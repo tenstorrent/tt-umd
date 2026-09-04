@@ -25,8 +25,6 @@ class WormholeTTDevice : public TTDevice {
 public:
     uint32_t get_clock() override;
 
-    uint32_t get_min_clock_freq() override;
-
     ~WormholeTTDevice() override = default;
 
 protected:

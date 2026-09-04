@@ -501,7 +501,7 @@ bool TTDevice::is_remote() { return model_->get_remote_interface() != nullptr; }
 // device to be addressed within.
 int TTDevice::get_communication_device_id() const {
     DeviceProtocol *device_protocol = model_->get_device_protocol();
-    return device_protocol != nullptr ? device_protocol->get_mmio_id() : -1;
+    return device_protocol != nullptr ? device_protocol->get_mmio_id() : -getpid();
 }
 
 // Derived from the transport the device actually has, rather than stored: exactly one of these

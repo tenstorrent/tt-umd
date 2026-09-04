@@ -85,7 +85,7 @@ public:
      * the clock to settle near the target before returning.
      *
      * @param state The target clock state.
-     * @param noc_id NOC to route through.
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     virtual void set_clock_state(ClockState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
@@ -95,7 +95,7 @@ public:
      * Distinct from set_clock_state(): this manages power domains rather than the clock frequency.
      *
      * @param state The requested power state.
-     * @param noc_id NOC to route through.
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     virtual void set_power_state(PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 

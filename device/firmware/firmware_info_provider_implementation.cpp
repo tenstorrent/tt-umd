@@ -40,12 +40,14 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     DeviceProtocol* device_protocol,
     xy_pair arc_core_noc0,
     xy_pair arc_core_noc1,
-    FirmwareTelemetryReader* telemetry) :
+    FirmwareTelemetryReader* telemetry,
+    std::optional<uint64_t> legacy_telemetry_noc_addr) :
     arch_(arch),
     device_protocol_(device_protocol),
     telemetry_(telemetry),
     arc_core_noc0_(arc_core_noc0),
     arc_core_noc1_(arc_core_noc1),
+    legacy_telemetry_noc_addr_(legacy_telemetry_noc_addr.value_or(SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR)),
     firmware_version(firmware_version) {
     if (telemetry_ == nullptr) {
         UMD_THROW(error::RuntimeError, "FirmwareTelemetryReader cannot be nullptr.");
@@ -62,7 +64,8 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     DeviceProtocol* device_protocol,
     xy_pair arc_core_noc0,
     xy_pair arc_core_noc1,
-    FirmwareTelemetryReader* telemetry) {
+    FirmwareTelemetryReader* telemetry,
+    std::optional<uint64_t> legacy_telemetry_noc_addr) {
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "FirmwareTelemetryReader cannot be nullptr.");
     }
@@ -83,7 +86,13 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         case ARCH::WORMHOLE_B0:
         case ARCH::BLACKHOLE:
             return std::make_unique<FirmwareInfoProviderImplementation>(
-                firmware_version, arch, device_protocol, arc_core_noc0, arc_core_noc1, telemetry);
+                firmware_version,
+                arch,
+                device_protocol,
+                arc_core_noc0,
+                arc_core_noc1,
+                telemetry,
+                legacy_telemetry_noc_addr);
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for FirmwareInfoProvider.");
     }
@@ -287,8 +296,8 @@ uint32_t FirmwareInfoProviderImplementation::read_raw_telemetry(const FeatureKey
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 return (telemetry_ && telemetry_->is_entry_available(arg)) ? telemetry_->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                auto sm_bus_telemetry =
-                    std::make_unique<SmBusArcTelemetryReader>(device_protocol_, arc_core_noc0_, arc_core_noc1_);
+                auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    device_protocol_, arc_core_noc0_, arc_core_noc1_, legacy_telemetry_noc_addr_);
                 return sm_bus_telemetry->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
@@ -317,8 +326,8 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 return telemetry_ && telemetry_->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                auto sm_bus_telemetry =
-                    std::make_unique<SmBusArcTelemetryReader>(device_protocol_, arc_core_noc0_, arc_core_noc1_);
+                auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    device_protocol_, arc_core_noc0_, arc_core_noc1_, legacy_telemetry_noc_addr_);
                 return sm_bus_telemetry->is_entry_available(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return true;

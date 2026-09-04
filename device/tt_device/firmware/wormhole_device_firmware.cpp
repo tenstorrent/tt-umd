@@ -11,6 +11,7 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -100,13 +101,24 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
 
     wait_firmware_ready(timeout_ms, noc_id);
 
+    // Where the legacy telemetry block lives is the firmware's to choose and to report, so ask
+    // rather than assume. Both components below read that block -- the reader to establish the
+    // firmware version, the info provider for the features that have no newer equivalent -- so both
+    // are built from the same answer.
+    const uint64_t legacy_telemetry_noc_addr = get_legacy_telemetry_noc_addr(noc_id);
+
     // The telemetry reader and info provider read state the firmware publishes, so this is the
     // earliest point they can exist.
     firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
-        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
+        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_, legacy_telemetry_noc_addr);
 
     firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
+        tt::ARCH::WORMHOLE_B0,
+        device_protocol_,
+        arc_core_noc0_,
+        arc_core_noc1_,
+        firmware_telemetry_reader_.get(),
+        legacy_telemetry_noc_addr);
 }
 
 FirmwareTelemetryReader* WormholeDeviceFirmware::get_firmware_telemetry_reader() const {
@@ -254,6 +266,11 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
         UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
     }
 
+    return send_arc_message(msg_code, args, timeout, noc_id);
+}
+
+DeviceCommandResult WormholeDeviceFirmware::send_arc_message(
+    uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }
@@ -352,6 +369,23 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     }
 
     return DeviceCommandResult{exit_code, std::move(return_values)};
+}
+
+uint64_t WormholeDeviceFirmware::get_legacy_telemetry_noc_addr(NocId noc_id) {
+    const DeviceCommandResult result = send_arc_message(
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR),
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        noc_id);
+
+    // Firmware that does not recognize the message leaves no answer behind, so there is nothing to
+    // believe; the default is where such a firmware would have put the block anyway. Zero is a
+    // legitimate answer, not a missing one.
+    if (result.exit_code == HANG_READ_VALUE) {
+        return SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR;
+    }
+
+    return wormhole::ARC_CSM_OFFSET_NOC + result.return_values[0];
 }
 
 void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {

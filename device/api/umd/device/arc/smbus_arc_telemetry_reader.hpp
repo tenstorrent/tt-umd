@@ -17,8 +17,18 @@ class DeviceProtocol;
 
 class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
+    // Where every Wormhole firmware that implements the legacy telemetry block has put it. Firmware
+    // reports the location itself, over ARC message GET_SMBUS_TELEMETRY_ADDR, so this is only for
+    // callers with no ARC message transport to ask through -- and for firmware that does not answer.
+    static constexpr uint64_t DEFAULT_TELEMETRY_NOC_ADDR = 0x820078d60;
+
+    // telemetry_base_noc_addr: base of the legacy telemetry block in NOC address space, as reported
+    // by the firmware that published it.
     SmBusArcTelemetryReader(
-        DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);
+        DeviceProtocol* device_protocol,
+        const tt_xy_pair arc_core_noc0,
+        const tt_xy_pair arc_core_noc1,
+        uint64_t telemetry_base_noc_addr = DEFAULT_TELEMETRY_NOC_ADDR);
 
     uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
@@ -35,7 +45,7 @@ protected:
     void get_telemetry_address() override;
 
 private:
-    static constexpr uint64_t SMBUS_TELEMETRY_NOC_ADDR = 0x820078d60;
+    const uint64_t telemetry_base_noc_addr;
 };
 
 }  // namespace tt::umd

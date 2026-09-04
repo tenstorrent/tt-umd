@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -41,11 +42,16 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     DeviceProtocol* device_protocol,
     const tt::ARCH arch,
     const tt_xy_pair arc_core_noc0,
-    const tt_xy_pair arc_core_noc1) {
+    const tt_xy_pair arc_core_noc1,
+    std::optional<uint64_t> legacy_telemetry_noc_addr) {
     std::unique_ptr<ArcTelemetryReader> reader;
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            reader = std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
+            reader = std::make_unique<SmBusArcTelemetryReader>(
+                device_protocol,
+                arc_core_noc0,
+                arc_core_noc1,
+                legacy_telemetry_noc_addr.value_or(SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR));
             FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
                 reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
 

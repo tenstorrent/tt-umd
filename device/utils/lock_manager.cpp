@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
 
@@ -33,11 +34,11 @@ void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType 
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type) {
+std::unique_lock<MutexInterface> LockManager::acquire_mutex(MutexType mutex_type) {
     return acquire_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(
+std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
     std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
                              DeviceTypeToString.at(device_type);
@@ -54,7 +55,7 @@ void LockManager::clear_mutex(const std::string& mutex_prefix, int device_id, IO
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(
+std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
@@ -77,8 +78,9 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
         return;
     }
 
-    mutexes.emplace(mutex_name, RobustMutex(mutex_name));
-    mutexes.at(mutex_name).initialize();
+    std::unique_ptr<MutexInterface> mutex = std::make_unique<RobustMutex>(mutex_name);
+    mutex->initialize();
+    mutexes.emplace(mutex_name, std::move(mutex));
 }
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
@@ -90,18 +92,18 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     mutexes.erase(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
+std::unique_lock<MutexInterface> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
     }
-    return std::unique_lock(mutexes.at(mutex_name));
+    return std::unique_lock(*mutexes.at(mutex_name));
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
     }
-    RobustMutex& mutex = mutexes.at(mutex_name);
+    MutexInterface& mutex = *mutexes.at(mutex_name);
     std::optional<std::pair<pid_t, pid_t>> owner = mutex.probe_lock(std::chrono::seconds(0));
     if (!owner.has_value()) {
         // The mutex was free, which means probing it took it. Release it so that probing stays a query.

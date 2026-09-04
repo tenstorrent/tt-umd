@@ -251,6 +251,8 @@ jobs:
 
       - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
         run: |
+          # Unity build on to match build-device: one compilation mode across CI, so a
+          # batching-only failure surfaces here on the PR rather than in the merge queue.
           cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
             -S tt-metal/tt_metal/third_party/umd \
             -DTT_UMD_BUILD_TESTS=ON \
@@ -260,6 +262,7 @@ jobs:
             -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
+            -DTT_UMD_ENABLE_UNITY_BUILD=ON \
             -DCMAKE_BUILD_TYPE=Release
           # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
           # builds the tools with simulation OFF, which excludes it).
@@ -557,6 +560,8 @@ jobs:
 
       - name: Build UMD api_tests with simulation support
         run: |
+          # Unity build on to match build-device: one compilation mode across CI, so a
+          # batching-only failure surfaces here on the PR rather than in the merge queue.
           cmake -B build -G Ninja \
             -S . \
             -DTT_UMD_BUILD_TESTS=ON \
@@ -566,6 +571,7 @@ jobs:
             -DTT_UMD_BUILD_TOOLS=OFF \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
+            -DTT_UMD_ENABLE_UNITY_BUILD=ON \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target api_tests
 

@@ -697,6 +697,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic
         uint32_t signature = (current_reading >> 16);
 
         if (signature != erisc_firmware::BASE_FW_HEARTBEAT_SIGNATURE &&
+            signature != erisc_firmware::METAL_FW_HEARTBEAT_SIGNATURE &&
             signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
             log_warning(
                 LogUMD,

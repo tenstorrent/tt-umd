@@ -40,10 +40,9 @@ enum class MutexType {
 std::string to_string(MutexType mutex_type);
 
 // Note that the returned std::unique_lock<MutexInterface> should never outlive the LockManager which holds
-// underlying mutexes. Also note that clear_mutex doesn't need to be explicitly called, since the mutexes will all get
-// cleared automatically when the LockManager goes out of scope. We could implement these lock such that initialization
-// is not needed, and they are initialized every time they're locked, but since that communicates with the OS filesystem
-// it might be slower do to it each time. This way, locking/unlocking should be faster.
+// underlying mutexes, which are cleared when the LockManager goes out of scope. We could implement these locks such
+// that initialization is not needed, and they are initialized every time they're locked, but since that communicates
+// with the OS filesystem it might be slower to do it each time. This way, locking/unlocking should be faster.
 class LockManager {
 public:
     // Mutex types that are initialized per chip (combined with device_id + device_type).
@@ -64,12 +63,10 @@ public:
 
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
     void initialize_mutex(MutexType mutex_type);
-    void clear_mutex(MutexType mutex_type);
     std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
     void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
-    void clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
     std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is
@@ -82,7 +79,6 @@ public:
 
 private:
     void initialize_mutex_internal(const std::string& mutex_name);
-    void clear_mutex_internal(const std::string& mutex_name);
     std::unique_lock<MutexInterface> acquire_mutex_internal(const std::string& mutex_name);
     std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
 

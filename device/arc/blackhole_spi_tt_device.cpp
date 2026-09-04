@@ -14,6 +14,7 @@
 
 #include "spi_arc_command.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
@@ -61,9 +62,9 @@ struct SpiBufferInfo {
 
 // Reads SPI dump buffer address and size from SCRATCH_RAM[10]. addr is ARC physical address (bytes),
 // size is buffer size in bytes (2^upper_8_bits from register).
-static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
+static SpiBufferInfo get_spi_buffer_info(BlackholeDeviceFirmware* firmware) {
     uint32_t buffer_info;
-    device->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
+    firmware->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info), get_selected_noc_id());
     uint32_t buffer_addr = (buffer_info & BH_SPI_ADDR_MASK_24_BITS) + BH_SPI_ARC_ADDR_OFFSET;
     uint32_t buffer_size = 1u << ((buffer_info >> BH_SPI_SIZE_SHIFT_BITS) & BH_SPI_SIZE_MASK_8_BITS);
     return {buffer_addr, buffer_size};
@@ -143,7 +144,13 @@ std::optional<uint32_t> BlackholeSPITTDevice::extract_protobuf_uint32_field(
     return std::nullopt;
 }
 
-BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
+BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) :
+    SPITTDevice(tt_device), firmware_(dynamic_cast<BlackholeDeviceFirmware*>(tt_device->get_device_firmware())) {
+    UMD_ASSERT(
+        firmware_ != nullptr,
+        error::RuntimeError,
+        "BlackholeSPITTDevice requires a device backed by BlackholeDeviceFirmware.");
+}
 
 void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     if (size == 0) {
@@ -155,7 +162,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         UMD_THROW(error::RuntimeError, "Device firmware not available for SPI read on Blackhole.");
     }
 
-    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(firmware_);
 
     size_t bytes_read = 0;
     while (bytes_read < size) {
@@ -194,7 +201,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         UMD_THROW(error::RuntimeError, "Device firmware not available for SPI write on Blackhole.");
     }
 
-    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(firmware_);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
     FirmwareBundleVersion fw_version = device_->get_firmware_version();

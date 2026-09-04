@@ -316,14 +316,6 @@ void SimulationTTDevice::dma_write_to_core_range(
     UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
-}
-
-void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
-}
-
 uint32_t SimulationTTDevice::get_clock() {
     UMD_THROW(error::RuntimeError, "Getting clock is not supported for simulation devices.");
 }

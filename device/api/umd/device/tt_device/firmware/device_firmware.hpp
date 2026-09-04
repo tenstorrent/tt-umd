@@ -153,6 +153,17 @@ public:
         uint32_t dram_channel,
         std::chrono::milliseconds timeout_ms,
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Reads the free-running reference clock counter the management processor exposes.
+     *
+     * Served here because the counter lives in the ARC reset unit, reached through this component's
+     * register windows; the facade would otherwise need per-arch routing of its own.
+     *
+     * @param noc_id NOC to route through, where the access goes over a NOC.
+     * @return uint64_t The current reference clock tick count.
+     */
+    virtual uint64_t get_refclk_counter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

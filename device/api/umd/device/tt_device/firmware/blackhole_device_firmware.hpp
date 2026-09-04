@@ -79,6 +79,8 @@ public:
     bool wait_dram_channel_training(
         uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    uint64_t get_refclk_counter(NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -98,6 +100,19 @@ public:
      * @return The provider, or nullptr until init_firmware() has run.
      */
     FirmwareInfoProvider* get_firmware_info_provider() const;
+
+    /**
+     * @brief Raw access to the ARC APB register window.
+     *
+     * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_.
+     * Deliberately concrete-class methods rather than part of DeviceFirmware: the window is an
+     * implementation detail of this component, exposed only for the SPI device, which is
+     * architecture-committed and so holds this concrete type. They go away when SPI moves onto
+     * components of its own.
+     */
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
 private:
     /**
@@ -128,9 +143,6 @@ private:
     // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
     // settle, rather than throwing.
     void wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
-    // Thin wrapper that resolves the ARC core for noc_id and hands the access to arc_apb_.
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     // All non-owning; they belong to the object that owns this one and must outlive it.
     DeviceProtocol* device_protocol_ = nullptr;

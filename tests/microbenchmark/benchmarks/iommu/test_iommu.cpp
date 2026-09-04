@@ -31,7 +31,6 @@ using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-constexpr ChipId CHIP_ID = 0;
 constexpr uint32_t NUM_EPOCHS = 10;
 
 // Measure the time it takes to map buffers of different sizes through IOMMU.

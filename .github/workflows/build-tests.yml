@@ -159,6 +159,8 @@ jobs:
       - name: Build ${{ inputs.build-targets || env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
+          # Unity build on to match build-device: one compilation mode across CI, so a
+          # batching-only failure surfaces here on the PR rather than in the merge queue.
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_TESTS=ON \
             -DTT_UMD_BUILD_SIMULATION=OFF \
@@ -169,6 +171,7 @@ jobs:
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_UNITY_BUILD=ON \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."

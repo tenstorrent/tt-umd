@@ -51,7 +51,8 @@ public:
         const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
-        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {},
+        const std::vector<tt_xy_pair>& smc_cores = {});
 
     /**
      * Create CoordinateManager object. Generally, main function for creating CoordinateManager is the one above,
@@ -228,7 +229,8 @@ protected:
         const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
-        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {},
+        const std::vector<tt_xy_pair>& smc_cores = {});
 
     void initialize();
 
@@ -359,6 +361,10 @@ protected:
     const std::vector<tt_xy_pair> l2cpu_cores;
 
     const std::vector<tt_xy_pair> dispatch_cores;
+
+    // System Management Complex cores. Like router/security/l2cpu/dispatch cores they are not laid
+    // out in a grid and are never harvested.
+    const std::vector<tt_xy_pair> smc_cores;
 
     const std::vector<uint32_t> noc0_x_to_noc1_x;
     const std::vector<uint32_t> noc0_y_to_noc1_y;

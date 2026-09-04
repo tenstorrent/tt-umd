@@ -235,7 +235,8 @@ void TopologyDiscovery::get_connected_devices() {
     // it. A simulator image enumerates its own endpoints instead.
     if (!options.simulator_path.empty()) {
 #ifdef TT_UMD_BUILD_SIMULATION
-        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(options.simulator_path)) {
+        for (auto& [chip_id, tt_device] :
+             create_local_simulation_tt_devices(options.simulator_path, options.simulator_num_host_mem_channels)) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());

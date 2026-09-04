@@ -102,5 +102,10 @@ struct TopologyDiscoveryOptions {
     // A simulation backend has no OS device enumeration, so the image is asked which endpoints it
     // exposes and a device is created for each. io_device_type stays PCIe: a simulator models PCIe.
     std::string simulator_path;
+
+    // Host memory channels for each simulated device. A simulation backend sizes its system memory
+    // as the device is constructed, so this must be known before the Cluster's own auto-detect runs;
+    // a discovered simulator cluster is all-MMIO, which that auto-detect resolves to 1 for.
+    int simulator_num_host_mem_channels = 1;
 };
 }  // namespace tt::umd

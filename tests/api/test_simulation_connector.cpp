@@ -7,10 +7,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <set>
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_connector.hpp"
@@ -274,8 +276,14 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     client_options.simulator_directory = server_directory;  // the server directory => client role
     Cluster client_cluster(client_options);
 
-    // The client reconstructed the same chips the host serves.
-    EXPECT_EQ(client_cluster.get_target_device_ids(), host_cluster.get_target_device_ids());
+    // The client reconstructed the same chips the host serves. Those are the host's simulator-backed
+    // chips, one socket each -- not necessarily all of its chips: a chip reached over ethernet from
+    // another, as wh_x2's second chip is, has no simulator of its own to serve one.
+    std::set<tt::ChipId> host_served_chips;
+    for (const auto& mmio_entry : host_cluster.get_cluster_description()->get_chips_with_mmio()) {
+        host_served_chips.insert(mmio_entry.first);
+    }
+    EXPECT_EQ(client_cluster.get_target_device_ids(), host_served_chips);
 
     const tt::ChipId chip = 0;
     const SocDescriptor& soc = host_cluster.get_soc_descriptor(chip);

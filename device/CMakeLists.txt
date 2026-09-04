@@ -95,10 +95,8 @@ target_sources(
         pcie/pci_device.cpp
         types/tlb.cpp
         cluster_descriptor.cpp
-        tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/tt_device_error.cpp
-        tt_device/wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
         tt_device/hang_detection/hang_detector_implementation.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -238,10 +236,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/kmd_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
-                api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/tt_device_error.hpp
-                api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/simulation_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp

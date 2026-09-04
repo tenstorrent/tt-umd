@@ -178,7 +178,8 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 }
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
-    is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
+    const BoardType board_type = tt_device->get_board_type();
+    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_BIN6;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {

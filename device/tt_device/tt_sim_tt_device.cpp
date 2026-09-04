@@ -359,10 +359,9 @@ void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint6
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
-    // Channels sit on a fixed 1 GiB NOC-window grid (matching SimulationSysmemManager's placement),
-    // independent of region_size. region_size is the channel's actual mapping size and only bounds the
-    // limit: keeping base on the grid means a sub-1-GiB channel (WH channel 3 = 768 MiB) still starts at
-    // the right NOC offset (region * 1 GiB) while mapping only its backed range.
+    // The standard channel helper places channels on a fixed 1 GiB NOC-window grid. This lower-level
+    // helper also accepts an arbitrary base for the mapped-buffer arena. In both cases region_size
+    // bounds the backed range.
     UMD_ASSERT(region_size > 0, error::RuntimeError, "Cannot configure an empty iATU region.");
     UMD_ASSERT(
         base <= std::numeric_limits<uint64_t>::max() - (region_size - 1),

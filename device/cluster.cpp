@@ -632,11 +632,23 @@ Cluster::Cluster(ClusterOptions options) {
 
         std::vector<PendingFdLink> pending_fd_links;
         const char* eth_ipc_env = std::getenv("TT_SIM_ETH_IPC_DIR");
-        const std::string eth_ipc_dir = eth_ipc_env ? std::string(eth_ipc_env) : std::string("/tmp/ttsim_eth_ipc");
-        ::mkdir(eth_ipc_dir.c_str(), 0777);
+        const std::string eth_ipc_dir =
+            eth_ipc_env != nullptr && eth_ipc_env[0] != '\0' ? eth_ipc_env : "/tmp/ttsim_eth_ipc";
+        const int mkdir_result = ::mkdir(eth_ipc_dir.c_str(), 0777);
+        UMD_ASSERT(
+            mkdir_result == 0 || errno == EEXIST,
+            error::RuntimeError,
+            fmt::format("Failed to create TTSim Ethernet IPC directory {}: {}", eth_ipc_dir, std::strerror(errno)));
         auto eth_fifo_path = [&](uint64_t source, int source_channel, uint64_t destination, int destination_channel) {
             return eth_ipc_dir + "/eth_" + std::to_string(source) + "_" + std::to_string(source_channel) + "__" +
                    std::to_string(destination) + "_" + std::to_string(destination_channel) + ".fifo";
+        };
+        auto ensure_fifo = [](const std::string& path) {
+            const int mkfifo_result = ::mkfifo(path.c_str(), 0666);
+            UMD_ASSERT(
+                mkfifo_result == 0 || errno == EEXIST,
+                error::RuntimeError,
+                fmt::format("Failed to create TTSim Ethernet FIFO {}: {}", path, std::strerror(errno)));
         };
 
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
@@ -692,9 +704,9 @@ Cluster::Cluster(ClusterOptions options) {
                 local_comm->register_eth_endpoint(uint32_t(local_channel), eth_sim_mac(local_chip, int(local_channel)));
                 const std::string write_path = eth_fifo_path(local_uid, int(local_channel), remote_uid, remote_channel);
                 const std::string read_path = eth_fifo_path(remote_uid, remote_channel, local_uid, int(local_channel));
-                ::mkfifo(write_path.c_str(), 0666);
-                ::mkfifo(read_path.c_str(), 0666);
-                const int read_fd = ::open(read_path.c_str(), O_RDONLY | O_NONBLOCK);
+                ensure_fifo(write_path);
+                ensure_fifo(read_path);
+                const int read_fd = ::open(read_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
                 if (read_fd < 0) {
                     log_warning(
                         tt::LogEmulationDriver,
@@ -709,7 +721,7 @@ Cluster::Cluster(ClusterOptions options) {
         for (auto& link : pending_fd_links) {
             int write_fd = -1;
             for (int attempt = 0; attempt < 120000 && write_fd < 0; ++attempt) {
-                write_fd = ::open(link.write_path.c_str(), O_WRONLY | O_NONBLOCK);
+                write_fd = ::open(link.write_path.c_str(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
                 if (write_fd < 0) {
                     if (errno != ENXIO) {
                         break;

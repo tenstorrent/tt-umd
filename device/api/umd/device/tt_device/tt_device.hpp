@@ -298,8 +298,11 @@ public:
      *
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
+     *
+     * Served by the model's architecture-specific components and routed on the thread-selected NOC
+     * when the access goes over a NOC; throws for devices with no ARC APB window (e.g. simulation).
      */
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size);
 
     /**
      * Write function that will send write message to the ARC core APB peripherals.
@@ -315,8 +318,11 @@ public:
      *
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
+     *
+     * Served by the model's architecture-specific components and routed on the thread-selected NOC
+     * when the access goes over a NOC; throws for devices with no ARC APB window (e.g. simulation).
      */
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.

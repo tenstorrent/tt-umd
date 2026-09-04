@@ -81,6 +81,7 @@ target_sources(
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
+        tt_device_model/tt_device_model.cpp
         tt_device_model/wormhole_tt_device_model.cpp
         tt_device_model/blackhole_tt_device_model.cpp
         tt_device_model/simulation_tt_device_model.cpp

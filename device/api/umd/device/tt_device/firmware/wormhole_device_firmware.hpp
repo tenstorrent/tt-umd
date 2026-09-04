@@ -94,6 +94,19 @@ public:
      */
     FirmwareInfoProvider* get_firmware_info_provider() const;
 
+    /**
+     * @brief Raw access to the ARC APB register window.
+     *
+     * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_.
+     * Deliberately concrete-class methods rather than part of DeviceFirmware: the window is an
+     * implementation detail of this component, exposed only so the model can serve
+     * TTDevice::read_from_arc_apb() for the callers that still speak raw APB (the SPI device and
+     * the refclk counter read). They go away when those move onto components of their own.
+     */
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
 private:
     /**
      * @brief Blocks until the management firmware reports it has booted.
@@ -122,11 +135,7 @@ private:
     void wait_for_aiclk_value(
         uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
-    // Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_/arc_csm_.
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
-    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
+    // Thin wrapper that resolves the ARC core for noc_id and hands the access to arc_csm_.
     void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     // All non-owning; they belong to the object that owns this one and must outlive it.

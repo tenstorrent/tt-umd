@@ -454,4 +454,9 @@ void BlackholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr
     arc_apb_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
 
+void BlackholeDeviceFirmware::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
+    arc_apb_.write(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
 }  // namespace tt::umd

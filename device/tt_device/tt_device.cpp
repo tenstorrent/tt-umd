@@ -523,6 +523,16 @@ IODeviceType TTDevice::get_communication_device_type() const {
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
+// The overrides these replace took no NOC parameter and routed NOC-bound accesses on the
+// thread-selected NOC through the I/O defaults; keep that by resolving the NOC here.
+void TTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    model_->read_from_arc_apb(mem_ptr, arc_addr_offset, size, get_selected_noc_id());
+}
+
+void TTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    model_->write_to_arc_apb(mem_ptr, arc_addr_offset, size, get_selected_noc_id());
+}
+
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0;
     uint32_t high2_addr = 0;

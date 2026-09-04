@@ -28,19 +28,14 @@ class RemoteInterface;
  * remotely, over JTAG when it is reached that way, and otherwise through the PCIe BAR. Callers pass
  * the ARC core coordinate and the NOC to route over, so this holds no NOC state of its own.
  *
- * Taking both per call is a deliberate difference from WormholeTTDevice::read_from_arc_apb, which
- * pinned its JTAG branch to wormhole::ARC_CORES_NOC0[0] and NocId::DEFAULT_NOC whatever NOC the
- * thread had selected, and only used a NOC-dependent core on the remote branch. Every route here
- * uses what the caller passed, so a caller that wants the old JTAG behaviour has to pass the NOC0
- * coordinate itself. Routing is otherwise unchanged.
+ * Taking both per call is a deliberate difference from the WormholeTTDevice APB accessors this
+ * replaced, which pinned their JTAG branch to wormhole::ARC_CORES_NOC0[0] and NocId::DEFAULT_NOC
+ * whatever NOC the thread had selected, and only used a NOC-dependent core on the remote branch.
+ * Every route here uses what the caller passed, so a caller that wants the old JTAG behaviour has
+ * to pass the NOC0 coordinate itself. Routing is otherwise unchanged.
  *
- * The interfaces are non-owning and must outlive this object.
- *
- * TODO: WormholeTTDevice still holds its own copy of the APB routing, with the original bound
- * check that validates only the first byte of a transfer, for the callers that have not moved to
- * DeviceFirmware yet (the ARC messenger and its dependents). It is retired with them -- until then
- * the two can drift. The CSM copy is already gone: its only caller was the firmware boot wait,
- * which moved here together with this class.
+ * The interfaces are non-owning and must outlive this object. This is the only copy of the APB
+ * routing: TTDevice::read_from_arc_apb reaches it through the model and the firmware component.
  */
 class WormholeArcWindow {
 public:

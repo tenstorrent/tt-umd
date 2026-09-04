@@ -624,7 +624,7 @@ TEST_F(TestTlb, CreateIoWindow) {
 
     EXPECT_GE(window->get_size(), requested_size);
     EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
-    // create_io_window() configures through the single-argument configure(), which applies Strict.
+    // Ordering defaults to Strict when the caller does not ask for one.
     EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
 
     const TargetIoWindowConfig readback = window->get_target_config();
@@ -638,13 +638,23 @@ TEST_F(TestTlb, CreateIoWindow) {
     // No architecture has a window this large, so the request cannot be served.
     EXPECT_ANY_THROW(tt_device->create_io_window(target, {.size = std::numeric_limits<size_t>::max()}));
 
+    // A caller that needs another ordering mode gets it applied to the mapping it is handed, rather
+    // than having to reconfigure the window itself once it has one.
+    for (const IoOrdering ordering : {IoOrdering::Relaxed, IoOrdering::Posted}) {
+        std::unique_ptr<IoWindow> ordered_window =
+            tt_device->create_io_window(target, {.size = requested_size}, ordering);
+        EXPECT_EQ(ordered_window->get_io_ordering(), ordering);
+        EXPECT_EQ(ordered_window->get_target_config().addr, l1_addr) << "Ordering should not disturb the target";
+    }
+
     // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
     // TTDevice nor translated coordinates ask for a window.
     std::unique_ptr<IoWindow> chip_window =
-        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size});
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
     ASSERT_NE(chip_window, nullptr);
     EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
     EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
+    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::Relaxed);
 
     chip_window->write32(0, 0xa5a5a5a5);
     EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
@@ -689,7 +699,13 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     }
 
     std::unique_ptr<IoWindow> window = cluster->create_io_window(
-        chip, grid_start, l1_addr, {.size = sizeof(pattern)}, grid_end, WindowFlags::MulticastWrite);
+        chip,
+        grid_start,
+        l1_addr,
+        {.size = sizeof(pattern)},
+        IoOrdering::Strict,
+        grid_end,
+        WindowFlags::MulticastWrite);
     ASSERT_NE(window, nullptr);
 
     window->write32(0, pattern);

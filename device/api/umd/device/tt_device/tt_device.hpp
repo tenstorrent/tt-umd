@@ -498,9 +498,11 @@ public:
      * See @ref TargetIoWindowConfig.
      * @param host Host-side properties (caching strategy and requested size).
      * See @ref HostIoWindowConfig.
+     * @param ordering Transaction ordering mode to apply to the mapping.
      * @return An exclusively owned handle to the newly created @ref IoWindow.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering = IoOrdering::Strict);
 
     /**
      * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.

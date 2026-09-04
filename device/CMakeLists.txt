@@ -134,8 +134,9 @@ target_sources(
         utils/robust_mutex.cpp
         utils/kmd_mutex.cpp
         topology/topology_discovery.cpp
-        topology/topology_discovery_blackhole.cpp
-        topology/topology_discovery_wormhole.cpp
+        topology/discovery_protocol.cpp
+        topology/discovery_protocol_blackhole.cpp
+        topology/discovery_protocol_wormhole.cpp
         topology/topology_discovery_error.cpp
         tt_device/remote_communication.cpp
         tt_device/remote_communication_legacy_firmware.cpp
@@ -294,8 +295,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/rtl_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
-                api/umd/device/topology/topology_discovery_blackhole.hpp
-                api/umd/device/topology/topology_discovery_wormhole.hpp
+                api/umd/device/topology/discovery_protocol.hpp
+                api/umd/device/topology/discovery_protocol_blackhole.hpp
+                api/umd/device/topology/discovery_protocol_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp

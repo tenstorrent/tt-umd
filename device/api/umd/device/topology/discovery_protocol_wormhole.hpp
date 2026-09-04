@@ -5,40 +5,23 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
+#include <memory>
 #include <utility>
 
-#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/discovery_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
-enum class IODeviceType;
 struct TopologyDiscoveryOptions;
 
-class TopologyDiscoveryWormhole : public TopologyDiscovery {
+class DiscoveryProtocolWormhole : public DiscoveryProtocol {
 public:
-    TopologyDiscoveryWormhole(
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
-        const TopologyDiscoveryOptions& options,
-        IODeviceType io_device_type) :
-        TopologyDiscovery(std::move(soc_arch_descriptor), options, io_device_type) {}
+    explicit DiscoveryProtocolWormhole(const TopologyDiscoveryOptions& options) : DiscoveryProtocol(options) {}
 
-protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }
-
-    struct EthAddresses {
-        static constexpr uint64_t ETH_PARAM_TABLE = 0x1000;
-        static constexpr uint64_t ROUTING_FIRMWARE_STATE = 0x104c;
-        static constexpr uint64_t NODE_INFO = 0x1100;
-        static constexpr uint64_t ETH_CONN_INFO = 0x1200;
-        static constexpr uint64_t RESULTS_BUF = 0x1ec0;
-        static constexpr uint64_t ERISC_REMOTE_BOARD_TYPE_OFFSET = 77;
-        static constexpr uint64_t ERISC_LOCAL_BOARD_TYPE_OFFSET = 69;
-        static constexpr uint64_t ERISC_LOCAL_BOARD_ID_LO_OFFSET = 64;
-        static constexpr uint64_t ERISC_REMOTE_BOARD_ID_LO_OFFSET = 72;
-        static constexpr uint64_t ERISC_REMOTE_ETH_ID_OFFSET = 76;
-    };
 
     uint64_t get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) override;
 
@@ -76,7 +59,21 @@ protected:
 
     uint32_t get_eth_postcode(TTDevice* tt_device, CoreCoord eth_core) override;
 
-    void retrain_eth_cores() override;
+    void retrain_eth_cores(const std::map<uint64_t, std::unique_ptr<TTDevice>>& devices) override;
+
+private:
+    struct EthAddresses {
+        static constexpr uint64_t ETH_PARAM_TABLE = 0x1000;
+        static constexpr uint64_t ROUTING_FIRMWARE_STATE = 0x104c;
+        static constexpr uint64_t NODE_INFO = 0x1100;
+        static constexpr uint64_t ETH_CONN_INFO = 0x1200;
+        static constexpr uint64_t RESULTS_BUF = 0x1ec0;
+        static constexpr uint64_t ERISC_REMOTE_BOARD_TYPE_OFFSET = 77;
+        static constexpr uint64_t ERISC_LOCAL_BOARD_TYPE_OFFSET = 69;
+        static constexpr uint64_t ERISC_LOCAL_BOARD_ID_LO_OFFSET = 64;
+        static constexpr uint64_t ERISC_REMOTE_BOARD_ID_LO_OFFSET = 72;
+        static constexpr uint64_t ERISC_REMOTE_ETH_ID_OFFSET = 76;
+    };
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;
     static constexpr uint32_t LINK_TRAIN_TRAINING = 0;

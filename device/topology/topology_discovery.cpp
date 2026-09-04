@@ -14,23 +14,19 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
-#include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/discovery_protocol.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -40,7 +36,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -94,27 +89,31 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     }
 
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
-    switch (current_arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options, io_device_type);
-        case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(soc_arch_descriptor, options, io_device_type);
-        default:
-            UMD_THROW(error::RuntimeError, fmt::format("Unsupported architecture for topology discovery."));
-    }
+    return std::unique_ptr<TopologyDiscovery>(new TopologyDiscovery(
+        soc_arch_descriptor, options, io_device_type, DiscoveryProtocol::create(current_arch, options)));
 }
 
 TopologyDiscovery::TopologyDiscovery(
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
     const TopologyDiscoveryOptions& options,
-    IODeviceType io_device_type) :
-    options(options), io_device_type(io_device_type), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
+    IODeviceType io_device_type,
+    std::unique_ptr<DiscoveryProtocol> discovery_protocol) :
+    protocol(std::move(discovery_protocol)),
+    options(options),
+    io_device_type(io_device_type),
+    soc_arch_descriptor(std::move(soc_arch_descriptor)) {
+    if (protocol != nullptr) {
+        protocol->set_health_error_sink(&health_errors);
+    }
+}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting topology discovery.");
     get_connected_devices();
-    retrain_eth_cores();
+    if (protocol != nullptr) {
+        protocol->retrain_eth_cores(devices_to_discover);
+    }
     discover_remote_devices();
     log_info(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
@@ -174,7 +173,7 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
@@ -185,7 +184,7 @@ void TopologyDiscovery::get_connected_devices() {
             // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
-        if (tt_device->get_arch() != get_topology_arch()) {
+        if (tt_device->get_arch() != protocol->get_topology_arch()) {
             log_warning(
                 LogUMD,
                 "Skipped device {} with different architecture: {}.",
@@ -213,24 +212,24 @@ void TopologyDiscovery::get_connected_devices() {
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
-            init_first_device(tt_device.get());
+            protocol->init_first_device(tt_device.get());
         }
 
         if (options.wait_on_ethernet_link_training) {
-            wait_eth_cores_training(tt_device.get());
+            protocol->wait_eth_cores_training(tt_device.get());
         }
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
         std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
         for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
+            uint64_t board_id = protocol->get_local_board_id(tt_device.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
                 break;
             }
         }
 
-        uint64_t asic_id = get_asic_id(tt_device.get());
+        uint64_t asic_id = protocol->get_asic_id(tt_device.get());
         devices_to_discover.emplace(asic_id, std::move(tt_device));
         asic_id_to_chip_id.emplace(asic_id, chip_id);
 
@@ -280,7 +279,7 @@ void TopologyDiscovery::discover_remote_devices() {
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = soc_desc.get_eth_channel_for_core(eth_core);
 
-            if (is_eth_port_disabled(tt_device, eth_core)) {
+            if (protocol->is_eth_port_disabled(tt_device, eth_core)) {
                 log_debug(
                     LogUMD,
                     "Skipping disabled ETH core {} on device ASIC ID: {} (port_disable_mask bit {} is set)",
@@ -303,7 +302,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
             // TODO: Temporary - heartbeat check disabled for Blackhole.
             if (tt_device->get_arch() != ARCH::BLACKHOLE &&
-                !eth_heartbeat_running(tt_device, current_device_asic_id, eth_core)) {
+                !protocol->eth_heartbeat_running(tt_device, current_device_asic_id, eth_core)) {
                 auto err = UMD_THROW_OR_RETURN(
                     options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
                     error::RuntimeError,
@@ -311,12 +310,12 @@ void TopologyDiscovery::discover_remote_devices() {
                         "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
                         current_device_asic_id,
                         eth_core.str(),
-                        get_eth_postcode(tt_device, eth_core)));
+                        protocol->get_eth_postcode(tt_device, eth_core)));
                 log_warning(LogUMD, err.message());
                 continue;
             }
 
-            if (!verify_eth_core_fw_version(tt_device, current_device_asic_id, eth_core)) {
+            if (!protocol->verify_eth_core_fw_version(tt_device, current_device_asic_id, eth_core)) {
                 log_warning(
                     LogUMD,
                     "Skipping discovery from device ASIC ID: {} ETH core {}",
@@ -326,8 +325,8 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (is_using_eth_coords() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
-                auto local_eth_coord = get_local_eth_coord(tt_device, eth_core);
+            if (protocol->is_using_eth_coords() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
+                auto local_eth_coord = protocol->get_local_eth_coord(tt_device, eth_core);
                 if (local_eth_coord.has_value()) {
                     eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
                     log_debug(
@@ -338,11 +337,11 @@ void TopologyDiscovery::discover_remote_devices() {
                 }
             }
 
-            if (!is_eth_trained(tt_device, eth_core)) {
+            if (!protocol->is_eth_trained(tt_device, eth_core)) {
                 continue;
             }
 
-            verify_routing_firmware_state(tt_device, current_device_asic_id, eth_core);
+            protocol->verify_routing_firmware_state(tt_device, current_device_asic_id, eth_core);
 
             log_debug(
                 LogUMD,
@@ -351,14 +350,14 @@ void TopologyDiscovery::discover_remote_devices() {
                 channel,
                 eth_core.str());
             active_eth_channels_per_device.at(current_device_asic_id).insert(channel);
-            uint64_t remote_asic_id = get_remote_asic_id(tt_device, eth_core);
+            uint64_t remote_asic_id = protocol->get_remote_asic_id(tt_device, eth_core);
 
-            if (!is_board_id_included(get_remote_board_id(tt_device, eth_core)) ||
+            if (!is_board_id_included(protocol->get_remote_board_id(tt_device, eth_core)) ||
                 (tt_device->get_arch() == ARCH::BLACKHOLE &&
                  discovered_devices.find(remote_asic_id) == discovered_devices.end())) {
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_device_asic_id, channel},
-                     {remote_asic_id, get_logical_remote_eth_channel(tt_device, eth_core)}});
+                     {remote_asic_id, protocol->get_logical_remote_eth_channel(tt_device, eth_core)}});
                 log_debug(
                     LogUMD,
                     "Discovered remote device outside of host ASIC ID: {} over ETH core: {}",
@@ -372,12 +371,12 @@ void TopologyDiscovery::discover_remote_devices() {
                 log_debug(
                     LogUMD, "Discovered remote device ASIC ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
-                std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
-                std::unique_ptr<TTDevice> remote_device = create_remote_device(
+                std::optional<EthCoord> eth_coord = protocol->get_remote_eth_coord(tt_device, eth_core);
+                std::unique_ptr<TTDevice> remote_device = protocol->create_remote_device(
                     eth_coord,
                     devices.at(gateway_device_id).get(),
                     active_eth_channels_per_device.at(gateway_device_id),
-                    soc_arch_descriptor_);
+                    soc_arch_descriptor);
                 ChipId chip_id = get_next_chip_id();
 
                 bool device_init_failed = !init_device(remote_device.get(), chip_id, timeout::ARC_STARTUP_TIMEOUT);
@@ -394,7 +393,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 }
                 if (!device_init_failed) {
                     if (options.wait_on_ethernet_link_training) {
-                        wait_eth_cores_training(remote_device.get());
+                        protocol->wait_eth_cores_training(remote_device.get());
                     }
                     // Put device in discovery queue only if it is healthy.
                     devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
@@ -409,12 +408,13 @@ void TopologyDiscovery::discover_remote_devices() {
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(
-                    {{current_device_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(tt_device, eth_core)}});
+                    {{current_device_asic_id, channel},
+                     {remote_asic_id, protocol->get_remote_eth_channel(tt_device, eth_core)}});
             }
         }
     }
 
-    patch_eth_connections();
+    protocol->patch_eth_connections(ethernet_connections, [this](uint64_t asic_id) { return get_tt_device(asic_id); });
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -471,13 +471,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
                 {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
         }
 
-        if (is_using_eth_coords()) {
-            if (!eth_coords.empty()) {
-                EthCoord eth_coord = eth_coords.at(current_device_asic_id);
-                cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
-                cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
-                    current_chip_id;
-            }
+        // eth_coords is only ever populated when the protocol reports that it uses ETH coordinates.
+        if (!eth_coords.empty()) {
+            EthCoord eth_coord = eth_coords.at(current_device_asic_id);
+            cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
+            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
+                current_chip_id;
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, tt_device->get_chip_info().board_id);
@@ -515,8 +514,10 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
     }
     cluster_desc->io_device_type = io_device_type;
-    cluster_desc->eth_fw_version = expected_eth_fw_version;
-    cluster_desc->fw_bundle_version = first_fw_bundle_version;
+    if (protocol != nullptr) {
+        cluster_desc->eth_fw_version = protocol->get_expected_eth_fw_version();
+        cluster_desc->fw_bundle_version = protocol->get_fw_bundle_version();
+    }
     cluster_desc->merge_cluster_ids();
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
@@ -532,30 +533,14 @@ TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
     return devices.at(asic_id).get();
 }
 
-uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
-    // This function should return a unique ID for the device. At the moment we are going to use mangled board ID
-    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first
-    // one. If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
-    // Using board ID should happen only for unconnected boards (N150, P150).
-    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-    std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
-
-    for (const CoreCoord& eth_core : eth_cores) {
-        if (!is_eth_trained(tt_device, eth_core)) {
-            continue;
-        }
-
-        return get_local_asic_id(tt_device, eth_core);
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
+    if (protocol == nullptr) {
+        return;
     }
 
-    return get_unconnected_device_id(tt_device);
-}
-
-void TopologyDiscovery::patch_eth_connections() {}
-
-void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
+    const std::optional<FirmwareBundleVersion>& first_fw_bundle_version = protocol->get_fw_bundle_version();
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
             auto err = UMD_THROW_OR_RETURN(
@@ -572,7 +557,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     }
 
     const tt::ARCH arch = tt_device->get_arch();
-    first_fw_bundle_version = fw_bundle_version;
+    protocol->set_fw_bundle_version(fw_bundle_version);
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
     FirmwareBundleVersion minimum_compatible_fw_bundle_version = get_minimum_compatible_firmware_version(arch);
     FirmwareBundleVersion latest_supported_fw_bundle_version = get_latest_supported_firmware_version(arch);
@@ -603,132 +588,8 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     }
 }
 
-void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
-    auto timeout_left = timeout_ms;
-    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-    const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
-    for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
-    }
-    log_debug(
-        LogUMD,
-        "Completed ethernet link training on device: {} after {} ms.",
-        tt_device->get_communication_device_id(),
-        (timeout_ms - timeout_left).count());
-}
-
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
     return board_ids.find(board_id) != board_ids.end();
-}
-
-bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
-    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
-
-    bool eth_fw_problem = false;
-    if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
-        if (expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
-        } else {
-            expected_eth_fw_version = eth_fw_version;
-            log_debug(
-                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
-        }
-
-        SemVer minimum_supported = (get_topology_arch() == ARCH::BLACKHOLE)
-                                       ? erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION
-                                       : erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION;
-        if (*expected_eth_fw_version < minimum_supported) {
-            log_warning(
-                LogUMD,
-                "The expected ETH firmware version {} is older than the minimum supported version {}",
-                expected_eth_fw_version->str(),
-                minimum_supported.str());
-            eth_fw_problem = true;
-        }
-    }
-
-    if (eth_fw_version != *expected_eth_fw_version) {
-        auto err = error::EthFirmwareMismatchError(
-            *tt_device, asic_id, expected_eth_fw_version.value(), eth_fw_version, eth_core);
-        log_warning(LogUMD, err.message());
-        health_errors[asic_id].push_back(std::move(err));
-        eth_fw_problem = true;
-    }
-
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
-}
-
-bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
-    const auto start = std::chrono::steady_clock::now();
-    uint32_t previous_reading = 0;
-    // First loop: Wait until heartbeat changes from 0 (post reset).
-    while (true) {
-        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
-
-        if (current_reading != 0) {
-            previous_reading = current_reading;
-            break;
-        }
-
-        if (utils::check_timeout(start, timeout::ETH_STARTUP_TIMEOUT)) {
-            auto err = UMD_THROW_OR_RETURN(
-                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
-                error::EthFirmwareHeartbeatError,
-                *tt_device,
-                asic_id,
-                current_reading,
-                eth_core);
-            log_warning(LogUMD, err.message());
-            health_errors[asic_id].push_back(std::move(err));
-            return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-
-    // Second loop: Wait for heartbeat to change.
-    const auto second_start = std::chrono::steady_clock::now();
-    while (true) {
-        uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
-        uint32_t signature = (current_reading >> 16);
-
-        if (signature != erisc_firmware::BASE_FW_HEARTBEAT_SIGNATURE &&
-            signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
-            log_warning(
-                LogUMD,
-                "Read invalid heartbeat signature: {:#x} from ETH core: {}, FW possibly corrupted.",
-                current_reading,
-                eth_core.str());
-            return false;
-        }
-
-        if (previous_reading != current_reading) {
-            return true;
-        }
-
-        if (utils::check_timeout(second_start, timeout::ETH_HEARTBEAT_TIMEOUT)) {
-            auto err = UMD_THROW_OR_RETURN(
-                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
-                error::EthFirmwareHeartbeatError,
-                *tt_device,
-                asic_id,
-                current_reading,
-                eth_core);
-            log_warning(LogUMD, err.message());
-            health_errors[asic_id].push_back(std::move(err));
-            return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
-    }
-}
-
-bool TopologyDiscovery::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

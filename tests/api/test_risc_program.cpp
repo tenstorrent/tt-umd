@@ -283,6 +283,58 @@ INSTANTIATE_TEST_SUITE_P(
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
+// Covers get_risc_reset_state, which the tests above never read: they observe RISCs executing
+// rather than the reported reset state. Only BRISC is released, since deasserting TRISCs or NCRISC
+// requires the arch specific configuration program that TriscNcriscAssertDeassertTest installs.
+TEST(TestRiscProgram, RiscResetStateRoundTrip) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    const tt::ARCH arch = cluster->get_tt_device(0)->get_arch();
+    if (arch != tt::ARCH::WORMHOLE_B0 && arch != tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Tensix soft reset masks are only defined for Wormhole and Blackhole.";
+    }
+
+    constexpr uint64_t brisc_code_address = 0x20;
+
+    const auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    const std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    for (const ChipId chip_id : cluster->get_target_device_ids()) {
+        const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+
+        cluster->assert_risc_reset(chip_id, tensix_core, RiscType::ALL_TENSIX);
+        cluster->l1_membar(chip_id, {tensix_core});
+
+        EXPECT_EQ(cluster->get_risc_reset_state(chip_id, tensix_core) & RiscType::ALL_TENSIX, RiscType::ALL_TENSIX)
+            << "chip " << chip_id << ": not all Tensix RISCs reported in reset after asserting ALL_TENSIX";
+
+        // BRISC must park in a defined program before it is released: SOFT_RESET is mapped into its
+        // own address space, so a core executing stale L1 can clear its own reset bit.
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
+        cluster->write_to_device(
+            simple_brisc_program.data(),
+            simple_brisc_program.size() * sizeof(uint32_t),
+            chip_id,
+            tensix_core,
+            brisc_code_address);
+        cluster->l1_membar(chip_id, {tensix_core});
+
+        cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC, /*staggered_start=*/true);
+
+        EXPECT_EQ(
+            cluster->get_risc_reset_state(chip_id, tensix_core) & RiscType::ALL_TENSIX,
+            RiscType::ALL_TENSIX_TRISCS | RiscType::NCRISC)
+            << "chip " << chip_id << ": BRISC should be the only Tensix RISC out of reset";
+
+        cluster->assert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
+        cluster->l1_membar(chip_id, {tensix_core});
+
+        EXPECT_EQ(cluster->get_risc_reset_state(chip_id, tensix_core) & RiscType::ALL_TENSIX, RiscType::ALL_TENSIX)
+            << "chip " << chip_id << ": BRISC should be back in reset";
+    }
+}
+
 TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     std::unique_ptr<Cluster> cluster =
         test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});

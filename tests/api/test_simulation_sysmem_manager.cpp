@@ -54,6 +54,25 @@ TEST(ApiSimulationSysmemManager, BasicIOSingleChannel) {
     }
 }
 
+TEST(ApiSimulationSysmemManager, GalaxyMappedArenasAreBoundedAndPerChip) {
+    constexpr uint32_t galaxy_chip_count = 8;
+    constexpr uint64_t mapped_size = 4096;
+    for (uint32_t chip_id = 0; chip_id < galaxy_chip_count; ++chip_id) {
+        SimulationSysmemManager sysmem(1, tt::ARCH::BLACKHOLE, chip_id);
+        EXPECT_EQ(sysmem.get_mapped_arena_offset(), HUGEPAGE_REGION_SIZE);
+        EXPECT_EQ(
+            sysmem.get_mapped_arena_offset() + sysmem.get_mapped_arena_size(),
+            SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
+
+        auto buffer = sysmem.allocate_sysmem_buffer(mapped_size, /*map_to_noc=*/true);
+        ASSERT_NE(buffer, nullptr);
+        EXPECT_EQ(buffer->get_device_io_addr(), sysmem.get_pcie_base() + sysmem.get_mapped_arena_offset());
+        EXPECT_LE(
+            buffer->get_device_io_addr() - sysmem.get_pcie_base() + buffer->get_buffer_size(),
+            SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
+    }
+}
+
 TEST(ApiSimulationSysmemManager, BasicIOMultiChannel) {
     std::unique_ptr<SimulationSysmemManager> sysmem =
         std::make_unique<SimulationSysmemManager>(3, tt::ARCH::WORMHOLE_B0);

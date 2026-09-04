@@ -40,6 +40,8 @@ public:
 
     SimulationTlbAllocator* get_tlb_allocator() const { return allocator_.get(); }
 
+    bool maps_window() const override { return maps_window_; }
+
     tt::ARCH get_arch() const override;
 
 private:
@@ -56,6 +58,7 @@ private:
     std::shared_ptr<SimulationTlbAllocator> allocator_;
     class TTSimCommunicator* sim_communicator_;
     uint64_t tlb_reg_addr_ = 0;
+    bool maps_window_ = false;
 };
 
 }  // namespace tt::umd

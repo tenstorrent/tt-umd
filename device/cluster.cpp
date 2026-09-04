@@ -4,13 +4,19 @@
 
 #include "api/umd/device/cluster.hpp"
 
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <initializer_list>
 #include <map>
@@ -616,6 +622,35 @@ Cluster::Cluster(ClusterOptions options) {
                 first_chip_comm->switch_reset();
             }
         }
+
+        struct PendingFdLink {
+            tt::umd::TTSimCommunicator* comm;
+            uint32_t channel;
+            std::string write_path;
+            int read_fd;
+        };
+
+        std::vector<PendingFdLink> pending_fd_links;
+        const char* eth_ipc_env = std::getenv("TT_SIM_ETH_IPC_DIR");
+        const std::string eth_ipc_dir =
+            eth_ipc_env != nullptr && eth_ipc_env[0] != '\0' ? eth_ipc_env : "/tmp/ttsim_eth_ipc";
+        const int mkdir_result = ::mkdir(eth_ipc_dir.c_str(), 0777);
+        UMD_ASSERT(
+            mkdir_result == 0 || errno == EEXIST,
+            error::RuntimeError,
+            fmt::format("Failed to create TTSim Ethernet IPC directory {}: {}", eth_ipc_dir, std::strerror(errno)));
+        auto eth_fifo_path = [&](uint64_t source, int source_channel, uint64_t destination, int destination_channel) {
+            return eth_ipc_dir + "/eth_" + std::to_string(source) + "_" + std::to_string(source_channel) + "__" +
+                   std::to_string(destination) + "_" + std::to_string(destination_channel) + ".fifo";
+        };
+        auto ensure_fifo = [](const std::string& path) {
+            const int mkfifo_result = ::mkfifo(path.c_str(), 0666);
+            UMD_ASSERT(
+                mkfifo_result == 0 || errno == EEXIST,
+                error::RuntimeError,
+                fmt::format("Failed to create TTSim Ethernet FIFO {}: {}", path, std::strerror(errno)));
+        };
+
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
         // register MACs and peer handles.  Process each undirected edge once
         // (chip_a < chip_b) to avoid double-registration.
@@ -650,6 +685,61 @@ Cluster::Cluster(ClusterOptions options) {
                     mac_b);
             }
         }
+
+        const auto& chip_uids = cluster_desc->get_chip_unique_ids();
+        const auto& remote_conns = cluster_desc->get_ethernet_connections_to_remote_devices();
+        for (const auto& [local_chip, channel_map] : remote_conns) {
+            auto uid_it = chip_uids.find(local_chip);
+            if (uid_it == chip_uids.end()) {
+                continue;
+            }
+            auto* local_comm = get_comm(local_chip);
+            if (local_comm == nullptr) {
+                continue;
+            }
+            const uint64_t local_uid = uid_it->second;
+            for (const auto& [local_channel, remote] : channel_map) {
+                const uint64_t remote_uid = std::get<0>(remote);
+                const int remote_channel = std::get<1>(remote);
+                local_comm->register_eth_endpoint(uint32_t(local_channel), eth_sim_mac(local_chip, int(local_channel)));
+                const std::string write_path = eth_fifo_path(local_uid, int(local_channel), remote_uid, remote_channel);
+                const std::string read_path = eth_fifo_path(remote_uid, remote_channel, local_uid, int(local_channel));
+                ensure_fifo(write_path);
+                ensure_fifo(read_path);
+                const int read_fd = ::open(read_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                if (read_fd < 0) {
+                    log_warning(
+                        tt::LogEmulationDriver,
+                        "TTSim eth cross-rank read open failed for {}: {}",
+                        read_path,
+                        std::strerror(errno));
+                    continue;
+                }
+                pending_fd_links.push_back({local_comm, uint32_t(local_channel), write_path, read_fd});
+            }
+        }
+        for (auto& link : pending_fd_links) {
+            int write_fd = -1;
+            for (int attempt = 0; attempt < 120000 && write_fd < 0; ++attempt) {
+                write_fd = ::open(link.write_path.c_str(), O_WRONLY | O_NONBLOCK | O_CLOEXEC);
+                if (write_fd < 0) {
+                    if (errno != ENXIO) {
+                        break;
+                    }
+                    ::usleep(1000);
+                }
+            }
+            if (write_fd < 0) {
+                log_warning(
+                    tt::LogEmulationDriver,
+                    "TTSim eth cross-rank write open failed for {}: {}",
+                    link.write_path,
+                    std::strerror(errno));
+                ::close(link.read_fd);
+                continue;
+            }
+            link.comm->configure_eth_link_fd(link.channel, write_fd, link.read_fd);
+        }
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -665,6 +755,59 @@ Cluster::Cluster(ClusterOptions options) {
     // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
+}
+
+std::unique_ptr<Cluster> Cluster::create_silicon_cluster(std::optional<uint32_t> num_host_mem_ch_per_mmio_device) {
+    ClusterOptions options{};
+    options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    return std::make_unique<Cluster>(std::move(options));
+}
+
+std::unique_ptr<Cluster> Cluster::create_single_chip_simulation_cluster(
+    uint32_t num_host_mem_ch_per_mmio_device, ChipId chip_id, const char* simulator_path) {
+    ClusterOptions options{};
+    options.chip_type = ChipType::SIMULATION;
+    options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    options.target_devices = {chip_id};
+    if (simulator_path != nullptr) {
+        options.simulator_directory = std::filesystem::path(simulator_path);
+    }
+    return std::make_unique<Cluster>(std::move(options));
+}
+
+std::unique_ptr<Cluster> Cluster::create_simulation_cluster_with_descriptor(
+    uint32_t num_host_mem_ch_per_mmio_device,
+    const char* simulator_path,
+    const char* sdesc_path,
+    ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::SIMULATION,
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+        .simulator_directory =
+            simulator_path != nullptr ? std::filesystem::path(simulator_path) : std::filesystem::path{},
+    };
+    return std::make_unique<Cluster>(std::move(options));
+}
+
+std::unique_ptr<Cluster> Cluster::create_mock_cluster(const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::MOCK,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+    };
+    return std::make_unique<Cluster>(std::move(options));
+}
+
+std::unique_ptr<Cluster> Cluster::create_swemule_cluster(
+    const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::SWEMULE,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+    };
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION

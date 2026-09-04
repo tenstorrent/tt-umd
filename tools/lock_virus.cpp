@@ -41,11 +41,16 @@ constexpr std::string_view DEVICE_TYPE_JTAG = "jtag";
 // ── reporting ─────────────────────────────────────────────────────────────────
 
 static void report_state(const std::string& mutex_name, const std::optional<std::pair<pid_t, pid_t>>& owner) {
-    if (owner.has_value()) {
-        log_info(tt::LogUMD, "    [{:<16}]  LOCKED  PID={} TID={}", mutex_name, owner->first, owner->second);
-    } else {
+    if (!owner.has_value()) {
         log_info(tt::LogUMD, "    [{:<16}]  FREE", mutex_name);
+        return;
     }
+    // A backend that cannot say who holds the lock reports {0, 0}, which is not a pid anyone has.
+    if (owner->first == 0 && owner->second == 0) {
+        log_info(tt::LogUMD, "    [{:<16}]  LOCKED  by an unknown holder", mutex_name);
+        return;
+    }
+    log_info(tt::LogUMD, "    [{:<16}]  LOCKED  PID={} TID={}", mutex_name, owner->first, owner->second);
 }
 
 static void report_device_locks(int device_id, IODeviceType device_type) {

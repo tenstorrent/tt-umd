@@ -34,8 +34,8 @@ std::string get_mutex_name(MutexType mutex_type, int device_id, IODeviceType dev
            DeviceTypeToString.at(device_type);
 }
 
-// KMD resource lock index used for each chip specific mutex type. Indices 0..15 are reserved for ERISC cores (see
-// KmdLockIndex), so UMD's own locks start above that range. Processes serialize against each other only if they agree
+// KMD resource lock index used for each chip specific mutex type. KMD suggests indices 0..15 for ERISC cores (see
+// tt_kmd_lib.h), so UMD's own locks start above that range. Processes serialize against each other only if they agree
 // on the index, so these values must never be renumbered.
 const std::unordered_map<MutexType, uint8_t> MUTEX_TYPE_TO_KMD_LOCK_INDEX = {
     {MutexType::ARC_MSG, 16},
@@ -71,13 +71,27 @@ public:
         second_->initialize();
     }
 
+    // The first one is given back whenever taking the second does not work out, whether it reports the lock as taken
+    // or throws. Otherwise it would stay held for the lifetime of the process: the caller never receives a
+    // std::unique_lock when the constructor's lock() throws, so nothing is left to release it, and the shared memory
+    // half only recovers itself when its holder dies.
     void lock() override {
         first_->lock();
-        second_->lock();
+        try {
+            second_->lock();
+        } catch (...) {
+            first_->unlock();
+            throw;
+        }
     }
 
     void unlock() override {
-        second_->unlock();
+        try {
+            second_->unlock();
+        } catch (...) {
+            first_->unlock();
+            throw;
+        }
         first_->unlock();
     }
 
@@ -86,9 +100,14 @@ public:
         if (owner.has_value()) {
             return owner;
         }
-        // Probing acquired the first one. If the second turns out to be taken, give the first one back, so that a
-        // failed probe leaves nothing held.
-        owner = second_->probe_lock(timeout);
+
+        // Probing acquired the first one.
+        try {
+            owner = second_->probe_lock(timeout);
+        } catch (...) {
+            first_->unlock();
+            throw;
+        }
         if (owner.has_value()) {
             first_->unlock();
         }

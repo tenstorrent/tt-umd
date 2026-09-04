@@ -81,28 +81,6 @@ public:
 
     std::string to_string() const { return str(); }
 
-    /*
-     * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
-     * which are considered smaller than any non-legacy version.
-     * @param v1 - first version to compare
-     * @param v2 - second version to compare
-     * @returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
-     */
-    static int compare_firmware_bundle(const SemVer& v1, const SemVer& v2) {
-        auto normalize = [](const SemVer& v) {
-            // Major version 80 is treated as legacy, so smaller than everything else.
-            if (v.major >= 80) {
-                return SemVer(0, v.minor, v.patch);
-            }
-            return SemVer(v.major, v.minor, v.patch);
-        };
-
-        auto v1_normalized = normalize(v1);
-        auto v2_normalized = normalize(v2);
-
-        return v1_normalized < v2_normalized ? -1 : (v1_normalized > v2_normalized ? 1 : 0);
-    }
-
 private:
     static SemVer parse(const std::string& version_str) {
         std::string version = version_str;
@@ -151,15 +129,15 @@ public:
     }
 
     bool operator<(const FirmwareBundleVersion& other) const noexcept {
-        return SemVer::compare_firmware_bundle(*this, other) < 0;
+        return compare_firmware_bundle(*this, other) < 0;
     }
 
     bool operator>(const FirmwareBundleVersion& other) const noexcept {
-        return SemVer::compare_firmware_bundle(*this, other) > 0;
+        return compare_firmware_bundle(*this, other) > 0;
     }
 
     bool operator==(const FirmwareBundleVersion& other) const noexcept {
-        return SemVer::compare_firmware_bundle(*this, other) == 0;
+        return compare_firmware_bundle(*this, other) == 0;
     }
 
     bool operator!=(const FirmwareBundleVersion& other) const noexcept { return !(*this == other); }
@@ -167,10 +145,30 @@ public:
     bool operator<=(const FirmwareBundleVersion& other) const noexcept { return !(*this > other); }
 
     bool operator>=(const FirmwareBundleVersion& other) const noexcept { return !(*this < other); }
-};
 
-// TODO: Remove after rename in tt-metal.
-using semver_t = SemVer;
+private:
+    /*
+     * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
+     * which are considered smaller than any non-legacy version.
+     * @param v1 - first version to compare
+     * @param v2 - second version to compare
+     * @returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+     */
+    static int compare_firmware_bundle(const SemVer& v1, const SemVer& v2) {
+        auto normalize = [](const SemVer& v) {
+            // Major version 80 is treated as legacy, so smaller than everything else.
+            if (v.major >= 80) {
+                return SemVer(0, v.minor, v.patch);
+            }
+            return SemVer(v.major, v.minor, v.patch);
+        };
+
+        auto v1_normalized = normalize(v1);
+        auto v2_normalized = normalize(v2);
+
+        return v1_normalized < v2_normalized ? -1 : (v1_normalized > v2_normalized ? 1 : 0);
+    }
+};
 
 }  // namespace tt::umd
 

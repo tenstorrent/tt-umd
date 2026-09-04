@@ -386,6 +386,7 @@ public:
      * Claims or releases full power domains. No-op for remote devices.
      *
      * @param state The requested power state (BUSY or IDLE).
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
@@ -396,8 +397,7 @@ public:
      * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
-     * @param noc_id Currently ignored: the call routes on the thread-selected NOC, matching the
-     * per-arch overrides this replaced. Honoring the parameter end-to-end is follow-up work.
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 

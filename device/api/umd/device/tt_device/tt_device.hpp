@@ -533,8 +533,6 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    LockManager lock_manager;
-
     // Every TTDevice is built around a model, which supplies its identity and the components it
     // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
     // architecture descriptor.

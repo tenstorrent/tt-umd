@@ -15,7 +15,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -146,10 +145,6 @@ private:
 
     WormholeArcWindow arc_apb_;
     WormholeArcWindow arc_csm_;
-
-    // Serializes ARC messages against other processes driving the same device, exactly as
-    // ArcMessenger does for the path this replaces.
-    LockManager lock_manager_;
 
     // Created by init_firmware(), not the constructor: they read state the firmware publishes, so
     // this is the earliest they can exist. The info provider holds a raw pointer to the telemetry

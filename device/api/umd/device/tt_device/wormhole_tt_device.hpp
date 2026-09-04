@@ -23,8 +23,6 @@ enum class IODeviceType;
 
 class WormholeTTDevice : public TTDevice {
 public:
-    uint32_t get_clock() override;
-
     ~WormholeTTDevice() override = default;
 
 protected:

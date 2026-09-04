@@ -25,8 +25,8 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/common.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

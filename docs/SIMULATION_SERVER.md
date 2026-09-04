@@ -204,13 +204,19 @@ using namespace tt::umd;
 
 SimulationConnectorOptions options;
 options.simulator_directory = "/tmp/tt-umd-sim-server-0";  // same server directory
-std::map<ChipId, std::unique_ptr<TTDevice>> devices = SimulationConnector::discover(options);
+SimulationConnector::Result result = SimulationConnector::discover(options);
 
 // Each device is a client already attached to the running host.
-for (auto& [chip_id, device] : devices) {
+for (auto& [chip_id, device] : result.devices) {
     // use `device` directly, or hand it to higher-level UMD code
 }
 ```
+
+`result.connection` says what you actually opened: the role this process took, the simulator behind
+it (as a host, the build you named; as a client, the one the host reports it runs), its backend and
+arch, and -- for a host that serves -- the directory and per-chip sockets it serves on. That last
+part matters when you leave `server_directory` empty: UMD allocates one, and this is the only place
+it tells you which. `Cluster::get_simulation_connection()` reports the same thing for a cluster.
 
 In both cases the target is the server directory, and pointing at it is what makes your process a
 client — there is no separate "connect" call.

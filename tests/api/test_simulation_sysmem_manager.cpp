@@ -29,7 +29,7 @@ using ::testing::InSequence;
 using ::testing::MockFunction;
 using ::testing::Return;
 
-const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
+const uint32_t SIMULATION_HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 // ---------------------------------------------------------------------------
 // Non-parametrized tests (WH-only / arch-agnostic)
@@ -41,7 +41,7 @@ TEST(ApiSimulationSysmemManager, BasicIOSingleChannel) {
 
     const HugepageMapping channel_0 = sysmem->get_hugepage_mapping(0);
 
-    EXPECT_EQ(channel_0.mapping_size, HUGEPAGE_REGION_SIZE);
+    EXPECT_EQ(channel_0.mapping_size, SIMULATION_HUGEPAGE_REGION_SIZE);
 
     void* channel_0_mapping = channel_0.mapping;
 
@@ -66,7 +66,7 @@ TEST(ApiSimulationSysmemManager, BasicIOMultiChannel) {
     for (int i = 0; i < 3; i++) {
         const HugepageMapping channel = sysmem->get_hugepage_mapping(i);
 
-        EXPECT_EQ(channel.mapping_size, HUGEPAGE_REGION_SIZE);
+        EXPECT_EQ(channel.mapping_size, SIMULATION_HUGEPAGE_REGION_SIZE);
 
         void* channel_mapping = channel.mapping;
 

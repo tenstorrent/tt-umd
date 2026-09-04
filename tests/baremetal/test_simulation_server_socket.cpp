@@ -81,8 +81,6 @@ protected:
     std::filesystem::path path_;
 };
 
-}  // namespace
-
 TEST_F(SimulationServerSocketTest, ExposesConnectableSocket) {
     auto server = SimulationServerSocket::create(path_);
 
@@ -346,3 +344,5 @@ TEST(SimulationServerSocket, SocketsInDirectoryEmptyWhenNoneOrNotADir) {
     EXPECT_TRUE(SimulationServerSocket::sockets_in_directory(dir).empty());
     fs::remove_all(dir);
 }
+
+}  // namespace

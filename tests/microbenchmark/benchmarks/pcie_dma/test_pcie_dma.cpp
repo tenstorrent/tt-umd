@@ -33,8 +33,6 @@ using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-constexpr ChipId CHIP_ID = 0;
-
 TEST(MicrobenchmarkPCIeDMA, DRAM) {
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM").unit("byte");
     const uint64_t ADDRESS = 0x0;

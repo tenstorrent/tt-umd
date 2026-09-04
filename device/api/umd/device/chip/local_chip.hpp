@@ -16,7 +16,6 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -27,7 +26,6 @@
 namespace tt::umd {
 class SocDescriptor;
 class SysmemManager;
-class TLBManager;
 
 class LocalChip : public Chip {
 public:
@@ -42,7 +40,6 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
-    TLBManager* get_tlb_manager() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
@@ -76,19 +73,14 @@ public:
     int get_numa_node() override;
 
 private:
-    LocalChip(
-        std::unique_ptr<TTDevice> tt_device,
-        std::unique_ptr<TLBManager> tlb_manager,
-        std::unique_ptr<SysmemManager> sysmem_manager);
+    LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager);
 
-    std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.
     std::optional<std::unique_lock<MutexInterface>> chip_started_lock_;
 
-    void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars(uint32_t dram_subchannel);
 

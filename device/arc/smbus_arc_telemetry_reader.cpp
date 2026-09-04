@@ -23,12 +23,18 @@
 namespace tt::umd {
 
 SmBusArcTelemetryReader::SmBusArcTelemetryReader(
-    DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1) :
-    ArcTelemetryReader(device_protocol, arc_core_noc0, arc_core_noc1) {
+    DeviceProtocol* device_protocol,
+    const tt_xy_pair arc_core_noc0,
+    const tt_xy_pair arc_core_noc1,
+    uint64_t telemetry_base_noc_addr) :
+    ArcTelemetryReader(device_protocol, arc_core_noc0, arc_core_noc1),
+    telemetry_base_noc_addr(telemetry_base_noc_addr) {
     SmBusArcTelemetryReader::get_telemetry_address();
     SmBusArcTelemetryReader::wait_for_telemetry_initialized();
 }
 
+// Nothing to look up: the block's address is supplied on construction, by whoever was in a position
+// to ask the firmware for it. The hook stays because the base class declares it.
 void SmBusArcTelemetryReader::get_telemetry_address() {}
 
 uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
@@ -45,7 +51,7 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId 
     device_protocol->read_data(
         &telemetry_value,
         get_arc_core(get_selected_noc_id()),
-        SMBUS_TELEMETRY_NOC_ADDR + telemetry_tag * sizeof(uint32_t),
+        telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t),
         sizeof(uint32_t),
         get_selected_noc_id());
 

@@ -50,6 +50,4 @@ uint32_t BlackholeTTDevice::get_clock() {
     UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
 }
 
-uint32_t BlackholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
-
 }  // namespace tt::umd

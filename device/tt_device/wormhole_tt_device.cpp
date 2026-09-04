@@ -55,6 +55,4 @@ uint32_t WormholeTTDevice::get_clock() {
     return result.return_values.at(0);
 }
 
-uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
-
 }  // namespace tt::umd

@@ -35,7 +35,7 @@ public:
      *
      * QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
      * handles all I/O underneath). For QUASAR, hand back an auto-incrementing dummy
-     * index so TLBManager bookkeeping (keyed by tlb id) does not collide across
+     * index so window bookkeeping keyed by tlb id does not collide across
      * allocations. Callers should use the requested size directly on QUASAR rather
      * than querying get_tlb_size_from_index() (which has no pool to look up).
      *

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -23,6 +24,10 @@
 #include "umd/device/types/host_memory.hpp"
 
 using namespace tt::umd;
+
+using ::testing::InSequence;
+using ::testing::MockFunction;
+using ::testing::Return;
 
 const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
@@ -116,22 +121,108 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
     // Deliberately offset into the page so the buffer has to align downwards.
     void* user_va = static_cast<uint8_t*>(aligned_start) + 64;
 
-    int deleter_calls = 0;
-    void* deleter_saw = nullptr;
+    MockFunction<void(void*)> deleter;
+    // Checkpoint reached while the buffer is still alive, sequenced before the deleter so that running
+    // it any earlier than destruction fails the expectation.
+    MockFunction<void()> buffer_still_alive;
+    {
+        InSequence sequence;
+        EXPECT_CALL(buffer_still_alive, Call());
+        EXPECT_CALL(deleter, Call(aligned_start));
+    }
+
     {
         SysmemBuffer buffer(
-            user_va, 128, /*device_io_addr=*/0x1000, /*communication_id=*/7, std::nullopt, [&](void* released) {
-                ++deleter_calls;
-                deleter_saw = released;
-            });
+            user_va, 128, /*device_io_addr=*/0x1000, /*communication_id=*/7, std::nullopt, deleter.AsStdFunction());
 
         EXPECT_EQ(buffer.get_buffer_va(), user_va);
         EXPECT_EQ(buffer.get_buffer_size(), 128u);
-        EXPECT_EQ(deleter_calls, 0);
+        buffer_still_alive.Call();
     }
+}
 
-    EXPECT_EQ(deleter_calls, 1);
-    EXPECT_EQ(deleter_saw, aligned_start);
+// The driver assigns the NOC address at pin time, so bind_noc_address() only confirms what already
+// happened. On a bound buffer it is a no-op.
+TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
+    std::vector<uint8_t> backing(4096, 0);
+
+    SysmemBuffer buffer(
+        backing.data(),
+        backing.size(),
+        /*device_io_addr=*/0x1000,
+        /*communication_id=*/2,
+        std::optional<uint64_t>(0x1234));
+
+    EXPECT_NO_THROW(buffer.bind_noc_address());
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+
+    // Idempotent.
+    EXPECT_NO_THROW(buffer.bind_noc_address());
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+}
+
+// An allocator that can bind after the fact injects a binder. bind_noc_address() must run it exactly
+// once and cache the result, however often it is called.
+TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
+    std::vector<uint8_t> backing(4096, 0);
+
+    MockFunction<uint64_t()> binder;
+    // WillOnce fixes the cardinality at one, so both a binder that never runs and one that runs again
+    // on the second bind_noc_address() fail here.
+    EXPECT_CALL(binder, Call()).WillOnce(Return(0xDEADBEEF));
+
+    SysmemBuffer buffer(
+        backing.data(),
+        backing.size(),
+        /*device_io_addr=*/0x1000,
+        /*communication_id=*/2,
+        std::nullopt,
+        SysmemBuffer::Deleter{},
+        DeviceBufferAccess::READ_WRITE,
+        binder.AsStdFunction());
+
+    // Nothing bound yet, so construction cannot have run the binder.
+    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+
+    buffer.bind_noc_address();
+    ASSERT_TRUE(buffer.get_noc_addr().has_value());
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0xDEADBEEFu);
+
+    // Idempotent: the cached address is returned without running the binder again.
+    buffer.bind_noc_address();
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0xDEADBEEFu);
+}
+
+// A buffer that is already bound never runs its binder.
+TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
+    std::vector<uint8_t> backing(4096, 0);
+
+    MockFunction<uint64_t()> binder;
+    EXPECT_CALL(binder, Call()).Times(0);
+
+    SysmemBuffer buffer(
+        backing.data(),
+        backing.size(),
+        /*device_io_addr=*/0x1000,
+        /*communication_id=*/2,
+        std::optional<uint64_t>(0x1234),
+        SysmemBuffer::Deleter{},
+        DeviceBufferAccess::READ_WRITE,
+        binder.AsStdFunction());
+
+    buffer.bind_noc_address();
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+}
+
+// A buffer whose pages were not pinned with NOC access can never be given a NOC address, so asking
+// must fail loudly rather than leave the caller believing the buffer is reachable over the NOC.
+TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
+    std::vector<uint8_t> backing(4096, 0);
+    SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x1000, /*communication_id=*/2);
+
+    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+    EXPECT_THROW(buffer.bind_noc_address(), std::exception);
+    EXPECT_FALSE(buffer.get_noc_addr().has_value());
 }
 
 // A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function

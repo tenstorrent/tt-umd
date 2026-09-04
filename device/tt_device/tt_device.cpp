@@ -566,6 +566,14 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
+uint32_t TTDevice::get_clock() {
+    const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
+    if (!aiclk.has_value()) {
+        UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
+    }
+    return *aiclk;
+}
+
 uint32_t TTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
 void TTDevice::advance_device_execution() {

@@ -44,22 +44,27 @@ else
     echo "gcc-11 is not available in the repository."
 fi
 
+# llvm.sh probes apt.llvm.org with wget --method=HEAD and treats a failed HEAD
+# as "distro not supported". Pass -n so it uses OS_CODENAME (jammy/noble/focal)
+# instead of the os-release VERSION string, and use --spider (GET) for the probe.
+run_llvm_sh() {
+    wget -q -O llvm.sh https://apt.llvm.org/llvm.sh
+    chmod u+x llvm.sh
+    sed -i 's/wget -q --method=HEAD/wget -q --spider/' llvm.sh
+    ./llvm.sh "$1" -n "$OS_CODENAME"
+}
+
 # Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
 UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
 if [ "${UBUNTU_VERSION}" = "22.04" ]; then
     echo "Installing clang-13 for minimum compiler version testing..."
-    wget https://apt.llvm.org/llvm.sh && \
-        chmod u+x llvm.sh && \
-        ./llvm.sh 13 && \
-        apt install -y libc++-13-dev libc++abi-13-dev
+    run_llvm_sh 13 && apt install -y libc++-13-dev libc++abi-13-dev
 else
     echo "Skipping clang-13 (Ubuntu ${UBUNTU_VERSION}); not available or obsolete."
 fi
 
 # Install clang 20 as the default compiler.
-wget https://apt.llvm.org/llvm.sh && \
-    chmod u+x llvm.sh && \
-    ./llvm.sh 20 && \
+run_llvm_sh 20 && \
     apt install -y libc++-20-dev libc++abi-20-dev && \
     ln -s /usr/bin/clang-20 /usr/bin/clang && \
     ln -s /usr/bin/clang++-20 /usr/bin/clang++
@@ -70,3 +75,34 @@ apt install -y clang-format-20 && \
 
 # Install clang-tidy-20
 apt-get install -y clang-tidy-20
+
+# OpenSSH server for dedicated exabox multihost workers (mpirun SSHes into this image).
+# Keep config tweaks after the apt install so openssh-server does not overwrite them.
+apt-get install -y --no-install-recommends openssh-server sudo
+
+# ipmitool for UMD warm_reset (Wormhole UBB raw IPMI) and host BMC access.
+# The container still needs /dev/ipmi* from the host; this only installs the CLI.
+apt-get install -y --no-install-recommends ipmitool
+if ! id -u user >/dev/null 2>&1; then
+    adduser --uid 1001 --shell /bin/bash --disabled-password --gecos "" user
+fi
+usermod -aG sudo user
+echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user
+chmod 0440 /etc/sudoers.d/user
+mkdir -p /run/sshd
+grep -q '^StrictModes no' /etc/ssh/sshd_config || echo "StrictModes no" >> /etc/ssh/sshd_config
+
+# OpenMPI with ULFM — must match the exabox runner's launch agent path
+# (/opt/openmpi-v5.0.7-ulfm/bin/prted). Same package metal installs for multihost.
+# SHA256 pinned for supply-chain integrity of the GitHub release artifact.
+OMPI_PREFIX="/opt/openmpi-v5.0.7-ulfm"
+OMPI_DEB_URL="https://github.com/tenstorrent/ompi/releases/download/v5.0.7/openmpi-ulfm_5.0.7-1_amd64.deb"
+OMPI_DEB_SHA256="954e872d9105e8bf8c31368ff7a5db8670a3d549e2e7eb1ab6072cffcae7984d"
+OMPI_DEB_FILE="$(basename "$OMPI_DEB_URL")"
+OMPI_TMP="$(mktemp -d)"
+wget -q -O "${OMPI_TMP}/${OMPI_DEB_FILE}" "${OMPI_DEB_URL}"
+echo "${OMPI_DEB_SHA256} ${OMPI_TMP}/${OMPI_DEB_FILE}" | sha256sum -c -
+apt-get install -y --no-install-recommends "${OMPI_TMP}/${OMPI_DEB_FILE}"
+rm -rf "${OMPI_TMP}"
+test -x "${OMPI_PREFIX}/bin/prted"
+test -x "${OMPI_PREFIX}/bin/mpirun"

@@ -68,7 +68,10 @@ public:
     // Configure this chip's outbound iATU (NOC->host) the silicon way: iATU register writes via BAR2.
     // The simulator decodes these into its iATU model and honors them at DMA egress, so the chip's DMA
     // resolves to this chip's distinct host base (configured as the region target) purely by address.
-    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+    // TTSim's simulated-iATU programming, used by its own sysmem setup. No longer a TTDevice
+    // override: the facade dropped configure_iatu_region (nothing external calls it), so this is
+    // now a detail of this backend.
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
     void close_device();
     void start_device();

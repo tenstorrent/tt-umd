@@ -10,7 +10,6 @@
 #include <memory>
 #include <mutex>
 
-#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -24,8 +23,6 @@ enum class IODeviceType;
 
 class WormholeTTDevice : public TTDevice {
 public:
-    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
-
     uint32_t get_clock() override;
 
     uint32_t get_min_clock_freq() override;
@@ -36,10 +33,6 @@ protected:
     explicit WormholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
 private:
-    const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
-
-    // Builds the ARC message (with the common prefix) that requests the given clock state.
-
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,
         IODeviceType device_type,

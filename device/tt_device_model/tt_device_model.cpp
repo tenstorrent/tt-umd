@@ -4,7 +4,6 @@
 
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
-#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -23,6 +22,11 @@ void TTDeviceModel::write_to_arc_apb(
     [[maybe_unused]] size_t size,
     [[maybe_unused]] NocId noc_id) {
     UMD_THROW(error::RuntimeError, "ARC APB access is not supported for this device.");
+}
+
+void TTDeviceModel::configure_iatu_region(
+    [[maybe_unused]] size_t region, [[maybe_unused]] uint64_t target, [[maybe_unused]] size_t region_size) {
+    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
 }
 
 }  // namespace tt::umd

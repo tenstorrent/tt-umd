@@ -97,6 +97,13 @@ public:
     virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    // TODO: temporary - not part of the Base API. iATU programming, served here so
+    // TTDevice::configure_iatu_region() needs no per-arch TTDevice subclass. The silicon models
+    // program the hardware their architecture exposes (Wormhole through a firmware command,
+    // Blackhole directly over BAR2); the default throws. The spec parks iATU programming inside
+    // SystemMemoryAllocator, so this moves there once that component exists.
+    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 };
 
 }  // namespace tt::umd

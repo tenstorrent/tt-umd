@@ -441,8 +441,10 @@ void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t
     get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
+// Still virtual: the TTSim backend overrides this with its simulated iATU. The silicon
+// implementations live in the models.
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
+    model_->configure_iatu_region(region, target, region_size);
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {

@@ -66,6 +66,8 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+
 private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;

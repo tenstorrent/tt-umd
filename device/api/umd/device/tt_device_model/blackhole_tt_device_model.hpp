@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
@@ -63,6 +64,8 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+
 private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
@@ -81,6 +84,12 @@ private:
 
     // Declared after the transports: it borrows them, so it must be destroyed first.
     std::unique_ptr<BlackholeDeviceFirmware> device_firmware_;
+
+    // iATU regions this model programmed, so the destructor can turn them back off. Moved here
+    // with configure_iatu_region(); see that method for why userspace touching the iATU at all is
+    // a problem.
+    static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
+    std::set<size_t> iatu_regions_;
 };
 
 }  // namespace tt::umd

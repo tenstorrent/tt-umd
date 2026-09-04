@@ -4,9 +4,12 @@
 
 #include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
 
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "noc_access.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -18,6 +21,8 @@
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -85,6 +90,45 @@ void WormholeTTDeviceModel::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_o
 
 void WormholeTTDeviceModel::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     device_firmware_->write_to_arc_apb(mem_ptr, arc_addr_offset, size, noc_id);
+}
+
+void WormholeTTDeviceModel::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    uint32_t dest_bar_lo = target & 0xffffffff;
+    uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
+    std::uint32_t region_id_to_use = region;
+
+    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
+    if (region == 3) {
+        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
+                               // space with the correct start offset
+    }
+
+    if (jtag_interface_ != nullptr) {
+        UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
+    }
+
+    const ArchitectureRegisters &registers = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
+    pcie_interface_->bar_write32(registers.arc_csm_bar0_mailbox_offset + 0 * 4, region_id_to_use);
+    pcie_interface_->bar_write32(registers.arc_csm_bar0_mailbox_offset + 1 * 4, dest_bar_lo);
+    pcie_interface_->bar_write32(registers.arc_csm_bar0_mailbox_offset + 2 * 4, dest_bar_hi);
+    pcie_interface_->bar_write32(registers.arc_csm_bar0_mailbox_offset + 3 * 4, region_size);
+    device_firmware_->send_device_command(
+        wormhole::ARC_MSG_COMMON_PREFIX |
+            static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER),
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
+
+    // Print what just happened.
+    uint32_t peer_region_start = region_id_to_use * region_size;
+    uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
+    log_debug(
+        LogUMD,
+        "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
+        region,
+        peer_region_start,
+        peer_region_end,
+        target);
 }
 
 FirmwareTelemetryReader *WormholeTTDeviceModel::get_firmware_telemetry_reader() {

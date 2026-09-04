@@ -42,17 +42,4 @@ namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
 
-uint32_t WormholeTTDevice::get_clock() {
-    // There is one return value from AICLK ARC message.
-    DeviceCommandResult result = get_device_firmware()->send_device_command(
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-        {0xFFFF, 0xFFFF},
-        timeout::ARC_MESSAGE_TIMEOUT,
-        get_selected_noc_id());
-    if (result.exit_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
-    }
-    return result.return_values.at(0);
-}
-
 }  // namespace tt::umd

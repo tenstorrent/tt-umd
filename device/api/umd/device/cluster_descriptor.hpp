@@ -84,6 +84,29 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_constrained_cluster_descriptor(
         const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids = {});
 
+    /* Host id of the accelerator group this descriptor describes. */
+
+    /**
+     * Returns the host id: a unique string identifying the group of Tenstorrent accelerators
+     * connected to a common host / controller / root complex. One cluster descriptor describes one
+     * such group.
+     *
+     * The value is currently that group's bare metal hostname (or $TT_HOST_ID when discovery ran in
+     * a container or a VM), because that is what the factory system descriptor and the fabric
+     * topology solver join on. Semantically this identifies the accelerator group and not a
+     * machine, so the value scheme can change without the field changing meaning.
+     *
+     * Empty when the YAML omitted the key and discovery did not stamp one. That is the case for
+     * every descriptor written before this field existed, and is not an error.
+     */
+    const std::optional<std::string> &get_host_id() const;
+
+    /**
+     * Sets the host id. Throws if it is empty, too long to fit in the fixed buffer consumers pack it
+     * into, or contains characters outside ^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$.
+     */
+    void set_host_id(std::string host_id);
+
     /* Getters for various chip related information. */
 
     /**
@@ -337,6 +360,10 @@ private:
 
     std::vector<ChipId> unhealthy_devices;
     std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
+
+    // Unset on descriptors written before this field existed, and on mock descriptors that were
+    // never given one. Consumers fall back to whatever they used before in that case.
+    std::optional<std::string> host_id;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

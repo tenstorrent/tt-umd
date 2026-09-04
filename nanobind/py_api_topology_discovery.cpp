@@ -61,6 +61,20 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids, release_gil())
         .def("get_io_device_type", &ClusterDescriptor::get_io_device_type, release_gil())
         .def(
+            "get_host_id",
+            &ClusterDescriptor::get_host_id,
+            release_gil(),
+            "Unique id of the group of accelerators attached to a common host / controller / root complex. "
+            "Currently that machine's hostname (or $TT_HOST_ID in a container or a VM). "
+            "None when the YAML omitted the key and discovery did not stamp one.")
+        .def(
+            "set_host_id",
+            &ClusterDescriptor::set_host_id,
+            nb::arg("host_id"),
+            release_gil(),
+            "Sets the host id. Raises if it is empty, longer than 63 characters, or contains characters "
+            "outside ^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$.")
+        .def(
             "serialize_to_file",
             [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {
                 std::filesystem::path file_path = self.serialize_to_file(dest_file);

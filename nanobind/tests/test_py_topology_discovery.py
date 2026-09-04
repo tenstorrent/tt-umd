@@ -68,3 +68,71 @@ class TestTopologyDiscovery(unittest.TestCase):
             0,
             "With no_remote_discovery=True, should not discover any remote chips",
         )
+
+
+# A single blackhole P150, matching tests/cluster_descriptor_examples/blackhole_P150.yaml.
+CLUSTER_DESC_P150 = """
+arch:
+  0: blackhole
+chips:
+  {}
+chip_unique_ids:
+  0: 4476187513037
+ethernet_connections:
+  []
+ethernet_connections_to_remote_devices:
+  []
+chips_with_mmio:
+  - 0: 0
+io_device_type: PCIe
+harvesting:
+  0:
+    noc_translation: true
+    harvest_mask: 192
+    dram_harvesting_mask: 0
+    eth_harvesting_mask: 288
+    pcie_harvesting_mask: 2
+    l2cpu_harvesting_mask: 0
+chip_to_bus_id:
+  0: "0x01"
+boards:
+  -
+    - board_id: 4402341478400
+    - board_type: p150
+    - chips:
+        - 0
+asic_locations:
+  0: 0
+"""
+
+
+class TestClusterDescriptorHostId(unittest.TestCase):
+    """Offline: no device needed, the descriptors are built from YAML."""
+
+    def test_host_id_from_yaml(self):
+        cluster_descriptor = tt_umd.ClusterDescriptor.create_from_yaml_content(
+            "host_id: bh-glx-110-c01u02\n" + CLUSTER_DESC_P150
+        )
+        self.assertEqual(cluster_descriptor.get_host_id(), "bh-glx-110-c01u02")
+
+    def test_host_id_is_none_when_yaml_omits_it(self):
+        cluster_descriptor = tt_umd.ClusterDescriptor.create_from_yaml_content(
+            CLUSTER_DESC_P150
+        )
+        self.assertIsNone(cluster_descriptor.get_host_id())
+
+    def test_set_host_id(self):
+        cluster_descriptor = tt_umd.ClusterDescriptor.create_from_yaml_content(
+            CLUSTER_DESC_P150
+        )
+        cluster_descriptor.set_host_id("sjc1-tt-qb-01")
+        self.assertEqual(cluster_descriptor.get_host_id(), "sjc1-tt-qb-01")
+
+    def test_set_host_id_rejects_illegal_value(self):
+        cluster_descriptor = tt_umd.ClusterDescriptor.create_from_yaml_content(
+            CLUSTER_DESC_P150
+        )
+        for host_id in ["", "has space", "foo/bar", "a" * 64]:
+            with self.assertRaises(Exception, msg=host_id):
+                cluster_descriptor.set_host_id(host_id)
+        self.assertIsNone(cluster_descriptor.get_host_id())

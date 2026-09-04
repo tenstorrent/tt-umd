@@ -114,6 +114,22 @@ endif()
 
 add_subdirectory(third_party)
 
+# Unity builds batch several sources into one translation unit, so the cost of parsing
+# our headers is paid once per batch instead of once per source. Set AFTER third_party
+# so dependencies keep building one source at a time.
+#
+# Opt-in and off by default, so this commit changes nothing on its own. Turning it on also
+# needs the tests to be batching-safe, which is a follow-up; and it changes how the library
+# is compiled (static-initialisation order within a batch, inlining across what used to be
+# separate translation units), which is not something to hand a release build or a
+# developer's incremental loop without asking.
+option(TT_UMD_ENABLE_UNITY_BUILD "Batch UMD sources into unity translation units" OFF)
+set(TT_UMD_UNITY_BUILD_BATCH_SIZE "8" CACHE STRING "Number of sources per unity translation unit")
+if(TT_UMD_ENABLE_UNITY_BUILD)
+    set(CMAKE_UNITY_BUILD ON)
+    set(CMAKE_UNITY_BUILD_BATCH_SIZE "${TT_UMD_UNITY_BUILD_BATCH_SIZE}")
+endif()
+
 # Create a target that aggregates all generated files needed for code analysis.
 # Subdirectories can add dependencies to this target as needed.
 add_custom_target(umd_all_generated_files)
@@ -211,6 +227,8 @@ set(_umd_summary_vars
     TT_UMD_ENABLE_CLANG_TIDY
     TT_UMD_ENABLE_LOGGING
     TT_UMD_ENABLE_TRACY
+    TT_UMD_ENABLE_UNITY_BUILD
+    TT_UMD_UNITY_BUILD_BATCH_SIZE
 )
 message(STATUS "")
 message(STATUS "==================== UMD configuration summary ====================")

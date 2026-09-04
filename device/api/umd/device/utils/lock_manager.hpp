@@ -46,6 +46,9 @@ std::string to_string(MutexType mutex_type);
 // We could implement these locks such that initialization is not needed, and they are initialized every time they're
 // locked, but since that communicates with the OS it might be slower to do it each time. This way, locking/unlocking
 // should be faster.
+// Locks are only ever added to the registry, never removed, and that is what makes the returned
+// std::unique_lock<MutexInterface> safe to hold for as long as the caller likes: the mutex it refers to stays where it
+// is for the lifetime of the process. Anything that removed locks again would leave every outstanding one dangling.
 class LockManager {
 public:
     LockManager() = delete;

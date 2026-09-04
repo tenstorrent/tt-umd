@@ -97,17 +97,26 @@ std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
     MutexRegistry& registry = get_registry();
-    std::lock_guard<std::mutex> guard(registry.guard);
 
-    if (registry.mutexes.find(mutex_name) != registry.mutexes.end()) {
-        // Whoever needed this lock first has already set it up. Initializing is not owning, so this is the expected
-        // outcome whenever more than one object works with the same device.
-        return;
+    {
+        std::lock_guard<std::mutex> guard(registry.guard);
+        if (registry.mutexes.find(mutex_name) != registry.mutexes.end()) {
+            // Whoever needed this lock first has already set it up. Initializing is not owning, so this is the expected
+            // outcome whenever more than one object works with the same device.
+            return;
+        }
     }
 
+    // Setting a mutex up talks to the OS, and for a shared memory one that includes a blocking flock, so it happens
+    // outside the registry guard. Holding the guard across it would stall every other thread that only wanted to look
+    // a lock up, and looking one up is on the IO paths.
     std::unique_ptr<MutexInterface> mutex = std::make_unique<RobustMutex>(mutex_name);
     mutex->initialize();
-    registry.mutexes.emplace(mutex_name, std::move(mutex));
+
+    std::lock_guard<std::mutex> guard(registry.guard);
+    // Another thread may have set the same lock up in the meantime, in which case theirs is the one in the registry and
+    // ours is dropped here. Setting the same one up twice is harmless: the backend serializes that internally.
+    registry.mutexes.try_emplace(mutex_name, std::move(mutex));
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex_internal(const std::string& mutex_name) {

@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -88,22 +86,6 @@ public:
     // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
     // PcieInterface only.
     virtual PCIDevice *get_pci_device() { return nullptr; }
-
-    // TODO: temporary - not part of the Base API. Raw ARC APB window access, served here so
-    // TTDevice::read_from_arc_apb()/write_to_arc_apb() need no per-arch TTDevice subclass. The
-    // silicon models route these to their firmware component's APB window; the default throws,
-    // since no other model has an APB window to serve them from. Deleted once the remaining raw
-    // APB callers (the SPI device and the refclk counter read) move onto components of their own.
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
-    // TODO: temporary - not part of the Base API. iATU programming, served here so
-    // TTDevice::configure_iatu_region() needs no per-arch TTDevice subclass. The silicon models
-    // program the hardware their architecture exposes (Wormhole through a firmware command,
-    // Blackhole directly over BAR2); the default throws. The spec parks iATU programming inside
-    // SystemMemoryAllocator, so this moves there once that component exists.
-    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 };
 
 }  // namespace tt::umd

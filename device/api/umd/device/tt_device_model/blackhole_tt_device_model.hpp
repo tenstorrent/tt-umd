@@ -60,11 +60,13 @@ public:
 
     PCIDevice *get_pci_device() override;
 
-    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
-
-    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
-
-    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+    // Programs one outbound iATU region, directly over BAR2 on Blackhole. Not part of
+    // TTDeviceModel: the spec parks iATU programming inside SystemMemoryAllocator (SysmemManager),
+    // and nothing calls this today - KMD >= 2.0.0 maps system memory through the driver. Kept on
+    // the concrete model so the capability has a home if the pre-2.0.0 hugepage path ever needs
+    // wiring into SiliconSysmemManager; delete it instead if that support is dropped. The
+    // destructor still disables any regions this programmed.
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
 private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;

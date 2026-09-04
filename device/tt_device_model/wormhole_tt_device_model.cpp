@@ -84,14 +84,6 @@ DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.
 
 DeviceFirmware *WormholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
 
-void WormholeTTDeviceModel::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
-    device_firmware_->read_from_arc_apb(mem_ptr, arc_addr_offset, size, noc_id);
-}
-
-void WormholeTTDeviceModel::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
-    device_firmware_->write_to_arc_apb(mem_ptr, arc_addr_offset, size, noc_id);
-}
-
 void WormholeTTDeviceModel::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;

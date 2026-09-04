@@ -370,7 +370,7 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     wr(0x10, uint32_t(limit));         // limit (low 32b; upper bits share base hi)
     wr(0x14, uint32_t(target));        // target lo
     wr(0x18, uint32_t(target >> 32));  // target hi
-    // Note: unlike BlackholeTTDevice::configure_iatu_region we do NOT write limit_hi (0x1c) or
+    // Note: unlike BlackholeTTDeviceModel::configure_iatu_region we do NOT write limit_hi (0x1c) or
     // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
     // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
     // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not

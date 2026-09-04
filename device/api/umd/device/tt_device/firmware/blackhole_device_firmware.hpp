@@ -79,6 +79,8 @@ public:
     bool wait_dram_channel_training(
         uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    uint64_t get_refclk_counter(NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -104,9 +106,9 @@ public:
      *
      * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_.
      * Deliberately concrete-class methods rather than part of DeviceFirmware: the window is an
-     * implementation detail of this component, exposed only so the model can serve
-     * TTDevice::read_from_arc_apb() for the callers that still speak raw APB (the SPI device and
-     * the refclk counter read). They go away when those move onto components of their own.
+     * implementation detail of this component, exposed only for the SPI device, which is
+     * architecture-committed and so holds this concrete type. They go away when SPI moves onto
+     * components of its own.
      */
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 

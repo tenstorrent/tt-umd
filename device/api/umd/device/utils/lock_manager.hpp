@@ -97,8 +97,7 @@ private:
     static std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
     static std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
 
-    // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
-    // well, for as long as clients on an older UMD exist which know only about that one.
+    // Locks backed by a KMD resource lock on the device owning the lock table.
     static void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
     static std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
     static std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);

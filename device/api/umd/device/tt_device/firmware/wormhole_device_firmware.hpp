@@ -111,6 +111,17 @@ private:
 
     IODeviceType get_io_device_type() const;
 
+    // The ARC message exchange itself, without send_device_command()'s firmware-up check. Exists for
+    // the one caller that runs before the firmware is declared up: init_firmware(), which has just
+    // waited for the firmware to be ready and needs to ask it one question before it can finish.
+    DeviceCommandResult send_arc_message(
+        uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id);
+
+    // Asks the firmware where it published the legacy SMBus telemetry block. Firmware that does not
+    // answer gets SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR, which is where the firmwares
+    // that do answer have always put it.
+    uint64_t get_legacy_telemetry_noc_addr(NocId noc_id);
+
     // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
     // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint
     // when the timeout is within the telemetry update interval.

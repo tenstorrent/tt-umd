@@ -35,12 +35,17 @@ class FirmwareTelemetryReader;
  */
 class FirmwareInfoProviderImplementation : public FirmwareInfoProvider {
 public:
+    // legacy_telemetry_noc_addr is where the firmware reported it published the legacy Wormhole
+    // telemetry block. Some 18.4-18.7 features have no new-telemetry equivalent and are read from
+    // that block, so the address is kept for as long as those reads can happen. Without it the block
+    // is assumed to be at SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR.
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(
         tt::ARCH arch,
         DeviceProtocol* device_protocol,
         xy_pair arc_core_noc0,
         xy_pair arc_core_noc1,
-        FirmwareTelemetryReader* telemetry);
+        FirmwareTelemetryReader* telemetry,
+        std::optional<uint64_t> legacy_telemetry_noc_addr = std::nullopt);
 
     FirmwareInfoProviderImplementation(
         FirmwareBundleVersion firmware_version,
@@ -48,7 +53,8 @@ public:
         DeviceProtocol* device_protocol,
         xy_pair arc_core_noc0,
         xy_pair arc_core_noc1,
-        FirmwareTelemetryReader* telemetry);
+        FirmwareTelemetryReader* telemetry,
+        std::optional<uint64_t> legacy_telemetry_noc_addr = std::nullopt);
 
     virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
@@ -163,6 +169,9 @@ private:
     FirmwareTelemetryReader* telemetry_ = nullptr;
     xy_pair arc_core_noc0_;
     xy_pair arc_core_noc1_;
+
+    // Base of the legacy Wormhole telemetry block, for the SmBusTag features that are read from it.
+    uint64_t legacy_telemetry_noc_addr_ = 0;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 

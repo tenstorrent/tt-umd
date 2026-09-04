@@ -297,6 +297,7 @@ public:
      * @param core_start Core to map, or upper-left corner of a multicast grid.
      * @param addr Address on the core(s) the window is anchored at.
      * @param host Host-side window properties (caching strategy and requested size).
+     * @param ordering Transaction ordering mode to apply to the mapping.
      * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
      * @param flags Transaction attributes.
      * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
@@ -306,6 +307,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
+        IoOrdering ordering = IoOrdering::Strict,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -416,6 +418,10 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
+     * This is a bulk-transfer path with no ordering guarantee: writes from successive calls may
+     * complete in any order. If the order of two writes matters, separate them with a barrier or use
+     * an @ref IoWindow from @ref create_io_window, which takes an ordering mode.
+     *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
      * @param chip Chip to target.
@@ -428,6 +434,8 @@ public:
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
+     *
+     * No ordering guarantee, same as @ref write_to_device, including against writes issued through it.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.

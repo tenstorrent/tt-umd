@@ -918,6 +918,7 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
     CoreCoord core_start,
     uint64_t addr,
     HostIoWindowConfig host,
+    IoOrdering ordering,
     std::optional<CoreCoord> core_end,
     WindowFlags flags,
     std::optional<NocId> noc) {
@@ -927,7 +928,9 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
         return nullptr;
     }
     return tt_device->create_io_window(
-        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags), host);
+        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags),
+        host,
+        ordering);
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {

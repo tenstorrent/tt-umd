@@ -46,17 +46,6 @@ std::string to_string(MutexType mutex_type);
 // it might be slower do to it each time. This way, locking/unlocking should be faster.
 class LockManager {
 public:
-    // Maps MutexType enum values to their string names used in shared-memory lock names.
-    inline static const std::unordered_map<MutexType, std::string> MUTEX_TYPE_TO_STRING = {
-        {MutexType::ARC_MSG, "ARC_MSG"},
-        {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
-        {MutexType::NON_MMIO, "NON_MMIO"},
-        {MutexType::MEM_BARRIER, "MEM_BARRIER"},
-        {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
-        {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
-        {MutexType::PCIE_DMA, "PCIE_DMA"},
-    };
-
     // Mutex types that are initialized per chip (combined with device_id + device_type).
     inline static const std::vector<MutexType> CHIP_SPECIFIC_MUTEX_TYPES = {
         MutexType::ARC_MSG,
@@ -79,17 +68,9 @@ public:
     std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
-    void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    std::unique_lock<MutexInterface> acquire_mutex(
-        MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-
-    // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
-    void initialize_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    std::unique_lock<MutexInterface> acquire_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    void clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is
     // held, and std::nullopt if it is not - which covers both a mutex nobody had taken and one whose owner died holding
@@ -97,8 +78,7 @@ public:
     // free mutex has to be acquired to find that out, and is released again right after, the answer is best effort and
     // may be stale as soon as it is returned.
     std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
-    std::optional<std::pair<pid_t, pid_t>> probe_mutex(
-        MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
     void initialize_mutex_internal(const std::string& mutex_name);
@@ -107,7 +87,8 @@ private:
     std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
 
     // Maps from mutex name to an initialized mutex.
-    // Mutex names are made from mutex type name or directly mutex name combined with device number.
+    // Mutex names are made from the mutex type name, combined with the device number and device type for chip
+    // specific ones.
     // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.
     std::unordered_map<std::string, std::unique_ptr<MutexInterface>> mutexes;
 };

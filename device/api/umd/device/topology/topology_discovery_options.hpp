@@ -4,6 +4,13 @@
 
 #pragma once
 
+// <windows.h> (winbase.h) defines IGNORE as an object-like macro, which would mangle the
+// Action::IGNORE enumerator below in any TU that included it first. The macro is a Win16-era
+// relic with no modern users; drop it.
+#ifdef IGNORE
+#undef IGNORE
+#endif
+
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.

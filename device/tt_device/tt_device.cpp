@@ -24,13 +24,13 @@
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
@@ -44,7 +44,6 @@
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
-#include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/tt_device_model/blackhole_tt_device_model.hpp"
 #include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
@@ -57,6 +56,7 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -111,12 +111,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         arch = jtag_device->get_jtag_arch(device_number);
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
                     std::move(jtag_device), device_number, soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(
-                    new BlackholeTTDevice(std::make_unique<BlackholeTTDeviceModel>(
-                        std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<BlackholeTTDeviceModel>(
+                    std::move(jtag_device), device_number, soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -129,10 +128,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         default:
             UMD_THROW(
@@ -149,7 +148,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication), soc_arch_descriptor)));
         default:
             UMD_THROW(
@@ -173,9 +172,8 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             arch_to_str(arch)));
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            auto device =
-                std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
-                    std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
+            auto device = std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
+                std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
             // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
             // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
             device->set_soc_descriptor(soc_descriptor);
@@ -441,10 +439,6 @@ void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t
     get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
-void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
-}
-
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
@@ -523,22 +517,7 @@ IODeviceType TTDevice::get_communication_device_type() const {
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
-uint64_t TTDevice::get_refclk_counter() {
-    uint32_t high1_addr = 0;
-    uint32_t high2_addr = 0;
-    uint32_t low_addr = 0;
-    read_from_arc_apb(
-        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(
-        &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(
-        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    if (high2_addr > high1_addr) {
-        read_from_arc_apb(
-            &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    }
-    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
-}
+uint64_t TTDevice::get_refclk_counter() { return get_device_firmware()->get_refclk_counter(get_selected_noc_id()); }
 
 uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id().value_or(0); }
 
@@ -553,6 +532,35 @@ ChipInfo TTDevice::get_chip_info() {
 }
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
+
+uint32_t TTDevice::get_clock() {
+    // TODO: temporary - Wormhole keeps the GET_AICLK firmware command it always used, preserving
+    // the exact behavior, until a test confirms the firmware info provider's telemetry read
+    // reports the same value (the smbus telemetry word can lag the instantaneous readout). Once
+    // confirmed, delete this branch; if they differ, the provider grows the per-arch handling
+    // instead.
+    if (get_arch() == tt::ARCH::WORMHOLE_B0) {
+        // There is one return value from the GET_AICLK message.
+        DeviceCommandResult result = get_device_firmware()->send_device_command(
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
+            {0xFFFF, 0xFFFF},
+            timeout::ARC_MESSAGE_TIMEOUT,
+            get_selected_noc_id());
+        if (result.exit_code != 0) {
+            UMD_THROW(
+                error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
+        }
+        return result.return_values.at(0);
+    }
+
+    const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
+    if (!aiclk.has_value()) {
+        UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
+    }
+    return *aiclk;
+}
+
+uint32_t TTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
 void TTDevice::advance_device_execution() {
     if (model_->get_remote_interface() != nullptr) {

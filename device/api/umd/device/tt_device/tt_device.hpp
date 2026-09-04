@@ -284,68 +284,6 @@ public:
      */
     virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
-    /**
-     * Read function that will send read message to the ARC core APB peripherals.
-     *
-     * @param mem_ptr pointer to memory which will receive the data
-     * @param arc_addr_offset address offset in ARC core APB peripherals
-     * @param size number of bytes
-     *
-     * NOTE: This function will read from APB peripherals. It will use the AXI interface to read the data if the chip is
-     * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
-     * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
-     * chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
-     * Write function that will send write message to the ARC core APB peripherals.
-     *
-     * @param mem_ptr pointer to memory from which the data is sent
-     * @param arc_addr_offset address offset in ARC core APB peripherals
-     * @param size number of bytes
-     *
-     * NOTE: This function will write to APB peripherals. It will use the AXI interface to write the data if the chip is
-     * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
-     * Configures a PCIe Address Translation Unit (iATU) region.
-     *
-     * Device software expects to be able to access memory that is shared with
-     * the host using the following NOC addresses at the PCIe core:
-     * - GS: 0x0
-     * - WH: 0x8_0000_0000
-     * - BH: 0x1000_0000_0000_0000
-     * Without iATU configuration, these map to host PA 0x0.
-     *
-     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
-     * maintain the iATU configuration to satisfy software that has hard-coded
-     * the above NOC addresses rather than using driver-provided IOVAs.
-     *
-     * This interface is only intended to be used for configuring sysmem with
-     * either 1GB hugepages or a compatible scheme.
-     *
-     * @param region iATU region index (0-15)
-     * @param target DMA address (PA or IOVA) to map to
-     * @param region_size size of the mapping window; must be (1 << 30)
-     *
-     * NOTE: Programming the iATU from userspace is architecturally incorrect:
-     * - iATU should be managed by KMD to ensure proper cleanup on process exit
-     * - Multiple processes can corrupt each other's iATU configurations
-     * We should fix this!
-     */
-    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
-
     ChipInfo get_chip_info();
 
     FirmwareBundleVersion get_firmware_version();
@@ -399,11 +337,26 @@ public:
      */
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual uint32_t get_clock() = 0;
+    /**
+     * @brief Retrieves the current AICLK frequency, read from the telemetry the firmware publishes.
+     *
+     * @return uint32_t Current AICLK frequency in MHz.
+     * @throws error::UninitializedDeviceError before init_tt_device() has run.
+     * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
+     */
+    uint32_t get_clock();
 
     uint32_t get_max_clock_freq();
 
-    virtual uint32_t get_min_clock_freq() = 0;
+    /**
+     * @brief Retrieves the minimum supported clock frequency of the device.
+     *
+     * A static architecture constant (the idle AICLK), not firmware state, so it is served by the
+     * architecture implementation.
+     *
+     * @return uint32_t Minimum clock frequency in MHz.
+     */
+    uint32_t get_min_clock_freq();
 
     // Advance the device by one clock cycle. No-op by default; overridden by devices with a
     // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the

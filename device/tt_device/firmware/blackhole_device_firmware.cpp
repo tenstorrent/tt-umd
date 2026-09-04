@@ -450,8 +450,28 @@ void BlackholeDeviceFirmware::retrain_dram_core(uint32_t dram_channel, NocId noc
     }
 }
 
+uint64_t BlackholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
+    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
+    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
+    uint32_t high1_addr = 0;
+    uint32_t high2_addr = 0;
+    uint32_t low_addr = 0;
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    if (high2_addr > high1_addr) {
+        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 void BlackholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_apb_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
+void BlackholeDeviceFirmware::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
+    arc_apb_.write(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
 
 }  // namespace tt::umd

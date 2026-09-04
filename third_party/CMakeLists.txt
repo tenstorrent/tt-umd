@@ -39,7 +39,8 @@ endif()
 CPMAddPackage(
     NAME yaml-cpp
     GITHUB_REPOSITORY jbeder/yaml-cpp
-    GIT_TAG 2f86d13775d119edbb69af52e5f566fd65c6953b # 0.8.0 + patches
+    GIT_TAG
+        2f86d13775d119edbb69af52e5f566fd65c6953b # 0.8.0 + patches
     SYSTEM YES
     OPTIONS
         "YAML_CPP_BUILD_TESTS OFF"
@@ -163,7 +164,8 @@ CPMAddPackage(
 CPMAddPackage(
     NAME cxxopts
     GITHUB_REPOSITORY jarro2783/cxxopts
-    GIT_TAG dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
+    GIT_TAG
+        dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
     SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"

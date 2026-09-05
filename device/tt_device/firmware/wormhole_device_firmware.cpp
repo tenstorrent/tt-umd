@@ -67,19 +67,12 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     // protocol faulted there before the assert could report it.
     device_id_ = device_protocol_->get_mmio_id();
 
-    // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one. The case that would
-    // break a per-device lock is two local chips reaching the same remote chip at once - concurrent messages could
-    // then interleave on that remote chip's ARC, since each would be holding a different device's lock. As the code
-    // is written that does not arise: a remote chip is only ever reached through its own local counterpart, so the
-    // local chip's lock does serialize everything that reaches it. UMD assumes that stays true.
-    // Keeping the lock system-wide therefore costs more than it buys, and it is the one ARC path that cannot move to
-    // a KMD resource lock, which exists per local device and has no system-wide form.
-    LockManager::initialize_mutex(MutexType::ARC_MSG);
-
-    // The per device lock this path is moving to. For a remote device, device_id_ is the local chip used to reach the
-    // remote ARC, so REMOTE_ARC_MSG serializes all remote ARC traffic flowing through that same local chip.
-    // Both are claimed up front because acquire_mutex() throws unless the lock was initialized first, and which of the
-    // two is taken is decided per message.
+    // For a remote device, device_id_ is the local chip used to reach the remote ARC, so REMOTE_ARC_MSG serializes all
+    // remote ARC traffic flowing through that same local chip.
+    // Caveat: two local chips reaching the same remote chip are not serialized against each other. That does not arise
+    // as the code is written - a remote chip is only reached through its own local counterpart - and UMD assumes it
+    // stays that way. Serializing it properly would need a unique remote chip id rather than the local device.
+    // Claimed up front because acquire_mutex() throws unless the lock was initialized first.
     LockManager::initialize_mutex(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
@@ -306,11 +299,6 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
         get_io_device_type());
-
-    // TODO: This lock is deprecated, and will be removed once all clients update the code and start locking using the
-    // lock above. It prevents two clients running on different UMD versions from not synchronizing on the same lock.
-    // See the constructor for why it is system-wide, and why that is wider than what the code actually needs.
-    auto lock_global = LockManager::acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), noc_id);

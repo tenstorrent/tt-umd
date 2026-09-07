@@ -21,6 +21,8 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
@@ -80,10 +82,15 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     // remote ARC, so REMOTE_ARC_MSG serializes all remote ARC traffic flowing through that same local chip.
     // Both are claimed up front because acquire_mutex() throws unless the lock was initialized first, and which of the
     // two is taken is decided per message.
+    // The type has to describe the same device as device_id_, which for a remote device is the local one the messages
+    // travel through. get_io_device_type() answers for this device instead, and calls anything that is not JTAG PCIe,
+    // which over a simulated gateway would name the lock after PCIe device -1.
     LockManager::initialize_mutex(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
-        get_io_device_type());
+        remote_interface_ != nullptr
+            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
+            : get_io_device_type());
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.
@@ -305,7 +312,9 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     auto lock = LockManager::acquire_mutex(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
-        get_io_device_type());
+        remote_interface_ != nullptr
+            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
+            : get_io_device_type());
 
     // TODO: This lock is deprecated, and will be removed once all clients update the code and start locking using the
     // lock above. It prevents two clients running on different UMD versions from not synchronizing on the same lock.

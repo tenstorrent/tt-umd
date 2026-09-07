@@ -78,7 +78,13 @@ public:
     static std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
-    static void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    //
+    // kmd_lock_available says whether the device has a KMD lock table to take the lock through. A PCIe
+    // device does, and gets a lock backed by both that and shared memory; passing false selects the
+    // shared memory half alone, for a device that presents a PCIe surface with no KMD device behind it.
+    // Either way the lock keeps one name, so acquire_mutex() below is unaffected by the choice.
+    static void initialize_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type, bool kmd_lock_available = true);
     static std::unique_lock<MutexInterface> acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type);
 

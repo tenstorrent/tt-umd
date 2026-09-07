@@ -418,9 +418,10 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * This is a bulk-transfer path with no ordering guarantee: writes from successive calls may
-     * complete in any order. If the order of two writes matters, separate them with a barrier or use
-     * an @ref IoWindow from @ref create_io_window, which takes an ordering mode.
+     * Transfers use @ref IoOrdering::Strict, so the data has landed on the target before the call
+     * returns and successive calls are ordered with respect to each other. This costs write
+     * throughput; a caller that does not need the guarantee can take an @ref IoWindow from
+     * @ref create_io_window with a weaker ordering mode and drive it directly.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
@@ -435,7 +436,8 @@ public:
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * No ordering guarantee, same as @ref write_to_device, including against writes issued through it.
+     * Uses @ref IoOrdering::Strict, same as @ref write_to_device, and is ordered against writes
+     * issued through it.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.

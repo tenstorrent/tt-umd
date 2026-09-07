@@ -188,10 +188,13 @@ void LockManager::initialize_mutex(MutexType mutex_type) {
     initialize_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
-void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    if (device_type == IODeviceType::PCIe) {
+void LockManager::initialize_mutex(
+    MutexType mutex_type, int device_id, IODeviceType device_type, bool kmd_lock_available) {
+    if (device_type == IODeviceType::PCIe && kmd_lock_available) {
         initialize_kmd_mutex(mutex_type, device_id);
     } else {
+        // The name is the one initialize_kmd_mutex() would have used, so a caller that opted out of
+        // the KMD half still contends with anything holding the shared memory half under that name.
         initialize_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
     }
 }

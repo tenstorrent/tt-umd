@@ -233,10 +233,9 @@ jobs:
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # wh_x2 is two Wormhole chips; reuse the per-chip Wormhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x2/soc_descriptor.yaml
-          # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
-          # and enumerates both the MMIO gateway and the remote chip. Without it, the sim is a single MMIO chip.
-          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
-            sim_wh_x2/cluster_descriptor.yaml
+          # Deliberately no cluster_descriptor.yaml: discovery walks the ethernet links from the MMIO
+          # gateway to the remote chip, which has no PCI endpoint of its own, and reproduces this image's
+          # N300 topology from the devices themselves. TTSimDiscoveryTest below asserts that it did.
           # bh_x2 is two Blackhole chips; reuse the per-chip Blackhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x2/soc_descriptor.yaml
           # Deliberately no cluster_descriptor.yaml: with nothing declaring the topology, UMD discovers it
@@ -373,6 +372,22 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
+      - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      # wh_x2 is the case the remote half of the test is for: one PCI endpoint, two chips, the second
+      # reached only over ethernet.
+      - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
@@ -412,10 +427,9 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
-      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
-      # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
-      # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
-      # the remote chip.
+      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
+      # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
+      # device-IO fixtures run across the gateway and the remote chip.
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1
         env:

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -317,13 +318,50 @@ TEST_F(TTSimDiscoveryTest, ChipCountMatchesEnumeratedEndpoints) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     ASSERT_NE(cluster_desc, nullptr);
 
-    // One chip per host-visible endpoint, all of them MMIO: every chip a TTSim image exposes to the
-    // host is reachable over its own BDF, so discovery finding a different number means it either
-    // missed one or invented one.
-    EXPECT_EQ(cluster_desc->get_number_of_chips(), bdfs.size());
+    // One MMIO chip per host-visible endpoint: every chip an image exposes to the host is reached
+    // over its own BDF, so a different count means discovery either missed one or invented one.
     EXPECT_EQ(cluster_desc->get_chips_with_mmio().size(), bdfs.size());
+
+    // Chips beyond those are reached over ethernet -- wh_x2's second chip has no endpoint of its
+    // own -- so the totals coincide only where every chip is MMIO.
+    EXPECT_GE(cluster_desc->get_number_of_chips(), bdfs.size());
     for (const ChipId chip : cluster_desc->get_all_chips()) {
-        EXPECT_TRUE(cluster_desc->is_chip_mmio_capable(chip)) << "chip " << chip << " is not MMIO capable";
+        const bool is_mmio = cluster_desc->get_chips_with_mmio().count(chip) != 0;
+        EXPECT_EQ(cluster_desc->is_chip_mmio_capable(chip), is_mmio)
+            << "chip " << chip << " disagrees with the MMIO set it is or is not in";
+    }
+}
+
+// A chip with no PCI endpoint of its own is reached over ethernet, so discovery finding it at all
+// means it walked the links. wh_x2 models exactly that: one endpoint, two chips.
+TEST_F(TTSimDiscoveryTest, RemoteChipsAreReachedOverEthernet) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    const auto& mmio_chips = cluster_desc->get_chips_with_mmio();
+    const auto& eth_connections = cluster_desc->get_ethernet_connections();
+
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        if (mmio_chips.count(chip) != 0) {
+            continue;
+        }
+
+        // Every link this chip reports has to land on a chip in the same cluster, and at least one
+        // of them is what discovery arrived over.
+        const auto links = eth_connections.find(chip);
+        ASSERT_NE(links, eth_connections.end()) << "remote chip " << chip << " reports no ethernet links";
+        EXPECT_FALSE(links->second.empty()) << "remote chip " << chip << " reports no ethernet links";
+        for (const auto& [channel, remote] : links->second) {
+            const ChipId peer = std::get<0>(remote);
+            EXPECT_NE(cluster_desc->get_all_chips().count(peer), 0u)
+                << "chip " << chip << " channel " << channel << " links to unknown chip " << peer;
+        }
     }
 }
 

@@ -107,6 +107,38 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
+// Unpins the pages on destruction unless disarmed.
+//
+// It covers the whole window between pinning and a SysmemBuffer taking ownership, not just the
+// construction call: composing the deleter allocates a std::function, so it can throw before any
+// try block is entered, and an escape there would leave the pages pinned with nothing owning them.
+class UnpinGuard {
+public:
+    UnpinGuard(PCIDevice *pci_device, void *base, size_t size) : pci_device_(pci_device), base_(base), size_(size) {}
+
+    UnpinGuard(const UnpinGuard &) = delete;
+    UnpinGuard &operator=(const UnpinGuard &) = delete;
+
+    ~UnpinGuard() {
+        if (!armed_) {
+            return;
+        }
+        try {
+            pci_device_->unmap_for_dma(base_, size_);
+        } catch (...) {
+            log_warning(LogUMD, "Failed to unmap sysmem buffer after a failed construction.");
+        }
+    }
+
+    void disarm() { armed_ = false; }
+
+private:
+    PCIDevice *pci_device_;
+    void *base_;
+    size_t size_;
+    bool armed_ = true;
+};
+
 SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
     tt_device_ = tt_device;
     pci_device_ = tt_device->get_pci_device();
@@ -438,6 +470,61 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
     }
 }
 
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
+    void *buffer_va,
+    size_t buffer_size,
+    const bool map_to_noc,
+    DeviceBufferAccess device_access,
+    SysmemBuffer::Deleter release_backing_memory) {
+    // The buffer reports offsets against the user's address, but the pages that get pinned are the aligned
+    // range covering it. page_align() is what keeps the two in agreement.
+    const SysmemBuffer::AlignedRange range = SysmemBuffer::page_align(buffer_va, buffer_size);
+
+    uint64_t device_io_addr = 0;
+    std::optional<uint64_t> noc_addr = std::nullopt;
+    if (map_to_noc) {
+        std::tie(noc_addr, device_io_addr) =
+            pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
+    } else {
+        device_io_addr = pci_device_->map_for_dma(range.base, range.mapped_size, device_access);
+    }
+
+    // Armed immediately after pinning: everything below here can throw, and until create_buffer()
+    // returns there is nothing that would unpin the pages.
+    UnpinGuard unpin_guard(pci_device_, range.base, range.mapped_size);
+
+    // The buffer's deleter unpins, then releases the backing memory if this manager owns it.
+    SysmemBuffer::Deleter deleter = [pci_device = pci_device_,
+                                     mapped_size = range.mapped_size,
+                                     device_io_addr,
+                                     release = std::move(release_backing_memory)](void *aligned_va) {
+        try {
+            pci_device->unmap_for_dma(aligned_va, mapped_size);
+        } catch (...) {
+            log_warning(
+                LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, device_io_addr);
+        }
+        if (release) {
+            release(aligned_va);
+        }
+    };
+
+    // The KMD assigns the NOC address at pin time, so this manager supplies no binder.
+    std::unique_ptr<SysmemBuffer> buffer = create_buffer(
+        tt_device_,
+        buffer_va,
+        buffer_size,
+        device_io_addr,
+        communication_id_,
+        std::move(deleter),
+        noc_addr,
+        device_access);
+
+    // The buffer owns the pin now.
+    unpin_guard.disarm();
+    return buffer;
+}
+
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     ZoneScopedC(tracy::Color::Yellow);
@@ -447,8 +534,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
             error::RuntimeError,
             fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
-    // This mapping belongs to the buffer, so hand it a deleter that frees it. mmap returns a page-aligned
-    // address, so the pointer the deleter receives is the one to munmap.
+    // This mapping belongs to the buffer, so it is released along with the pinning. mmap returns a
+    // page-aligned address, so the pointer the deleter receives is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
     const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
         if (munmap(aligned_va, mapping_size) != 0) {
@@ -461,12 +548,10 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
         }
     };
 
-    // Nothing owns the mapping until the buffer is constructed, and constructing it pins the pages and can
-    // throw, so release the mapping ourselves on that path.
     try {
-        return std::make_unique<SysmemBuffer>(
-            tt_device_, mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+        return pin_and_wrap(mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
     } catch (...) {
+        // Nothing owns the mmap yet, so free it here rather than leaking it.
         release_mapping(mapping);
         throw;
     }
@@ -475,7 +560,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc, device_access);
+    // The caller owns this memory, so the buffer only unpins it.
+    return pin_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
 }
 
 }  // namespace tt::umd

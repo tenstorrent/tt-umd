@@ -48,69 +48,40 @@ SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
 
 }  // namespace
 
+SysmemBuffer::AlignedRange SysmemBuffer::page_align(void* buffer_va, size_t buffer_size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t va = reinterpret_cast<uint64_t>(buffer_va);
+    const uint64_t base = va & ~(page_size - 1);
+    AlignedRange range{};
+    range.base = reinterpret_cast<void*>(base);
+    range.offset_from_base = va - base;
+    range.mapped_size = (buffer_size + range.offset_from_base + page_size - 1) & ~(page_size - 1);
+    return range;
+}
+
 SysmemBuffer::SysmemBuffer(
     TTDevice* tt_device,
     void* buffer_va,
     size_t buffer_size,
-    bool map_to_noc,
-    DeviceBufferAccess device_access,
-    Deleter release_backing_memory) :
-    pci_device_(tt_device->get_pci_device()),
-    tt_device_(tt_device),
-    buffer_va_(buffer_va),
-    mapped_buffer_size_(buffer_size),
-    buffer_size_(buffer_size),
-    device_access_(device_access),
-    communication_id_(tt_device->get_communication_device_id()) {
-    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
-    align_address_and_size();
-    if (map_to_noc) {
-        std::tie(noc_addr_, device_io_addr_) =
-            pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_, device_access_);
-    } else {
-        device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_, device_access_);
-        noc_addr_ = std::nullopt;
-    }
-    // Compose the full deleter now that the buffer is aligned and pinned: always unpin, then release the
-    // backing memory if this buffer owns it.
-    system_memory_ptr_ = std::unique_ptr<void, Deleter>(
-        buffer_va_,
-        [pci_device = pci_device_,
-         mapped_size = mapped_buffer_size_,
-         iova = device_io_addr_,
-         release = make_non_throwing(std::move(release_backing_memory))](void* aligned_va) {
-            try {
-                pci_device->unmap_for_dma(aligned_va, mapped_size);
-            } catch (...) {
-                log_warning(LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, iova);
-            }
-            release(aligned_va);
-        });
-    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
-}
-
-SysmemBuffer::SysmemBuffer(
-    void* buffer_va,
-    size_t buffer_size,
     uint64_t device_io_addr,
     int communication_id,
-    std::optional<uint64_t> noc_addr,
     Deleter deleter,
+    std::optional<uint64_t> noc_addr,
     DeviceBufferAccess device_access,
     NocBinder noc_binder) :
-    pci_device_(nullptr),
-    tt_device_(nullptr),
-    buffer_va_(buffer_va),
-    mapped_buffer_size_(buffer_size),
+    tt_device_(tt_device),
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
     noc_binder_(std::move(noc_binder)),
     device_access_(device_access),
     communication_id_(communication_id) {
-    align_address_and_size();
+    const AlignedRange range = page_align(buffer_va, buffer_size);
+    buffer_va_ = range.base;
+    mapped_buffer_size_ = range.mapped_size;
+    offset_from_aligned_addr_ = range.offset_from_base;
+
     system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
-    // Pair with TracyFreeN in the destructor so Tracy sees balanced alloc/free.
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
 
@@ -148,14 +119,6 @@ SysmemBuffer::~SysmemBuffer() {
     TracyFreeN(buffer_va_, "SysmemBuffer");
     // Destroying system_memory_ptr_ runs the deleter composed at construction: unpin, and free the
     // backing memory if this buffer owns it.
-}
-
-void SysmemBuffer::align_address_and_size() {
-    static const auto page_size = sysconf(_SC_PAGESIZE);
-    uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
-    offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
-    buffer_va_ = reinterpret_cast<void*>(aligned_buffer_va);
-    mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);
 }
 
 void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {

@@ -14,7 +14,6 @@
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-class PCIDevice;
 class TTDevice;
 
 /**
@@ -34,18 +33,28 @@ public:
     /**
      * Cleanup callable invoked on destruction, receiving the page-aligned start of the buffer.
      *
-     * It encodes the difference between the two ownership models: for a buffer the allocator itself
-     * allocated, it unpins the pages and frees the backing memory; for a buffer mapped from a caller's
-     * pointer, it only unpins, leaving the memory to its owner.
-     *
-     * NOTE: the Base API Specification keeps this alias, and the constructors below, private, with the
-     * allocator a friend of this class. There the allocator is the sole author of the deleter and states
-     * the ownership model outright: it composes unpin-and-free for memory UMD owns, and unpin-only for
-     * memory the client owns. Here both are public and the model is instead implied by whether a
-     * release callable was passed, which is not what we want to keep. Moving to the spec's shape is a
-     * follow-up, together with making the constructors private.
+     * The allocator is its sole author and states the ownership model outright: unpin-and-free for
+     * memory UMD owns, unpin-only for memory the client owns.
      */
     using Deleter = std::function<void(void*)>;
+
+    /**
+     * A buffer's page-aligned extent. The pages an allocator pins must cover the whole user range, so an
+     * unaligned start is rounded down and the size grown to match.
+     */
+    struct AlignedRange {
+        void* base = nullptr;           // Page-aligned start. This is what gets pinned and released.
+        size_t mapped_size = 0;         // Page-rounded size covering the user's whole range.
+        uint64_t offset_from_base = 0;  // Distance from base to the user's virtual address.
+    };
+
+    /**
+     * Computes the page-aligned extent covering [buffer_va, buffer_va + buffer_size).
+     *
+     * Allocators use this to pin exactly the range the buffer will report offsets against. It is a pure
+     * function of its arguments, so the allocator and the buffer independently agree on the extent.
+     */
+    static AlignedRange page_align(void* buffer_va, size_t buffer_size);
 
     /**
      * Callable that programs the hardware address translation binding this buffer to the NOC, returning
@@ -57,57 +66,6 @@ public:
      */
     using NocBinder = std::function<uint64_t()>;
 
-    /**
-     * Constructor for SysmemBuffer. Start of the buffer must be aligned
-     * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
-     * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
-     * see a buffer of the original size. Same as for buffer size, user won't be able to access the memory before the
-     * start of the buffer, aligning is transparent to the user.
-     * Pages separated by | AB - Aligned buffer,
-     * UB - Unaligned buffer, UE - Unaligned end, AE - Aligned end
-     *
-     * |     Page 0     |     Page 1     |     Page 2     |     Page 3     |
-     * +----------------+----------------+----------------+----------------+
-     * ^                ^       ^                    ^    ^
-     * Page Start       AB      UB                   UE   AE
-     *                          |<--- buffer_size -->|
-     *                  |<----- mapped_buffer_size ----->|
-     *
-     * @param tt_device Pointer to the TTDevice. Used directly for DMA transfers, and to access the underlying
-     * PCIDevice for mapping/unmapping and TLB allocation.
-     * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
-     * @param buffer_size Size of the buffer requested by the user.
-     * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
-     * @param release_backing_memory Optional callable that frees the pages behind buffer_va, invoked after
-     * the buffer has been unpinned from the device. Pass it when the allocator owns the memory it is handing
-     * over; leave it empty when the caller owns the memory and only wants it unpinned on destruction.
-     * Signalling ownership through the presence of this parameter is the interim shape described in the
-     * note on Deleter, not the one the specification settles on.
-     */
-    SysmemBuffer(
-        TTDevice* tt_device,
-        void* buffer_va,
-        size_t buffer_size,
-        bool map_to_noc = false,
-        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
-        Deleter release_backing_memory = {});
-    /**
-     * Constructor for a buffer that was already made visible to the device by the caller.
-     *
-     * @param communication_id Identifier of the device this buffer's IOVA is valid for. Supplied by the
-     * allocator, which pins for exactly one device. Matches TTDevice::get_communication_device_id().
-     * @param deleter Cleanup callable invoked on destruction with the page-aligned start of the buffer.
-     * Defaults to releasing nothing, since this constructor takes a mapping the caller already owns.
-     */
-    SysmemBuffer(
-        void* buffer_va,
-        size_t buffer_size,
-        uint64_t device_io_addr,
-        int communication_id,
-        std::optional<uint64_t> noc_addr = std::nullopt,
-        Deleter deleter = {},
-        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
-        NocBinder noc_binder = {});
     ~SysmemBuffer();
 
     /**
@@ -196,13 +154,38 @@ public:
     void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
 private:
+    // Buffers are created only by an allocator, which pins the pages and therefore knows the IOVA, the NOC
+    // address and how the memory has to be released.
+    friend class SystemMemoryAllocator;
+
     /**
-     * Aligns the address and size of the buffer to the page size. If the buffer is not aligned to the page size,
-     * it will be aligned and the size will be adjusted accordingly. The original buffer size will not be changed.
-     * However, behaviour (calculation of offset) of the SysmemBuffer is always going to be based on the original VA and
-     * size.
+     * Constructs a buffer over host memory the allocator has already pinned for the device.
+     *
+     * Alignment stays invisible to the user: get_buffer_va() and get_buffer_size() report what was
+     * passed in, and offsets are bounded by that size. The allocator must pin the same aligned range,
+     * which it computes with page_align().
+     *
+     * @param tt_device Device this buffer belongs to, used for the zero-copy DMA helpers. May be null for
+     * buffers never used for DMA, such as the simulator's.
+     * @param buffer_va Virtual address of the buffer as the user sees it.
+     * @param buffer_size Size of the buffer requested by the user.
+     * @param device_io_addr IOVA of the page-aligned start, as returned by the allocator's pinning call.
+     * @param communication_id Identifier of the device this buffer's IOVA is valid for.
+     * @param deleter Cleanup callable invoked on destruction with the page-aligned start.
+     * @param noc_addr NOC address, if the pages were pinned with NOC access.
+     * @param device_access Whether the device may write the mapping or only read it.
+     * @param noc_binder Optional callable for deferred NOC binding.
      */
-    void align_address_and_size();
+    SysmemBuffer(
+        TTDevice* tt_device,
+        void* buffer_va,
+        size_t buffer_size,
+        uint64_t device_io_addr,
+        int communication_id,
+        Deleter deleter,
+        std::optional<uint64_t> noc_addr = std::nullopt,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
+        NocBinder noc_binder = {});
 
     /**
      * Validates that the [offset, offset + size) range is within the bounds of the buffer.
@@ -213,7 +196,6 @@ private:
      */
     void validate(const size_t offset, const size_t size = 0) const;
 
-    PCIDevice* pci_device_;
     TTDevice* tt_device_;
 
     // Virtual address in process addr space.

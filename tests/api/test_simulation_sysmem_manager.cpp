@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -109,6 +110,24 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
     }
 }
 
+namespace {
+
+// SysmemBuffer's constructor is private to allocators. Tests that need a hand-built buffer — with a
+// specific deleter, NOC address or binder — go through a minimal allocator of their own rather than
+// weakening the encapsulation.
+class TestBufferFactory : public SystemMemoryAllocator {
+public:
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
+
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override { return nullptr; }
+
+    int get_communication_id() const override { return 0; }
+
+    using SystemMemoryAllocator::create_buffer;
+};
+
+}  // namespace
+
 // A buffer owns its memory through a deleter composed at construction. The deleter must run exactly
 // once, and it must receive the page-aligned start of the mapping rather than the caller's VA — that
 // is the address the pages were pinned at and the one that has to be released.
@@ -132,11 +151,16 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
     }
 
     {
-        SysmemBuffer buffer(
-            user_va, 128, /*device_io_addr=*/0x1000, /*communication_id=*/7, std::nullopt, deleter.AsStdFunction());
+        auto buffer = TestBufferFactory::create_buffer(
+            /*tt_device=*/nullptr,
+            user_va,
+            128,
+            /*device_io_addr=*/0x1000,
+            /*communication_id=*/7,
+            deleter.AsStdFunction());
 
-        EXPECT_EQ(buffer.get_buffer_va(), user_va);
-        EXPECT_EQ(buffer.get_buffer_size(), 128u);
+        EXPECT_EQ(buffer->get_buffer_va(), user_va);
+        EXPECT_EQ(buffer->get_buffer_size(), 128u);
         buffer_still_alive.Call();
     }
 }
@@ -146,19 +170,21 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
 TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
     std::vector<uint8_t> backing(4096, 0);
 
-    SysmemBuffer buffer(
+    auto buffer = TestBufferFactory::create_buffer(
+        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
+        SysmemBuffer::Deleter{},
         std::optional<uint64_t>(0x1234));
 
-    EXPECT_NO_THROW(buffer.bind_noc_address());
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+    EXPECT_NO_THROW(buffer->bind_noc_address());
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
 
     // Idempotent.
-    EXPECT_NO_THROW(buffer.bind_noc_address());
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+    EXPECT_NO_THROW(buffer->bind_noc_address());
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
 }
 
 // An allocator that can bind after the fact injects a binder. bind_noc_address() must run it exactly
@@ -171,26 +197,27 @@ TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
     // on the second bind_noc_address() fail here.
     EXPECT_CALL(binder, Call()).WillOnce(Return(0xDEADBEEF));
 
-    SysmemBuffer buffer(
+    auto buffer = TestBufferFactory::create_buffer(
+        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        std::nullopt,
         SysmemBuffer::Deleter{},
+        std::nullopt,
         DeviceBufferAccess::READ_WRITE,
         binder.AsStdFunction());
 
     // Nothing bound yet, so construction cannot have run the binder.
-    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_addr().has_value());
 
-    buffer.bind_noc_address();
-    ASSERT_TRUE(buffer.get_noc_addr().has_value());
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0xDEADBEEFu);
+    buffer->bind_noc_address();
+    ASSERT_TRUE(buffer->get_noc_addr().has_value());
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0xDEADBEEFu);
 
     // Idempotent: the cached address is returned without running the binder again.
-    buffer.bind_noc_address();
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0xDEADBEEFu);
+    buffer->bind_noc_address();
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0xDEADBEEFu);
 }
 
 // A buffer that is already bound never runs its binder.
@@ -200,37 +227,51 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
     MockFunction<uint64_t()> binder;
     EXPECT_CALL(binder, Call()).Times(0);
 
-    SysmemBuffer buffer(
+    auto buffer = TestBufferFactory::create_buffer(
+        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        std::optional<uint64_t>(0x1234),
         SysmemBuffer::Deleter{},
+        std::optional<uint64_t>(0x1234),
         DeviceBufferAccess::READ_WRITE,
         binder.AsStdFunction());
 
-    buffer.bind_noc_address();
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+    buffer->bind_noc_address();
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
 }
 
 // A buffer whose pages were not pinned with NOC access can never be given a NOC address, so asking
 // must fail loudly rather than leave the caller believing the buffer is reachable over the NOC.
 TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
     std::vector<uint8_t> backing(4096, 0);
-    SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x1000, /*communication_id=*/2);
+    auto buffer = TestBufferFactory::create_buffer(
+        /*tt_device=*/nullptr,
+        backing.data(),
+        backing.size(),
+        /*device_io_addr=*/0x1000,
+        /*communication_id=*/2,
+        SysmemBuffer::Deleter{});
 
-    EXPECT_FALSE(buffer.get_noc_addr().has_value());
-    EXPECT_THROW(buffer.bind_noc_address(), std::exception);
-    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_addr().has_value());
+    EXPECT_THROW(buffer->bind_noc_address(), std::exception);
+    EXPECT_FALSE(buffer->get_noc_addr().has_value());
 }
 
 // A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function
 // deleter would otherwise throw bad_function_call.
 TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
     std::vector<uint8_t> backing(4096, 0);
-    EXPECT_NO_THROW(
-        { SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x2000, /*communication_id=*/1); });
+    EXPECT_NO_THROW({
+        auto buffer = TestBufferFactory::create_buffer(
+            /*tt_device=*/nullptr,
+            backing.data(),
+            backing.size(),
+            /*device_io_addr=*/0x2000,
+            /*communication_id=*/1,
+            SysmemBuffer::Deleter{});
+    });
 }
 
 // The deleter is run while the buffer is being destroyed, so an exception out of it would leave the
@@ -238,14 +279,91 @@ TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
 TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) {
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
-        SysmemBuffer buffer(
+        auto buffer = TestBufferFactory::create_buffer(
+            /*tt_device=*/nullptr,
             backing.data(),
             backing.size(),
             /*device_io_addr=*/0x3000,
             /*communication_id=*/1,
-            std::nullopt,
-            [](void*) { throw std::runtime_error("deleter failed"); });
+            SysmemBuffer::Deleter{[](void*) { throw std::runtime_error("deleter failed"); }});
     });
+}
+
+namespace {
+
+// Resident set size in KiB, or 0 if it could not be read.
+size_t read_rss_kib() {
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+        if (line.rfind("VmRSS:", 0) == 0) {
+            return std::stoull(line.substr(line.find_first_of("0123456789")));
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+// allocate_sysmem_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
+// While the manager held the mapping in owned_allocations_ instead, nothing was released until the
+// manager itself went away and every allocation leaked for as long as it lived.
+TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+
+    const size_t buf_size = 16ULL << 20;
+    const size_t buf_size_kib = buf_size >> 10;
+    const int iterations = 8;
+
+    // Warm up so one-time allocations do not land inside the measurement.
+    { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
+
+    const size_t rss_before = read_rss_kib();
+    if (rss_before == 0) {
+        GTEST_SKIP() << "Could not read VmRSS from /proc/self/status.";
+    }
+
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    for (int i = 0; i < iterations; i++) {
+        std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+        ASSERT_NE(buffer, nullptr);
+        // Touch one byte per page so the whole mapping is resident. Touching only the first page would
+        // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
+        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+        for (size_t offset = 0; offset < buf_size; offset += page_size) {
+            bytes[offset] = static_cast<uint8_t>(i);
+        }
+    }
+
+    const size_t rss_after = read_rss_kib();
+    const size_t growth_kib = rss_after > rss_before ? rss_after - rss_before : 0;
+
+    // Leaking would retain every iteration's mapping. Allow one buffer of slack for allocator noise.
+    EXPECT_LT(growth_kib, buf_size_kib) << "RSS grew by " << growth_kib << " KiB across " << iterations
+                                        << " allocate/destroy cycles of " << buf_size_kib << " KiB each";
+}
+
+// The buffer owns its mapping outright, so it stays usable after the manager that handed it over is
+// gone. While the manager owned the mapping, its destructor munmapped memory a live buffer was still
+// pointing at.
+TEST(ApiSimulationSysmemManager, AllocatedBufferOutlivesItsManager) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+
+    const size_t buf_size = 4096;
+    std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+    ASSERT_NE(buffer, nullptr);
+
+    uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+    std::memset(bytes, 0xA5, buf_size);
+
+    sysmem.reset();
+
+    // Reading and writing here would fault if the manager had unmapped the buffer's pages.
+    for (size_t offset = 0; offset < buf_size; offset++) {
+        ASSERT_EQ(bytes[offset], 0xA5) << "at offset " << offset;
+    }
+    std::memset(bytes, 0x5A, buf_size);
+    EXPECT_EQ(bytes[buf_size - 1], 0x5A);
 }
 
 // ---------------------------------------------------------------------------

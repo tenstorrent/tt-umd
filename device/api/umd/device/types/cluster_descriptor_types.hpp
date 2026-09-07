@@ -34,10 +34,9 @@ enum BoardType : uint32_t {
     UBB,
     UBB_WORMHOLE = UBB,
     UBB_BLACKHOLE,
+    UBB_BLACKHOLE_BIN6,
     QUASAR_BOARD,
     UNKNOWN,
-    // Appended after UNKNOWN so the values above keep their numbering/ABI.
-    UBB_BLACKHOLE_BIN6,
 };
 
 static_assert(N150 == 3, "N150 must be 3");
@@ -49,9 +48,9 @@ static_assert(GALAXY == 8, "GALAXY must be 8");
 static_assert(UBB == 9, "UBB must be 9");
 static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
 static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
-static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
-static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
-static_assert(UBB_BLACKHOLE_BIN6 == 13, "BH_UBB_BIN6 must be 13");
+static_assert(UBB_BLACKHOLE_BIN6 == 11, "BH_UBB_BIN6 must be 11");
+static_assert(QUASAR_BOARD == 12, "QUASAR must be 12");
+static_assert(UNKNOWN == 13, "UNKNOWN must be 13");
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.

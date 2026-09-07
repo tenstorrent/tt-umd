@@ -76,11 +76,6 @@ void SiliconTlbWindow::set_io_timeout_hang_check(const std::function<bool(NocId)
     update_io_timeout_callback();
 }
 
-void SiliconTlbWindow::configure(const tlb_data &new_config) {
-    TlbWindow::configure(new_config);
-    update_io_timeout_callback();
-}
-
 void SiliconTlbWindow::update_io_timeout_callback() {
     if (!hang_check_) {
         // No hang check wired: default to treating every overrun as a false alarm so a bare per-op
@@ -161,6 +156,11 @@ void SiliconTlbWindow::read_block_impl(uint64_t offset, void *data, size_t size)
     } else {
         umd::memcpy_from_device(data, src, size, io_timeout_callback_);
     }
+}
+
+void SiliconTlbWindow::configure_impl(const tlb_data &new_config) {
+    TlbWindow::configure(new_config);
+    update_io_timeout_callback();
 }
 
 void SiliconTlbWindow::memcpy_from_device(
@@ -347,6 +347,14 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
         return;
     }
     read_block_impl(offset, data, size);
+}
+
+void SiliconTlbWindow::configure(const tlb_data &new_config) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::configure_impl, new_config);
+        return;
+    }
+    configure_impl(new_config);
 }
 
 }  // namespace tt::umd

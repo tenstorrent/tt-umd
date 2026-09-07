@@ -91,6 +91,7 @@ private:
     void read_register_impl(uint64_t offset, void* data, size_t size);
     void write_block_impl(uint64_t offset, const void* data, size_t size);
     void read_block_impl(uint64_t offset, void* data, size_t size);
+    void configure_impl(const tlb_data& new_config);
 
     std::function<bool(NocId)> hang_check_;
     // Cached is_false_alarm callback bound to the currently configured NOC; refreshed by

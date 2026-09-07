@@ -71,10 +71,12 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
-        // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
-        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
-        // without creating ClusterDescriptor, so we need to add it here as well.
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+        // Blackhole SocDescriptor construction rejects an empty eth_harvesting_mask, and this runs
+        // before there is a device to ask, so a value has to be assumed. It is the one the simulator
+        // reports: TTSim models ETH tiles 12 and 13 as harvested, so its ENABLED_ETH telemetry reads
+        // 0x0FFF and the mask derived from it is 0x3000. Assuming anything else would have the
+        // descriptor built here disagree with the one discovery builds from telemetry.
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
     return std::make_unique<TTSimTTDevice>(

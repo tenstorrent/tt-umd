@@ -239,10 +239,9 @@ jobs:
             sim_wh_x2/cluster_descriptor.yaml
           # bh_x2 is two Blackhole chips; reuse the per-chip Blackhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x2/soc_descriptor.yaml
-          # Place the P300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
-          # and enumerates both MMIO chips. Without it, the sim is a single MMIO chip.
-          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
-            sim_bh_x2/cluster_descriptor.yaml
+          # Deliberately no cluster_descriptor.yaml: with nothing declaring the topology, UMD discovers it
+          # from the image and enumerates both MMIO chips the way it does on silicon. TTSimDiscoveryTest
+          # below asserts that it found them.
           # x32 is the 6U Galaxy simulator (32 chips, all MMIO). Its topology is baked into the .so,
           # and the tt-metal tests below supply the matching cluster descriptor through
           # TT_METAL_MOCK_CLUSTER_DESC_PATH, so no cluster_descriptor.yaml is placed beside it.
@@ -349,6 +348,31 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
 
+      # TTSimDiscoveryTest checks the topology UMD derived against the image it came from: one chip per
+      # host-visible PCI endpoint, all MMIO, and harvesting read from telemetry rather than assumed. It
+      # skips itself on any image with a cluster_descriptor.yaml beside it, and on Quasar, which TTSim
+      # models without ARC or Ethernet.
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
@@ -356,11 +380,10 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
-      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The
-      # cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths") makes UMD
-      # enumerate both chips, so the standard device-IO fixtures run across both MMIO chips and the
-      # simulated inter-chip eth links. The P300 host-DMA routing programs the outbound iATU via BAR2,
-      # which the stable ttsim release models.
+      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). Its topology is
+      # discovered rather than declared (see "Prepare sim paths"), so the standard device-IO fixtures
+      # run across both MMIO chips and the simulated inter-chip eth links. The P300 host-DMA routing
+      # programs the outbound iATU via BAR2, which the stable ttsim release models.
       - name: Run UMD TestDeviceIOFixture on tt-sim blackhole x2
         timeout-minutes: 1
         env:

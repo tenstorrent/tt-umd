@@ -569,7 +569,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
-    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices);
+    // A simulator's harvesting is whatever its image chose to model and need not match its board
+    // type -- TTSim's single-chip Wormhole image reports an n150 with nothing harvested. The masks
+    // still come from the device; only the board-level expectation is dropped.
+    const bool check_harvesting_counts = options.simulator_path.empty();
+    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices, check_harvesting_counts);
     return cluster_desc;
 }
 

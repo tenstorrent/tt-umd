@@ -1348,14 +1348,16 @@ bool ClusterDescriptor::verify_harvesting_information() {
     return harvesting_info_good;
 }
 
-bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count) {
+bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count, bool check_harvesting_counts) {
     bool cluster_desc_info_good = true;
 
     cluster_desc_info_good &= verify_board_info_for_chips(check_board_chip_count);
 
     cluster_desc_info_good &= verify_same_architecture();
 
-    cluster_desc_info_good &= verify_harvesting_information();
+    if (check_harvesting_counts) {
+        cluster_desc_info_good &= verify_harvesting_information();
+    }
 
     return cluster_desc_info_good;
 }

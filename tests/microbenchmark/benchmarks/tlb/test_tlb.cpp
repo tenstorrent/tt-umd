@@ -14,10 +14,11 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/io_window_config.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -58,18 +59,25 @@ TEST(MicrobenchmarkTLB, DRAM) {
             cluster->read_from_device(pattern.data(), CHIP_ID, dram_core, ADDRESS, batch_size);
         });
     }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, dram_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
+    // IoWindow: mapped once, driven directly, no per-op reconfigure.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(CHIP_ID, dram_core, ADDRESS, {.size = 2 * ONE_MIB}, IoOrdering::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
+        bench.batch(batch_size).name(fmt::format("IoWindow, write, {} bytes", batch_size)).run([&]() {
+            window->write_block(0, pattern.data(), pattern.size());
         });
     }
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, dram_core, ADDRESS, batch_size);
+        bench.batch(batch_size).name(fmt::format("IoWindow, read, {} bytes", batch_size)).run([&]() {
+            window->read_block(0, pattern.data(), pattern.size());
         });
     }
     test::utils::export_results(bench);
@@ -95,18 +103,25 @@ TEST(MicrobenchmarkTLB, Tensix) {
             cluster->read_from_device(pattern.data(), CHIP_ID, tensix_core, ADDRESS, batch_size);
         });
     }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, tensix_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
+    // IoWindow: mapped once, driven directly, no per-op reconfigure.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(CHIP_ID, tensix_core, ADDRESS, {.size = 2 * ONE_MIB}, IoOrdering::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
+        bench.batch(batch_size).name(fmt::format("IoWindow, write, {} bytes", batch_size)).run([&]() {
+            window->write_block(0, pattern.data(), pattern.size());
         });
     }
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, tensix_core, ADDRESS, batch_size);
+        bench.batch(batch_size).name(fmt::format("IoWindow, read, {} bytes", batch_size)).run([&]() {
+            window->read_block(0, pattern.data(), pattern.size());
         });
     }
     test::utils::export_results(bench);
@@ -135,18 +150,25 @@ TEST(MicrobenchmarkTLB, Ethernet) {
             cluster->read_from_device(pattern.data(), CHIP_ID, eth_core, ADDRESS, batch_size);
         });
     }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, eth_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
+    // IoWindow: mapped once, driven directly, no per-op reconfigure.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(CHIP_ID, eth_core, ADDRESS, {.size = 2 * ONE_MIB}, IoOrdering::Relaxed);
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
+        bench.batch(batch_size).name(fmt::format("IoWindow, write, {} bytes", batch_size)).run([&]() {
+            window->write_block(0, pattern.data(), pattern.size());
         });
     }
     for (size_t batch_size : BATCH_SIZES) {
+        if (batch_size > window->get_size()) {
+            continue;
+        }
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, eth_core, ADDRESS, batch_size);
+        bench.batch(batch_size).name(fmt::format("IoWindow, read, {} bytes", batch_size)).run([&]() {
+            window->read_block(0, pattern.data(), pattern.size());
         });
     }
     test::utils::export_results(bench);

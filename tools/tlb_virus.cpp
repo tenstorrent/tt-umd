@@ -18,7 +18,6 @@
 
 #include "common.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"

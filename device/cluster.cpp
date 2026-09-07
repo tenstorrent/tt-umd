@@ -44,7 +44,6 @@
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "umd/device/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/io_window/io_window.hpp"
@@ -63,13 +62,11 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-class TlbWindow;
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -933,12 +930,6 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
         ordering);
 }
 
-TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core =
-        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    return get_tlb_manager(chip)->get_tlb_window(translated_core);
-}
-
 int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
     return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }
@@ -958,33 +949,6 @@ Cluster::~Cluster() {
     log_info(LogUMD, "Cluster destructor completed.");
 }
 
-tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core =
-        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
-}
-
-// TODO: These configure_tlb APIs are soon going away.
-void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    ZoneScopedC(tracy::Color::Cyan);
-    configure_tlb(
-        logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_size,
-        address,
-        ordering);
-}
-
-void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    ZoneScopedC(tracy::Color::Cyan);
-    tt_xy_pair translated_core = get_chip(logical_device_id)
-                                     ->get_soc_descriptor()
-                                     .translate_chip_coord_to_translated(core, get_selected_noc_id());
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
-}
-
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
     HugepageMapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {
@@ -999,8 +963,6 @@ TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("TTDevice not found for device: {}", device_id));
     return tt_device;
 }
-
-TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(device_id)->get_tlb_manager(); }
 
 Chip* Cluster::get_chip(ChipId device_id) const {
     auto chip_it = chips_.find(device_id);

@@ -128,7 +128,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
             board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
-            board_type == BoardType::UBB_BLACKHOLE);
+            board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_BIN6);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }

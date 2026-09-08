@@ -689,12 +689,26 @@ SimulationConnector::Connection Cluster::describe_simulation_host(
     // Take the backend and arch from a device rather than re-deriving them from the path, so this
     // reports what was actually built. server_directory and sockets stay empty until (and unless)
     // serve_simulation_devices_over_sockets() fills them.
+    bool described = false;
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             connection.backend = sim_device->backend_type();
             connection.arch = sim_device->get_soc_descriptor().arch;
+            described = true;
             break;
         }
+    }
+    // A simulation Cluster with no simulation device is degenerate but legal -- an empty
+    // target_devices with no cluster_descriptor.yaml beside the simulator yields zero chips -- so
+    // warn instead of asserting. Say so rather than reporting the defaults (TTSim/Invalid) as if
+    // they had been read off a device, which is also how a future regression that describes the
+    // host before the chips exist would surface.
+    if (!described) {
+        log_warning(
+            LogUMD,
+            "Simulation host {} has no simulation device to describe; reporting an unknown backend and "
+            "architecture.",
+            simulator_directory.string());
     }
     return connection;
 }
@@ -713,6 +727,13 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // The constructor describes the host connection before it starts serving, so there is always
+    // one to record into here. Asserted rather than guarded, so a future reordering fails loudly
+    // instead of quietly serving sockets it never reports.
+    UMD_ASSERT(
+        simulation_connection_.has_value(),
+        error::RuntimeError,
+        "Simulation host started serving sockets before its connection was described.");
     // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
     // machine never collide even when they serve the same chip id.
     const std::filesystem::path server_directory = simulator_server_directory.empty()
@@ -723,17 +744,13 @@ void Cluster::serve_simulation_devices_over_sockets(
     // directory was allocated just above, so this is the only way it learns of it -- recorded here
     // rather than per chip, so a host that turns out to have no simulation devices still reports
     // the directory it claimed instead of reading as "not serving".
-    if (simulation_connection_.has_value()) {
-        simulation_connection_->server_directory = server_directory;
-    }
+    simulation_connection_->server_directory = server_directory;
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             const std::filesystem::path socket_path =
                 SimulationServerSocket::default_socket_path(server_directory, chip_id);
             sim_device->adopt_socket(SimulationServerSocket::create(socket_path), shutdown_handler);
-            if (simulation_connection_.has_value()) {
-                simulation_connection_->sockets.emplace(chip_id, socket_path);
-            }
+            simulation_connection_->sockets.emplace(chip_id, socket_path);
         }
     }
 }

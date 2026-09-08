@@ -45,9 +45,7 @@ struct Window {
 
     /** Selector @p address carries, or 0 for a window that has no selector field. */
     constexpr uint32_t selector(uint64_t address) const {
-        return endpoint_size == 0
-                   ? 0u
-                   : static_cast<uint32_t>((address >> endpoint_shift) & low_mask(endpoint_size));
+        return endpoint_size == 0 ? 0u : static_cast<uint32_t>((address >> endpoint_shift) & low_mask(endpoint_size));
     }
 
     /** Endpoint table row @p address resolves through. */

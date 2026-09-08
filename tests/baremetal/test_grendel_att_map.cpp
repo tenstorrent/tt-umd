@@ -5,11 +5,15 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/coordinates/att/att_window.hpp"
 #include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -167,4 +171,38 @@ TEST(GrendelAttMap, EveryEndpointRowResolvesBackToItsOwnSlot) {
             EXPECT_EQ(window.endpoint_index(address), window.endpoint_table_offset + selector);
         }
     }
+}
+
+namespace {
+
+// The in-repo Quasar descriptor places its workers on the same grid as the qsr.s1 emulation model,
+// so it exercises the descriptor-facing path over real coordinates.
+SocDescriptor quasar_soc_descriptor() {
+    return SocDescriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_32_arch.yaml")),
+        {.noc_translation_enabled = false});
+}
+
+}  // namespace
+
+TEST(GrendelAttResolveCore, ResolvesATypedCoreCoord) {
+    const SocDescriptor soc_descriptor = quasar_soc_descriptor();
+    const att::Resolver resolver(att::GRENDEL_QSR1_MAP);
+    const CoreCoord core(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+
+    EXPECT_EQ(att::resolve_core(resolver, soc_descriptor, core, 0x1000, 4), 0x10000001000ULL);
+}
+
+TEST(GrendelAttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) {
+    const SocDescriptor soc_descriptor = quasar_soc_descriptor();
+    const att::Resolver resolver(att::GRENDEL_QSR1_MAP);
+
+    // A client sends a coordinate it has already translated, carrying no core type. Both roles must
+    // reach the same address or a client-mode access lands on a different core than a host one.
+    const CoreCoord literal(2, 2, CoreType::UNSPECIFIED, CoordSystem::LITERAL);
+    const CoreCoord typed(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+
+    EXPECT_EQ(
+        att::resolve_core(resolver, soc_descriptor, literal, 0x1000, 4),
+        att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
 }

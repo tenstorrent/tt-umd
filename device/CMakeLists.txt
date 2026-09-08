@@ -116,6 +116,7 @@ target_sources(
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
         coordinates/quasar_coordinate_manager.cpp
+        coordinates/att/att_resolver.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -201,6 +202,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/coordinates/quasar_coordinate_manager.hpp
+                api/umd/device/coordinates/att/att_map.hpp
+                api/umd/device/coordinates/att/att_resolver.hpp
+                api/umd/device/coordinates/att/att_window.hpp
+                api/umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp

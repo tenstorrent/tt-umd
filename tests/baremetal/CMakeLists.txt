@@ -22,7 +22,12 @@ set(BAREMETAL_TESTS_SRCS
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
-target_link_libraries(baremetal_tests PRIVATE test_common)
+target_link_libraries(
+    baremetal_tests
+    PRIVATE
+        test_common
+        yaml-cpp::yaml-cpp
+)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
 endif()

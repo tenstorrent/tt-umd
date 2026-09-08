@@ -290,7 +290,11 @@ private:
     void fill_mock_hardcoded_data(ChipId logical_id);
 
     // Verify for some common mistakes.
-    bool verify_cluster_descriptor_info(bool check_board_chip_count = true);
+    //
+    // check_harvesting_counts compares each chip's harvesting masks against what its board type
+    // harvests on silicon. A simulator harvests whatever its image models, so callers building one
+    // turn it off; the masks are still read from the device either way.
+    bool verify_cluster_descriptor_info(bool check_board_chip_count = true, bool check_harvesting_counts = true);
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;

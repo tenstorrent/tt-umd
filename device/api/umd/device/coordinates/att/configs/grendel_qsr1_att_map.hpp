@@ -21,6 +21,9 @@ namespace tt::umd::att {
  *
  * These values describe qsr.s1 only. Another Grendel model needs its own map, which is why the
  * resolver takes one rather than hardcoding it.
+ *
+ * They are also the Quasar instance's programming. Mimir and Keraunos program the same mask table
+ * but not always with the same fields, and every access UMD issues originates on Quasar.
  */
 
 // Mask-table entry 4: TensixNEO L1, one 16 MiB slot per NEO tile.
@@ -33,7 +36,8 @@ inline constexpr Window QSR1_WORKER_WINDOW{
     .translate_address = true,
 };
 
-// Mask-table entry 5: Mimir GDDR, one 8 GiB slot per D2D link.
+// Mask-table entry 5: Mimir GDDR, one 8 GiB slot per D2D link. Quasar passes the address through
+// rather than rebasing it, because the Mimir side decodes the global range directly.
 inline constexpr Window QSR1_DRAM_WINDOW{
     .compare = 0x1000000000000ULL,
     .mask_bits = 38,

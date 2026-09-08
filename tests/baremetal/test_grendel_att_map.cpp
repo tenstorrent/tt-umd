@@ -3,10 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/coordinates/att/att_resolver.hpp"
@@ -205,4 +208,67 @@ TEST(GrendelAttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) 
     EXPECT_EQ(
         att::resolve_core(resolver, soc_descriptor, literal, 0x1000, 4),
         att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
+}
+
+TEST(GrendelAttWindow, MatchesOnlyAddressesInsideTheWindow) {
+    EXPECT_TRUE(NEO_L1_WINDOW.matches(NEO_L1_WINDOW.make_address(0, 0)));
+    EXPECT_TRUE(NEO_L1_WINDOW.matches(NEO_L1_WINDOW.make_address(63, 0xffffff)));
+
+    // The per-tile config window sits below this one and must not be claimed by it.
+    EXPECT_FALSE(NEO_L1_WINDOW.matches(0x1800000000ULL));
+    EXPECT_FALSE(NEO_L1_WINDOW.matches(0x1000000000000ULL));
+}
+
+// The map is a transcription, so it is checked against the tables it was transcribed from rather
+// than against itself. tests/att_maps/grendel_qsr1_att_tables.yaml holds those tables; refreshing it
+// from grendelemulation is what turns a POR move into a failure here instead of a misrouted access.
+TEST(GrendelAttMap, MatchesTheTablesTheFirmwareProgrammes) {
+    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("att_maps/grendel_qsr1_att_tables.yaml"));
+
+    for (const auto& entry : tables["mask_table"]) {
+        const uint64_t compare = entry["compare"].as<uint64_t>();
+        const att::Window* window = nullptr;
+        for (const att::Window& candidate : att::GRENDEL_QSR1_MAP.windows) {
+            if (candidate.compare == compare) {
+                window = &candidate;
+            }
+        }
+        ASSERT_NE(window, nullptr) << "no window for mask entry " << entry["index"].as<int>();
+
+        SCOPED_TRACE("mask entry " + std::to_string(entry["index"].as<int>()));
+        EXPECT_EQ(window->mask_bits, entry["mask"].as<uint32_t>());
+        EXPECT_EQ(window->endpoint_shift, entry["ep_idx"].as<uint32_t>());
+        EXPECT_EQ(window->endpoint_size, entry["ep_id_size"].as<uint32_t>());
+        EXPECT_EQ(window->endpoint_table_offset, entry["table_offset"].as<uint32_t>());
+        EXPECT_EQ(window->translate_address, entry["translate_addr"].as<int>() == 1);
+    }
+
+    // Every programmed row must be reachable through the window whose table holds it, and every row
+    // the map declares populated must be one the firmware actually programmes.
+    std::map<int, std::pair<uint32_t, uint32_t>> programmed;
+    for (const auto& row : tables["noc_endpoint_table"]) {
+        programmed.emplace(row["index"].as<int>(), std::make_pair(row["x"].as<uint32_t>(), row["y"].as<uint32_t>()));
+    }
+
+    size_t matched_rows = 0;
+    for (size_t window_class = 0; window_class < att::WINDOW_CLASS_COUNT; ++window_class) {
+        const att::Window& window = att::GRENDEL_QSR1_MAP.windows[window_class];
+        const att::Table<uint16_t>& words = att::GRENDEL_QSR1_MAP.endpoint_words[window_class];
+
+        for (uint32_t selector = 0; selector < words.size(); ++selector) {
+            const int index = window.endpoint_table_offset + static_cast<int>(selector);
+            const auto row = programmed.find(index);
+
+            SCOPED_TRACE("endpoint row " + std::to_string(index));
+            if (words[selector] == att::ENDPOINT_UNPOPULATED) {
+                EXPECT_EQ(row, programmed.end()) << "row is programmed but the map leaves it unpopulated";
+                continue;
+            }
+            ASSERT_NE(row, programmed.end()) << "map declares a row the firmware does not programme";
+            EXPECT_EQ(words[selector] & 0x3f, row->second.first);
+            EXPECT_EQ(words[selector] >> 6, row->second.second);
+            ++matched_rows;
+        }
+    }
+    EXPECT_EQ(matched_rows, programmed.size());
 }

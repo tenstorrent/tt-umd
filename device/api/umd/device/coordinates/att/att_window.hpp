@@ -43,6 +43,9 @@ struct Window {
         return compare | (static_cast<uint64_t>(selector_value) << endpoint_shift) | local;
     }
 
+    /** Whether @p address falls in this window's compare range. */
+    constexpr bool matches(uint64_t address) const { return (address & ~low_mask(mask_bits)) == compare; }
+
     /** Selector @p address carries, or 0 for a window that has no selector field. */
     constexpr uint32_t selector(uint64_t address) const {
         return endpoint_size == 0 ? 0u : static_cast<uint32_t>((address >> endpoint_shift) & low_mask(endpoint_size));

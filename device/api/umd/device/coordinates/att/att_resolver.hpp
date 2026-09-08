@@ -12,6 +12,12 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
+namespace tt::umd {
+
+class SocDescriptor;
+
+}
+
 namespace tt::umd::att {
 
 /**
@@ -46,5 +52,20 @@ private:
     /** Each window's endpoint words inverted into a coordinate lookup, built once at construction. */
     std::array<std::unordered_map<uint16_t, uint32_t>, WINDOW_CLASS_COUNT> selectors_;
 };
+
+/**
+ * Resolve @p core against @p resolver, taking the coordinate frame and the core type from
+ * @p soc_descriptor.
+ *
+ * A coordinate that arrives already translated carries no core type, so the type is read back from
+ * the descriptor. Both forms of the same core must reach one address: a client hands the host a
+ * translated coordinate, and the host resolves it exactly as it resolves its own.
+ */
+uint64_t resolve_core(
+    const Resolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    const CoreCoord& core,
+    uint64_t offset,
+    uint64_t size);
 
 }  // namespace tt::umd::att

@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd::att {
@@ -89,6 +90,24 @@ uint64_t Resolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t offset,
             y));
 
     return window.make_address(entry->second, offset);
+}
+
+uint64_t resolve_core(
+    const Resolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    const CoreCoord& core,
+    uint64_t offset,
+    uint64_t size) {
+    // A LITERAL coordinate is device-ready by contract, so it is already in the descriptor's frame.
+    const tt_xy_pair descriptor_core = core.coord_system == CoordSystem::LITERAL
+                                           ? tt_xy_pair(core.x, core.y)
+                                           : tt_xy_pair(soc_descriptor.translate_coord_to(core, CoordSystem::NOC0));
+
+    const CoreType core_type = core.core_type == CoreType::UNSPECIFIED
+                                   ? soc_descriptor.get_coord_at(descriptor_core, CoordSystem::NOC0).core_type
+                                   : core.core_type;
+
+    return resolver.resolve(descriptor_core, core_type, offset, size);
 }
 
 }  // namespace tt::umd::att

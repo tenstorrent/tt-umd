@@ -168,6 +168,9 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
+    if (noc_address_resolver_ != nullptr) {
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+    }
     if (should_use_cached_tlb_window()) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
@@ -183,6 +186,9 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
+    }
+    if (noc_address_resolver_ != nullptr) {
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());

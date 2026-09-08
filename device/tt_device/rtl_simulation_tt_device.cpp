@@ -16,6 +16,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -98,6 +99,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -116,6 +118,19 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+}
+
+void RtlSimulationTTDevice::setup_noc_address_resolver() {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR) {
+        return;
+    }
+    noc_address_resolver_ = std::make_unique<att::Resolver>(att::GRENDEL_QSR1_MAP);
+}
+
+bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
+    // Quasar has no TLBs. The window it would allocate is a dummy whose only purpose was to carry
+    // the destination coordinate in tlb_data, which a resolved address already carries.
+    return get_soc_descriptor().arch != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {

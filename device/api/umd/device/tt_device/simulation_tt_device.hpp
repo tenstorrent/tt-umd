@@ -14,6 +14,7 @@
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -151,6 +152,11 @@ protected:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
+
+    // Set only by backends whose NOC resolves a flat address into a destination core, leaving the
+    // driver to fold the coordinate into the address. Null everywhere else, which keeps the address
+    // core-local and read/write behaviour unchanged.
+    std::unique_ptr<att::Resolver> noc_address_resolver_ = nullptr;
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.

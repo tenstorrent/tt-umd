@@ -70,8 +70,14 @@ protected:
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
     bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
 
 private:
+    // Install the flat-address resolver for architectures whose NOC needs one. Host mode only: a
+    // client hands the host a translated coordinate and a core-local address, and the host resolves
+    // it, so resolving here as well would fold the coordinate in twice.
+    void setup_noc_address_resolver();
+
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
     // the access was routed over the system NOC. These back handle_special_read/write and can grow to
     // dispatch additional special cases later.

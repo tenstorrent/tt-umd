@@ -14,12 +14,10 @@
 
 namespace tt::umd {
 
-// A caller may supply the descriptor; otherwise it comes from the architecture's constants. The
-// architecture is a template parameter so each model states its own, and a supplied descriptor is
-// checked against it.
-template <tt::ARCH arch>
-std::shared_ptr<SocArchDescriptor> resolve_soc_arch_descriptor(
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+// A caller may supply the descriptor; otherwise it comes from the architecture's constants. A
+// supplied descriptor is checked against the architecture it is being used for.
+inline std::shared_ptr<SocArchDescriptor> resolve_soc_arch_descriptor(
+    tt::ARCH arch, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     if (soc_arch_descriptor == nullptr) {
         return std::make_shared<SocArchDescriptor>(arch);
     }
@@ -31,6 +29,15 @@ std::shared_ptr<SocArchDescriptor> resolve_soc_arch_descriptor(
             arch_to_str(soc_arch_descriptor->get_arch()),
             arch_to_str(arch)));
     return soc_arch_descriptor;
+}
+
+// Architecture as a template parameter, so a model whose architecture is fixed at compile time
+// states it once. A simulation model learns its architecture from the SoC descriptor it is built
+// with and calls the overload above instead.
+template <tt::ARCH arch>
+std::shared_ptr<SocArchDescriptor> resolve_soc_arch_descriptor(
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    return resolve_soc_arch_descriptor(arch, soc_arch_descriptor);
 }
 
 }  // namespace tt::umd

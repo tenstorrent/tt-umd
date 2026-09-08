@@ -25,10 +25,17 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     const SocDescriptor &soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels) {
+    int num_host_mem_channels,
+    std::optional<uint32_t> image_endpoint_count) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimTTDevice>(
-            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels, num_chips);
+            simulator_directory,
+            soc_descriptor,
+            chip_id,
+            num_chips > 1,
+            num_host_mem_channels,
+            num_chips,
+            image_endpoint_count);
     }
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);

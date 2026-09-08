@@ -108,8 +108,12 @@ public:
     // The per-chip simulation sockets present in a directory: {chip_id -> socket file}, keyed and
     // ordered by chip id. Only AF_UNIX sockets whose names match the default_socket_path()
     // convention are included; everything else in the directory is ignored. Empty if the path is
-    // not a directory or holds no such sockets. This is how a client turns a socket directory into
-    // the set of hosts to attach to.
+    // not a directory or holds no such sockets.
+    //
+    // Presence only: a socket here may be one a crashed host left behind, so this is not the set of
+    // hosts to attach to. SimulationConnector's classifier narrows it with is_live() and rejects a
+    // directory whose sockets are all stale. Presence is what sim_server's `list` and `prune` need,
+    // since they exist to report and remove exactly those leftovers.
     static std::map<ChipId, std::filesystem::path> sockets_in_directory(const std::filesystem::path& directory);
 
 private:

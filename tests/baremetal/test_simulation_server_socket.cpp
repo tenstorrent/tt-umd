@@ -17,6 +17,7 @@
 
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulation_server_transport.hpp"
+#include "tests/test_utils/simulation_socket_test_utils.hpp"
 
 using namespace tt::umd;
 using stream_protocol = asio::local::stream_protocol;
@@ -52,21 +53,6 @@ stream_protocol::socket connect_client(asio::io_context& io, const std::filesyst
     return socket;
 }
 
-// Binds a UNIX socket to path then closes it without listening, leaving a stale
-// socket file behind (connect() to it yields ECONNREFUSED) — what a crashed
-// owner leaves on disk.
-void leave_stale_socket(const std::filesystem::path& path) {
-    std::filesystem::remove(path);
-    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    ASSERT_GE(fd, 0);
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
-    ASSERT_EQ(::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
-    ::close(fd);
-    ASSERT_TRUE(std::filesystem::exists(path));
-}
-
 // Provides a fresh socket path that is removed before and after each test, so cases share a
 // fixed name without leaking sockets between runs.
 class SimulationServerSocketTest : public ::testing::Test {
@@ -98,7 +84,7 @@ TEST_F(SimulationServerSocketTest, RemovesSocketOnDestruction) {
 }
 
 TEST_F(SimulationServerSocketTest, ReclaimsStaleSocketFile) {
-    leave_stale_socket(path_);
+    test_utils::leave_stale_socket(path_);
     EXPECT_FALSE(can_connect(path_));
 
     auto server = SimulationServerSocket::create(path_);
@@ -137,7 +123,7 @@ TEST_F(SimulationServerSocketTest, RefusesToReclaimNonSocketFile) {
 TEST_F(SimulationServerSocketTest, IsLiveDistinguishesAHostFromAnAbsentOrStaleSocket) {
     EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // nothing there at all
 
-    leave_stale_socket(path_);
+    test_utils::leave_stale_socket(path_);
     ASSERT_TRUE(std::filesystem::exists(path_));           // the file is on disk...
     EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // ...but nothing is serving on it
 
@@ -334,9 +320,9 @@ TEST(SimulationServerSocket, SocketsInDirectoryPicksPerChipSockets) {
     fs::remove_all(dir);
     fs::create_directories(dir);
 
-    leave_stale_socket(dir / "tt-umd-sim-0.sock");                   // per-chip socket -> included
-    leave_stale_socket(dir / "tt-umd-sim-2.sock");                   // per-chip socket -> included
-    leave_stale_socket(dir / "unrelated.sock");                      // socket, wrong name -> excluded
+    test_utils::leave_stale_socket(dir / "tt-umd-sim-0.sock");       // per-chip socket -> included
+    test_utils::leave_stale_socket(dir / "tt-umd-sim-2.sock");       // per-chip socket -> included
+    test_utils::leave_stale_socket(dir / "unrelated.sock");          // socket, wrong name -> excluded
     { std::ofstream(dir / "tt-umd-sim-9.sock") << "not a socket"; }  // right name, not a socket -> excluded
 
     const auto sockets = SimulationServerSocket::sockets_in_directory(dir);

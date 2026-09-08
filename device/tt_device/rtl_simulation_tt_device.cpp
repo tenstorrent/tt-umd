@@ -128,8 +128,8 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
-    // Quasar has no TLBs. The window it would allocate is a dummy whose only purpose was to carry
-    // the destination coordinate in tlb_data, which a resolved address already carries.
+    // Quasar has no TLBs. The window it would allocate is a dummy carrying the destination
+    // coordinate in tlb_data, which a resolved address already carries.
     return get_soc_descriptor().arch != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
 }
 

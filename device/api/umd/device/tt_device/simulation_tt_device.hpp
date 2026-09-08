@@ -154,8 +154,8 @@ protected:
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 
     // Set only by backends whose NOC resolves a flat address into a destination core, leaving the
-    // driver to fold the coordinate into the address. Null everywhere else, which keeps the address
-    // core-local and read/write behaviour unchanged.
+    // driver to fold the coordinate into the address. Null everywhere else, where the address on
+    // the wire stays core-local.
     std::unique_ptr<att::Resolver> noc_address_resolver_ = nullptr;
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.

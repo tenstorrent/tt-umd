@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -108,6 +109,33 @@ TEST_F(TestDmabufRdmaLoopback, ExportedDmabufIsRdmaReadable) {
         loopback.register_local_sink(host_buf.data(), size);
         loopback.register_dmabuf_source(dmabuf_fd, size);
         loopback.read(size, chunk_size);
+
+        // TEMPORARY: loopback bandwidth measurement, not part of the correctness check.
+        // A single 2 MiB read is too short to measure - it is a handful of work requests with no
+        // steady state - so each chunk size is timed over many repeats of the same transfer. The
+        // sweep is here because chunk size sets both the number of work requests and how much of
+        // max_outstanding_reads can actually be used, which dominates the result.
+        constexpr int bw_iters = 500;
+        for (size_t bw_chunk :
+             {size_t(64) << 10,
+              size_t(128) << 10,
+              size_t(256) << 10,
+              size_t(512) << 10,
+              size_t(1) << 20,
+              size_t(2) << 20}) {
+            loopback.read(size, bw_chunk);  // warm-up, untimed
+
+            auto t_start = std::chrono::steady_clock::now();
+            for (int i = 0; i < bw_iters; i++) {
+                loopback.read(size, bw_chunk);
+            }
+            auto t_end = std::chrono::steady_clock::now();
+
+            double elapsed_s = std::chrono::duration<double>(t_end - t_start).count();
+            double total_bytes = static_cast<double>(size) * bw_iters;
+            std::cout << "chunk " << (bw_chunk >> 10) << " KiB, " << (size / bw_chunk)
+                      << " WRs/iter: " << total_bytes / elapsed_s / 1e9 << " GB/s" << std::endl;
+        }
     }
 
     close(dmabuf_fd);

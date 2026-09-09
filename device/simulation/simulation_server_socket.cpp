@@ -21,6 +21,7 @@
 
 #include "simulation/simulation_server_transport.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils/local_socket.hpp"
 
 namespace tt::umd {
 
@@ -106,17 +107,8 @@ void SimulationServerSocket::serve(RequestHandler request_handler) {
 
 void SimulationServerSocket::do_accept() {
     auto sock = std::make_shared<stream_protocol::socket>(impl_->io);
-    impl_->acceptor.async_accept(*sock, [this, sock](const std::error_code& ec) {
-#ifdef __APPLE__
-        // asio sets SO_NOSIGPIPE after accept(). Darwin returns EINVAL if a
-        // queued peer already disconnected (e.g. a liveness probe), and asio
-        // closes that accepted socket. Keep accepting subsequent clients.
-        if (ec == asio::error::invalid_argument) {
-            do_accept();
-            return;
-        }
-#endif
-        // Other errors or io_context::stop() (teardown) end the loop.
+    async_accept_local(impl_->acceptor, *sock, [this, sock](const std::error_code& ec) {
+        // An accept error or io_context::stop() (teardown) ends the loop.
         if (ec) {
             return;
         }

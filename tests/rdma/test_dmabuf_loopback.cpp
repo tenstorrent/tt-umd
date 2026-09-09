@@ -133,8 +133,10 @@ TEST_F(TestDmabufRdmaLoopback, ExportedDmabufIsRdmaReadable) {
 
             double elapsed_s = std::chrono::duration<double>(t_end - t_start).count();
             double total_bytes = static_cast<double>(size) * bw_iters;
+            double throughput_gib_s = total_bytes / elapsed_s / static_cast<double>(1ull << 30);
             std::cout << "chunk " << (bw_chunk >> 10) << " KiB, " << (size / bw_chunk)
-                      << " WRs/iter: " << total_bytes / elapsed_s / 1e9 << " GB/s" << std::endl;
+                      << " WRs/iter: " << throughput_gib_s << " GiB/s\t" << (elapsed_s / bw_iters * 1000.0)
+                      << " ms/iter" << std::endl;
         }
     }
 
@@ -142,4 +144,59 @@ TEST_F(TestDmabufRdmaLoopback, ExportedDmabufIsRdmaReadable) {
 
     EXPECT_EQ(memcmp(host_buf.data(), pattern.data(), size), 0)
         << "RDMA READ over the exported dma-buf did not match the UMD-seeded pattern";
+
+    // TEMPORARY: large-batch loopback bandwidth, sized to be directly comparable to the
+    // pre-existing "DMA ..., read from DRAM, 3.98 GiB" measurements. That size only fits the BH
+    // 4 GiB TLB size class (WH tops out at 16 MiB, see tt_tlb_alloc's size class tables), so this
+    // block is BH-only. Content is not verified here - the correctness check above already proves
+    // the exported fd is genuine device memory; this is bandwidth only, on a separate DRAM bank so
+    // it cannot disturb the region already checked.
+    if (cluster->get_soc_descriptor(chip).arch != tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Large-batch loopback bandwidth measurement is BH-only (needs the 4 GiB TLB "
+                        "size class).";
+    }
+    ASSERT_GT(dram_cores.size(), 1u) << "Need a second DRAM bank so the large-batch measurement "
+                                        "doesn't overlap the region already correctness-checked.";
+    CoreCoord big_core = dram_cores[1];
+
+    // 4076 MiB (~3.98 GiB): under the 4080 MiB usable NOC span of a BH GDDR bank (SYS-3691), and big
+    // enough that only the 4 GiB TLB class fits it.
+    const uint64_t big_size = uint64_t(4076) << 20;
+
+    int big_dmabuf_fd = cluster->export_dmabuf(chip, big_core, 0, big_size);
+    ASSERT_GE(big_dmabuf_fd, 0);
+
+    std::vector<uint8_t> big_host_buf(big_size);
+
+    {
+        const int big_max_outstanding_reads = 16;
+        test::RdmaLoopback big_loopback(big_max_outstanding_reads);
+        big_loopback.register_local_sink(big_host_buf.data(), big_size);
+        big_loopback.register_dmabuf_source(big_dmabuf_fd, big_size);
+
+        constexpr int big_bw_iters = 3;
+        double batch_gib = static_cast<double>(big_size) / (1ull << 30);
+        for (size_t bw_chunk :
+             {size_t(64) << 10,
+              size_t(128) << 10,
+              size_t(256) << 10,
+              size_t(512) << 10,
+              size_t(1) << 20,
+              size_t(2) << 20}) {
+            big_loopback.read(big_size, bw_chunk);  // warm-up, untimed
+
+            auto t_start = std::chrono::steady_clock::now();
+            for (int i = 0; i < big_bw_iters; i++) {
+                big_loopback.read(big_size, bw_chunk);
+            }
+            auto t_end = std::chrono::steady_clock::now();
+
+            double elapsed_s = std::chrono::duration<double>(t_end - t_start).count() / big_bw_iters;
+            double throughput_gib_s = batch_gib / elapsed_s;
+            std::cout << "chunk " << (bw_chunk >> 10) << " KiB loopback read from DRAM, " << batch_gib << " GiB\t"
+                      << throughput_gib_s << " GiB/s\t" << (elapsed_s * 1000.0) << " ms" << std::endl;
+        }
+    }
+
+    close(big_dmabuf_fd);
 }

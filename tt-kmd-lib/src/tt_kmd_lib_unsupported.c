@@ -11,8 +11,10 @@
 
 int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_flags) {
     (void)chardev_path;
-    (void)out_dev;
     (void)extra_flags;
+    if (out_dev != NULL) {
+        *out_dev = NULL;
+    }
     return -ENOTSUP;
 }
 

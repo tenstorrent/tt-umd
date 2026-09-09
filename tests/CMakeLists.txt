@@ -16,7 +16,7 @@ target_include_directories(test_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # On case-insensitive filesystems, -I at the repo root makes VERSION shadow
     # libc++'s <version>. Repository-relative test headers use quoted includes.
-    target_compile_options(test_common INTERFACE "SHELL:-iquote \"${PROJECT_SOURCE_DIR}\"")
+    target_compile_options(test_common INTERFACE "-iquote${PROJECT_SOURCE_DIR}")
 else()
     target_include_directories(test_common INTERFACE ${PROJECT_SOURCE_DIR})
 endif()

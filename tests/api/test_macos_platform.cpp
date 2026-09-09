@@ -22,9 +22,11 @@ namespace tt::umd {
 using RuntimeException = error::UmdException<error::RuntimeError>;
 
 TEST(MacOSPlatform, HardwareAccessIsUnsupported) {
-    tt_device_t* device = nullptr;
+    // A non-null sentinel catches stale output handles on failure.
+    tt_device_t* device = reinterpret_cast<tt_device_t*>(uintptr_t{1});
     EXPECT_EQ(tt_device_open("/dev/tenstorrent/0", &device, 0), -ENOTSUP);
     EXPECT_EQ(device, nullptr);
+    EXPECT_EQ(tt_device_open("/dev/tenstorrent/0", nullptr, 0), -ENOTSUP);
 
     uint32_t value = 0x12345678;
     EXPECT_EQ(tt_noc_read32(nullptr, 1, 2, 0x10000, &value), -ENOTSUP);

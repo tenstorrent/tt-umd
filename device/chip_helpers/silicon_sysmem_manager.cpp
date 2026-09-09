@@ -7,9 +7,11 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 #include <fmt/format.h>
+#if defined(__linux__)
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_512MB, MAP_HUGE_2MB
-#include <sys/mman.h>    // for mmap, munmap
-#include <sys/stat.h>    // for fstat
+#endif
+#include <sys/mman.h>  // for mmap, munmap
+#include <sys/stat.h>  // for fstat
 #include <unistd.h>
 
 #include <cerrno>
@@ -33,6 +35,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils/mmap.hpp"
 
 namespace tt::umd {
 
@@ -42,11 +45,11 @@ namespace tt::umd {
 // 512MB (PMD/level-2 block) for the same total memory, reducing IOMMU mapping overhead.
 // 512MB is only meaningful on AArch64 with 64K base pages; it is not exposed on x86.
 static void *mmap_with_hugepage_fallback(size_t size) {
+    void *addr = MAP_FAILED;
+#if defined(__linux__)
     constexpr size_t kHugepage1GiB = 1ULL << 30;
     constexpr size_t kHugepage512MiB = 512ULL << 20;
     constexpr size_t kHugepage2MiB = 2ULL << 20;
-
-    void *addr = MAP_FAILED;
 
     // Only attempt 1GiB hugepages when the size is a multiple of 1GiB.
     if (size >= kHugepage1GiB && (size % kHugepage1GiB) == 0) {
@@ -54,7 +57,7 @@ static void *mmap_with_hugepage_fallback(size_t size) {
             nullptr,
             size,
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | mmap_populate,
             -1,
             0);
         if (addr != MAP_FAILED) {
@@ -69,7 +72,7 @@ static void *mmap_with_hugepage_fallback(size_t size) {
             nullptr,
             size,
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_512MB | MAP_POPULATE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_512MB | mmap_populate,
             -1,
             0);
         if (addr != MAP_FAILED) {
@@ -84,7 +87,7 @@ static void *mmap_with_hugepage_fallback(size_t size) {
             nullptr,
             size,
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | MAP_POPULATE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | mmap_populate,
             -1,
             0);
         if (addr != MAP_FAILED) {
@@ -93,7 +96,9 @@ static void *mmap_with_hugepage_fallback(size_t size) {
         }
     }
 
-    addr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+#endif
+    addr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | mmap_populate, -1, 0);
+#if defined(__linux__)
     if (addr != MAP_FAILED) {
         log_warning(
             LogUMD,
@@ -104,6 +109,7 @@ static void *mmap_with_hugepage_fallback(size_t size) {
             (size + kHugepage2MiB - 1) / kHugepage2MiB,
             (size + kHugepage512MiB - 1) / kHugepage512MiB);
     }
+#endif
     return addr;
 }
 
@@ -265,7 +271,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         }
 
         std::byte *mapping = static_cast<std::byte *>(
-            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
+            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | mmap_populate, hugepage_fd, 0));
 
         close(hugepage_fd);
 

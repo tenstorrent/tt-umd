@@ -19,8 +19,8 @@ namespace tt::umd {
 // UMD client and a simulation host.
 //
 // I/O goes through asio::read/asio::write on the connected socket: they transfer exactly the
-// requested byte count (or fail), and on Linux asio sets MSG_NOSIGNAL, so writing to a closed peer
-// surfaces as a thrown error rather than raising SIGPIPE. The socket must be in blocking mode (its
+// requested byte count (or fail). Linux uses MSG_NOSIGNAL and Darwin uses SO_NOSIGPIPE, so writing to
+// a closed peer surfaces as a thrown error rather than raising SIGPIPE. The socket must be in blocking mode (its
 // owner clears any non-blocking flag asio leaves after connect/accept). Payloads are opaque here;
 // encoding/decoding is the protocol layer's job.
 //

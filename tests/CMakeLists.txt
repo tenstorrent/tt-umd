@@ -12,12 +12,14 @@ target_link_libraries(
         tt-logger::tt-logger
         $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:nng>
 )
-target_include_directories(
-    test_common
-    INTERFACE
-        ${PROJECT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
+target_include_directories(test_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    # On case-insensitive filesystems, -I at the repo root makes VERSION shadow
+    # libc++'s <version>. Repository-relative test headers use quoted includes.
+    target_compile_options(test_common INTERFACE "SHELL:-iquote \"${PROJECT_SOURCE_DIR}\"")
+else()
+    target_include_directories(test_common INTERFACE ${PROJECT_SOURCE_DIR})
+endif()
 # tt-umd's INCLUDE_DIRECTORIES carries its private third-party deps (e.g. asio), which are
 # system includes on the library itself. Re-expose them as SYSTEM so clang-tidy keeps skipping
 # third-party headers; without SYSTEM the copy lands as plain -I and trips warnings-as-errors.

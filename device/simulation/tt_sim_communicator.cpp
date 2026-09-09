@@ -8,7 +8,9 @@
 #include <fcntl.h>
 #include <fmt/format.h>
 #include <sys/mman.h>
+#if defined(__linux__)
 #include <sys/sendfile.h>
+#endif
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -247,10 +249,15 @@ void TTSimCommunicator::initialize() {
 
     // Legacy path: per-chip memfd + dlopen.
     if (copy_sim_binary_) {
+#if defined(__linux__)
         create_simulator_binary();
         copy_simulator_binary();
         secure_simulator_binary();
         load_simulator_library(fmt::format("/proc/self/fd/{}", copied_simulator_fd_));
+#else
+        UMD_THROW(
+            error::RuntimeError, "Isolated simulator library copies require Linux memfd; use copy_sim_binary=false.");
+#endif
     } else {
         load_simulator_library(simulator_directory_.string());
     }
@@ -503,6 +510,7 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 
+#if defined(__linux__)
 void TTSimCommunicator::create_simulator_binary() {
     const std::string filename = simulator_directory_.stem().string();
     const std::string extension = simulator_directory_.extension().string();
@@ -561,6 +569,8 @@ void TTSimCommunicator::secure_simulator_binary() {
         UMD_THROW(error::RuntimeError, fmt::format("Failed to seal memfd: {}", strerror(errno)));
     }
 }
+
+#endif
 
 void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path) {
     libttsim_handle_ = dlopen(path.c_str(), RTLD_LAZY);

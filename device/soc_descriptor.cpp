@@ -5,6 +5,7 @@
 #include "umd/device/soc_descriptor.hpp"
 
 #include <fmt/format.h>
+#include <unistd.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>

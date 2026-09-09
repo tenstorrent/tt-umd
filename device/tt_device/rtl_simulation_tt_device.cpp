@@ -188,10 +188,20 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
 }
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_read_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    // A resolver having run means addr already names the destination, so the coordinate is not
+    // sent: the simulator has nothing to translate and cannot resolve a resolved address again.
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_write_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 

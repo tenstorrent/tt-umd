@@ -1,12 +1,12 @@
 # Destructive NOC hang / MMIO-timeout tests.
-# Runs automatically every night on a set of cards, and can also be
+# Runs automatically every weeknight on a set of cards, and can also be
 # triggered manually from the Actions tab ("Run workflow"), picking the card to run on.
 name: Run destructive tests
 
 on:
   schedule:
-    # Run nightly at 1 AM UTC.
-    - cron: "0 1 * * *"
+    # Run nightly at 1 AM UTC, Monday through Friday.
+    - cron: "0 1 * * 1-5"
   workflow_dispatch:
     inputs:
       card:

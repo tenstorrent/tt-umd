@@ -1,7 +1,7 @@
 # Destructive NOC hang / MMIO-timeout tests.
 # Runs automatically every night on a set of cards, and can also be
 # triggered manually from the Actions tab ("Run workflow"), picking the card to run on.
-name: Run hang detection tests
+name: Run destructive tests
 
 on:
   schedule:
@@ -62,11 +62,11 @@ jobs:
       ubuntu-docker-version: ${{ github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
       build-type: ${{ github.event.inputs.build-type || 'Release' }}
       timeout: ${{ fromJSON(github.event.inputs.timeout || '30') }}
-      build-targets: hang_detection_tests
+      build-targets: destructive_tests
       build-wheel: false
 
   run:
-    name: Run hang_detection_tests (${{ matrix.card }})
+    name: Run destructive_tests (${{ matrix.card }})
     needs: build
     timeout-minutes: ${{ fromJSON(github.event.inputs.timeout || '30') }}
     strategy:
@@ -114,9 +114,9 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run hang detection tests
+      - name: Run destructive tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/hang_detection/hang_detection_tests
+          ${{ env.TEST_OUTPUT_DIR }}/umd/destructive/destructive_tests
 
   notify-slack:
     name: 📢 Notify #tt-umd-ci on failure
@@ -131,7 +131,7 @@ jobs:
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           cat << EOF > /tmp/slack_message.txt
-          🚨 Nightly hang detection tests failed
+          🚨 Nightly destructive tests failed
 
           The build or one or more cards failed the destructive NOC hang / warm-reset tests.
 

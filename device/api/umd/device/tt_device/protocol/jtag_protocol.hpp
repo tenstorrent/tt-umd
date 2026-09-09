@@ -37,7 +37,8 @@ public:
     int get_mmio_id() override;
 
     // JtagInterface.
-    JtagDevice* get_jtag_device() override;
+    void mmio_write32(uint32_t addr, uint32_t data) override;
+    uint32_t mmio_read32(uint32_t addr) override;
 
 private:
     std::unique_ptr<JtagDevice> jtag_device_;

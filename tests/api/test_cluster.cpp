@@ -146,7 +146,7 @@ TEST(TestCluster, TestDifferentPowerModes) {
         TopologyDiscoveryOptions default_options;
         auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
         for (auto& [chip_id, tt_device] : devices_default) {
-            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            FirmwareTelemetryReader* telemetry_reader = tt_device->get_firmware_telemetry_reader();
             uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
             std::cout << "Default mode - Chip " << chip_id << " power: " << power << std::endl;
         }
@@ -157,7 +157,7 @@ TEST(TestCluster, TestDifferentPowerModes) {
         power_options.low_power = true;
         auto [desc_low_power, devices_low_power] = TopologyDiscovery::discover(power_options);
         for (auto& [chip_id, tt_device] : devices_low_power) {
-            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            FirmwareTelemetryReader* telemetry_reader = tt_device->get_firmware_telemetry_reader();
             uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
             std::cout << "Low power mode - Chip " << chip_id << " power: " << power << std::endl;
         }
@@ -167,7 +167,7 @@ TEST(TestCluster, TestDifferentPowerModes) {
         std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
         for (ChipId chip_id : cluster->get_target_device_ids()) {
             TTDevice* tt_device = cluster->get_tt_device(chip_id);
-            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            FirmwareTelemetryReader* telemetry_reader = tt_device->get_firmware_telemetry_reader();
             uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
             std::cout << "Cluster mode - Chip " << chip_id << " power: " << power << std::endl;
         }

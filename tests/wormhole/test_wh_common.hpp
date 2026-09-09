@@ -11,9 +11,8 @@
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/types/wormhole_l1.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "wormhole/eth_l1_address_map.h"
-#include "wormhole/l1_address_map.h"
 
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
@@ -22,7 +21,7 @@ namespace tt::umd::test::utils {
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+        {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 class WormholeTestFixture : public ::testing::Test {

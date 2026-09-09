@@ -38,10 +38,6 @@ public:
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
 
-    void safe_write16(uint64_t offset, uint16_t value) override;
-
-    uint16_t safe_read16(uint64_t offset) override;
-
 private:
     /**
      * Get the physical address for a TLB window offset.

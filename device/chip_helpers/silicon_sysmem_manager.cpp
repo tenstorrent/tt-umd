@@ -22,7 +22,6 @@
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
-#include <tuple>
 #include <vector>
 
 #include "cpuset_lib.hpp"
@@ -108,10 +107,43 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
+// Unpins the pages on destruction unless disarmed.
+//
+// It covers the whole window between pinning and a SysmemBuffer taking ownership, not just the
+// construction call: composing the deleter allocates a std::function, so it can throw before any
+// try block is entered, and an escape there would leave the pages pinned with nothing owning them.
+class UnpinGuard {
+public:
+    UnpinGuard(PCIDevice *pci_device, void *base, size_t size) : pci_device_(pci_device), base_(base), size_(size) {}
+
+    UnpinGuard(const UnpinGuard &) = delete;
+    UnpinGuard &operator=(const UnpinGuard &) = delete;
+
+    ~UnpinGuard() {
+        if (!armed_) {
+            return;
+        }
+        try {
+            pci_device_->unmap_for_dma(base_, size_);
+        } catch (...) {
+            log_warning(LogUMD, "Failed to unmap sysmem buffer after a failed construction.");
+        }
+    }
+
+    void disarm() { armed_ = false; }
+
+private:
+    PCIDevice *pci_device_;
+    void *base_;
+    size_t size_;
+    bool armed_ = true;
+};
+
 SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
     tt_device_ = tt_device;
     pci_device_ = tt_device->get_pci_device();
     UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
+    communication_id_ = tt_device->get_communication_device_id();
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
     UMD_ASSERT(
         num_host_mem_channels <= 4,
@@ -154,7 +186,7 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
     } else {
         for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
             auto &hugepage_mapping = hugepage_mapping_per_channel[ch];
-            if (hugepage_mapping.physical_address && pci_device_->is_mapping_buffer_to_noc_supported()) {
+            if (hugepage_mapping.physical_address) {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
                 size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
@@ -290,36 +322,28 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
         size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
-        uint64_t physical_address;
-        uint64_t noc_address;
-        if (map_buffer_to_noc) {
-            std::tie(noc_address, physical_address) = pci_device_->map_hugepage_to_noc(mapping, actual_size);
-            uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
+        auto [noc_address, physical_address] = pci_device_->map_hugepage_to_noc(mapping, actual_size);
+        uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
-            log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
-            // Note that the truncated page is the final one, so there is no need to
-            // give expected_noc_address special treatment for a subsequent page.
-            if (noc_address != expected_noc_address) {
-                log_warning(
-                    LogUMD,
-                    "NOC address of a hugepage does not match the expected address. This usually means another "
-                    "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
-                    "process from a previous run). To fix this, find and kill the other processes using the "
-                    "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
-            }
-        } else {
-            physical_address = pci_device_->map_for_hugepage(mapping, actual_size);
+        log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
+        // Note that the truncated page is the final one, so there is no need to
+        // give expected_noc_address special treatment for a subsequent page.
+        if (noc_address != expected_noc_address) {
+            log_warning(
+                LogUMD,
+                "NOC address of a hugepage does not match the expected address. This usually means another "
+                "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
+                "process from a previous run). To fix this, find and kill the other processes using the "
+                "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
         }
 
         if (physical_address == 0) {
             log_warning(
                 LogUMD,
-                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
-                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
+                "Failed pinning pages. See logs above. Physical device ID: {}. Channel: {}. See contents of following "
+                "files:",
                 physical_device_id,
-                ch,
-                strerror(errno));
+                ch);
             munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
@@ -332,7 +356,7 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
 
         log_debug(
             LogUMD,
-            "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
+            "Physical device ID: {}. Channel: {}. Mapping size: {}. Physical address {:#x}",
             physical_device_id,
             ch,
             hugepage_size,
@@ -395,17 +419,15 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         return true;
     }
 
-    bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
-
-    sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, map_buffer_to_noc);
+    sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, true);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
-    if (map_buffer_to_noc && !noc_address.has_value()) {
+    if (!noc_address.has_value()) {
         UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
     }
 
-    if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
+    if (*noc_address != pcie_base_) {
         // If this happens, it means that something else is using the address
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
@@ -428,11 +450,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
             "lead to undefined behavior");
     }
 
-    if (map_buffer_to_noc) {
-        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
-    } else {
-        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}", iova);
-    }
+    log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;
@@ -452,6 +470,61 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
     }
 }
 
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
+    void *buffer_va,
+    size_t buffer_size,
+    const bool map_to_noc,
+    DeviceBufferAccess device_access,
+    SysmemBuffer::Deleter release_backing_memory) {
+    // The buffer reports offsets against the user's address, but the pages that get pinned are the aligned
+    // range covering it. page_align() is what keeps the two in agreement.
+    const SysmemBuffer::AlignedRange range = SysmemBuffer::page_align(buffer_va, buffer_size);
+
+    uint64_t device_io_addr = 0;
+    std::optional<uint64_t> noc_addr = std::nullopt;
+    if (map_to_noc) {
+        std::tie(noc_addr, device_io_addr) =
+            pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
+    } else {
+        device_io_addr = pci_device_->map_for_dma(range.base, range.mapped_size, device_access);
+    }
+
+    // Armed immediately after pinning: everything below here can throw, and until create_buffer()
+    // returns there is nothing that would unpin the pages.
+    UnpinGuard unpin_guard(pci_device_, range.base, range.mapped_size);
+
+    // The buffer's deleter unpins, then releases the backing memory if this manager owns it.
+    SysmemBuffer::Deleter deleter = [pci_device = pci_device_,
+                                     mapped_size = range.mapped_size,
+                                     device_io_addr,
+                                     release = std::move(release_backing_memory)](void *aligned_va) {
+        try {
+            pci_device->unmap_for_dma(aligned_va, mapped_size);
+        } catch (...) {
+            log_warning(
+                LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, device_io_addr);
+        }
+        if (release) {
+            release(aligned_va);
+        }
+    };
+
+    // The KMD assigns the NOC address at pin time, so this manager supplies no binder.
+    std::unique_ptr<SysmemBuffer> buffer = create_buffer(
+        tt_device_,
+        buffer_va,
+        buffer_size,
+        device_io_addr,
+        communication_id_,
+        std::move(deleter),
+        noc_addr,
+        device_access);
+
+    // The buffer owns the pin now.
+    unpin_guard.disarm();
+    return buffer;
+}
+
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     ZoneScopedC(tracy::Color::Yellow);
@@ -461,13 +534,34 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
             error::RuntimeError,
             fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
-    return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
+    // This mapping belongs to the buffer, so it is released along with the pinning. mmap returns a
+    // page-aligned address, so the pointer the deleter receives is the one to munmap.
+    const size_t mapping_size = sysmem_buffer_size;
+    const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
+        if (munmap(aligned_va, mapping_size) != 0) {
+            log_warning(
+                LogUMD,
+                "Failed to munmap sysmem buffer of size {:#x} at {:p}: {}.",
+                mapping_size,
+                aligned_va,
+                strerror(errno));
+        }
+    };
+
+    try {
+        return pin_and_wrap(mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+    } catch (...) {
+        // Nothing owns the mmap yet, so free it here rather than leaking it.
+        release_mapping(mapping);
+        throw;
+    }
 }
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
+    // The caller owns this memory, so the buffer only unpins it.
+    return pin_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
 }
 
 }  // namespace tt::umd

@@ -14,21 +14,18 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <utility>
-#include <vector>
 
 #include "common.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 
@@ -37,7 +34,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         return fmt::format("Could not get information for chip ID {}.", chip_id);
     }
 
-    double asic_temperature = firmware_info_provider->get_asic_temperature();
+    double asic_temperature = firmware_info_provider->get_asic_temperature().value_or(0.0);
     double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
     uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
     uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
@@ -45,10 +42,11 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
     uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
     uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
     uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
+    std::optional<uint32_t> tdp_limit = firmware_info_provider->get_tdp_limit();
 
     return fmt::format(
         "Chip ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
-        "TDP {} W, TDC {} A, VCORE {} mV",
+        "TDP {}/{} W, TDC {} A, VCORE {} mV",
         chip_id,
         asic_temperature,
         board_temperature,
@@ -56,6 +54,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         axiclk,
         arcclk,
         tdp,
+        tdp_limit.has_value() ? std::to_string(tdp_limit.value()) : "N/A",
         tdc,
         vcore);
 }
@@ -98,32 +97,19 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::vector<std::pair<tt::ChipId, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (auto& [chip_id, tt_device] : tt_devices_map) {
-        std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
-        tt_devices.push_back(std::move(tt_device));
-        telemetry_readers.push_back(std::make_pair(chip_id, std::move(arc_telemetry_reader)));
-    }
-
     for (int iteration = 0; max_count == 0 || iteration < max_count; iteration++) {
         auto start_time = std::chrono::steady_clock::now();
-        for (int i = 0; i < (int)telemetry_readers.size(); i++) {
-            tt::ChipId chip_id = telemetry_readers.at(i).first;
-            auto& telemetry_reader = telemetry_readers.at(i).second;
-            auto firmware_info_provider = tt_devices.at(i)->get_firmware_info_provider();
-
+        for (auto& [chip_id, tt_device] : tt_devices_map) {
             std::string telemetry_message;
             if (telemetry_tag == -1) {
-                auto arch = tt_devices.at(i)->get_arch();
+                auto arch = tt_device->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-                    telemetry_message = run_default_telemetry(chip_id, firmware_info_provider);
+                    telemetry_message = run_default_telemetry(chip_id, tt_device->get_firmware_info_provider());
                 } else {
                     UMD_THROW(error::RuntimeError, "Unsupported device architecture.");
                 }
             } else {
-                uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
+                uint32_t telemetry_value = tt_device->get_firmware_telemetry_reader()->read_entry(telemetry_tag);
                 telemetry_message = fmt::format("Chip ID {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {

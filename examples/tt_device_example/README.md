@@ -44,5 +44,5 @@ device->init_tt_device();
 
 // Advanced operations now available
 uint32_t clock = device->get_clock();
-ArcMessenger* messenger = device->get_arc_messenger();
+DeviceFirmware* firmware = device->get_device_firmware();
 ```

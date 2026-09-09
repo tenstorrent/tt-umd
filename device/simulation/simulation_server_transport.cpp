@@ -41,10 +41,24 @@ void write_exact(stream_protocol::socket& socket, const uint8_t* data, size_t n,
 void read_exact(stream_protocol::socket& socket, uint8_t* data, size_t n, const char* what) {
     std::error_code ec;
     asio::read(socket, asio::buffer(data, n), ec);
-    if (ec) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Simulation server transport failed to read {}: {}", what, ec.message()));
+    if (!ec) {
+        return;
     }
+    // A clean peer close (EOF) or reset means the remote end went away -- for a client blocked in
+    // transact(), that is most often the host being stopped. Surface a distinct, clearly-worded
+    // error so callers can tell "the server stopped" apart from a genuine I/O failure and unwind
+    // gracefully. (On the host side, this is also the normal end-of-session when a client
+    // disconnects, and the serving thread already treats it as such.)
+    if (ec == asio::error::eof || ec == asio::error::connection_reset) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Simulation server transport peer closed the connection while reading {} -- the remote "
+                "end (e.g. a stopped simulation host) has gone away",
+                what));
+    }
+    UMD_THROW(
+        error::RuntimeError, fmt::format("Simulation server transport failed to read {}: {}", what, ec.message()));
 }
 
 }  // namespace

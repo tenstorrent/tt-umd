@@ -22,7 +22,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "wormhole/l1_address_map.h"
+#include "umd/device/types/wormhole_l1.hpp"
 
 using namespace tt::umd;
 
@@ -40,7 +40,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     float write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
-    std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
 
     for (const auto& chip : device.get_target_device_ids()) {
         std::vector<float> write_bw;

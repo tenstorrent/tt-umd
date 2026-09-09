@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <thread>
@@ -78,6 +80,46 @@ inline bool is_integer_string(const std::string& str) {
 inline bool is_bdf_string(const std::string& str) {
     return (str.find(':') != std::string::npos || str.find('.') != std::string::npos) &&
            (str.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
+}
+
+// Coarse, host-wide check for whether any RDMA-capable port (RoCE or InfiniBand) is currently up,
+// by scanning /sys/class/infiniband/*/ports/*/state for a port whose state name is ACTIVE.
+inline bool has_any_active_rdma_port() {
+    static const std::filesystem::path infiniband_class_path = "/sys/class/infiniband";
+    std::error_code ec;
+    if (!std::filesystem::is_directory(infiniband_class_path, ec)) {
+        return false;
+    }
+
+    for (const auto& device_entry : std::filesystem::directory_iterator(infiniband_class_path, ec)) {
+        const std::filesystem::path ports_path = device_entry.path() / "ports";
+        if (!std::filesystem::is_directory(ports_path, ec)) {
+            continue;
+        }
+
+        for (const auto& port_entry : std::filesystem::directory_iterator(ports_path, ec)) {
+            std::ifstream state_file(port_entry.path() / "state");
+            std::string state_line;
+            if (!state_file.is_open() || !std::getline(state_file, state_line)) {
+                continue;
+            }
+
+            // Format is "<n>: <NAME>", e.g. "4: ACTIVE".
+            const size_t colon = state_line.find(':');
+            if (colon == std::string::npos) {
+                continue;
+            }
+            std::string state_name = state_line.substr(colon + 1);
+            state_name.erase(0, state_name.find_first_not_of(" \t"));
+            state_name.erase(state_name.find_last_not_of(" \t\r\n") + 1);
+
+            if (state_name == "ACTIVE") {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is

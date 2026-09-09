@@ -19,6 +19,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -53,6 +54,13 @@ std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
     // to the TTDevice like every other chip.
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device), chip_info));
 }
+
+RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info) :
+    Chip(chip_info, remote_tt_device->get_soc_descriptor().arch), local_chip_(local_chip), is_simulation_(true) {
+    remote_communication_ = remote_tt_device->get_remote_communication();
+    tt_device_ = std::move(remote_tt_device);
+}
+
 #endif  // TT_UMD_BUILD_SIMULATION
 
 RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
@@ -60,12 +68,6 @@ RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_dev
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
-}
-
-RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info) :
-    Chip(chip_info, remote_tt_device->get_soc_descriptor().arch), local_chip_(local_chip), is_simulation_(true) {
-    remote_communication_ = remote_tt_device->get_remote_communication();
-    tt_device_ = std::move(remote_tt_device);
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }
@@ -88,31 +90,31 @@ void RemoteChip::close_device() {
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_device_->write_to_device(src, core, l1_dest, size);
+    tt_device_->write_to_device(src, core, l1_dest, size, get_selected_noc_id());
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_device_->read_from_device(dest, core, l1_src, size);
+    tt_device_->read_from_device(dest, core, l1_src, size, get_selected_noc_id());
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+    tt_device_->write_to_device_reg(src, core, reg_dest, size, get_selected_noc_id());
 }
 
 void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+    tt_device_->read_from_device_reg(dest, core, reg_src, size, get_selected_noc_id());
 }
 
 void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    UMD_THROW(error::RuntimeError, "RemoteChip::dma_write_to_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "DMA operations are not available on remote chips.");
 }
 
 void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    UMD_THROW(error::RuntimeError, "RemoteChip::dma_read_from_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "DMA operations are not available on remote chips.");
 }
 
 void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    UMD_THROW(error::RuntimeError, "RemoteChip::dma_multicast_write is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "DMA operations are not available on remote chips.");
 }
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

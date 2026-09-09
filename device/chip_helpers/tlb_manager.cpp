@@ -17,6 +17,7 @@
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
@@ -42,7 +43,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
     log_debug(
@@ -91,7 +92,7 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     UMD_ASSERT(is_tlb_mapped(core), error::RuntimeError, fmt::format("TLB not mapped for core: {}", core.str()));
 
     int tlb_index = map_core_to_tlb_.at(core);
-    return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    return get_architecture_tlbs(tt_device_->get_arch()).get_configuration(tlb_index);
 }
 
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(

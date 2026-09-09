@@ -3,9 +3,9 @@ target_link_libraries(
     test_common
     INTERFACE
         umd::tt-umd
-        umd::Firmware
         gtest_main
         gtest
+        gmock
         pthread
         spdlog::spdlog_header_only
         fmt::fmt-header-only
@@ -33,6 +33,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hang_detection)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
+# Opt-in via TT_UMD_BUILD_RDMA: needs libibverbs to build and an RDMA NIC to run. Deliberately left
+# out of the umd_tests aggregate target, which CI runs, for the same reason.
+if(TT_UMD_BUILD_RDMA)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/rdma)
+endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)

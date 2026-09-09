@@ -60,6 +60,26 @@ protected:
      */
     TlbHandle() = default;
 
+    /**
+     * Protected constructor letting derived classes fix verify_config_ for the lifetime of the handle.
+     *
+     * @param verify_config Require every subsequent configure() to confirm the new configuration has
+     *                       reached the device before returning, at the cost of a PCIe round trip per
+     *                       reconfigure. False is correct whenever the host itself is the next user of
+     *                       the window: the host's access to the window travels behind the config
+     *                       write, into the same block, so it cannot be translated by the old
+     *                       configuration. Pass true for a window whose next user is on-chip --
+     *                       notably the PCIe DMA engine, which is a separate requester started by a
+     *                       doorbell to a different register block, and so is not ordered behind the
+     *                       config write at all.
+     */
+    explicit TlbHandle(const bool verify_config) : verify_config_(verify_config) {}
+
+    /**
+     * Whether configure() must confirm the new configuration reached the device before returning.
+     */
+    bool get_verify_config() const { return verify_config_; }
+
     int tlb_id_ = 0;
     uint8_t* tlb_base_ = nullptr;
     size_t tlb_size_ = 0;
@@ -72,6 +92,8 @@ private:
      * Implemented by derived classes.
      */
     virtual void free_tlb() noexcept = 0;
+
+    bool verify_config_ = false;
 };
 
 }  // namespace tt::umd

@@ -40,6 +40,8 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/power_state.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -175,7 +177,7 @@ void TopologyDiscovery::get_connected_devices() {
         std::unique_ptr<TTDevice> tt_device =
             TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
@@ -421,6 +423,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
 
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+        cluster_desc->authentic_chip_unique_ids = true;
 
         if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
@@ -565,10 +568,8 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
-    FirmwareBundleVersion minimum_compatible_fw_bundle_version =
-        FirmwareInfoProvider::get_minimum_compatible_firmware_version(arch);
-    FirmwareBundleVersion latest_supported_fw_bundle_version =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
+    FirmwareBundleVersion minimum_compatible_fw_bundle_version = get_minimum_compatible_firmware_version(arch);
+    FirmwareBundleVersion latest_supported_fw_bundle_version = get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
         "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
@@ -603,7 +604,7 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
+        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
     log_debug(

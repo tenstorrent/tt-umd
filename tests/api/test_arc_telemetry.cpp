@@ -30,7 +30,7 @@ TEST(TestTelemetry, BasicTelemetry) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         if (tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
             log_warning(
@@ -41,7 +41,7 @@ TEST(TestTelemetry, BasicTelemetry) {
             continue;
         }
 
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
         uint32_t board_id_high = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_HIGH);
         uint32_t board_id_low = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_LOW);
@@ -49,7 +49,7 @@ TEST(TestTelemetry, BasicTelemetry) {
         const uint64_t board_id = ((uint64_t)board_id_high << 32) | (board_id_low);
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -58,9 +58,9 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
         EXPECT_TRUE(arc_telemetry_reader->is_entry_available(TelemetryTag::BOARD_ID_HIGH));
         EXPECT_TRUE(arc_telemetry_reader->is_entry_available(TelemetryTag::BOARD_ID_LOW));
@@ -68,7 +68,7 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
         // Blackhole tag table is still not finalized, but we are probably never going to have 200 tags.
         EXPECT_FALSE(arc_telemetry_reader->is_entry_available(200));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -81,8 +81,8 @@ TEST(TestTelemetry, RemoteTelemetry) {
     auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
     TTDevice* remote_device = remote_chip->get_tt_device();
     TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
-    ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
-    ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* remote_telemetry = remote_device->get_firmware_telemetry_reader();
+    FirmwareTelemetryReader* local_telemetry = local_device->get_firmware_telemetry_reader();
 
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_LOW));
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_HIGH));

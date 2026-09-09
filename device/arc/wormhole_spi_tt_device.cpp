@@ -15,10 +15,12 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/arc/arc_messenger.hpp"
+#include "spi_arc_command.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -98,7 +100,7 @@ void WormholeSPITTDevice::get_aligned_params(
 }
 
 uint32_t WormholeSPITTDevice::get_clock() {
-    auto* telemetry = device_->get_arc_telemetry_reader();
+    auto* telemetry = device_->get_firmware_telemetry_reader();
     uint32_t arcclk = 540;  // Default pessimistic value
 
     if (telemetry) {
@@ -299,14 +301,16 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         return;
     }
 
-    auto* messenger = device_->get_arc_messenger();
-    if (!messenger) {
-        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Wormhole.");
+    auto* firmware = device_->get_device_firmware();
+    if (!firmware) {
+        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI read on Wormhole.");
     }
 
     std::vector<uint32_t> ret(1);
-    uint32_t rc = messenger->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
+    uint32_t rc = send_spi_arc_command(
+        firmware,
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
+        ret);
     if (rc != 0 || ret.empty()) {
         UMD_THROW(error::RuntimeError, "Failed to get SPI dump address on Wormhole.");
     }
@@ -328,9 +332,13 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
 
         uint32_t spi_read_msg =
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-        messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
+        send_spi_arc_command(firmware, spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
         device_->read_from_device(
-            chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+            chunk_buf.data(),
+            device_->get_arc_core(),
+            spi_dump_addr,
+            wormhole::ARC_SPI_CHUNK_SIZE,
+            get_selected_noc_id());
 
         // Copy the relevant portion of the chunk to the output buffer.
         if (offset < start_offset) {
@@ -352,9 +360,9 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         return;
     }
 
-    auto* messenger = device_->get_arc_messenger();
-    if (!messenger) {
-        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Wormhole.");
+    auto* firmware = device_->get_device_firmware();
+    if (!firmware) {
+        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI write on Wormhole.");
     }
 
     uint32_t clock_div = get_clock();
@@ -371,7 +379,8 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
     std::exception_ptr write_exception;
     try {
         std::vector<uint32_t> ret(1);
-        uint32_t rc = messenger->send_message(
+        uint32_t rc = send_spi_arc_command(
+            firmware,
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
             ret);
         if (rc != 0 || ret.empty()) {
@@ -396,10 +405,14 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             // Read the current chunk first.
             uint32_t spi_read_msg =
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-            messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
+            send_spi_arc_command(firmware, spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
 
             device_->read_from_device(
-                chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+                chunk_buf.data(),
+                device_->get_arc_core(),
+                spi_dump_addr,
+                wormhole::ARC_SPI_CHUNK_SIZE,
+                get_selected_noc_id());
 
             // Keep a copy to check if we need to write.
             std::vector<uint8_t> orig_data = chunk_buf;
@@ -420,12 +433,16 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             // Only write if the data changed.
             if (chunk_buf != orig_data) {
                 device_->write_to_device(
-                    chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+                    chunk_buf.data(),
+                    device_->get_arc_core(),
+                    spi_dump_addr,
+                    wormhole::ARC_SPI_CHUNK_SIZE,
+                    get_selected_noc_id());
 
                 if (!skip_write_to_spi) {
                     uint32_t spi_write_msg =
                         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_WRITE);
-                    messenger->send_message(spi_write_msg, ret, {0xFFFF, 0xFFFF});
+                    send_spi_arc_command(firmware, spi_write_msg, ret, {0xFFFF, 0xFFFF});
                 }
             }
         }

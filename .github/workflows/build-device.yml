@@ -9,12 +9,32 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 45
+      use-sccache:
+        required: false
+        description: >-
+          Enable sccache compiler caching.
+        type: boolean
+        default: true
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
   push:
     branches: ["main"]
+
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   merge_group - queue entries are independent merge candidates over different commit sets;
+#                 dequeuing them is the merge queue's job, not concurrency's.
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 env:
   TT_UMD_DIR: tt-umd
@@ -115,7 +135,8 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    # 45, not 30: the heaviest matrix entries build the tree twice and land around 35 min.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     needs:
       - pr-gate
       - ensure-ubuntu-2204-image
@@ -155,6 +176,16 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
+      # Env. vars related to SCCache:
+      # Enabled on every triggering event (PR, merge queue, push to main). The `inputs` context
+      # only exists for workflow_dispatch, so it can't be the sole condition here - on the other
+      # events it expands to the empty string and would disable the cache everywhere.
+      SCCACHE_GHA_ENABLED: ${{ github.event_name != 'workflow_dispatch' || inputs.use-sccache }}
+      SCCACHE_GHA_VERSION: >-
+        build-device-${{ matrix.image.distro }}-${{ matrix.image.compiler-c
+        }}${{ matrix.image.use_release_flags && '-release' || '' }}
+      # Only the main branch may write to the sccache; all other branches read only.
+      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
     container:
       # All jobs run on GitHub-hosted runners and pull images directly from ghcr.io.
       image: >-
@@ -167,11 +198,36 @@ jobs:
         'latest' }}
 
     steps:
+      - name: Run sccache-cache
+        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Configure sccache to access GHA cache
+        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - uses: actions/checkout@v6
         with:
           # Clone under tt-umd directory
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
+
+      # Unlike build-tests, this workflow checks out (and builds) under
+      # $GITHUB_WORKSPACE/tt-umd, so the basedir must point at the repo root there.
+      # This cuts the absolute paths sccache records, making the cache shareable
+      # with build-tests and other environments (e.g. /localdev) that place tt-umd
+      # at a different absolute path.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
+        shell: bash
+        # Note: TT_UMD_DIR_SHELL can't be used here. It holds the literal string
+        # "$GITHUB_WORKSPACE/tt-umd" and bash does not re-expand the result of an
+        # expansion, so it must be composed from the real env vars instead.
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}/${TT_UMD_DIR}" >> "$GITHUB_ENV"
 
       - name: Select Compiler
         run: |
@@ -202,12 +258,14 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -319,7 +377,8 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
-            -DENABLE_CLANG_TIDY=ON
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -399,7 +458,7 @@ jobs:
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     needs: [pr-gate, ensure-manylinux-image, ensure-manylinux-aarch64-image]
     strategy:
       fail-fast: false
@@ -455,7 +514,7 @@ jobs:
 
   test-packages:
     needs: [pr-gate, build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     strategy:
       fail-fast: false
       matrix:

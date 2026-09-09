@@ -5,8 +5,11 @@
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -55,4 +58,59 @@ TEST_F(SimulationClientTest, DestructorDetaches) {
         SimulationClient client(path_);
         EXPECT_NO_THROW(client.attach());
     }
+}
+
+// A host that is bound but not yet serving (serve() not called) still accepts the connection via
+// the listen backlog, then never answers. transact() must time out and throw rather than block
+// forever waiting for a reply.
+TEST_F(SimulationClientTest, TransactTimesOutWhenHostNotServing) {
+    auto server = SimulationServerSocket::create(path_);  // bound + connectable, but serve() not called
+
+    SimulationClient client(path_, std::chrono::milliseconds(300));
+    ASSERT_NO_THROW(client.attach());
+    EXPECT_THROW(client.transact({0x01, 0x02, 0x03}), std::exception);
+}
+
+// End to end over the socket: transact() returns the host's reply, not the request it sent (the
+// handler answers with a fixed payload, so the reply provably comes from the host).
+TEST_F(SimulationClientTest, TransactReturnsHostReply) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>&) { return std::vector<uint8_t>{0xDE, 0xAD, 0xBE, 0xEF}; });
+    SimulationClient client(path_);
+    client.attach();
+
+    EXPECT_EQ(client.transact({0x01, 0x02, 0x03}), (std::vector<uint8_t>{0xDE, 0xAD, 0xBE, 0xEF}));
+}
+
+// One attached client carries many request/reply turns (here the host echoes each request back).
+TEST_F(SimulationClientTest, TransactHandlesSequentialRequests) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>& request) { return request; });
+    SimulationClient client(path_);
+    client.attach();
+
+    for (uint8_t i = 0; i < 5; ++i) {
+        const std::vector<uint8_t> request = {i, static_cast<uint8_t>(i + 1)};
+        EXPECT_EQ(client.transact(request), request);
+    }
+}
+
+// transact() before attach() fails loudly rather than touching a closed socket.
+TEST_F(SimulationClientTest, TransactThrowsWhenNotAttached) {
+    SimulationClient client(path_);
+    EXPECT_THROW(client.transact({0x01}), std::exception);
+}
+
+// If the host goes away while attached, transact() surfaces an error (and does not raise SIGPIPE
+// writing to the dead peer) rather than hanging or crashing.
+TEST_F(SimulationClientTest, TransactThrowsAfterHostGone) {
+    SimulationClient client(path_);
+    {
+        auto server = SimulationServerSocket::create(path_);
+        server->serve([](const std::vector<uint8_t>& request) { return request; });
+        client.attach();
+        EXPECT_EQ(client.transact({0x7F}), (std::vector<uint8_t>{0x7F}));  // works while the host is up
+    }                                                                      // host destroyed here
+
+    EXPECT_THROW(client.transact({0x01}), std::exception);
 }

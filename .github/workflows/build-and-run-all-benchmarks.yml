@@ -23,6 +23,18 @@ on:
     paths:
       - 'tests/microbenchmark/**'
 
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   build-tests:
     secrets: inherit
@@ -100,3 +112,15 @@ jobs:
       packages: read
       actions: read
     uses: ./.github/workflows/regression-check.yml
+
+  # Upload the per-arch export JSONs to the perf SFTP ingest -> Superset. Only on
+  # push to main and manual dispatch (never PRs), to keep experimental data out of
+  # the DB.
+  upload-superset:
+    secrets: inherit
+    needs: run-benchmarks
+    if: ${{ github.event_name != 'pull_request' && needs.run-benchmarks.result == 'success' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upload-benchmark-superset.yml

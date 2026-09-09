@@ -25,7 +25,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "wormhole/l1_address_map.h"
+#include "umd/device/types/wormhole_l1.hpp"
 
 using namespace tt::umd;
 
@@ -74,7 +74,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t write_size = vector_to_write_th1.size() * 4;
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(
@@ -99,7 +99,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t write_size = vector_to_write_th2.size() * 4;
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(
@@ -250,7 +250,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
                 device.write_to_device(

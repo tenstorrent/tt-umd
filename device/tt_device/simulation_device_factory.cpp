@@ -28,7 +28,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     int num_host_mem_channels) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimTTDevice>(
-            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
+            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels, num_chips);
     }
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);

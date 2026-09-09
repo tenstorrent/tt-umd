@@ -45,7 +45,7 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         const size_t tlb_tensix_size = tt_device->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
@@ -55,7 +55,7 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
         std::int32_t c_zero_address = SAFE_IO_L1_ADDRESS;
 
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-            tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
+            tlb_manager->configure_tlb(translated_core.to_pair(), tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
         }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
@@ -63,9 +63,9 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
 
         // TODO: Maybe accept tlb_index only?
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
-        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
+        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core.to_pair());
         window->write_register(SAFE_IO_L1_ADDRESS, buffer_to_write.data(), buffer_to_write.size());
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

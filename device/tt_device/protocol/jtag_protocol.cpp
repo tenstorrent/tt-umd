@@ -6,6 +6,8 @@
 
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 
+#include <fmt/format.h>
+
 #include <utility>
 
 #include "umd/device/jtag/jtag_device.hpp"
@@ -40,6 +42,19 @@ bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint
 
 int JtagProtocol::get_mmio_id() { return mmio_id_; }
 
-JtagDevice* JtagProtocol::get_jtag_device() { return jtag_device_.get(); }
+void JtagProtocol::mmio_write32(uint32_t addr, uint32_t data) {
+    validate_register_access(addr, sizeof(uint32_t));
+    jtag_device_->write32_axi(mmio_id_, addr, data);
+}
+
+uint32_t JtagProtocol::mmio_read32(uint32_t addr) {
+    validate_register_access(addr, sizeof(uint32_t));
+    std::optional<uint32_t> data = jtag_device_->read32_axi(mmio_id_, addr);
+    if (!data.has_value()) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Failed to read 32-bit MMIO value at address 0x{:x} over JTAG.", addr));
+    }
+    return data.value();
+}
 
 }  // namespace tt::umd

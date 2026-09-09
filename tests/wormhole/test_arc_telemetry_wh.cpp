@@ -15,11 +15,15 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         std::unique_ptr<ArcTelemetryReader> blackhole_arc_telemetry_reader =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
+            ArcTelemetryReader::create_arc_telemetry_reader(
+                tt_device->get_device_protocol(),
+                tt_device->get_arch(),
+                tt_device->get_arc_core(NocId::NOC0),
+                tt_device->get_arc_core(NocId::NOC1));
 
         uint32_t board_id_high =
             blackhole_arc_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::BOARD_ID_HIGH);
@@ -28,7 +32,7 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
         const uint64_t board_id = ((uint64_t)board_id_high << 32) | (board_id_low);
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -37,11 +41,14 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        std::unique_ptr<ArcTelemetryReader> telemetry =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
+        std::unique_ptr<ArcTelemetryReader> telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
+            tt_device->get_device_protocol(),
+            tt_device->get_arch(),
+            tt_device->get_arc_core(NocId::NOC0),
+            tt_device->get_arc_core(NocId::NOC1));
 
         for (uint32_t telem_tag = 0; telem_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS; telem_tag++) {
             EXPECT_TRUE(telemetry->is_entry_available(telem_tag));
@@ -49,7 +56,7 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
 
         EXPECT_FALSE(telemetry->is_entry_available(wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -58,12 +65,14 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
-        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
-            std::make_unique<SmBusArcTelemetryReader>(tt_device.get());
+        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader = std::make_unique<SmBusArcTelemetryReader>(
+            tt_device->get_device_protocol(),
+            tt_device->get_arc_core(NocId::NOC0),
+            tt_device->get_arc_core(NocId::NOC1));
 
         EXPECT_EQ(
             arc_telemetry_reader->read_entry(TelemetryTag::DM_BL_FW_VERSION),
@@ -81,6 +90,6 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
             arc_telemetry_reader->read_entry(TelemetryTag::ETH_FW_VERSION),
             smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::ETH_FW_VERSION));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

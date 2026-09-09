@@ -12,6 +12,7 @@
 
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -48,6 +49,10 @@ public:
 private:
     EthCoord target_chip;
     bool large_transfer_warning_printed_ = false;
+
+    const DriverHostAddressParams host_address_params_;
+    const DriverEthInterfaceParams eth_interface_params_;
+    const DriverNocParams noc_params_;
 };
 
 }  // namespace tt::umd

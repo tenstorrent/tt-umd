@@ -6,9 +6,11 @@
 
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 
+#include "pcie/memcpy_timing_recorder.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/op_timeout_guard.hpp"
@@ -38,6 +40,9 @@ auto make_mmio_timeout_guard(
             UMD_THROW(error::DeviceTimeoutError, op_verb, op_bytes, delta, budget, bytes_remaining, total_bytes);
         });
 }
+
+// Opt-in per-op MMIO timing instrumentation, toggled by TT_UMD_MEMCPY_TIMING.
+const bool MEMCPY_TIMING_ENABLED = std::getenv("TT_UMD_MEMCPY_TIMING") != nullptr;
 
 }  // namespace
 
@@ -87,13 +92,18 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     auto* s = static_cast<const std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("store", original_size, size, on_timeout);
+    MemcpyTimingRecorder recorder("memcpy_to_device", original_size, MEMCPY_TIMING_ENABLED);
+    auto check = [&recorder, &timer](std::chrono::steady_clock::time_point t, std::uint32_t bytes) {
+        recorder.record(t, bytes);
+        timer.record_and_check(t, bytes);
+    };
 
     // Phase 0: Align device destination to 4 bytes using byte-wide volatile stores.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(d) % 4) != 0) {
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
-        timer.record_and_check(t, 1);
+        check(t, 1);
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -132,7 +142,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 160), v5);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 192), v6);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 224), v7);
-        timer.record_and_check(t, 256);
+        check(t, 256);
 
         d_simd += 256;
         s += 256;
@@ -144,7 +154,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
         auto t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v);
-        timer.record_and_check(t, 32);
+        check(t, 32);
         d_simd += 32;
         s += 32;
         size -= 32;
@@ -155,7 +165,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s));
         auto t = std::chrono::steady_clock::now();
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d_simd), v);
-        timer.record_and_check(t, 16);
+        check(t, 16);
         d_simd += 16;
         s += 16;
         size -= 16;
@@ -255,7 +265,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         std::memcpy(&tmp, s, sizeof(tmp));
         auto t = std::chrono::steady_clock::now();
         *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
-        timer.record_and_check(t, 4);
+        check(t, 4);
         d += 4;
         s += 4;
         size -= 4;
@@ -266,7 +276,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
-        timer.record_and_check(t, 1);
+        check(t, 1);
     }
 }
 
@@ -277,13 +287,18 @@ void memcpy_from_device(
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout);
+    MemcpyTimingRecorder recorder("memcpy_from_device", original_size, MEMCPY_TIMING_ENABLED);
+    auto check = [&recorder, &timer](std::chrono::steady_clock::time_point t, std::uint32_t bytes) {
+        recorder.record(t, bytes);
+        timer.record_and_check(t, bytes);
+    };
 
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
-        timer.record_and_check(t, 1);
+        check(t, 1);
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -310,7 +325,7 @@ void memcpy_from_device(
         __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 160));
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 192));
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 224));
-        timer.record_and_check(t, 256);
+        check(t, 256);
 
         // Stores go to host memory (d) — no TLB access, not instrumented.
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v0);
@@ -331,7 +346,7 @@ void memcpy_from_device(
     while (size >= 32) {
         auto t = std::chrono::steady_clock::now();
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
-        timer.record_and_check(t, 32);
+        check(t, 32);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v);
         d += 32;
         s_simd += 32;
@@ -342,7 +357,7 @@ void memcpy_from_device(
     if (size >= 16) {
         auto t = std::chrono::steady_clock::now();
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s_simd));
-        timer.record_and_check(t, 16);
+        check(t, 16);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v);
         d += 16;
         s_simd += 16;
@@ -413,7 +428,7 @@ void memcpy_from_device(
     while (size >= 4) {
         auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
-        timer.record_and_check(t, 4);
+        check(t, 4);
         std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s += 4;
@@ -425,7 +440,7 @@ void memcpy_from_device(
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
-        timer.record_and_check(t, 1);
+        check(t, 1);
     }
 }
 

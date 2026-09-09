@@ -6,9 +6,11 @@
 
 #include <sys/types.h>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 namespace tt::umd {
@@ -30,7 +32,10 @@ public:
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
-        const std::filesystem::path &simulator_directory, bool copy_sim_binary = false, uint32_t chip_id = 0);
+        const std::filesystem::path &simulator_directory,
+        bool copy_sim_binary = false,
+        uint32_t chip_id = 0,
+        uint32_t num_chips = 1);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -126,7 +131,9 @@ public:
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+        uint64_t host_base = 0,
+        uint64_t host_size = 0);
 
     void start_sim();
 
@@ -157,7 +164,8 @@ private:
     // In multichip mode, selects this communicator's chip before an I/O call.
     void select_chip_if_needed();
 
-    // Dynamic library handle.
+    // Dynamic library handle. A non-owning view in the shared-dlopen modes, where shared_lib_ owns the
+    // library; owned outright on the legacy per-chip path.
     void *libttsim_handle_ = nullptr;
 
     // File descriptor for copied simulator binary.
@@ -174,8 +182,8 @@ private:
     //
     // When the loaded libttsim.so exports the multichip ABI (libttsim_create_device_by_id,
     // libttsim_select_device_by_id, etc.), all TTSimCommunicators in the process
-    // share a single dlopen of the .so via s_shared_handle_ (refcounted by
-    // s_shared_refcount_).  This gives them a common process-global state: the
+    // share a single dlopen of the .so, kept alive by an owning shared_ptr held
+    // by each of them.  This gives them a common process-global state: the
     // Device* registry, the virtual eth_switch routing table, and the clock.
     //
     // Per-chip I/O works by calling libttsim_select_device_by_id(chip_id_) under
@@ -190,11 +198,34 @@ private:
     // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
     bool multichip_mode_ = false;
+    // True when the .so has NO multichip ABI but the cluster has >1 chip: all communicators share one
+    // dlopen and each chip is addressed by its PCI device (BDF) rather than libttsim_select_device_by_id.
+    bool shared_bdf_mode_ = false;
+
+    // Both modes use the single shared dlopen held by shared_lib_.
+    bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
+
     uint32_t chip_id_ = 0;
-    static void *s_shared_handle_;
-    static int s_shared_refcount_;
+    uint32_t num_chips_ = 1;
+
+    // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
+    // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter
+    // installed by adopt_shared_library().
+    std::shared_ptr<void> shared_lib_;
+
+    // Lookup slot for that shared dlopen.  Deliberately weak: the owners are the committed
+    // communicators (plus the reference initialize() holds while it probes), so the library is torn
+    // down as soon as the last of them goes away rather than at static destruction.
+    static std::weak_ptr<void> s_shared_lib_;
     static bool s_sim_initialized_;
-    static std::mutex s_shared_init_mutex_;
+    // Recursive because the teardown deleter locks it too, and both acquire paths build the owning
+    // shared_ptr with the lock already held: if that construction throws, the standard runs the deleter
+    // to release the handle, re-entering this mutex on the same thread.
+    static std::recursive_mutex s_shared_init_mutex_;
+
+    // Wraps a fresh, non-null dlopen handle in the owning shared_ptr whose deleter performs the
+    // process-global teardown: libttsim_exit, dlclose, reset s_sim_initialized_.
+    static std::shared_ptr<void> adopt_shared_library(void *handle);
 
     // Function pointers to simulator library functions.
     void (*pfn_libttsim_init_)() = nullptr;
@@ -238,14 +269,31 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Known limitation: callback_instance_ is process-global; in multichip mode,
-    // only the last chip to call set_pcie_dma_mem_callbacks receives correct DMA
-    // callbacks.  Fix requires libttsim ABI change to support per-chip context pointer.
+    // Host-side DMA routing by address range. Each MMIO chip's outbound iATU (programmed by UMD via
+    // BAR2, honored by the sim) maps the chip's NOC sysmem window onto that chip's distinct host base.
+    // So a sysmem DMA arrives here carrying a real host address; we find the owning chip by which
+    // registered window [host_base, host_base+size) contains it -- exactly as a host/OS routes a DMA by
+    // which pinned region the address falls in. No chip id crosses the bus; the address alone targets.
+    // callback_instance_ stays as the single-device / unregistered fallback.
+    struct DmaHostRange {
+        uint64_t host_base = 0;
+        uint64_t host_size = 0;
+        TTSimCommunicator *inst = nullptr;
+    };
+
+    static constexpr std::size_t MAX_DMA_DEVICES = 32;
     static TTSimCommunicator *callback_instance_;
+    static std::array<DmaHostRange, MAX_DMA_DEVICES> dma_ranges_;
+    static std::size_t dma_range_count_;
+    static std::mutex dma_ranges_mutex_;
 
     // Static wrapper functions for C-style callbacks.
-    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
-    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    static void pci_dma_mem_rd_bytes_wrapper(uint64_t physical_address, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_wrapper(uint64_t physical_address, const void *p, uint32_t size);
+    // Find the chip whose registered host window contains physical_address, rebase physical_address to
+    // the within-window offset, and return its communicator. Falls back to callback_instance_ if no
+    // window matches.
+    static TTSimCommunicator *dma_route(uint64_t &physical_address);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

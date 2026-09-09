@@ -36,10 +36,11 @@ class RemoteInterface;
  *
  * The interfaces are non-owning and must outlive this object.
  *
- * TODO: WormholeTTDevice and BlackholeTTDevice still hold their own copies of this routing,
- * with the original bound check that validates only the first byte of a transfer. Those are the
- * copies that currently run; this one is not reached yet. They are retired as each API is
- * delegated to DeviceFirmware -- until then the two can drift, and have.
+ * TODO: WormholeTTDevice still holds its own copy of the APB routing, with the original bound
+ * check that validates only the first byte of a transfer, for the callers that have not moved to
+ * DeviceFirmware yet (the ARC messenger and its dependents). It is retired with them -- until then
+ * the two can drift. The CSM copy is already gone: its only caller was the firmware boot wait,
+ * which moved here together with this class.
  */
 class WormholeArcWindow {
 public:
@@ -95,8 +96,8 @@ public:
      * Same transport rule as arc_apb(). CSM holds memory rather than registers, so a remote access
      * takes the data path; see Content for why JTAG does not.
      *
-     * Blackhole has no counterpart: BlackholeTTDevice's CSM accessors only throw, so there is
-     * nothing to extract there.
+     * Blackhole has no counterpart: BlackholeTTDevice's CSM accessors only ever threw, so there
+     * was nothing to extract there.
      */
     static WormholeArcWindow arc_csm(
         DeviceProtocol* device_protocol,

@@ -55,7 +55,8 @@ table SimulationServerResponse {
 
 // Device identity served in response to a GET_DEVICE_INFO request. Carries everything a client
 // needs to build a SocDescriptor matching the host's without reading a local simulator build:
-// the arch, the full SoC-descriptor YAML text, and the per-chip harvesting masks.
+// the arch, the full SoC-descriptor YAML text, and the per-chip harvesting masks. It also names
+// the simulator the host runs, so a client can report what it is attached to.
 table SimulationServerDeviceInfo {
     status : int32;
     arch : int32;
@@ -67,6 +68,9 @@ table SimulationServerDeviceInfo {
     eth_harvesting_mask : uint32;
     l2cpu_harvesting_mask : uint32;
     pcie_harvesting_mask : uint32;
+    // The simulator the host runs: its libttsim .so path, or its RTL build directory. Appended last
+    // so a host built before this field still decodes -- the client then reads it as empty.
+    simulator_path : string;
 }
 
 // Cluster topology served in response to a GET_CLUSTER_DESCRIPTOR request. `yaml` is the host's

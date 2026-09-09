@@ -47,6 +47,8 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/io_window/io_window.hpp"
+#include "umd/device/io_window/io_window_target.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -431,13 +433,20 @@ Cluster::Cluster(ClusterOptions options) {
             // chip loop wraps in SimulationChips).
             if (options.chip_type == ChipType::SIMULATION &&
                 SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
-                const std::map<ChipId, std::filesystem::path> sockets =
-                    SimulationServerSocket::sockets_in_directory(options.simulator_directory);
+                std::map<ChipId, std::filesystem::path> sockets;
+                for (const auto& [chip_id, socket_path] :
+                     SimulationServerSocket::sockets_in_directory(options.simulator_directory)) {
+                    // Skip sockets a crashed host left behind: role_for() above only guarantees
+                    // that *some* socket here is live, and the probe below has to reach one.
+                    if (SimulationServerSocket::is_live(socket_path)) {
+                        sockets.emplace(chip_id, socket_path);
+                    }
+                }
                 UMD_ASSERT(
                     !sockets.empty(),
                     error::RuntimeError,
                     fmt::format(
-                        "No simulation sockets found in {}; nothing to attach to.",
+                        "No live simulation sockets found in {}; nothing to attach to.",
                         options.simulator_directory.string()));
 
                 // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,
@@ -463,7 +472,9 @@ Cluster::Cluster(ClusterOptions options) {
                 connector_options.simulator_directory = options.simulator_directory;
                 connector_options.num_host_mem_channels =
                     static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
-                tt_devices = SimulationConnector::discover(connector_options);
+                auto discovered = SimulationConnector::discover(connector_options);
+                simulation_connection_ = std::move(discovered.connection);
+                tt_devices = std::move(discovered.devices);
 
                 // Every chip the topology names must have a socket-backed device (single-chip today;
                 // a multichip host will publish one socket per chip). Fail clearly rather than later
@@ -652,9 +663,16 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
-        serve_simulation_devices_over_sockets(
-            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+    if (options.chip_type == ChipType::SIMULATION) {
+        // The client path recorded its connection during discovery, so reaching here without one
+        // means this process runs the simulation itself.
+        if (!simulation_connection_.has_value()) {
+            simulation_connection_ = describe_simulation_host(options.simulator_directory);
+        }
+        if (options.serve_simulation_devices_over_sockets) {
+            serve_simulation_devices_over_sockets(
+                options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+        }
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -666,6 +684,42 @@ Cluster::Cluster(ClusterOptions options) {
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+std::optional<SimulationConnector::Connection> Cluster::get_simulation_connection() const {
+    return simulation_connection_;
+}
+
+SimulationConnector::Connection Cluster::describe_simulation_host(
+    const std::filesystem::path& simulator_directory) const {
+    SimulationConnector::Connection connection;
+    connection.role = SimulationConnector::Role::Host;
+    connection.simulator = simulator_directory;
+    // Take the backend and arch from a device rather than re-deriving them from the path, so this
+    // reports what was actually built. server_directory and sockets stay empty until (and unless)
+    // serve_simulation_devices_over_sockets() fills them.
+    bool described = false;
+    for (const auto& [chip_id, chip] : chips_) {
+        if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
+            connection.backend = sim_device->backend_type();
+            connection.arch = sim_device->get_soc_descriptor().arch;
+            described = true;
+            break;
+        }
+    }
+    // A simulation Cluster with no simulation device is degenerate but legal -- an empty
+    // target_devices with no cluster_descriptor.yaml beside the simulator yields zero chips -- so
+    // warn instead of asserting. Say so rather than reporting the defaults (TTSim/Invalid) as if
+    // they had been read off a device, which is also how a future regression that describes the
+    // host before the chips exist would surface.
+    if (!described) {
+        log_warning(
+            LogUMD,
+            "Simulation host {} has no simulation device to describe; reporting an unknown backend and "
+            "architecture.",
+            simulator_directory.string());
+    }
+    return connection;
+}
+
 void Cluster::serve_simulation_devices_over_sockets(
     const std::filesystem::path& simulator_directory,
     const std::filesystem::path& simulator_server_directory,
@@ -680,17 +734,30 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // The constructor describes the host connection before it starts serving, so there is always
+    // one to record into here. Asserted rather than guarded, so a future reordering fails loudly
+    // instead of quietly serving sockets it never reports.
+    UMD_ASSERT(
+        simulation_connection_.has_value(),
+        error::RuntimeError,
+        "Simulation host started serving sockets before its connection was described.");
     // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
     // machine never collide even when they serve the same chip id.
     const std::filesystem::path server_directory = simulator_server_directory.empty()
                                                        ? SimulationServerSocket::allocate_server_directory()
                                                        : simulator_server_directory;
     log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
+    // Report where this host serves. When the caller left simulator_server_directory empty the
+    // directory was allocated just above, so this is the only way it learns of it -- recorded here
+    // rather than per chip, so a host that turns out to have no simulation devices still reports
+    // the directory it claimed instead of reading as "not serving".
+    simulation_connection_->server_directory = server_directory;
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
-            sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
-                shutdown_handler);
+            const std::filesystem::path socket_path =
+                SimulationServerSocket::default_socket_path(server_directory, chip_id);
+            sim_device->adopt_socket(SimulationServerSocket::create(socket_path), shutdown_handler);
+            simulation_connection_->sockets.emplace(chip_id, socket_path);
         }
     }
 }
@@ -909,6 +976,23 @@ void Cluster::refresh_cluster_description() {
             }
         }
     }
+}
+
+std::unique_ptr<IoWindow> Cluster::create_io_window(
+    const ChipId chip,
+    CoreCoord core_start,
+    uint64_t addr,
+    HostIoWindowConfig host,
+    std::optional<CoreCoord> core_end,
+    WindowFlags flags,
+    std::optional<NocId> noc) {
+    TTDevice* tt_device = get_chip(chip)->get_tt_device();
+    if (tt_device == nullptr) {
+        // Mock and emulated chips have no device to map.
+        return nullptr;
+    }
+    return tt_device->create_io_window(
+        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags), host);
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
@@ -1239,7 +1323,7 @@ std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
     return chips_.at(device_id)->get_numa_node();
 }
 
-std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -1250,6 +1334,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     } else {
         return 0;
     }
+}
+
+std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+    return get_sysmem_window_noc_base(chip_id);
 }
 
 std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }

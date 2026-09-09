@@ -246,6 +246,30 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
             break;
         }
 
+        // This covers Quietbox 2/Quietbox GE (2 P300 cards = 4 chips).
+        case 4: {
+            switch (cluster_desc->get_arch()) {
+                case tt::ARCH::BLACKHOLE: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 4);
+
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 16);
+
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::P300)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                default: {
+                    throw std::runtime_error("Unexpected architecture for 4-chip cluster descriptor.");
+                }
+            }
+            break;
+        }
+
         // This covers Wormhole T3K (Loudbox and Quietbox), as well as Blackhole loudbox.
         case 8: {
             switch (cluster_desc->get_arch()) {

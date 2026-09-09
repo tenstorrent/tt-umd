@@ -34,6 +34,7 @@ enum BoardType : uint32_t {
     UBB,
     UBB_WORMHOLE = UBB,
     UBB_BLACKHOLE,
+    UBB_BLACKHOLE_BIN6,
     QUASAR_BOARD,
     UNKNOWN,
 };
@@ -47,8 +48,9 @@ static_assert(GALAXY == 8, "GALAXY must be 8");
 static_assert(UBB == 9, "UBB must be 9");
 static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
 static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
-static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
-static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
+static_assert(UBB_BLACKHOLE_BIN6 == 11, "BH_UBB_BIN6 must be 11");
+static_assert(QUASAR_BOARD == 12, "QUASAR must be 12");
+static_assert(UNKNOWN == 13, "UNKNOWN must be 13");
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
@@ -101,6 +103,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"p300", BoardType::P300},
     {"ubb", BoardType::UBB},
     {"ubb_blackhole", BoardType::UBB_BLACKHOLE},
+    {"ubb_blackhole_bin6", BoardType::UBB_BLACKHOLE_BIN6},
     {"ubb_wormhole", BoardType::UBB_WORMHOLE},
     {"quasar", BoardType::QUASAR_BOARD},
     {"unknown", BoardType::UNKNOWN},
@@ -120,6 +123,7 @@ inline const std::unordered_map<BoardType, std::string_view> board_type_canonica
     {BoardType::P300, "p300"},
     {BoardType::UBB, "ubb"},
     {BoardType::UBB_BLACKHOLE, "ubb_blackhole"},
+    {BoardType::UBB_BLACKHOLE_BIN6, "ubb_blackhole_bin6"},
     {BoardType::UBB_WORMHOLE, "ubb_wormhole"},
     {BoardType::QUASAR_BOARD, "quasar"},
     {BoardType::UNKNOWN, "unknown"},
@@ -190,6 +194,7 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         // TODO: switch usage of UBB to UBB_WORMHOLE.
         case BoardType::UBB:
         case BoardType::UBB_BLACKHOLE:
+        case BoardType::UBB_BLACKHOLE_BIN6:
             return 32;
         case BoardType::QUASAR_BOARD:  // Mock device only
             return 1;
@@ -212,6 +217,7 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     // TODO: move 0x35 constant to be equal to UBB_WORMHOLE once we delete UBB.
     {0x35, BoardType::UBB},
     {0x47, BoardType::UBB_BLACKHOLE},
+    {0x202, BoardType::UBB_BLACKHOLE_BIN6},
     {0x50, BoardType::QUASAR_BOARD}};  // Fictional board UPI for Quasar mock device
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
@@ -233,6 +239,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_u
     {BoardType::P300, 2},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 1},
+    {BoardType::UBB_BLACKHOLE_BIN6, 1},
 };
 
 static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_units_map = {
@@ -243,6 +250,9 @@ static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_uni
     {BoardType::P300, 0},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 0},
+    // Bin6 parts ship with one GDDR channel harvested; that is the sole
+    // difference from the chips populating a UBB_BLACKHOLE.
+    {BoardType::UBB_BLACKHOLE_BIN6, 1},
 };
 
 static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_units_map = {
@@ -253,6 +263,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_unit
     {BoardType::P300, 2},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 2},
+    {BoardType::UBB_BLACKHOLE_BIN6, 2},
 };
 
 struct HarvestingMasks {

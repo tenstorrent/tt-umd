@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 namespace tt::umd {
@@ -160,16 +161,11 @@ private:
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
 
-    // Error-path cleanup for the shared-dlopen init paths. Called with s_shared_init_mutex_ held when
-    // symbol resolution throws before this communicator commits (bumps s_shared_refcount_). If this call
-    // performed the fresh dlopen (refcount still 0), releases s_shared_handle_ so it does not leak and a
-    // retry starts clean; if a prior communicator already owns it (refcount > 0), leaves it alone.
-    void release_uncommitted_shared_handle();
-
     // In multichip mode, selects this communicator's chip before an I/O call.
     void select_chip_if_needed();
 
-    // Dynamic library handle.
+    // Dynamic library handle. A non-owning view in the shared-dlopen modes, where shared_lib_ owns the
+    // library; owned outright on the legacy per-chip path.
     void *libttsim_handle_ = nullptr;
 
     // File descriptor for copied simulator binary.
@@ -186,8 +182,8 @@ private:
     //
     // When the loaded libttsim.so exports the multichip ABI (libttsim_create_device_by_id,
     // libttsim_select_device_by_id, etc.), all TTSimCommunicators in the process
-    // share a single dlopen of the .so via s_shared_handle_ (refcounted by
-    // s_shared_refcount_).  This gives them a common process-global state: the
+    // share a single dlopen of the .so, kept alive by an owning shared_ptr held
+    // by each of them.  This gives them a common process-global state: the
     // Device* registry, the virtual eth_switch routing table, and the clock.
     //
     // Per-chip I/O works by calling libttsim_select_device_by_id(chip_id_) under
@@ -206,15 +202,30 @@ private:
     // dlopen and each chip is addressed by its PCI device (BDF) rather than libttsim_select_device_by_id.
     bool shared_bdf_mode_ = false;
 
-    // Both modes use the single shared dlopen (s_shared_handle_) + refcount.
+    // Both modes use the single shared dlopen held by shared_lib_.
     bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
 
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
-    static void *s_shared_handle_;
-    static int s_shared_refcount_;
+
+    // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
+    // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter
+    // installed by adopt_shared_library().
+    std::shared_ptr<void> shared_lib_;
+
+    // Lookup slot for that shared dlopen.  Deliberately weak: the owners are the committed
+    // communicators (plus the reference initialize() holds while it probes), so the library is torn
+    // down as soon as the last of them goes away rather than at static destruction.
+    static std::weak_ptr<void> s_shared_lib_;
     static bool s_sim_initialized_;
-    static std::mutex s_shared_init_mutex_;
+    // Recursive because the teardown deleter locks it too, and both acquire paths build the owning
+    // shared_ptr with the lock already held: if that construction throws, the standard runs the deleter
+    // to release the handle, re-entering this mutex on the same thread.
+    static std::recursive_mutex s_shared_init_mutex_;
+
+    // Wraps a fresh, non-null dlopen handle in the owning shared_ptr whose deleter performs the
+    // process-global teardown: libttsim_exit, dlclose, reset s_sim_initialized_.
+    static std::shared_ptr<void> adopt_shared_library(void *handle);
 
     // Function pointers to simulator library functions.
     void (*pfn_libttsim_init_)() = nullptr;

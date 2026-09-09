@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
@@ -93,19 +94,20 @@ void LocalChip::initialize_default_chip_mutexes() {
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
     // responsible for initializing the driver with this field set to cleanup after an aborted process.
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    int device_id = tt_device_->get_communication_device_id();
+    IODeviceType device_type = tt_device_->get_communication_device_type();
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
+        LockManager::initialize_mutex(MutexType::REMOTE_ARC_MSG, device_id, device_type);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic.
-    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
+    LockManager::initialize_mutex(MutexType::MEM_BARRIER, device_id, device_type);
 
     // Initialize mutex guarding initialized chips.
-    lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
+    LockManager::initialize_mutex(MutexType::CHIP_IN_USE, device_id, device_type);
 }
 
 void LocalChip::initialize_membars(uint32_t dram_subchannel) {
@@ -144,8 +146,10 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(
-        lock_manager_.acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(LockManager::acquire_mutex(
+        MutexType::CHIP_IN_USE,
+        tt_device_->get_communication_device_id(),
+        tt_device_->get_communication_device_type()));
 
     sysmem_manager_->pin_or_map_sysmem_to_device();
     initialize_membars(dram_membar_subchannel);
@@ -258,8 +262,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(
-            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
+        write_block_reconfigure(
+            *get_cached_wc_tlb_window(),
+            src,
+            translated_core,
+            l1_dest,
+            size,
+            get_selected_noc_id(),
+            IoOrdering::Relaxed);
     }
 }
 
@@ -284,8 +294,14 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(
-            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
+        read_block_reconfigure(
+            *get_cached_wc_tlb_window(),
+            dest,
+            translated_core,
+            l1_src,
+            size,
+            get_selected_noc_id(),
+            IoOrdering::Relaxed);
     }
 }
 
@@ -328,7 +344,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
+    config.set_static_vc(get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(WindowFlags::UnicastWrite));
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
@@ -359,7 +375,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
+    config.set_static_vc(get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(WindowFlags::UnicastRead));
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
@@ -421,7 +437,8 @@ void LocalChip::set_membar_flag(
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
+    auto lock = LockManager::acquire_mutex(
+        MutexType::MEM_BARRIER, tt_device_->get_communication_device_id(), tt_device_->get_communication_device_type());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }

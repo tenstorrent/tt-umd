@@ -16,8 +16,8 @@ namespace tt::umd {
 // Converts a device initialization exception into a structured health error, if it is one of the
 // recoverable hardware errors tracked in the cluster descriptor. Returns std::nullopt otherwise.
 inline std::optional<ClusterDescriptor::DeviceHealthError> determine_device_init_error(error::UmdBaseException& err) {
-    if (auto* arc_err = dynamic_cast<error::UmdException<error::ArcStartupError>*>(&err)) {
-        return arc_err->error();
+    if (auto* fw_err = dynamic_cast<error::UmdException<error::FirmwareStartupError>*>(&err)) {
+        return fw_err->error();
     }
     if (auto* noc_err = dynamic_cast<error::UmdException<error::NocHangError>*>(&err)) {
         return noc_err->error();

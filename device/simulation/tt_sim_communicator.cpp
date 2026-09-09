@@ -37,11 +37,31 @@ namespace tt::umd {
 // libttsim_create_device_by_id + libttsim_select_device_by_id, all
 // TTSimCommunicators share a single dlopen of the .so so they also share its
 // process-global state (eth_switch routing table, Device* registry).
-void *TTSimCommunicator::s_shared_handle_ = nullptr;
-int TTSimCommunicator::s_shared_refcount_ = 0;
+std::weak_ptr<void> TTSimCommunicator::s_shared_lib_;
 bool TTSimCommunicator::s_sim_initialized_ = false;
-std::mutex TTSimCommunicator::s_shared_init_mutex_;
+std::recursive_mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
+
+std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
+    // libttsim_exit is resolved up front so the deleter never has to dlsym the handle it is about to
+    // dlclose.  Both shared modes require the symbol, so it is non-null in practice.
+    auto exit_fn = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_exit"));
+    return std::shared_ptr<void>(handle, [exit_fn](void *h) {
+        // Runs when the last owner drops its copy: the last communicator to destruct, or -- if symbol
+        // resolution threw before any of them committed -- the reference initialize() held while
+        // probing.  It also runs on this thread, with s_shared_init_mutex_ already held, if the
+        // shared_ptr construction below throws while allocating its control block: the standard hands
+        // the deleter the handle to release.  That is why the mutex is recursive.
+        std::lock_guard<std::recursive_mutex> lock(s_shared_init_mutex_);
+        // The simulator is process-global, so libttsim_exit runs exactly once -- and only if some
+        // communicator got as far as start_sim() and actually called libttsim_init.
+        if (s_sim_initialized_ && exit_fn) {
+            exit_fn();
+        }
+        dlclose(h);
+        s_sim_initialized_ = false;
+    });
+}
 
 TTSimCommunicator::TTSimCommunicator(
     const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
@@ -67,44 +87,14 @@ TTSimCommunicator::~TTSimCommunicator() {
             callback_instance_ = nullptr;
         }
     }
-    if (uses_shared_handle()) {
-        // Shared dlopen -- decrement refcount. When last communicator
-        // destructs, call libttsim_exit (which the deferred shutdown()
-        // path didn't call), then dlclose. The simulator is process-global,
-        // so libttsim_exit should run exactly once.
-        std::lock_guard<std::mutex> lock(s_shared_init_mutex_);
-        if (--s_shared_refcount_ == 0 && s_shared_handle_) {
-            if (pfn_libttsim_exit_) {
-                pfn_libttsim_exit_();
-            }
-            dlclose(s_shared_handle_);
-            s_shared_handle_ = nullptr;
-            s_sim_initialized_ = false;
-        }
-    } else if (libttsim_handle_) {
-        // If initialize() threw after aliasing s_shared_handle_ (the probe keeps that handle) but
-        // before committing to a shared-handle mode, libttsim_handle_ may equal s_shared_handle_. It is
-        // owned by the shared-refcount path; dlclosing it here would leave other communicators with a
-        // dangling s_shared_handle_.
-        std::lock_guard<std::mutex> lock(s_shared_init_mutex_);
-        if (libttsim_handle_ != s_shared_handle_) {
-            dlclose(libttsim_handle_);
-        }
+    if (!shared_lib_ && libttsim_handle_) {
+        // Legacy per-chip dlopen: this communicator owns the handle outright.  In the shared modes the
+        // handle belongs to shared_lib_, and initialize() clears the raw view if it never committed.
+        dlclose(libttsim_handle_);
     }
     close_simulator_binary();
-}
-
-void TTSimCommunicator::release_uncommitted_shared_handle() {
-    // Called with s_shared_init_mutex_ held, on the symbol-resolution error path before this
-    // communicator commits (bumps s_shared_refcount_). device_lock_ serializes initialize() across
-    // communicators, so a non-zero refcount here means a prior communicator already committed and owns
-    // the handle -- leave it alone. A zero refcount means this call performed the fresh dlopen: release
-    // it so it does not leak and a retry starts from a clean s_shared_handle_.
-    libttsim_handle_ = nullptr;
-    if (s_shared_refcount_ == 0 && s_shared_handle_) {
-        dlclose(s_shared_handle_);
-        s_shared_handle_ = nullptr;
-    }
+    // shared_lib_ is released once this body returns.  If this was the last communicator on the shared
+    // dlopen, its deleter calls libttsim_exit (which the deferred shutdown() path skipped) and dlcloses.
 }
 
 void TTSimCommunicator::initialize() {
@@ -116,13 +106,19 @@ void TTSimCommunicator::initialize() {
     //
     // If the shared handle already exists, use it for the probe directly
     // to avoid dlopen/dlclose running global constructors/destructors.
+    //
+    // shared_lib carries the probe's own reference through the rest of initialize().  If symbol
+    // resolution below throws, unwinding drops it, and when this call performed the fresh dlopen that
+    // closes the library so a retry starts clean.
+    std::shared_ptr<void> shared_lib;
     bool multichip_supported = false;
     {
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
-        if (s_shared_handle_) {
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        shared_lib = s_shared_lib_.lock();
+        if (shared_lib) {
             // Already loaded by another communicator -- probe in-place.
-            multichip_supported = dlsym(s_shared_handle_, "libttsim_create_device_by_id") != nullptr &&
-                                  dlsym(s_shared_handle_, "libttsim_select_device_by_id") != nullptr;
+            multichip_supported = dlsym(shared_lib.get(), "libttsim_create_device_by_id") != nullptr &&
+                                  dlsym(shared_lib.get(), "libttsim_select_device_by_id") != nullptr;
         } else {
             // Fresh load: open, probe, and keep the handle if multichip is supported
             // to avoid a wasteful close+reopen cycle.
@@ -132,7 +128,8 @@ void TTSimCommunicator::initialize() {
                                       dlsym(probe, "libttsim_select_device_by_id") != nullptr;
                 if (multichip_supported) {
                     // Keep this handle as the shared handle.
-                    s_shared_handle_ = probe;
+                    shared_lib = adopt_shared_library(probe);
+                    s_shared_lib_ = shared_lib;
                 } else {
                     dlclose(probe);
                 }
@@ -142,9 +139,10 @@ void TTSimCommunicator::initialize() {
 
     if (multichip_supported) {
         log_info(tt::LogEmulationDriver, "TTSim multichip mode enabled (chip_id={}, shared dlopen)", chip_id_);
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
-        // s_shared_handle_ is guaranteed non-null here (set in probe above or by a prior communicator).
-        libttsim_handle_ = s_shared_handle_;
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        // shared_lib is guaranteed non-null here (adopted by the probe above, or locked from a prior
+        // communicator's).
+        libttsim_handle_ = shared_lib.get();
 
         try {
             // Resolve all required multichip symbols via DLSYM_FUNCTION (throws on missing).
@@ -166,7 +164,11 @@ void TTSimCommunicator::initialize() {
             DLSYM_FUNCTION(libttsim_configure_eth_link_virtual)
             DLSYM_FUNCTION(libttsim_switch_register_peer)
         } catch (...) {
-            release_uncommitted_shared_handle();
+            // Never committed, so no owning reference was taken.  Drop the raw view: the handle belongs
+            // to the shared control block, and leaving it set would make the destructor dlclose a
+            // library it does not own.  Unwinding then releases the probe reference above, which closes
+            // the library if this call performed the fresh dlopen and leaves it alone otherwise.
+            libttsim_handle_ = nullptr;
             throw;
         }
 
@@ -188,11 +190,11 @@ void TTSimCommunicator::initialize() {
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
 
-        // Only commit to multichip mode and bump refcount after ALL symbol resolution
-        // has succeeded.  If a DLSYM_FUNCTION above throws, the destructor will
-        // not attempt to decrement a refcount that was never incremented.
+        // Only commit to multichip mode and take an owning reference after ALL symbol
+        // resolution has succeeded.  Until then the probe reference is the only one this
+        // call holds, so an exception releases the library instead of leaking it.
         multichip_mode_ = true;
-        s_shared_refcount_++;
+        shared_lib_ = std::move(shared_lib);
         return;
     }
 
@@ -210,14 +212,17 @@ void TTSimCommunicator::initialize() {
         num_chips_ > 1 &&
         std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
     if (self_describing_multi_mmio) {
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
-        if (!s_shared_handle_) {
-            s_shared_handle_ = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
-            if (!s_shared_handle_) {
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        if (!shared_lib) {
+            void *handle = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
+            // Guard before wrapping: a shared_ptr built on nullptr would still run the teardown deleter.
+            if (!handle) {
                 UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
             }
+            shared_lib = adopt_shared_library(handle);
+            s_shared_lib_ = shared_lib;
         }
-        libttsim_handle_ = s_shared_handle_;
+        libttsim_handle_ = shared_lib.get();
         try {
             DLSYM_FUNCTION(libttsim_init)
             DLSYM_FUNCTION(libttsim_exit)
@@ -229,11 +234,12 @@ void TTSimCommunicator::initialize() {
             DLSYM_FUNCTION(libttsim_clock)
             DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
         } catch (...) {
-            release_uncommitted_shared_handle();
+            // Never committed -- see the multichip path above.
+            libttsim_handle_ = nullptr;
             throw;
         }
         shared_bdf_mode_ = true;
-        s_shared_refcount_++;
+        shared_lib_ = std::move(shared_lib);
         log_info(
             tt::LogEmulationDriver, "TTSim BDF multichip mode (chip_id={}, shared dlopen, per-device BARs)", chip_id_);
         return;
@@ -255,7 +261,7 @@ void TTSimCommunicator::start_sim() {
     if (multichip_mode_) {
         // libttsim_init only on the first communicator. Subsequent
         // communicators register their chip into the shared registry.
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!s_sim_initialized_) {
             pfn_libttsim_init_();
             s_sim_initialized_ = true;
@@ -268,7 +274,7 @@ void TTSimCommunicator::start_sim() {
     if (shared_bdf_mode_) {
         // Shared dlopen: initialize the simulator exactly once. Chips are addressed by
         // BDF, so there is no per-chip registration call.
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!s_sim_initialized_) {
             pfn_libttsim_init_();
             s_sim_initialized_ = true;
@@ -289,8 +295,8 @@ void TTSimCommunicator::shutdown() {
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     if (uses_shared_handle()) {
         // Defer libttsim_exit until the last communicator destructs (handled
-        // by refcount in the destructor's shared-handle close path). The
-        // simulator is process-global; calling exit per chip would be wrong.
+        // by the shared_lib_ teardown deleter). The simulator is process-global;
+        // calling exit per chip would be wrong.
         return;
     }
     pfn_libttsim_exit_();

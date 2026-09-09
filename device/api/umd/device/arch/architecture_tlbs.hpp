@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -39,11 +40,20 @@ struct ArchitectureTlbs {
     // Whether static_vc should be used for window configuration.
     bool use_static_vc;
 
+    // Whether a window picks its virtual channel through its own configuration, rather than the
+    // architecture wiring one up for it.
+    bool static_vc_is_configurable;
+
     uint32_t static_cfg_addr;
     uint64_t cfg_reg_size_bytes;
 
     // Configuration of the window at the given index.
     tlb_configuration get_configuration(uint32_t tlb_index) const;
+
+    // The virtual channel to configure a window with, given what that window will carry. Only the
+    // direction field of the flags is read: reads are given one channel and writes another, so
+    // traffic in opposite directions never shares a channel.
+    tlb_static_vc get_static_vc(WindowFlags flags) const;
 };
 
 const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch);

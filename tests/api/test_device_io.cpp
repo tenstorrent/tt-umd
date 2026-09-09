@@ -244,15 +244,11 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
-    }
-
     if (is_simulation_test()) {
         GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
     }
 
-    const tt_xy_pair grid_size = {8, 8};
+    const tt_xy_pair grid_size = cluster->get_soc_descriptor(0).get_grid_size(CoreType::TENSIX);
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -580,7 +576,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     for (const ChipId mmio_chip_id : mmio_chips) {
         const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
         const auto pcie_core = pci_cores.at(0);
-        const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
+        const auto base_address = cluster->get_sysmem_window_noc_base(mmio_chip_id);
 
         // Distinct per-chip sentinel so a misrouted DMA (landing in another chip's window, or aliasing
         // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.

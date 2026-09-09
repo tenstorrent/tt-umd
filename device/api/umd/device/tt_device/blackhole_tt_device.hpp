@@ -29,45 +29,20 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
-
     uint32_t get_clock() override;
 
     uint32_t get_min_clock_freq() override;
 
-    void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
-
-    bool get_noc_translation_enabled() override;
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    ChipInfo get_chip_info() override;
-
-    std::chrono::milliseconds wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
 protected:
     explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual bool is_arc_available_over_axi();
 
-    void retrain_dram_core(const uint32_t dram_channel) override;
-
     // Number of retrain attempts is chosen based on syseng team testing.
-    uint32_t get_max_dram_retrain_attempts() const override { return 3; }
-
-    void set_arc_coordinate() override;
-
-    void probe_arc() override;
-
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::BLACKHOLE);
 

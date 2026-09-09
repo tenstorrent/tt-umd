@@ -37,11 +37,24 @@ enum class IoOrdering : uint8_t {
 
 /**
  * @brief Type-safe transaction attributes for an IoWindow target.
+ *
+ * Bits 2-3 form the direction field, holding the traffic the mapping carries until it is configured
+ * again. A mapping reconfigured before every transfer can commit to one direction, which lets an
+ * implementation route reads and writes over separate interconnect resources and so keep writes to a
+ * target ordered against each other. Zero — the default — is bidirectional: a mapping that serves
+ * both without being configured in between, and so cannot be given a resource of its own.
+ * Implementations with nothing to gain from the distinction ignore the field.
  */
 enum class WindowFlags : uint32_t {
     None = 0,
     Atomic = 1 << 0,  ///< Issue transaction as atomic on the target interconnect.
     Snoop = 1 << 1,   ///< Mark transaction as snoopable for cache coherency.
+
+    Bidirectional = 0 << 2,   ///< Mapping serves both reads and writes. Default.
+    UnicastWrite = 1 << 2,    ///< Mapping serves writes to a single core.
+    UnicastRead = 2 << 2,     ///< Mapping serves reads from a single core.
+    MulticastWrite = 3 << 2,  ///< Mapping serves writes to a core range.
+    DirectionMask = 3 << 2,   ///< Selects the direction field out of a set of flags.
 };
 
 constexpr WindowFlags operator|(WindowFlags lhs, WindowFlags rhs) noexcept {
@@ -69,7 +82,7 @@ constexpr WindowFlags& operator&=(WindowFlags& lhs, WindowFlags rhs) noexcept {
 }
 
 /**
- * @brief Device-side target for an IoWindow: core, address, optional NOC, and transaction flags.
+ * @brief Device-side target for an IoWindow: core(s), address, optional NOC, and transaction flags.
  */
 struct TargetIoWindowConfig {
     tt_xy_pair core_start;  ///< Target core, or upper-left corner of a multicast grid.
@@ -77,7 +90,7 @@ struct TargetIoWindowConfig {
         std::nullopt;                         ///< Lower-right corner of a multicast grid, or nullopt for unicast.
     uint64_t addr;                            ///< Destination address on the target core(s).
     std::optional<NocId> noc = std::nullopt;  ///< Optional routing selection.
-    WindowFlags flags = WindowFlags::None;    ///< Transaction attributes.
+    WindowFlags flags = WindowFlags::None;    ///< Transaction attributes, including the direction field.
 };
 
 /**

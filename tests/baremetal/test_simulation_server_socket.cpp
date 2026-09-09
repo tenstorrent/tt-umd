@@ -17,6 +17,7 @@
 
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulation_server_transport.hpp"
+#include "tests/test_utils/simulation_socket_test_utils.hpp"
 
 using namespace tt::umd;
 using stream_protocol = asio::local::stream_protocol;
@@ -52,21 +53,6 @@ stream_protocol::socket connect_client(asio::io_context& io, const std::filesyst
     return socket;
 }
 
-// Binds a UNIX socket to path then closes it without listening, leaving a stale
-// socket file behind (connect() to it yields ECONNREFUSED) — what a crashed
-// owner leaves on disk.
-void leave_stale_socket(const std::filesystem::path& path) {
-    std::filesystem::remove(path);
-    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    ASSERT_GE(fd, 0);
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
-    ASSERT_EQ(::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
-    ::close(fd);
-    ASSERT_TRUE(std::filesystem::exists(path));
-}
-
 // Provides a fresh socket path that is removed before and after each test, so cases share a
 // fixed name without leaking sockets between runs.
 class SimulationServerSocketTest : public ::testing::Test {
@@ -98,7 +84,7 @@ TEST_F(SimulationServerSocketTest, RemovesSocketOnDestruction) {
 }
 
 TEST_F(SimulationServerSocketTest, ReclaimsStaleSocketFile) {
-    leave_stale_socket(path_);
+    test_utils::leave_stale_socket(path_);
     EXPECT_FALSE(can_connect(path_));
 
     auto server = SimulationServerSocket::create(path_);
@@ -112,23 +98,15 @@ TEST_F(SimulationServerSocketTest, ThrowsWhenLiveServerAlreadyExists) {
     EXPECT_ANY_THROW(SimulationServerSocket::create(path_));
 }
 
-TEST_F(SimulationServerSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
-    auto host = SimulationServerSocket::try_create(path_);
-    ASSERT_NE(host, nullptr);
-    EXPECT_EQ(SimulationServerSocket::try_create(path_), nullptr);  // live host -> null, no throw
+// A failed create() builds and destroys a socket object that never won the bind; ownership-gated
+// teardown must stop it removing the live host's socket on the way out.
+TEST_F(SimulationServerSocketTest, FailedCreateLeavesTheLiveHostAlone) {
+    auto host = SimulationServerSocket::create(path_);
 
-    // The throwaway object from the failed try_create above must not remove the live
-    // host's socket on destruction (ownership-gated teardown).
+    EXPECT_ANY_THROW(SimulationServerSocket::create(path_));
+
     EXPECT_TRUE(std::filesystem::exists(path_));
-    EXPECT_TRUE(can_connect(path_));
-}
-
-TEST_F(SimulationServerSocketTest, TryCreateReclaimsStaleSocket) {
-    leave_stale_socket(path_);
-
-    auto host = SimulationServerSocket::try_create(path_);
-    EXPECT_NE(host, nullptr);  // stale leftover reclaimed
-    EXPECT_TRUE(can_connect(path_));
+    EXPECT_TRUE(SimulationServerSocket::is_live(path_));
 }
 
 // A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
@@ -136,8 +114,29 @@ TEST_F(SimulationServerSocketTest, TryCreateReclaimsStaleSocket) {
 TEST_F(SimulationServerSocketTest, RefusesToReclaimNonSocketFile) {
     { std::ofstream(path_) << "not a socket"; }
 
-    EXPECT_THROW(SimulationServerSocket::try_create(path_), std::exception);
+    EXPECT_THROW(SimulationServerSocket::create(path_), std::exception);
     EXPECT_TRUE(std::filesystem::exists(path_));  // the regular file was left untouched
+}
+
+// is_live() is the liveness question the socket file's presence cannot answer: nothing there and a
+// socket left by a crashed owner both read as "no host", only a bound-and-listening owner as live.
+TEST_F(SimulationServerSocketTest, IsLiveDistinguishesAHostFromAnAbsentOrStaleSocket) {
+    EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // nothing there at all
+
+    test_utils::leave_stale_socket(path_);
+    ASSERT_TRUE(std::filesystem::exists(path_));           // the file is on disk...
+    EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // ...but nothing is serving on it
+
+    auto host = SimulationServerSocket::create(path_);  // reclaims the stale file and binds
+    EXPECT_TRUE(SimulationServerSocket::is_live(path_));
+}
+
+// A path too long for sockaddr_un cannot name a reachable listener, so is_live() answers the
+// predicate rather than throwing out of make_endpoint().
+TEST_F(SimulationServerSocketTest, IsLiveIsFalseForAnOverlongPath) {
+    const std::filesystem::path too_long =
+        std::filesystem::temp_directory_path() / (std::string(sizeof(sockaddr_un::sun_path), 'x') + ".sock");
+    EXPECT_FALSE(SimulationServerSocket::is_live(too_long));
 }
 
 // Inverts every byte, so a served reply is distinguishable from the request that produced it.
@@ -321,9 +320,9 @@ TEST(SimulationServerSocket, SocketsInDirectoryPicksPerChipSockets) {
     fs::remove_all(dir);
     fs::create_directories(dir);
 
-    leave_stale_socket(dir / "tt-umd-sim-0.sock");                   // per-chip socket -> included
-    leave_stale_socket(dir / "tt-umd-sim-2.sock");                   // per-chip socket -> included
-    leave_stale_socket(dir / "unrelated.sock");                      // socket, wrong name -> excluded
+    test_utils::leave_stale_socket(dir / "tt-umd-sim-0.sock");       // per-chip socket -> included
+    test_utils::leave_stale_socket(dir / "tt-umd-sim-2.sock");       // per-chip socket -> included
+    test_utils::leave_stale_socket(dir / "unrelated.sock");          // socket, wrong name -> excluded
     { std::ofstream(dir / "tt-umd-sim-9.sock") << "not a socket"; }  // right name, not a socket -> excluded
 
     const auto sockets = SimulationServerSocket::sockets_in_directory(dir);

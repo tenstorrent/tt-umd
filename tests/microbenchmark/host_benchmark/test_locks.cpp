@@ -182,7 +182,7 @@ TEST(MicrobenchmarkLocks, ProbeContended) {
         auto prober = make_robust();
         holder.lock();
         bench.name("RobustMutex").run([&] {
-            auto owner = prober.probe_lock();
+            auto owner = prober.probe_lock(std::chrono::seconds(0));
             ankerl::nanobench::doNotOptimizeAway(owner);
         });
         holder.unlock();
@@ -192,7 +192,7 @@ TEST(MicrobenchmarkLocks, ProbeContended) {
         auto prober = make_kmd(*device_num);
         holder.lock();
         bench.name("KmdMutex").run([&] {
-            auto owner = prober.probe_lock();
+            auto owner = prober.probe_lock(std::chrono::seconds(0));
             ankerl::nanobench::doNotOptimizeAway(owner);
         });
         holder.unlock();

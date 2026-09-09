@@ -7,8 +7,10 @@
 #include <memory>
 
 #include "umd/device/tt_device_model/tt_device_model.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class SimulationDeviceFirmware;
 
 // Model for a simulated device. A simulation backend is reached in-process rather than over a host
 // transport, and takes its architecture from the SoC descriptor it is built with rather than from a
@@ -21,11 +23,9 @@ public:
 
     ~SimulationTTDeviceModel() override;
 
-    tt::ARCH get_arch() const override;
-
-    int get_communication_device_id() const override;
-
     DeviceProtocol *get_device_protocol() override;
+
+    DeviceFirmware *get_device_firmware() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
 
@@ -34,8 +34,8 @@ public:
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
-    tt::ARCH arch_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    std::unique_ptr<SimulationDeviceFirmware> device_firmware_;
 };
 
 }  // namespace tt::umd

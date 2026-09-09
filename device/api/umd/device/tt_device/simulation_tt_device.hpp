@@ -59,11 +59,8 @@ public:
 
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
-    bool get_noc_translation_enabled() override;
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,
@@ -87,13 +84,16 @@ public:
 
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
 
+    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
+    // remote client can build the matching device class, and reported by Cluster so a caller can
+    // tell what its simulation is backed by.
+    virtual SimulationBackendType backend_type() const = 0;
+
 protected:
     SimulationTTDevice(
         std::unique_ptr<TTDeviceModel> model,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<SimulationSysmemManager> sysmem_manager);
-
-    void retrain_dram_core(const uint32_t dram_channel) override;
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
@@ -121,10 +121,6 @@ protected:
     // read_from_device/write_to_device translate the CoreCoord once (via
     // translate_chip_coord_to_translated) before dispatching, so the `core` handed to every hook
     // below is already a TRANSLATED coordinate -- do not translate it again.
-
-    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
-    // remote client can build the matching device class.
-    virtual SimulationBackendType backend_type() const = 0;
 
     // Direct tile (NOC unicast) access through the backend communicator.
     virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;

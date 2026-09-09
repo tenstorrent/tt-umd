@@ -7,12 +7,13 @@
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
-#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class DeviceFirmware;
 
 class ArchitectureImplementation;
 class DmaInterface;
+class FirmwareInfoProvider;
 class FirmwareTelemetryReader;
 class HangDetector;
 class JtagInterface;
@@ -42,18 +43,16 @@ class TTDeviceModel {
 public:
     virtual ~TTDeviceModel() = default;
 
-    // TODO: temporary - not part of the Base API. Answered by
-    // get_architecture_impl()->get_architecture() once ArchitectureImplementation moves here.
-    virtual tt::ARCH get_arch() const = 0;
-
-    // Identifies the device within its transport: the PCI device number for PCIe, the JLink id for
-    // JTAG. A remote device reports the identity of the local device it is reached through.
-    // TODO: temporary - not part of the Base API. Answered by get_device_protocol()->get_mmio_id()
-    // once DeviceProtocol moves here.
-    virtual int get_communication_device_id() const = 0;
-
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;
+
+    /**
+     * @brief The device's management firmware component.
+     *
+     * Created and owned by the concrete model, like every other component: the model knows its
+     * architecture and backend statically, so no dispatch is involved in picking the implementation.
+     */
+    virtual DeviceFirmware *get_device_firmware() = 0;
 
     virtual ArchitectureImplementation *get_architecture_impl() = 0;
 
@@ -63,7 +62,12 @@ public:
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
+    // Lent from the firmware component, which owns them because they read state the firmware
+    // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the
+    // default - a simulated device has no firmware-published state to read.
     virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() { return nullptr; }
+
+    virtual FirmwareInfoProvider *get_firmware_info_provider() { return nullptr; }
 
     // Optional transport interfaces.
     virtual PcieInterface *get_pcie_interface() { return nullptr; }

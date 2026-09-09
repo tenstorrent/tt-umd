@@ -69,22 +69,22 @@ void bind_error(nb::module_ &m) {
         .def_rw("core", &DeviceCoreData::core)
         .def_rw("noc_id", &DeviceCoreData::noc_id);
 
-    // ArcStartupData.
-    nb::class_<ArcStartupData, DeviceCoreData>(error_module, "ArcStartupData")
+    // FirmwareStartupData.
+    nb::class_<FirmwareStartupData, DeviceCoreData>(error_module, "FirmwareStartupData")
         .def(nb::init<>(), release_gil())
-        .def_rw("scratch_status", &ArcStartupData::scratch_status)
-        .def_rw("postcode", &ArcStartupData::postcode)
-        .def_rw("message_id", &ArcStartupData::message_id)
-        .def_rw("smc_init_status", &ArcStartupData::smc_init_status);
+        .def_rw("scratch_status", &FirmwareStartupData::scratch_status)
+        .def_rw("postcode", &FirmwareStartupData::postcode)
+        .def_rw("message_id", &FirmwareStartupData::message_id)
+        .def_rw("smc_init_status", &FirmwareStartupData::smc_init_status);
 
-    // ArcStartupError.
-    nb::class_<ArcStartupError>(error_module, "ArcStartupError")
+    // FirmwareStartupError.
+    nb::class_<FirmwareStartupError>(error_module, "FirmwareStartupError")
         .def(
             "message",
-            nb::overload_cast<>(&ArcStartupError::message, nb::const_),
+            nb::overload_cast<>(&FirmwareStartupError::message, nb::const_),
             release_gil(),
             "Get the error message")
-        .def_prop_ro("data", nb::overload_cast<>(&ArcStartupError::data, nb::const_), "Get the error data");
+        .def_prop_ro("data", nb::overload_cast<>(&FirmwareStartupError::data, nb::const_), "Get the error data");
 
     // NocHangData.
     nb::class_<NocHangData, TTDeviceData>(error_module, "NocHangData")

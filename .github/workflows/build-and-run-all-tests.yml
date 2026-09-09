@@ -97,6 +97,17 @@ on:
         type: string
         default: ""
 
+# Must be declared here, and not left to the default token, because a workflow this one calls only
+# receives the permissions its caller declares explicitly. Without this block, run-ttsim-tests.yml
+# is handed no `actions` scope, and its nested regression-check job - which needs `actions: read` for
+# the download-artifact API - fails workflow validation on a direct dispatch of this workflow.
+# `actions: write` is what the merge-queue fail-fast watchers below need for the cancel-workflow API;
+# `contents: read` and `packages: read` cover checkout and ghcr.io image pulls in the called workflows.
+permissions:
+  contents: read
+  actions: write
+  packages: read
+
 jobs:
   # Define all available cards which will be used for testing.
   cards:
@@ -126,8 +137,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
             {"arch": "blackhole",   "card": "g13blx01"},
-            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
-            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
+            {"arch": "blackhole",   "card": "BH-Quietbox-2"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
           ]
           EOF
@@ -152,9 +162,8 @@ jobs:
         # To avoid contention on single machines, we blacklist PR runs, and merge queue runs on Asan and Tsan,
         # as these are unlikely to be the only failures. We also don't need both hugepage and viommu runs.
         # - P300-viommu is a shared pool of 3 P300 machines.
-        # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
-        #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
-        #   It recently became congested, so it is blacklisted from merge queue for now, but will still run on main.
+        # - BH-Quietbox-2 is a small pool, and has no hugepage flavour. To keep contention on it
+        #   low it is skipped on PRs entirely, and in the merge queue it runs on Release only.
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
         # - 6u is a single machine and the main merge queue bottleneck, so in the merge queue it
         #   runs on one build type only. Release is dropped because the PR gate already covers it,
@@ -168,8 +177,9 @@ jobs:
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
-            'pull_request|*|tt-ubuntu-2204-bh-loudbox-*' \
-            'merge_group|*|tt-ubuntu-2204-bh-loudbox-*' \
+            'pull_request|*|BH-Quietbox-2' \
+            'merge_group|ASan|BH-Quietbox-2' \
+            'merge_group|TSan|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|Release|6u' \
@@ -358,11 +368,12 @@ jobs:
     secrets: inherit
     # needs build-tests for the UMD wheel, and build-exalens-kernels for ordering (the artifact
     # must be uploaded before the tests download it). When build-exalens-kernels is skipped
-    # (a caller built it once and provided it), always() lets this run anyway; it still requires
-    # build-tests to have succeeded for the wheel.
+    # (a caller built it once and provided it), !cancelled() lets this run anyway; it still
+    # requires build-tests to have succeeded for the wheel. always() would do the same for the
+    # skip, but would also start this matrix inside an already-cancelled run.
     # TSan builds only run the unified tests, so exalens is skipped for them.
     needs: [build-tests, build-exalens-kernels]
-    if: always() && needs.build-tests.result == 'success' && inputs.build-type != 'TSan'
+    if: ${{ !cancelled() && needs.build-tests.result == 'success' && inputs.build-type != 'TSan' }}
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
@@ -405,9 +416,14 @@ jobs:
   # up to the sibling top-level builds (Release/ASan/TSan), giving end-to-end fail-fast.
   # One watcher per job by design — a single watcher with multi-job `needs` would wait for
   # every need to settle before evaluating `if: failure()`, defeating the purpose.
+  #
+  # The !cancelled() gate keeps a run cancellation (manual, or by one of these watchers) from
+  # spawning the remaining watchers to re-cancel a run that is already going away. 'cancelled'
+  # stays in the watched result list so a job killed by its own timeout-minutes, which leaves
+  # the run itself alive, still trips fail-fast.
   fail-fast-build-tests:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.build-tests.result)
     needs: [build-tests]
     runs-on: ubuntu-latest
@@ -418,7 +434,7 @@ jobs:
 
   fail-fast-test-all:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.test-all.result)
     needs: [test-all]
     runs-on: ubuntu-latest
@@ -429,7 +445,7 @@ jobs:
 
   fail-fast-ttsim:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-ttsim-tests.result)
     needs: [run-ttsim-tests]
     runs-on: ubuntu-latest
@@ -440,7 +456,7 @@ jobs:
 
   fail-fast-tooling:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-tooling-tests.result)
     needs: [run-tooling-tests]
     runs-on: ubuntu-latest
@@ -451,7 +467,7 @@ jobs:
 
   fail-fast-exalens:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-exalens-tests.result)
     needs: [run-exalens-tests]
     runs-on: ubuntu-latest
@@ -462,7 +478,7 @@ jobs:
 
   fail-fast-tracy:
     if: |
-      always() && inputs.triggering-event == 'merge_group' &&
+      !cancelled() && inputs.triggering-event == 'merge_group' &&
       contains(fromJSON('["failure", "cancelled"]'), needs.run-tracy.result)
     needs: [run-tracy]
     runs-on: ubuntu-latest

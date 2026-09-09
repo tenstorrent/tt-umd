@@ -762,6 +762,30 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
     }
 }
 
+// The register accessors on the TTDevice itself, rather than through Cluster. The two are not the
+// same path: a Chip may answer register access without ever entering TTDevice's register accessors
+// (SimulationChip delegates them to the bulk path a layer above), so only a direct call exercises
+// the TTDevice-level implementation -- the shared one on silicon, the simulation override on a
+// simulation backend.
+TEST_F(TestDeviceIOFixture, TTDeviceRegReadWrite) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+
+    constexpr uint32_t written_value = 0xABCD1234;
+    tt_device->write_to_device_reg(&written_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(written_value));
+
+    uint32_t reg_readback = 0;
+    tt_device->read_from_device_reg(&reg_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(reg_readback));
+    EXPECT_EQ(written_value, reg_readback);
+
+    // The bulk path must observe the same memory, whether or not it is the same transport.
+    uint32_t bulk_readback = 0;
+    tt_device->read_from_device(&bulk_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(bulk_readback));
+    EXPECT_EQ(written_value, bulk_readback);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     CoreTypes,
     TestDeviceIOFixture,

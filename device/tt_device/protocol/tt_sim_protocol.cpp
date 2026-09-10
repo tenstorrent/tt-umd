@@ -6,6 +6,7 @@
 
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -16,17 +17,22 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     chip_id_ = chip_id;
 }
 
-void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId /*noc_id*/) {
+void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     // The device's path already picks between the cached TLB window and direct tile access by
     // architecture -- Wormhole and Blackhole reach the NOC through the window, and tile access is
     // fatal on them; Quasar has no TLBs and uses tile access. Reaching that path rather than
     // duplicating it is what keeps both architectures served by one protocol.
     UMD_ASSERT(device_ != nullptr, error::RuntimeError, "TTSimProtocol used before it was attached to a device.");
+    // That path configures its window from the thread-selected NOC, but the caller resolved the
+    // coordinate for noc_id. Selecting it here keeps the transaction on the NOC its coordinate was
+    // translated for, which is what PcieProtocol does by passing noc_id down to the window.
+    NocIdSwitcher noc_switcher(noc_id);
     device_->noc_read_translated(core, addr, dst, size);
 }
 
-void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId /*noc_id*/) {
+void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     UMD_ASSERT(device_ != nullptr, error::RuntimeError, "TTSimProtocol used before it was attached to a device.");
+    NocIdSwitcher noc_switcher(noc_id);
     device_->noc_write_translated(core, addr, src, size);
 }
 

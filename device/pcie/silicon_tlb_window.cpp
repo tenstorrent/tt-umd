@@ -158,6 +158,8 @@ void SiliconTlbWindow::read_block_impl(uint64_t offset, void *data, size_t size)
     }
 }
 
+// A fault here updates nothing (the handle assigns tlb_config_ only after the write lands), and every
+// transfer reconfigures first, so a half-written window is always fully rewritten before it is used.
 void SiliconTlbWindow::configure_impl(const tlb_data &new_config) {
     TlbWindow::configure(new_config);
     update_io_timeout_callback();

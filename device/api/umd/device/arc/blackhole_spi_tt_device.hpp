@@ -15,6 +15,8 @@
 
 namespace tt::umd {
 
+class BlackholeDeviceFirmware;
+
 class TTDevice;
 
 // Boot filesystem structures and constants.
@@ -108,6 +110,10 @@ private:
      * @return The field value if found, nullopt otherwise
      */
     std::optional<uint32_t> extract_protobuf_uint32_field(const uint8_t* data, size_t size, uint32_t field_number);
+
+    // The concrete firmware, for its ARC APB window (the SPI dump buffer descriptor lives in ARC
+    // scratch registers); see WormholeSPITTDevice for why the concrete type is held here.
+    BlackholeDeviceFirmware* firmware_ = nullptr;
 };
 
 }  // namespace tt::umd

@@ -93,6 +93,12 @@ public:
         return false;
     }
 
+    // A simulated device has no ARC reset unit to read the counter from. Throwing matches the "ARC
+    // APB access is not supported" failure the read produced before it moved here.
+    uint64_t get_refclk_counter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        UMD_THROW(error::RuntimeError, "The refclk counter is not available for a simulated device.");
+    }
+
 private:
     tt::ARCH arch_ = tt::ARCH::Invalid;
 };

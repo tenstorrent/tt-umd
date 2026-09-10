@@ -95,45 +95,4 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
-void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
-    }
-    if (is_remote()) {
-        read_from_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
-        return;
-    }
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        get_device_protocol()->read_ctrl(
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0],
-            registers_.arc_apb_noc_base_address + arc_addr_offset,
-            sizeof(uint32_t),
-            NocId::DEFAULT_NOC);
-        return;
-    }
-    auto result = bar_read32(registers_.arc_apb_bar0_offset + arc_addr_offset);
-    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
-}
-
-void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
-    }
-    if (is_remote()) {
-        write_to_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
-        return;
-    }
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        get_device_protocol()->write_ctrl(
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0],
-            registers_.arc_apb_noc_base_address + arc_addr_offset,
-            sizeof(uint32_t),
-            NocId::DEFAULT_NOC);
-        return;
-    }
-    bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
-}
-
 }  // namespace tt::umd

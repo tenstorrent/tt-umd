@@ -368,12 +368,17 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
+std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return create_io_window(target, host, IoOrdering::Strict);
+}
+
 // Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
 // virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
 // SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
 // the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
 // without touching this signature or any caller.
-std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+std::unique_ptr<IoWindow> TTDevice::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
     // which harvesting shifts, so the rectangle they bound is not the one the caller asked for.
     UMD_ASSERT(
@@ -417,7 +422,7 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
-    window->configure(target);
+    window->configure(target, ordering);
     return window;
 }
 

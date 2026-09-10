@@ -123,6 +123,8 @@ public:
      *
      * @param simulator_path Path to the libttsim .so to enumerate.
      * @return Bus/device/function identifiers of the present endpoints, in ascending order.
+     * @throws error::RuntimeError if a simulator is already initialized in this process, rather than
+     *         re-initializing it fatally and stopping it under the communicators using it.
      */
     static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 

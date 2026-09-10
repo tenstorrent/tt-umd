@@ -32,11 +32,6 @@ public:
     // whenever one is present, and refuses to proceed without a detector to ask.
     HangDetector *get_hang_detector() override;
 
-    // Replace the firmware that reports nothing with the architecture's own, which reads what the
-    // simulator publishes. Called only once a usable protocol is attached: an architecture firmware
-    // reads the device in its constructor. A no-op for architectures that publish no firmware state.
-    void use_arch_device_firmware();
-
     DeviceFirmware *get_device_firmware() override;
 
     // Lent onward from the firmware, exactly as the silicon models do.
@@ -51,6 +46,16 @@ public:
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
+    // Its precondition -- a protocol with a working transport -- is one only the protocol itself
+    // can know it has met, so attach() is the single caller rather than this being public with a
+    // condition no one outside can check.
+    friend class TTSimProtocol;
+
+    // Replace the firmware that reports nothing with the architecture's own, which reads what the
+    // simulator publishes. Called only once a usable protocol is attached: an architecture firmware
+    // reads the device in its constructor. A no-op for architectures that publish no firmware state.
+    void use_arch_device_firmware();
+
     // Which architecture's firmware use_arch_device_firmware() installs.
     tt::ARCH arch_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;

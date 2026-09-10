@@ -20,7 +20,7 @@ on:
           - tt-ubuntu-2204-p150b-stable
           - P300-viommu
           - tt-ubuntu-2204-wh-glx-6u-stable
-          - 6u
+          - wh-glx-6u
       build-type:
         description: 'CMake build type'
         required: true

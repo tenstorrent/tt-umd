@@ -30,10 +30,6 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
     ~WormholeTTDevice() override = default;
 
 protected:

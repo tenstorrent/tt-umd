@@ -14,6 +14,7 @@
 namespace tt::umd {
 
 class TTDevice;
+class WormholeDeviceFirmware;
 
 /**
  * Wormhole-specific SPI implementation.
@@ -56,6 +57,12 @@ private:
     void unlock();
     void lock(uint8_t sections);
     uint8_t read_status(uint8_t register_addr);
+
+    // The concrete firmware, for its ARC APB window: SPI control registers live behind ARC APB, and
+    // raw APB access is deliberately not part of TTDevice or DeviceFirmware. This class is
+    // constructed only for Wormhole devices, so the concrete type is resolved (and checked) once in
+    // the constructor.
+    WormholeDeviceFirmware* firmware_ = nullptr;
 };
 
 }  // namespace tt::umd

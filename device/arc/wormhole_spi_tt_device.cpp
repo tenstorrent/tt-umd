@@ -19,6 +19,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
+#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -77,7 +78,13 @@ static inline uint32_t spi_ser_slave_disable(uint32_t slave_id) { return 0x0 << 
 
 static inline uint32_t spi_ser_slave_enable(uint32_t slave_id) { return 0x1 << slave_id; }
 
-WormholeSPITTDevice::WormholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
+WormholeSPITTDevice::WormholeSPITTDevice(TTDevice* tt_device) :
+    SPITTDevice(tt_device), firmware_(dynamic_cast<WormholeDeviceFirmware*>(tt_device->get_device_firmware())) {
+    UMD_ASSERT(
+        firmware_ != nullptr,
+        error::RuntimeError,
+        "WormholeSPITTDevice requires a device backed by WormholeDeviceFirmware.");
+}
 
 void WormholeSPITTDevice::get_aligned_params(
     uint32_t addr,
@@ -130,82 +137,82 @@ uint32_t WormholeSPITTDevice::get_clock() {
 
 void WormholeSPITTDevice::init(uint32_t clock_div) {
     uint32_t reg;
-    device_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    firmware_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     reg |= 1 << 2;     // Enable tristate for SPI data in PAD
     reg &= ~(1 << 5);  // Disable tristate for SPI chip select PAD
     reg &= ~(1 << 6);  // Disable tristate for SPI clock PAD
-    device_->write_to_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    firmware_->write_to_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     uint32_t val = 0xffffffff;
-    device_->write_to_arc_apb(&val, GPIO2_PAD_DRV_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, GPIO2_PAD_DRV_CNTL, sizeof(val), get_selected_noc_id());
 
     // Enable RX for all SPI PADS.
-    device_->read_from_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    firmware_->read_from_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg), get_selected_noc_id());
     reg |= 0x3f << 1;  // PADs 1 to 6 are used for SPI quad SCPH support
-    device_->write_to_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    firmware_->write_to_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     val = SPI_CNTL_SPI_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = 0;
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     val = spi_baudr_sckdv(clock_div);
-    device_->write_to_arc_apb(&val, SPI_BAUDR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_BAUDR, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 }
 
 void WormholeSPITTDevice::disable() {
     uint32_t val = SPI_CNTL_CLK_DISABLE | SPI_CNTL_SPI_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val), get_selected_noc_id());
 }
 
 uint8_t WormholeSPITTDevice::read_status(uint8_t register_addr) {
     uint32_t val;
 
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = spi_ctrl1_ndf(0);
-    device_->write_to_arc_apb(&val, SPI_CTRLR1, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR1, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Write status register to read.
     val = register_addr;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for data to be available.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_RFNE) == 0);
 
-    device_->read_from_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->read_from_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
     uint8_t read_buf = val & 0xff;
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     return read_buf;
 }
@@ -215,41 +222,41 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
 
     // Set slave address.
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Enable write.
     val = SPI_WR_EN_CMD;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for TX FIFO empty.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Write sectors to lock.
     val = SPI_WR_STATUS_CMD;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     // Determine board type to figure out which SPI to use.
     uint64_t board_id = device_->get_board_id();
@@ -264,23 +271,23 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     } else {
         val = (0x1 << 5) | ((static_cast<uint32_t>(sections) - 5) << 2);
     }
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for TX FIFO empty.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for lock operation to complete.
     while ((read_status(SPI_RD_STATUS_CMD) & 0x1) == 0x1) {

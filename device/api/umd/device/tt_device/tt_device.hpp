@@ -285,40 +285,6 @@ public:
     virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Read function that will send read message to the ARC core APB peripherals.
-     *
-     * @param mem_ptr pointer to memory which will receive the data
-     * @param arc_addr_offset address offset in ARC core APB peripherals
-     * @param size number of bytes
-     *
-     * NOTE: This function will read from APB peripherals. It will use the AXI interface to read the data if the chip is
-     * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
-     * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
-     * chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
-     * Write function that will send write message to the ARC core APB peripherals.
-     *
-     * @param mem_ptr pointer to memory from which the data is sent
-     * @param arc_addr_offset address offset in ARC core APB peripherals
-     * @param size number of bytes
-     *
-     * NOTE: This function will write to APB peripherals. It will use the AXI interface to write the data if the chip is
-     * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
      * Configures a PCIe Address Translation Unit (iATU) region.
      *
      * Device software expects to be able to access memory that is shared with

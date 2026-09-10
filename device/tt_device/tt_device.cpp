@@ -24,7 +24,6 @@
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -56,7 +55,6 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -534,25 +532,6 @@ ChipInfo TTDevice::get_chip_info() {
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
 uint32_t TTDevice::get_clock() {
-    // TODO: temporary - Wormhole keeps the GET_AICLK firmware command it always used, preserving
-    // the exact behavior, until a test confirms the firmware info provider's telemetry read
-    // reports the same value (the smbus telemetry word can lag the instantaneous readout). Once
-    // confirmed, delete this branch; if they differ, the provider grows the per-arch handling
-    // instead.
-    if (get_arch() == tt::ARCH::WORMHOLE_B0) {
-        // There is one return value from the GET_AICLK message.
-        DeviceCommandResult result = get_device_firmware()->send_device_command(
-            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-            {0xFFFF, 0xFFFF},
-            timeout::ARC_MESSAGE_TIMEOUT,
-            get_selected_noc_id());
-        if (result.exit_code != 0) {
-            UMD_THROW(
-                error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
-        }
-        return result.return_values.at(0);
-    }
-
     const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
     if (!aiclk.has_value()) {
         UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");

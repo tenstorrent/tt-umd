@@ -316,8 +316,4 @@ void SimulationTTDevice::dma_write_to_core_range(
     UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
 }
 
-uint32_t SimulationTTDevice::get_clock() {
-    UMD_THROW(error::RuntimeError, "Getting clock is not supported for simulation devices.");
-}
-
 }  // namespace tt::umd

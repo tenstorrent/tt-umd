@@ -22,9 +22,6 @@ class PCIDevice;
 enum class IODeviceType;
 
 class BlackholeTTDevice : public TTDevice {
-public:
-    uint32_t get_clock() override;
-
 protected:
     explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 

@@ -42,12 +42,4 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
 
-uint32_t BlackholeTTDevice::get_clock() {
-    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::AICLK)) {
-        return get_firmware_telemetry_reader()->read_entry(TelemetryTag::AICLK);
-    }
-
-    UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
-}
-
 }  // namespace tt::umd

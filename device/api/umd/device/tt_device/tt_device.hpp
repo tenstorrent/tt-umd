@@ -284,34 +284,6 @@ public:
      */
     virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
-    /**
-     * Configures a PCIe Address Translation Unit (iATU) region.
-     *
-     * Device software expects to be able to access memory that is shared with
-     * the host using the following NOC addresses at the PCIe core:
-     * - GS: 0x0
-     * - WH: 0x8_0000_0000
-     * - BH: 0x1000_0000_0000_0000
-     * Without iATU configuration, these map to host PA 0x0.
-     *
-     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
-     * maintain the iATU configuration to satisfy software that has hard-coded
-     * the above NOC addresses rather than using driver-provided IOVAs.
-     *
-     * This interface is only intended to be used for configuring sysmem with
-     * either 1GB hugepages or a compatible scheme.
-     *
-     * @param region iATU region index (0-15)
-     * @param target DMA address (PA or IOVA) to map to
-     * @param region_size size of the mapping window; must be (1 << 30)
-     *
-     * NOTE: Programming the iATU from userspace is architecturally incorrect:
-     * - iATU should be managed by KMD to ensure proper cleanup on process exit
-     * - Multiple processes can corrupt each other's iATU configurations
-     * We should fix this!
-     */
-    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
-
     ChipInfo get_chip_info();
 
     FirmwareBundleVersion get_firmware_version();

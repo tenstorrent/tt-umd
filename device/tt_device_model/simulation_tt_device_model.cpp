@@ -5,6 +5,7 @@
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 
 #include <filesystem>
+#include <tt-logger/tt-logger.hpp>
 
 #include "soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -26,10 +27,23 @@ namespace {
 // that path the recorded path is stale and the constants are the right fallback.
 std::shared_ptr<SocArchDescriptor> resolve(
     const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
-    if (soc_arch_descriptor == nullptr && !soc_descriptor.device_descriptor_file_path.empty() &&
+    if (soc_arch_descriptor != nullptr) {
+        log_debug(tt::LogEmulationDriver, "Simulated device uses the SocArchDescriptor supplied by the caller.");
+        return resolve_soc_arch_descriptor(soc_descriptor.arch, soc_arch_descriptor);
+    }
+    if (!soc_descriptor.device_descriptor_file_path.empty() &&
         std::filesystem::exists(soc_descriptor.device_descriptor_file_path)) {
+        log_debug(
+            tt::LogEmulationDriver,
+            "Simulated device uses the SocArchDescriptor from the simulator's own {}.",
+            soc_descriptor.device_descriptor_file_path);
         return std::make_shared<SocArchDescriptor>(soc_descriptor.device_descriptor_file_path);
     }
+    log_debug(
+        tt::LogEmulationDriver,
+        "Simulated device uses the {} architecture constants: no simulator descriptor at '{}'.",
+        arch_to_str(soc_descriptor.arch),
+        soc_descriptor.device_descriptor_file_path);
     return resolve_soc_arch_descriptor(soc_descriptor.arch, soc_arch_descriptor);
 }
 

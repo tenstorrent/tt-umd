@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -373,16 +374,26 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
 std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
 
+    // This starts and stops an image of its own, so a simulator already running in this process
+    // would be re-initialized -- fatal inside the simulator -- and then torn down underneath the
+    // communicators still using it. Refuse instead, naming the ordering the caller has to keep.
+    UMD_ASSERT(
+        !s_sim_initialized_,
+        error::RuntimeError,
+        "enumerate_mmio_device_bdfs() must run before any simulator is brought up in this process: a "
+        "simulator is already initialized, and enumerating would re-initialize and then stop it.");
+
     void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
     if (handle == nullptr) {
         UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
     }
+    // Closed however this returns: the throwing paths below would otherwise leak the handle.
+    std::unique_ptr<void, int (*)(void *)> handle_guard(handle, &dlclose);
 
     auto config_read32 = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t)>(dlsym(handle, "libttsim_pci_config_rd32"));
     auto sim_init = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_init"));
     auto sim_exit = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_exit"));
     if (config_read32 == nullptr || sim_init == nullptr || sim_exit == nullptr) {
-        dlclose(handle);
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -393,6 +404,15 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
     // already running is fatal inside the simulator, which is why this must run before any
     // simulator is brought up -- see the header.
     sim_init();
+
+    // Stopped even if the walk below throws: config_read32 is documented to throw ConfigurationError,
+    // and a left-running image makes the next enumeration or device open hit that fatal path.
+    // Declared after handle_guard so the image stops before its library is unloaded.
+    struct SimRunGuard {
+        void (*exit_fn)();
+
+        ~SimRunGuard() { exit_fn(); }
+    } sim_run_guard{sim_exit};
 
     // The device field is 5 bits, so bus 0 holds at most 32 endpoints; anything beyond would carry
     // into the bus field, which the simulator rejects fatally.
@@ -406,8 +426,6 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         }
     }
 
-    sim_exit();
-    dlclose(handle);
     return bdfs;
 }
 

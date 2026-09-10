@@ -105,12 +105,17 @@ private:
     }
 };
 
+// True for the UBB board types reset over IPMI (ubb_warm_reset()) rather than through PCIe-level
+// warm_reset(), i.e. 4U and 6U Galaxy configurations.
+inline bool is_galaxy_board_type(tt::BoardType board_type) {
+    return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
+           board_type == tt::BoardType::UBB_BLACKHOLE_BIN6;
+}
+
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     return !cluster->get_target_device_ids().empty() &&
-           (cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_WORMHOLE ||
-            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE ||
-            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE_BIN6);
+           is_galaxy_board_type(cluster->get_cluster_description()->get_board_type(0));
 }
 
 // Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores

@@ -38,6 +38,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -63,6 +64,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
@@ -107,8 +109,7 @@ bool wait_for_condition(Predicate predicate, const std::chrono::milliseconds tim
 bool is_galaxy_board(int pci_device_id) {
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
-    const BoardType board_type = tt_device->get_board_type();
-    return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE;
+    return is_galaxy_board_type(tt_device->get_board_type());
 }
 
 }  // namespace
@@ -130,17 +131,6 @@ protected:
             GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
         }
 
-        // Everything below rests on KMD invalidating a device's PCIe mappings when it resets the
-        // device. Older drivers leave the mappings live: the reset still happens, but the host keeps
-        // a valid vma over a device that is gone, so the TLB reconfigure's posted write is dropped
-        // and the transfer's read comes back as all-ones instead of raising SIGBUS. Nothing then
-        // faults, and a test waiting for SigbusError just runs its I/O loop to its timeout.
-        static constexpr SemVer MIN_KMD_VERSION{2, 6, 0};
-        const SemVer kmd_version = PCIDevice::read_kmd_version();
-        ASSERT_TRUE(kmd_version >= MIN_KMD_VERSION)
-            << "KMD " << kmd_version.str() << " does not invalidate PCIe mappings on device reset; the safe-I/O "
-            << "warm-reset tests need " << MIN_KMD_VERSION.str() << " or newer.";
-
         pci_device_ids_ = PCIDevice::enumerate_devices();
         if (pci_device_ids_.empty()) {
             GTEST_SKIP() << "No PCI devices found.";
@@ -151,6 +141,15 @@ protected:
         static const bool galaxy_board = is_galaxy_board(pci_device_ids_.front());
         if (galaxy_board) {
             GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
+        }
+
+        // Everything below rests on KMD invalidating PCIe mappings on reset; older drivers leave a
+        // stale mapping live, so nothing faults and a SigbusError-waiting test just times out. A
+        // skip, not a hard fail: read_kmd_version() also reads back {0,0,0} with no module loaded.
+        const SemVer kmd_version = PCIDevice::read_kmd_version();
+        if (!(kmd_version >= KMD_RESET_MAPPING_INVALIDATION)) {
+            GTEST_SKIP() << "KMD " << kmd_version.str() << " does not invalidate PCIe mappings on device reset; the "
+                         << "safe-I/O warm-reset tests need " << KMD_RESET_MAPPING_INVALIDATION.str() << " or newer.";
         }
     }
 
@@ -186,12 +185,11 @@ protected:
         }
     }
 
-    // Drops the handles and restores the default SIGBUS disposition. The handler is process-wide, so
-    // leaving it installed would turn an unrelated SIGBUS in a later test in this binary into a
-    // silent _exit() instead of a crash with a usable core dump.
+    // Restores SIG_DFL before dropping the handles: ~BlackholeTTDevice() does unguarded BAR2 writes
+    // that can SIGBUS on a dead mapping, so clearing first would silently _exit() instead of crashing.
     void close_safe_devices() {
-        tt_devices_.clear();
         TTDevice::set_sigbus_safe_handler(false);
+        tt_devices_.clear();
     }
 
     TTDevice* first_device() { return tt_devices_.at(pci_device_ids_.front()).get(); }
@@ -285,10 +283,22 @@ TEST_P(SafeIoWarmResetParamTest, SafeApiHandlesReset) {
     reset_issued_ = true;
     std::thread reset_worker([&, delay_us = GetParam()]() {
         std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        reset_ok = WarmReset::warm_reset();
+        try {
+            reset_ok = WarmReset::warm_reset();
+        } catch (const std::exception&) {
+            // An uncaught exception here would call std::terminate() on this thread.
+        }
     });
 
-    const bool caught_sigbus = hammer_until_sigbus();
+    bool caught_sigbus = false;
+    try {
+        caught_sigbus = hammer_until_sigbus();
+    } catch (...) {
+        // Join before rethrowing: reset_worker is still joinable here, and unwinding past a
+        // joinable std::thread also calls std::terminate().
+        reset_worker.join();
+        throw;
+    }
 
     reset_worker.join();
 
@@ -344,7 +354,11 @@ TEST_F(SafeIoWarmResetTest, SafeApiMultiThreaded) {
 
     reset_issued_ = true;
     std::thread reset_worker([&]() {
-        reset_ok = WarmReset::warm_reset();
+        try {
+            reset_ok = WarmReset::warm_reset();
+        } catch (const std::exception&) {
+            // An uncaught exception here would call std::terminate() on this thread.
+        }
         reset_complete = true;
     });
 
@@ -444,6 +458,9 @@ TEST_F(SafeIoWarmResetTest, SafeApiMultiProcess) {
                 return "failed to open its safe-API device";
             case EXIT_RESET_WAIT_TIMEOUT:
                 return "timed out waiting for the reset to complete";
+            case SIGBUS:
+                // _exit(sig) from sigbus_handler()'s unguarded fallback: a normal exit, not WIFSIGNALED.
+                return "took an unguarded SIGBUS (the safe-I/O guard was not in effect for that fault)";
             default:
                 return "unknown failure";
         }

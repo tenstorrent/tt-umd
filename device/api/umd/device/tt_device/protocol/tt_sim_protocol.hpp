@@ -70,7 +70,11 @@ private:
 
     SimulationTTDevice* device_ = nullptr;
     TTSimCommunicator* communicator_ = nullptr;
-    int chip_id_ = 0;
+    // -1 until attach() runs. RTL simulation and client mode build this model but never attach a
+    // transport to it, and a device with no MMIO endpoint is what
+    // TTDevice::get_communication_device_id() reports as -1. Defaulting to 0 would instead have
+    // those devices claim MMIO device 0.
+    int chip_id_ = -1;
     uint64_t bar0_base_ = 0;
     bool bar0_base_read_ = false;
 };

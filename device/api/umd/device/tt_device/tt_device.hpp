@@ -341,7 +341,15 @@ public:
 
     uint32_t get_max_clock_freq();
 
-    virtual uint32_t get_min_clock_freq() = 0;
+    /**
+     * @brief Retrieves the minimum supported clock frequency of the device.
+     *
+     * A static architecture constant (the idle AICLK), not firmware state, so it is served by the
+     * architecture implementation.
+     *
+     * @return uint32_t Minimum clock frequency in MHz.
+     */
+    uint32_t get_min_clock_freq();
 
     // Advance the device by one clock cycle. No-op by default; overridden by devices with a
     // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the

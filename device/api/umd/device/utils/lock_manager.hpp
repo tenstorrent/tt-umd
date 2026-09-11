@@ -79,9 +79,10 @@ public:
 
     // This set of functions is used to manage mutexes which are chip specific.
     //
-    // kmd_lock_available says whether the device has a KMD lock table to take the lock through. A PCIe
-    // device does, and gets a lock backed by both that and shared memory; passing false selects the
+    // kmd_lock_available says whether the device has a KMD lock table to take the lock through. A silicon
+    // PCIe device does, and gets a lock backed by both that and shared memory; passing false selects the
     // shared memory half alone, for a device that presents a PCIe surface with no KMD device behind it.
+    // The device type alone does not settle it: a simulated device reports IODeviceType::PCIe too.
     // Either way the lock keeps one name, so acquire_mutex() below is unaffected by the choice.
     static void initialize_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type, bool kmd_lock_available = true);

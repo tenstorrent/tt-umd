@@ -62,5 +62,7 @@
 - Each test should cover one scenario, so that a failure names the case that broke. When the same behavior has to be checked across several inputs, use a parameterized test instead of looping over the cases inside a single test.
 
 ## Reviewing PRs workflow
+- If a PR stack is being reviewed, you can take a brief look at whole stack, but process PRs one by one. Provide comments that you think are relevant for one of the PRs, argue and discuss with the user, and upon confirming post the comments for that single PR.
+- Any suggested comments should be presented through a git unstaged text file for user to review.
 
 ## External knowledge

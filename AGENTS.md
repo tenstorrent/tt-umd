@@ -57,3 +57,9 @@
 - Any suggested comments should be presented through a git unstaged text file for user to review.
 
 ## External knowledge
+Use the parent of this repo as the work folder where you can git clone relevant repositories, or look at already cloned ones.
+In the same local folder, there should be TT_SUMMARY.md which you can load and use to point you to the right repository when you're looking for some code.
+If that file doesn't exist, generate it before proceeding. Scan local repos in work folder, analyze them briefly and produce the summary.
+The resulting TT_SUMMARY.md should have very brief descriptions of what code it holds, so the agent debugging something can figure out where to look for relevant code.
+
+Glean MCP can offer access to internal company resources, including documents, private repos, internal tools, and already reported issues and bugs. Use it when it helps your investigation. If this MCP connection is not setup and you would use it as part of current query if it was available, alert the user what they're missing out on.

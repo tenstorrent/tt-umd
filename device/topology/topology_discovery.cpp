@@ -22,6 +22,7 @@
 
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
+#include "common/utils.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -127,7 +128,11 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
     if (td == nullptr) {
-        return std::make_pair(std::make_unique<ClusterDescriptor>(), std::move(devices));
+        // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
+        // Callers and the Python bindings go through discover() even on an empty machine.
+        auto cluster_desc = std::make_unique<ClusterDescriptor>();
+        cluster_desc->cluster_id = utils::resolve_cluster_id(options.cluster_id);
+        return std::make_pair(std::move(cluster_desc), std::move(devices));
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     // Resort devices by ChipID instead of internal unique identifiers.
@@ -514,6 +519,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
+    // The caller-supplied cluster id, else the OS hostname. Stays unset if neither is usable.
+    cluster_desc->cluster_id = utils::resolve_cluster_id(options.cluster_id);
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->fw_bundle_version = first_fw_bundle_version;

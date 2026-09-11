@@ -39,7 +39,7 @@ protected:
 // works again afterwards. This is primarily a warm-reset recovery test (the NOC hang is just the way to
 // put the device in a bad state), which is why it lives in its own file rather than alongside the
 // is_noc_hung / MMIO-timeout API tests. It is still destructive, so it stays in the on-demand
-// hang_detection_tests target. Skipped on Wormhole (a warm reset may not recover the device there,
+// destructive_tests target. Skipped on Wormhole (a warm reset may not recover the device there,
 // needing a watchdog reset) and on ARM64 (can hang the whole host).
 TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

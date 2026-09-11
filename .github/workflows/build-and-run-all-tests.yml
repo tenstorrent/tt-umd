@@ -132,11 +132,11 @@ jobs:
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p100a-viommu-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
-            {"arch": "wormhole_b0", "card": "6u"},
+            {"arch": "wormhole_b0", "card": "wh-glx-6u"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
-            {"arch": "blackhole",   "card": "g13blx01"},
+            {"arch": "blackhole",   "card": "bh-glx-6u"},
             {"arch": "blackhole",   "card": "BH-Quietbox-2"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
           ]
@@ -164,14 +164,16 @@ jobs:
         # - P300-viommu is a shared pool of 3 P300 machines.
         # - BH-Quietbox-2 is a small pool, and has no hugepage flavour. To keep contention on it
         #   low it is skipped on PRs entirely, and in the merge queue it runs on Release only.
-        # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
-        # - 6u is a single machine and the main merge queue bottleneck, so in the merge queue it
-        #   runs on one build type only. Release is dropped because the PR gate already covers it,
-        #   and of the two sanitizer builds ASan is kept over TSan as the more valuable of the two.
+        # - The tt-ubuntu-2204-wh-glx-6u-* runners are also one machine, but not yet fully proven,
+        #   so don't want to block merge queue with them.
+        # - wh-glx-6u is fully disabled on all events for now due to temporary issues on the
+        #   machine; re-enable once it is stable (see #3413).
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
-        # - g13blx01 is the Blackhole Galaxy machine. It is fully disabled on all events for now as
-        #   it has been causing CI problems; re-enable once the machine is stable (see #3070).
+        # - bh-glx-6u is the Blackhole Galaxy machine, a single machine and a merge queue bottleneck,
+        #   so in the merge queue it runs on one build type only. Release is dropped because the PR
+        #   gate already covers it, and of the two sanitizer builds ASan is kept over TSan as the
+        #   more valuable of the two.
         # - ubuntu-22.04 is the baremetal (no device) entry. TSan builds run only the unified tests,
         #   which don't run on baremetal, so a baremetal TSan job would have nothing to do.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
@@ -182,11 +184,11 @@ jobs:
             'merge_group|TSan|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'merge_group|Release|6u' \
-            'merge_group|TSan|6u' \
+            '*|*|wh-glx-6u' \
+            'merge_group|Release|bh-glx-6u' \
+            'merge_group|TSan|bh-glx-6u' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
-            '*|*|g13blx01' \
             '*|TSan|ubuntu-22.04' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
@@ -347,7 +349,9 @@ jobs:
           {runs-on: tt-ubuntu-2204-n150-stable},
           {runs-on: tt-ubuntu-2204-n300-stable},
           {runs-on: tt-ubuntu-2204-n300-llmbox-stable},
-          {runs-on: 6u},
+          # Disabled while the machine is unstable, matching the test matrix blacklist (see #3413).
+          # {runs-on: wh-glx-6u},
+          {runs-on: bh-glx-6u},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

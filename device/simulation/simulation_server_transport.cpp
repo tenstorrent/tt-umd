@@ -5,9 +5,12 @@
 #include "simulation/simulation_server_transport.hpp"
 
 #include <fmt/format.h>
+#include <sys/socket.h>
 
 #include <array>
 #include <asio.hpp>
+#include <cerrno>
+#include <cstring>
 #include <system_error>
 
 #include "umd/device/utils/error.hpp"
@@ -27,8 +30,8 @@ constexpr size_t FRAME_HEADER_SIZE = sizeof(uint32_t);
 constexpr uint32_t MAX_FRAME_PAYLOAD_SIZE = 1u << 30;  // 1 GiB
 
 // asio::write/asio::read transfer exactly n bytes or set ec (short transfer on a closed peer, etc.);
-// convert any failure to a RuntimeError. asio sets MSG_NOSIGNAL on the send, so a closed peer is an
-// error here, never a SIGPIPE.
+// convert any failure to a RuntimeError. Linux uses MSG_NOSIGNAL and send_framed
+// enables SO_NOSIGPIPE on Darwin, so a closed peer is an error here, never a SIGPIPE.
 void write_exact(stream_protocol::socket& socket, const uint8_t* data, size_t n, const char* what) {
     std::error_code ec;
     asio::write(socket, asio::buffer(data, n), ec);
@@ -64,6 +67,16 @@ void read_exact(stream_protocol::socket& socket, uint8_t* data, size_t n, const 
 }  // namespace
 
 void send_framed(stream_protocol::socket& socket, const std::vector<uint8_t>& payload) {
+#ifdef SO_NOSIGPIPE
+    // Darwin has no MSG_NOSIGNAL. This also covers sockets adopted from
+    // socketpair(), which do not pass through asio's socket-creation path.
+    const int no_sigpipe = 1;
+    if (setsockopt(socket.native_handle(), SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe)) != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to disable SIGPIPE on simulator socket: {}", std::strerror(errno)));
+    }
+#endif
     // Bounded so the length always fits the uint32_t prefix and matches what recv_framed() will
     // accept; anything larger is a programming error rather than a truncation.
     UMD_ASSERT(

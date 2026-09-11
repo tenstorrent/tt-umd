@@ -17,19 +17,29 @@ set(API_TESTS_SRCS
     test_jtag.cpp
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
-    test_warm_reset.cpp
     test_tt_visible_devices.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
+    list(APPEND API_TESTS_SRCS test_simulator_host.cpp)
     list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_connector.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_server_protocol.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_device_identity.cpp)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND API_TESTS_SRCS test_macos_platform.cpp)
+else()
+    # Physical-device reset tests use the Linux eventfd synchronization helper.
+    list(APPEND API_TESTS_SRCS test_warm_reset.cpp)
+endif()
+
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    target_link_libraries(api_tests PRIVATE tt-kmd-lib::tt-kmd-lib)
+endif()
 set_target_properties(
     api_tests
     PROPERTIES

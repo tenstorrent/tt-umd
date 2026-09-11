@@ -14,7 +14,11 @@ endif()
 add_library(tt-kmd-lib STATIC)
 add_library(tt-kmd-lib::tt-kmd-lib ALIAS tt-kmd-lib)
 
-target_sources(tt-kmd-lib PRIVATE src/tt_kmd_lib.c)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    target_sources(tt-kmd-lib PRIVATE src/tt_kmd_lib_unsupported.c)
+else()
+    target_sources(tt-kmd-lib PRIVATE src/tt_kmd_lib.c)
+endif()
 
 target_include_directories(
     tt-kmd-lib

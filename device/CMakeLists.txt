@@ -9,8 +9,10 @@ if(TT_UMD_BUILD_SIMULATION)
         ${PROJECT_SOURCE_DIR}/device/simulation/simulation_server_protocol.fbs
     )
     set(FBS_DEPENDS "")
+    set(FBS_COMPILER flatc)
     if(TARGET flatc)
         set(FBS_DEPENDS flatc)
+        set(FBS_COMPILER $<TARGET_FILE:flatc>)
     endif()
     set(FBS_GENERATED_HEADERS "")
     foreach(FBS_FILE ${FBS_FILES})
@@ -20,7 +22,7 @@ if(TT_UMD_BUILD_SIMULATION)
             OUTPUT
                 ${FBS_GENERATED_HEADER}
             COMMAND
-                flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+                ${FBS_COMPILER} --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
             DEPENDS
                 ${FBS_DEPENDS}
                 ${FBS_FILE}
@@ -131,7 +133,8 @@ target_sources(
         warm_reset_with_recovery.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
-        utils/robust_mutex.cpp
+        $<$<PLATFORM_ID:Darwin>:utils/robust_mutex_unsupported.cpp>
+        $<$<NOT:$<PLATFORM_ID:Darwin>>:utils/robust_mutex.cpp>
         utils/kmd_mutex.cpp
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
@@ -343,13 +346,21 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/common
 )
 
+# Resolve the header itself: Homebrew's include directory can contain unrelated
+# versions of dependencies (such as fmt) that shadow our pinned headers.
+find_path(HWLOC_INCLUDE_DIR hwloc.h REQUIRED)
+find_library(HWLOC_LIBRARY hwloc REQUIRED)
+get_filename_component(HWLOC_HEADER_REAL_PATH "${HWLOC_INCLUDE_DIR}/hwloc.h" REALPATH)
+get_filename_component(HWLOC_PRIVATE_INCLUDE_DIR "${HWLOC_HEADER_REAL_PATH}" DIRECTORY)
+target_include_directories(tt-umd SYSTEM PRIVATE "${HWLOC_PRIVATE_INCLUDE_DIR}")
+
 target_link_libraries(
     tt-umd
     PUBLIC
         fmt::fmt-header-only
     PRIVATE
-        hwloc
-        rt
+        ${HWLOC_LIBRARY}
+        $<$<PLATFORM_ID:Linux>:rt>
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp

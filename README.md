@@ -73,6 +73,44 @@ export CC=gcc
 export CXX=g++
 ```
 
+#### Native macOS simulator builds
+
+Apple Silicon Macs can build UMD and run the public [ttsim](https://github.com/tenstorrent/ttsim)
+simulator natively with Apple Clang. Install Xcode Command Line Tools and Homebrew dependencies:
+
+```bash
+brew install cmake ninja hwloc
+cmake -S . -B build/macos -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DTT_UMD_BUILD_SIMULATION=ON -DTT_UMD_BUILD_TESTS=ON \
+  -DTT_UMD_BUILD_TOOLS=OFF -DTT_UMD_ENABLE_CLANG_TIDY=OFF
+cmake --build build/macos --target tt-umd api_tests baremetal_tests -j 3
+```
+
+This produces a native `build/macos/lib/libtt-umd.dylib`. Warnings remain errors.
+Use a native simulator library too; a Linux ARM64 `.so` cannot be loaded by macOS.
+The public simulator can be built from source:
+
+```bash
+git clone https://github.com/tenstorrent/ttsim.git ttsim
+git -C ttsim checkout 89bdc5eb726c4f1ebbe597e03b1b9cdf7622c779
+(cd ttsim && python3 make.py src/_out/release_bh/libttsim.so -j 3)
+cp tests/soc_descs/blackhole_140_arch.yaml ttsim/src/_out/release_bh/soc_descriptor.yaml
+export TT_UMD_SIMULATOR="$PWD/ttsim/src/_out/release_bh/libttsim.so"
+./build/macos/test/umd/api/api_tests \
+  --gtest_filter='MacOSPlatform.*:SimulatorHost.*:*SimulationSysmemManager*'
+./build/macos/test/umd/baremetal/baremetal_tests
+```
+
+The simulator's `.so` filename is retained on macOS; `file` identifies its contents as Mach-O arm64.
+The Mac CI job builds this pinned public simulator and tests a mapped Tensix L1 write/read round-trip,
+host memory allocation, and the platform boundaries.
+
+This is simulator support. The Linux kernel driver is unavailable on macOS: `tt-kmd-lib` hardware
+calls return `-ENOTSUP`, and process-shared robust hardware locks throw an explicit error.
+Use `copy_sim_binary=false` for single-chip simulators. Legacy isolated simulator copies require
+Linux memfd; simulators with a shared-library multichip ABI retain their existing loading path.
+
 #### Disabling -Werror
 
 By default, all warnings are treated as errors. This is controlled via the standard CMake variable

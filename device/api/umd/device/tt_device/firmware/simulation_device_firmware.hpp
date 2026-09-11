@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/types/arch.hpp"
 
@@ -91,6 +93,14 @@ public:
         [[maybe_unused]] std::chrono::milliseconds timeout_ms,
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
         return false;
+    }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override {
+        return std::nullopt;
+    }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId noc_id = NocId::DEFAULT_NOC) override {
+        return std::nullopt;
     }
 
     // A simulated device has no ARC reset unit to read the counter from. Throwing matches the "ARC

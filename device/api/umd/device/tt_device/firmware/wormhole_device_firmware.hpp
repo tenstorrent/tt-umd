@@ -95,6 +95,10 @@ public:
      */
     FirmwareInfoProvider* get_firmware_info_provider() const;
 
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Raw access to the ARC APB register window.
      *

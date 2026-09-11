@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -152,6 +153,22 @@ public:
     virtual bool wait_dram_channel_training(
         uint32_t dram_channel,
         std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Retrieves the address of the runtime telemetry buffer.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Device address of the runtime telemetry buffer.
+     */
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Retrieves the size of the runtime telemetry buffer.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Size of the runtime telemetry buffer.
+     */
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**

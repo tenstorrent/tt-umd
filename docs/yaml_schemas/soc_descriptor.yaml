@@ -19,7 +19,6 @@ required:
   - dram_bank_size
   - eth_l1_size
   - arch_name
-  - features
 
 properties:
   grid:
@@ -114,6 +113,14 @@ properties:
       pattern: ^[0-9]+-[0-9]+$
       description: Coordinate in format "x-y"
 
+  smc:
+    type: array
+    description: List of SMC (System Management Complex) core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
   noc0_x_to_noc1_x:
     type: array
     description: Mapping from NOC0 X coordinates to NOC1 X coordinates
@@ -150,6 +157,7 @@ properties:
       - WORMHOLE_B0
       - wormhole_b0
       - QUASAR
+      - GRENDEL
     description: Architecture name of the chip
 
   features:
@@ -223,5 +231,19 @@ properties:
         additionalProperties: false
 
     additionalProperties: false
+
+# The compute-unit feature block describes unpacker/math/packer/overlay, which only exist on a
+# chiplet with compute. A Grendel package need not have any: Mimir is DRAM plus the SMC. So features
+# is required for every other architecture, and optional for GRENDEL.
+if:
+  required:
+    - arch_name
+  properties:
+    arch_name:
+      not:
+        const: GRENDEL
+then:
+  required:
+    - features
 
 additionalProperties: true

@@ -1,0 +1,50 @@
+# One Mimir chiplet reached over JTAG, as a single UMD chip.
+#
+# Mimir carries no compute: it is DRAM plus the SMC (System Management Complex), the on-die
+# management CPU that a JTAG bring-up client reaches first. The two DRAM cores mirror chippy's two
+# GDDR instances per Mimir (kMimirGddrDramTile0SpaBaseAddr / Tile1SpaBaseAddr).
+#
+# The (x, y) coordinates are UMD-side handles, not hardware NOC coordinates: chippy addresses a
+# Mimir chiplet flat, with no coordinate component, so the routing protocol maps a core to a
+# transport and an address base rather than to a NOC endpoint. They are provisional pending the
+# product/chippy answer on the DRAM instance and tile layout.
+
+grid:
+  x_size: 2
+  y_size: 2
+
+arc:
+  []
+
+pcie:
+  []
+
+dram:
+  [[0-0],
+  [1-0]]
+
+eth:
+  []
+
+functional_workers:
+  []
+
+router_only:
+  []
+
+dispatch:
+  []
+
+smc:
+  [0-1]
+
+worker_l1_size:
+  0
+
+dram_bank_size:
+  8589934592
+
+eth_l1_size:
+  0
+
+arch_name: GRENDEL

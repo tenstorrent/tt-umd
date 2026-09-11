@@ -100,6 +100,13 @@ void SocArchDescriptor::init() {
             noc0_x_to_noc1_x_ = grendel::NOC0_X_TO_NOC1_X;
             noc0_y_to_noc1_y_ = grendel::NOC0_Y_TO_NOC1_Y;
             break;
+        case tt::ARCH::GRENDEL:
+            // A Grendel package's floorplan depends on which chiplets it holds, so there are no
+            // architecture constants to select here.
+            UMD_THROW(
+                error::RuntimeError,
+                "Grendel packages have no fixed floorplan; construct SocArchDescriptor from a YAML SoC descriptor "
+                "instead.");
         default:
             UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocArchDescriptor.");
     }
@@ -213,6 +220,13 @@ void SocArchDescriptor::build_derived_data() {
         core_descriptor.type = CoreType::DISPATCH;
         cores_.insert({core_descriptor.coord, core_descriptor});
     }
+
+    for (const auto& smc_core : smc_cores_) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = smc_core;
+        core_descriptor.type = CoreType::SMC;
+        cores_.insert({core_descriptor.coord, core_descriptor});
+    }
 }
 
 tt_xy_pair format_node(const std::string& str) {
@@ -291,6 +305,11 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     if (device_descriptor_yaml["dispatch"].IsDefined()) {
         dispatch_cores_ =
             SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["dispatch"].as<std::vector<std::string>>());
+    }
+
+    if (device_descriptor_yaml["smc"].IsDefined()) {
+        smc_cores_ =
+            SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["smc"].as<std::vector<std::string>>());
     }
 
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {

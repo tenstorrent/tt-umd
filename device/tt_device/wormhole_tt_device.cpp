@@ -43,6 +43,12 @@ namespace tt::umd {
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
 
 uint32_t WormholeTTDevice::get_clock() {
+    // The clock is firmware-reported state, so refuse before the firmware is up rather than putting a
+    // message to one that has not reported ready; this throws UninitializedDeviceError when it is not.
+    // send_device_command() no longer makes that check itself -- a Wormhole ARC message rides scratch
+    // registers that are readable from reset -- so it belongs to the callers that actually need it.
+    static_cast<void>(get_firmware_info_provider());
+
     // There is one return value from AICLK ARC message.
     DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),

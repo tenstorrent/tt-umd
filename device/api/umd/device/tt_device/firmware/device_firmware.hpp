@@ -69,8 +69,9 @@ public:
      * @param timeout Timeout for the command to complete.
      * @param noc_id NOC to route through.
      * @return DeviceCommandResult The exit code and any return values.
-     * @throws error::UninitializedDeviceError if init_firmware() has not run: commands must not be
-     * sent to firmware that has not reported ready.
+     * @throws error::UninitializedDeviceError if the implementation has no way to reach the firmware
+     * before init_firmware() has run -- where the transport is itself built from something the
+     * firmware publishes during boot, rather than being readable from reset.
      */
     virtual DeviceCommandResult send_device_command(
         uint32_t msg_code,

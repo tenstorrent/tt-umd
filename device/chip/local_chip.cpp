@@ -261,9 +261,9 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
-        // Strict: the write is non-posted, so it has landed on the target once this call returns. Callers
-        // that pair a bulk write with a subsequent trigger rely on that completion, and this path
-        // reconfigures the window between transfers, so nothing else orders them.
+        // Strict orders this write against other Strict transfers, but the underlying MMIO stores
+        // are posted: the call returns once issued, not once landed. This path reconfigures the
+        // window between transfers, so nothing else orders them.
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
         write_block_reconfigure(
             *get_cached_wc_tlb_window(),

@@ -418,10 +418,12 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * Transfers use @ref IoOrdering::Strict, so the data has landed on the target before the call
-     * returns and successive calls are ordered with respect to each other. This costs write
-     * throughput; a caller that does not need the guarantee can take an @ref IoWindow from
-     * @ref create_io_window with a weaker ordering mode and drive it directly.
+     * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
+     * other. The call returns once the writes are issued, not once they are acknowledged by the
+     * target — the underlying MMIO stores are posted. This costs write throughput; a caller that
+     * does not need the ordering guarantee can take an @ref IoWindow from @ref create_io_window
+     * with a weaker ordering mode and drive it directly, using @ref IoWindow::configure to advance
+     * across chunks larger than the window.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
@@ -436,8 +438,8 @@ public:
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * Uses @ref IoOrdering::Strict, same as @ref write_to_device, and is ordered against writes
-     * issued through it.
+     * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
+     * respect to each other.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.

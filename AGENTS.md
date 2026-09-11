@@ -55,6 +55,10 @@
 - Use log_trace when a log would be hit often enough to bog down the console output.
 
 ## Writing tests
+- Tests follow same rule as code. Don't overkill with tests. Try to write concise tests which test the essence of components.
+- Tests are not there to fix the implementation details. Tests should not reimplement internal implementation details.
+- Tests are there to fix the API and its expected behavior. Tests should often look like good usage examples.
+- Do not use dynamic logic or programmatic calculations to compute expected test outcomes. Hardcode all assertion values as literal constants. 
 
 ## Reviewing PRs workflow
 

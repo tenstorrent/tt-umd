@@ -6,6 +6,8 @@
 
 #include <fmt/format.h>
 
+#include <cstring>
+
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -123,8 +125,10 @@ void WormholeArcWindow::read(void* mem_ptr, uint64_t arc_addr_offset, size_t siz
         device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
         return;
     }
-    auto result = pcie_interface_->bar_read32(config_.bar0_offset_start + arc_addr_offset);
-    *(reinterpret_cast<uint32_t*>(mem_ptr)) = result;
+    // memcpy rather than a type-punning cast: the caller's buffer need not be a live uint32_t
+    // object, and the word-size check above already pins the transfer size.
+    const uint32_t result = pcie_interface_->bar_read32(config_.bar0_offset_start + arc_addr_offset);
+    std::memcpy(mem_ptr, &result, sizeof(result));
 }
 
 void WormholeArcWindow::write(
@@ -144,8 +148,9 @@ void WormholeArcWindow::write(
         device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
         return;
     }
-    pcie_interface_->bar_write32(
-        config_.bar0_offset_start + arc_addr_offset, *(reinterpret_cast<const uint32_t*>(mem_ptr)));
+    uint32_t value = 0;
+    std::memcpy(&value, mem_ptr, sizeof(value));
+    pcie_interface_->bar_write32(config_.bar0_offset_start + arc_addr_offset, value);
 }
 
 }  // namespace tt::umd

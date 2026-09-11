@@ -22,7 +22,8 @@ constexpr SemVer BH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(1, 4, 1);
 constexpr SemVer WH_MIN_ERISC_FW_SUPPORTED_VERSION = SemVer(6, 14, 0);
 
 constexpr uint32_t BASE_FW_HEARTBEAT_SIGNATURE = 0xABCD;
-constexpr uint32_t FABRIC_HEARTBEAT_SIGNATURE = 0xAABB;
+constexpr uint32_t METAL_FW_HEARTBEAT_SIGNATURE = 0xAABB;
+constexpr uint32_t FABRIC_HEARTBEAT_SIGNATURE = 0xDCBA;
 
 // Layout of the ETH routing firmware command queues, used by RemoteCommunicationLegacyFirmware to issue remote
 // (non-MMIO) reads and writes. These values are the same for all architectures which run the legacy routing firmware.

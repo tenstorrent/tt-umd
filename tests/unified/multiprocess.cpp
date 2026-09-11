@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <pthread.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -11,7 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -490,4 +494,201 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
     }
 
     std::cout << "DMA race condition test (real fork) completed" << std::endl;
+}
+
+namespace dma_reads_mixed_repro {
+
+// Tag layout mirrors the tt-metal/ttexalens repro this test is modeled on: worker(4b) |
+// noc_x(6b) | noc_y(6b) | iteration(16b). Every word of the payload carries the same tag, so a
+// short readback still identifies who actually produced the data.
+constexpr int NUM_WORKERS = 16;
+constexpr int NUM_ITERATIONS = 300;
+constexpr uint64_t SCRATCH_ADDR = 0x10000;
+constexpr size_t NUM_BYTES = 256;
+constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint32_t);
+constexpr int MAX_SAMPLES = 8;
+
+uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
+    return ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF);
+}
+
+struct DecodedTag {
+    uint32_t worker_id;
+    uint32_t noc_x;
+    uint32_t noc_y;
+    uint32_t iteration;
+};
+
+DecodedTag decode_tag(uint32_t word) {
+    return DecodedTag{(word >> 28) & 0xF, (word >> 22) & 0x3F, (word >> 16) & 0x3F, word & 0xFFFF};
+}
+
+struct ForeignSample {
+    int iteration;
+    DecodedTag got;
+};
+
+// Plain-old-data result block. One slot per worker, living in a MAP_SHARED|MAP_ANONYMOUS
+// mapping created by the parent before fork(), so each child can report back without a
+// pipe/queue: the parent reads every slot after waitpid() reaps the writer.
+struct WorkerResult {
+    CoreCoord core;
+    int completed_iterations = 0;
+    int stale = 0;
+    int foreign = 0;
+    int num_samples = 0;
+    ForeignSample samples[MAX_SAMPLES] = {};
+    bool errored = false;
+    char error_message[256] = {};
+};
+
+// Core of one worker: pin to a NOC core, then repeatedly tear down and re-create the TTDevice
+// (the mechanism under test, standing in for ttexalens' per-iteration init_ttexalens() in the
+// original repro), write a tagged payload with a plain MMIO write ("noc_write" in the repro),
+// and read it back via dma_read_from_device. A "foreign" result means the DMA read landed on
+// data tagged for a different worker/core -- the completed transfer was matched to the wrong
+// requester.
+void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
+    try {
+        CoreCoord core;
+        {
+            std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
+            probe_device->init_tt_device();
+            std::vector<CoreCoord> cores =
+                probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+            core = cores.at(worker_id % cores.size());
+        }
+        result->core = core;
+
+        pthread_barrier_wait(start_barrier);
+
+        std::vector<uint32_t> payload(NUM_WORDS);
+        std::vector<uint32_t> readback(NUM_WORDS);
+
+        for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+            tt_device->init_tt_device();
+
+            std::fill(
+                payload.begin(),
+                payload.end(),
+                encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
+            std::fill(readback.begin(), readback.end(), 0);
+
+            tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
+            tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
+
+            result->completed_iterations++;
+            if (readback == payload) {
+                continue;
+            }
+
+            DecodedTag got = decode_tag(readback[0]);
+            if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
+                result->stale++;
+            } else {
+                result->foreign++;
+                if (result->num_samples < MAX_SAMPLES) {
+                    result->samples[result->num_samples++] = ForeignSample{iteration, got};
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        result->errored = true;
+        std::strncpy(result->error_message, e.what(), sizeof(result->error_message) - 1);
+    }
+}
+
+}  // namespace dma_reads_mixed_repro
+
+// Reproduces a reported bug: a PCIe DMA read targeting one NOC core occasionally returns the
+// payload written to a different NOC core once the device/link is repeatedly re-initialized
+// while several processes drive concurrent DMA traffic against distinct cores on the same chip.
+// Modeled directly on the tt-metal/ttexalens repro (same worker|noc_x|noc_y|iteration tag, same
+// stale-vs-foreign classification) but reinitializes via UMD's own TTDevice::create() /
+// init_tt_device() instead of ttexalens, and drives I/O the same way UMD itself would: a plain
+// write_to_device ("noc_write") followed by a dma_read_from_device readback.
+//
+// Disabled by default, like DISABLED_DMAWriteReadRaceConditionProcessIsolation above (real
+// fork() alongside gtest has known flakiness, see issue #2579) -- run explicitly against real
+// Wormhole hardware with --gtest_also_run_disabled_tests to check for the bug.
+TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
+    using namespace dma_reads_mixed_repro;
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    ASSERT_FALSE(pci_device_ids.empty());
+    const int pci_device_id = pci_device_ids.at(0);
+
+    void* barrier_mem =
+        mmap(nullptr, sizeof(pthread_barrier_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ASSERT_NE(barrier_mem, MAP_FAILED);
+    pthread_barrier_t* start_barrier = static_cast<pthread_barrier_t*>(barrier_mem);
+    pthread_barrierattr_t barrier_attr;
+    pthread_barrierattr_init(&barrier_attr);
+    pthread_barrierattr_setpshared(&barrier_attr, PTHREAD_PROCESS_SHARED);
+    ASSERT_EQ(pthread_barrier_init(start_barrier, &barrier_attr, NUM_WORKERS), 0);
+
+    void* results_mem =
+        mmap(nullptr, sizeof(WorkerResult) * NUM_WORKERS, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ASSERT_NE(results_mem, MAP_FAILED);
+    WorkerResult* results = static_cast<WorkerResult*>(results_mem);
+
+    std::cout << "Testing DMA read mixed-core repro on PCI device " << pci_device_id << " with " << NUM_WORKERS
+              << " workers, " << NUM_ITERATIONS << " iterations each (cores shown as NOC translated x,y)" << std::endl;
+
+    std::vector<pid_t> pids;
+    pids.reserve(NUM_WORKERS);
+    for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {
+        pid_t pid = fork();
+        ASSERT_NE(pid, -1) << "fork() failed for worker " << worker_id;
+        if (pid == 0) {
+            run_worker(worker_id, pci_device_id, &results[worker_id], start_barrier);
+            _exit(0);
+        }
+        pids.push_back(pid);
+    }
+
+    for (pid_t pid : pids) {
+        int status = 0;
+        waitpid(pid, &status, 0);
+        EXPECT_TRUE(WIFEXITED(status) && WEXITSTATUS(status) == 0) << "worker process " << pid << " exited abnormally";
+    }
+
+    int total_stale = 0;
+    int total_foreign = 0;
+    int total_iterations = 0;
+    auto core_str = [](int x, int y) { return "(" + std::to_string(x) + "," + std::to_string(y) + ")"; };
+
+    std::cout << std::right << std::setw(3) << "wk" << std::left << std::setw(9) << "  core" << std::right
+              << std::setw(6) << "inits" << std::setw(7) << "stale" << std::setw(8) << "foreign"
+              << "  status" << std::endl;
+    for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {
+        const WorkerResult& r = results[worker_id];
+        ASSERT_FALSE(r.errored) << "worker " << worker_id << " failed: " << r.error_message;
+
+        const char* tag = r.foreign > 0 ? "FOREIGN" : (r.stale > 0 ? "stale-only" : "clean");
+        std::cout << std::right << std::setw(3) << worker_id << "  " << std::left << std::setw(9)
+                  << core_str(r.core.x, r.core.y) << std::right << std::setw(5) << r.completed_iterations
+                  << std::setw(7) << r.stale << std::setw(8) << r.foreign << "  " << tag << std::endl;
+        for (int s = 0; s < r.num_samples; s++) {
+            const ForeignSample& sample = r.samples[s];
+            std::cout << "    read@" << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
+                      << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " write@"
+                      << sample.got.iteration << std::endl;
+        }
+
+        total_stale += r.stale;
+        total_foreign += r.foreign;
+        total_iterations += r.completed_iterations;
+    }
+
+    std::cout << "\ntotal: " << total_stale << " stale, " << total_foreign << " foreign / " << total_iterations
+              << " inits" << std::endl;
+
+    pthread_barrier_destroy(start_barrier);
+    munmap(barrier_mem, sizeof(pthread_barrier_t));
+    munmap(results_mem, sizeof(WorkerResult) * NUM_WORKERS);
+
+    EXPECT_EQ(total_foreign, 0) << total_foreign << " DMA reads returned another core's data (see log above)";
+    EXPECT_EQ(total_stale, 0) << total_stale << " DMA reads returned a stale value (see log above)";
 }

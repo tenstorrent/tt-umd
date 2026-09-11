@@ -45,6 +45,22 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy
 }
 
 /**
+ * Create a flatbuffer for an access carrying no destination coordinate.
+ *
+ * The core field is left out rather than zeroed: an absent struct reads back as null, so a
+ * simulator that tried to route on the coordinate would fault instead of targeting tile (0, 0).
+ */
+inline flatbuffers::FlatBufferBuilder create_global_flatbuffer(
+    DEVICE_COMMAND rw, const std::vector<uint32_t> &vec, uint64_t addr, uint64_t size_ = 0) {
+    flatbuffers::FlatBufferBuilder builder;
+    auto data = builder.CreateVector(vec);
+    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, nullptr, addr, size);
+    builder.Finish(device_cmd);
+    return builder;
+}
+
+/**
  * Send a command to the simulation host.
  */
 inline void send_command_to_simulation_host(SimulationHost &host, const flatbuffers::FlatBufferBuilder &flat_buffer) {
@@ -193,6 +209,42 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
     send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
+}
+
+void RtlSimCommunicator::global_read_bytes(uint64_t addr, void *data, uint32_t size) {
+    {
+        std::lock_guard<std::mutex> lock(device_lock_);
+        send_command_to_simulation_host(host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
+    }
+
+    auto msg = wait_for_command_response();
+    if (msg.data == nullptr || msg.size == 0) {
+        UMD_THROW(
+            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
+    }
+
+    auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
+
+    log_debug(tt::LogEmulationDriver, "Device reading {} bytes from global address {:#x}", size, addr);
+
+    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
+    UMD_ASSERT(
+        response_bytes >= size,
+        error::RuntimeError,
+        fmt::format("global_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
+    std::memcpy(data, rd_resp_buf->data()->data(), size);
+    nng_free(msg.data, msg.size);
+}
+
+void RtlSimCommunicator::global_write_bytes(uint64_t addr, const void *data, uint32_t size) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
+
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto *data_ptr = static_cast<const uint32_t *>(data);
+    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
+
+    send_command_to_simulation_host(host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, data_vec, addr));
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {

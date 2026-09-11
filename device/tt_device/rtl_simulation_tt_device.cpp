@@ -16,6 +16,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -98,6 +99,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -116,6 +118,19 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+}
+
+void RtlSimulationTTDevice::setup_noc_address_resolver() {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR) {
+        return;
+    }
+    noc_address_resolver_ = std::make_unique<att::Resolver>(att::GRENDEL_QSR1_MAP);
+}
+
+bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
+    // Quasar has no TLBs. The window it would allocate is a dummy carrying the destination
+    // coordinate in tlb_data, which a resolved address already carries.
+    return get_soc_descriptor().arch != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
@@ -173,10 +188,20 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
 }
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_read_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    // A resolver having run means addr already names the destination, so the coordinate is not
+    // sent: the simulator has nothing to translate and cannot resolve a resolved address again.
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_write_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 

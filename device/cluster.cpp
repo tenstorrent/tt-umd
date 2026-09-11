@@ -836,9 +836,10 @@ void Cluster::assert_risc_reset() {
         return;
     }
 
-    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
-    // loop all chips and issues the reset separately.
-    if (arch_name == tt::ARCH::QUASAR) {
+    // Quasar has no broadcast support, and a simulation chip cannot service the raw
+    // soft-reset register write the broadcast performs. Both reset chip by chip, which
+    // goes through the reset path each chip implements for itself.
+    if (arch_name == tt::ARCH::QUASAR || options_.chip_type == ChipType::SIMULATION) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->assert_risc_reset(RiscType::ALL);
         }
@@ -857,9 +858,10 @@ void Cluster::deassert_risc_reset() {
         return;
     }
 
-    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
-    // loop all chips and issues the reset separately.
-    if (arch_name == tt::ARCH::QUASAR) {
+    // Quasar has no broadcast support, and a simulation chip cannot service the raw
+    // soft-reset register write the broadcast performs. Both reset chip by chip, which
+    // goes through the reset path each chip implements for itself.
+    if (arch_name == tt::ARCH::QUASAR || options_.chip_type == ChipType::SIMULATION) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);
         }
@@ -1249,7 +1251,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     broadcast_write_to_cluster(
         &reg_value,
         sizeof(uint32_t),
-        0xFFB121B0,
+        ArchitectureImplementation::create(arch_name)->get_tensix_soft_reset_addr(),
         chips_to_exclude,
         rows_to_exclude,
         columns_to_exclude,

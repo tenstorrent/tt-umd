@@ -6,29 +6,36 @@
 
 #include <sys/types.h>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 namespace tt::umd {
 
-/**
- * TTSimCommunicator handles low-level communication with the TTSim .so library.
- * It manages dynamic library loading, function pointer resolution, and provides
- * thread-safe access to simulator functions.
- *
- * This class can be used independently of TTSimTTDevice for direct simulator communication.
- */
+// Thin C++ wrapper around the libttsim.so dynamic library.
+// Handles dlopen/dlsym, per-chip device selection, and thread-safe I/O.
 class TTSimCommunicator final {
 public:
     /**
      * Constructor for TTSimCommunicator.
      *
      * @param simulator_directory Path to the simulator binary/directory
-     * @param copy_sim_binary If true, copy the simulator binary to memory for security
+     * @param copy_sim_binary If true, copy the simulator binary to memory for
+     *   security AND the loaded .so doesn't support the multichip ABI. If
+     *   the .so exports libttsim_create_device_by_id, multichip shared-library
+     *   mode is auto-enabled at initialize() time, ignoring this flag.
+     * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
+     *   in multichip mode. Default 0
+     *   for legacy single-chip consumers.
      */
-    TTSimCommunicator(const std::filesystem::path &simulator_directory, bool copy_sim_binary = false);
+    TTSimCommunicator(
+        const std::filesystem::path &simulator_directory,
+        bool copy_sim_binary = false,
+        uint32_t chip_id = 0,
+        uint32_t num_chips = 1);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -68,6 +75,14 @@ public:
      * @param size Number of bytes to write
      */
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
+     * Fast simulator-only DRAM access. Returns false when the loaded simulator
+     * does not export the direct DRAM ABI, allowing callers to fall back to the
+     * normal tile/TLB path.
+     */
+    bool dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+    bool dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
      * Read data from PCI memory.
@@ -116,9 +131,26 @@ public:
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+        uint64_t host_base = 0,
+        uint64_t host_size = 0);
 
     void start_sim();
+
+    // Multichip eth-MAC wiring: returns the libttsim Device* handle for peer registration.
+    void *get_dev_handle() const { return dev_handle_; }
+
+    void switch_reset();
+    void register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac);
+    void switch_drain();
+    void register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id);
+    void register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id);
+    void register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction);
+
+    // Mark device as closed; further I/O calls become no-ops.
+    void mark_closed() { closed_ = true; }
+
+    bool is_closed() const { return closed_; }
 
 private:
     // Library management.
@@ -129,7 +161,11 @@ private:
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
 
-    // Dynamic library handle.
+    // In multichip mode, selects this communicator's chip before an I/O call.
+    void select_chip_if_needed();
+
+    // Dynamic library handle. A non-owning view in the shared-dlopen modes, where shared_lib_ owns the
+    // library; owned outright on the legacy per-chip path.
     void *libttsim_handle_ = nullptr;
 
     // File descriptor for copied simulator binary.
@@ -141,6 +177,56 @@ private:
     // Flag to indicate if binary should be copied to memory.
     bool copy_sim_binary_;
 
+    // --------------------------------------------------------------------------
+    // Multichip model
+    //
+    // When the loaded libttsim.so exports the multichip ABI (libttsim_create_device_by_id,
+    // libttsim_select_device_by_id, etc.), all TTSimCommunicators in the process
+    // share a single dlopen of the .so, kept alive by an owning shared_ptr held
+    // by each of them.  This gives them a common process-global state: the
+    // Device* registry, the virtual eth_switch routing table, and the clock.
+    //
+    // Per-chip I/O works by calling libttsim_select_device_by_id(chip_id_) under
+    // device_lock_ before each read/write/clock call.  The lock serializes all
+    // communicators so the select+I/O pair is atomic.
+    //
+    // The eth-switch pre-pass in Cluster::Cluster (cluster.cpp) wires up MAC
+    // addresses and peer handles so that firmware sees correctly routed neighbours
+    // at boot time.  See the #ifdef TT_UMD_BUILD_SIMULATION block there.
+    // --------------------------------------------------------------------------
+
+    // True when the loaded .so supports the multichip ABI and this
+    // communicator is using the shared dlopen path.
+    bool multichip_mode_ = false;
+    // True when the .so has NO multichip ABI but the cluster has >1 chip: all communicators share one
+    // dlopen and each chip is addressed by its PCI device (BDF) rather than libttsim_select_device_by_id.
+    bool shared_bdf_mode_ = false;
+
+    // Both modes use the single shared dlopen held by shared_lib_.
+    bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
+
+    uint32_t chip_id_ = 0;
+    uint32_t num_chips_ = 1;
+
+    // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
+    // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter
+    // installed by adopt_shared_library().
+    std::shared_ptr<void> shared_lib_;
+
+    // Lookup slot for that shared dlopen.  Deliberately weak: the owners are the committed
+    // communicators (plus the reference initialize() holds while it probes), so the library is torn
+    // down as soon as the last of them goes away rather than at static destruction.
+    static std::weak_ptr<void> s_shared_lib_;
+    static bool s_sim_initialized_;
+    // Recursive because the teardown deleter locks it too, and both acquire paths build the owning
+    // shared_ptr with the lock already held: if that construction throws, the standard runs the deleter
+    // to release the handle, re-entering this mutex on the same thread.
+    static std::recursive_mutex s_shared_init_mutex_;
+
+    // Wraps a fresh, non-null dlopen handle in the owning shared_ptr whose deleter performs the
+    // process-global teardown: libttsim_exit, dlclose, reset s_sim_initialized_.
+    static std::shared_ptr<void> adopt_shared_library(void *handle);
+
     // Function pointers to simulator library functions.
     void (*pfn_libttsim_init_)() = nullptr;
     void (*pfn_libttsim_exit_)() = nullptr;
@@ -149,24 +235,75 @@ private:
     void (*pfn_libttsim_pci_mem_wr_bytes_)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_rd_bytes_by_id_)(
+        uint32_t chip_id, uint32_t dram_channel, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_wr_bytes_by_id_)(
+        uint32_t chip_id, uint32_t dram_channel, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_rd_bytes_by_id_)(
+        uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_wr_bytes_by_id_)(
+        uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
 
+    // Multichip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
+    void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
+    void (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
+    void (*pfn_libttsim_clock_all_devices_)(uint32_t n_cycles) = nullptr;
+
+    // Multichip eth-MAC wiring function pointers.
+    void *dev_handle_ = nullptr;
+    void (*pfn_libttsim_switch_reset_)() = nullptr;
+    void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
+    void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
+    void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) =
+        nullptr;
+    void (*pfn_libttsim_switch_register_fabric_node_id_)(void *dev, uint32_t mesh_id, uint32_t chip_id) = nullptr;
+    void (*pfn_libttsim_switch_register_fabric_endpoint_direction_)(void *dev, uint32_t tile_id, uint32_t direction) =
+        nullptr;
+    void (*pfn_libttsim_switch_drain_)() = nullptr;
+
     // Stored callbacks for DMA memory operations.
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Static instance pointer for callback wrappers.
+    // Host-side DMA routing by address range. Each MMIO chip's outbound iATU (programmed by UMD via
+    // BAR2, honored by the sim) maps the chip's NOC sysmem window onto that chip's distinct host base.
+    // So a sysmem DMA arrives here carrying a real host address; we find the owning chip by which
+    // registered window [host_base, host_base+size) contains it -- exactly as a host/OS routes a DMA by
+    // which pinned region the address falls in. No chip id crosses the bus; the address alone targets.
+    // callback_instance_ stays as the single-device / unregistered fallback.
+    struct DmaHostRange {
+        uint64_t host_base = 0;
+        uint64_t host_size = 0;
+        TTSimCommunicator *inst = nullptr;
+    };
+
+    static constexpr std::size_t MAX_DMA_DEVICES = 32;
     static TTSimCommunicator *callback_instance_;
+    static std::array<DmaHostRange, MAX_DMA_DEVICES> dma_ranges_;
+    static std::size_t dma_range_count_;
+    static std::mutex dma_ranges_mutex_;
 
     // Static wrapper functions for C-style callbacks.
-    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
-    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    static void pci_dma_mem_rd_bytes_wrapper(uint64_t physical_address, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_wrapper(uint64_t physical_address, const void *p, uint32_t size);
+    // Find the chip whose registered host window contains physical_address, rebase physical_address to
+    // the within-window offset, and return its communicator. Falls back to callback_instance_ if no
+    // window matches.
+    static TTSimCommunicator *dma_route(uint64_t &physical_address);
 
-    // Thread safety.
-    mutable std::mutex device_lock_;
+    // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
+    // and the following libttsim I/O call must be serialized across all
+    // communicators because the active device selector is process-global.
+    // NOTE: Also serializes legacy single-chip mode -- multiple independent legacy
+    // TTSim instances in one process will contend for this lock.
+    static std::mutex device_lock_;
+
+    // Set in close_device() to prevent further I/O after shutdown.
+    bool closed_ = false;
 };
 
 }  // namespace tt::umd

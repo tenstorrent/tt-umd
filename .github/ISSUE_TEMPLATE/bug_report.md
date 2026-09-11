@@ -10,8 +10,17 @@ assignees: ''
 **Describe the bug**
 A clear and concise description of what the bug is.
 
-**Stack trace**
-Please paste the stack trace as this can speed up triaging.
+**Environment**
+- UMD commit (branch if applicable): [e.g. `abc1234`, `main`]
+- FW version: [e.g. 19.8.1]
+- KMD version: [e.g. 2.8.1]
+- Board/system type: [e.g. N150, N300, P100, P150A, WH QuietBox, 6U Galaxy (WH), 6U Galaxy (BH)]
+
+**Logs**
+Please paste relevant log output. Prefer text over screenshots for easier searching and triaging.
+
+**Stack trace (optional)**
+If available, paste the stack trace. Prefer text over screenshots.
 
 **To reproduce**
 Steps to reproduce the behavior.

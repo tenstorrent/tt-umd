@@ -5,13 +5,18 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/set.h>
+#include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <optional>
+
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -75,6 +80,53 @@ void bind_soc_descriptor(nb::module_ &m) {
             "__repr__", [](const CoreCoord &cc) { return cc.str(); }, release_gil())
         .def("__eq__", &CoreCoord::operator==, release_gil())
         .def("__lt__", &CoreCoord::operator<, release_gil());
+
+    nb::class_<SocArchDescriptor>(m, "SocArchDescriptor")
+        .def(
+            nb::init<tt::ARCH>(),
+            nb::arg("arch"),
+            release_gil(),
+            "Create a SocArchDescriptor from an architecture enum")
+        .def(
+            nb::init<const std::string &>(),
+            nb::arg("soc_descriptor_path"),
+            release_gil(),
+            "Create a SocArchDescriptor from a YAML SoC descriptor file")
+        .def_prop_ro("arch", &SocArchDescriptor::get_arch, release_gil())
+        .def_prop_ro("grid_size", &SocArchDescriptor::get_grid_size, release_gil())
+        .def_prop_ro("tensix_cores", &SocArchDescriptor::get_tensix_cores, release_gil())
+        .def_prop_ro("dram_cores", &SocArchDescriptor::get_dram_cores, release_gil())
+        .def_prop_ro("eth_cores", &SocArchDescriptor::get_eth_cores, release_gil())
+        .def_prop_ro("firmware_cores", &SocArchDescriptor::get_firmware_cores, release_gil())
+        .def_prop_ro("pcie_cores", &SocArchDescriptor::get_pcie_cores, release_gil())
+        .def_prop_ro("router_cores", &SocArchDescriptor::get_router_cores, release_gil())
+        .def_prop_ro("security_cores", &SocArchDescriptor::get_security_cores, release_gil())
+        .def_prop_ro("l2cpu_cores", &SocArchDescriptor::get_l2cpu_cores, release_gil())
+        .def_prop_ro("dispatch_cores", &SocArchDescriptor::get_dispatch_cores, release_gil())
+        .def_prop_ro("worker_l1_size", &SocArchDescriptor::get_worker_l1_size, release_gil())
+        .def_prop_ro("eth_l1_size", &SocArchDescriptor::get_eth_l1_size, release_gil())
+        .def_prop_ro("dram_bank_size", &SocArchDescriptor::get_dram_bank_size, release_gil())
+        .def_prop_ro("noc0_x_to_noc1_x", &SocArchDescriptor::get_noc0_x_to_noc1_x, release_gil())
+        .def_prop_ro("noc0_y_to_noc1_y", &SocArchDescriptor::get_noc0_y_to_noc1_y, release_gil())
+        .def_prop_ro("overlay_version", &SocArchDescriptor::get_overlay_version, release_gil())
+        .def_prop_ro("unpacker_version", &SocArchDescriptor::get_unpacker_version, release_gil())
+        .def_prop_ro("dst_size_alignment", &SocArchDescriptor::get_dst_size_alignment, release_gil())
+        .def_prop_ro("packer_version", &SocArchDescriptor::get_packer_version, release_gil())
+        .def_prop_ro("trisc_sizes", &SocArchDescriptor::get_trisc_sizes, release_gil())
+        .def_prop_ro("device_descriptor_file_path", &SocArchDescriptor::get_device_descriptor_file_path, release_gil())
+        .def_prop_ro("worker_grid_size", &SocArchDescriptor::get_worker_grid_size, release_gil())
+        .def_static(
+            "get_arch_from_path",
+            &SocArchDescriptor::get_arch_from_path,
+            nb::arg("soc_descriptor_path"),
+            release_gil(),
+            "Get architecture from a YAML SoC descriptor file path")
+        .def_static(
+            "get_grid_size_from_path",
+            &SocArchDescriptor::get_grid_size_from_path,
+            nb::arg("soc_descriptor_path"),
+            release_gil(),
+            "Get grid size from a YAML SoC descriptor file path");
 
     // Bind SocDescriptor class.
     nb::class_<SocDescriptor>(m, "SocDescriptor")
@@ -147,14 +199,22 @@ void bind_soc_descriptor(nb::module_ &m) {
             "Translate a tt_xy_pair from one coordinate system to another")
         .def(
             "translate_chip_coord_to_translated",
-            &SocDescriptor::translate_chip_coord_to_translated,
+            // noc_id defaults to the NocId selected for the calling thread, so omitting it preserves the
+            // behaviour of set_thread_noc_id().
+            [](const SocDescriptor &self, const CoreCoord core, std::optional<NocId> noc_id) {
+                return self.translate_chip_coord_to_translated(core, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Translate a chip coordinate to translated coordinate system in tt_xy_pair")
         .def(
             "translate_chip_coord_to_translated_coord",
-            &SocDescriptor::translate_chip_coord_to_translated_coord,
+            [](const SocDescriptor &self, const CoreCoord core, std::optional<NocId> noc_id) {
+                return self.translate_chip_coord_to_translated_coord(core, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Translate a chip coordinate to the correct pre-translation coordinates for device access")
         .def(

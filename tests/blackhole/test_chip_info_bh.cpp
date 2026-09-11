@@ -21,14 +21,15 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const ChipInfo chip_info = tt_device->get_chip_info();
 
         EXPECT_TRUE(
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
-            chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE);
+            chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE ||
+            chip_info.board_type == BoardType::UBB_BLACKHOLE_BIN6);
 
         switch (chip_info.board_type) {
             case BoardType::P100:
@@ -40,7 +41,8 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
                 EXPECT_TRUE(chip_info.asic_location <= 1);
                 break;
             }
-            case BoardType::UBB_BLACKHOLE: {
+            case BoardType::UBB_BLACKHOLE:
+            case BoardType::UBB_BLACKHOLE_BIN6: {
                 EXPECT_TRUE(chip_info.asic_location <= 8);
                 break;
             }
@@ -49,6 +51,6 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             }
         }
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

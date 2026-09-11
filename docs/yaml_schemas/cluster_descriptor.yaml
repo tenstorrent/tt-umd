@@ -18,6 +18,19 @@ required:
   - boards
 
 properties:
+  # Identity of the accelerator group this descriptor describes. Optional, and absent from every
+  # descriptor written before the field existed -- do not add it to `required`.
+  cluster_id:
+    type: string
+    minLength: 1
+    maxLength: 128
+    description: >
+      Unique id of the group of Tenstorrent accelerators attached to a common host / controller /
+      root complex. One descriptor is one such group. Currently the bare metal hostname of that
+      machine, which is what the factory system descriptor and the fabric topology solver join on.
+      Not a filename and not a unique chip id.
+    pattern: "^[A-Za-z0-9._-]+$"
+
   # Architecture specification for each chip.
   arch:
     type: object
@@ -214,6 +227,8 @@ properties:
                   - p150
                   - p300
                   - ubb
+                  - ubb_blackhole
+                  - ubb_wormhole
                   - quasar
                 description: Type of the board
             required: [board_type]

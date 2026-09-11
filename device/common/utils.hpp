@@ -9,12 +9,17 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <optional>
-#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -79,6 +84,46 @@ inline bool is_bdf_string(const std::string& str) {
            (str.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
 }
 
+// Coarse, host-wide check for whether any RDMA-capable port (RoCE or InfiniBand) is currently up,
+// by scanning /sys/class/infiniband/*/ports/*/state for a port whose state name is ACTIVE.
+inline bool has_any_active_rdma_port() {
+    static const std::filesystem::path infiniband_class_path = "/sys/class/infiniband";
+    std::error_code ec;
+    if (!std::filesystem::is_directory(infiniband_class_path, ec)) {
+        return false;
+    }
+
+    for (const auto& device_entry : std::filesystem::directory_iterator(infiniband_class_path, ec)) {
+        const std::filesystem::path ports_path = device_entry.path() / "ports";
+        if (!std::filesystem::is_directory(ports_path, ec)) {
+            continue;
+        }
+
+        for (const auto& port_entry : std::filesystem::directory_iterator(ports_path, ec)) {
+            std::ifstream state_file(port_entry.path() / "state");
+            std::string state_line;
+            if (!state_file.is_open() || !std::getline(state_file, state_line)) {
+                continue;
+            }
+
+            // Format is "<n>: <NAME>", e.g. "4: ACTIVE".
+            const size_t colon = state_line.find(':');
+            if (colon == std::string::npos) {
+                continue;
+            }
+            std::string state_name = state_line.substr(colon + 1);
+            state_name.erase(0, state_name.find_first_not_of(" \t"));
+            state_name.erase(state_name.find_last_not_of(" \t\r\n") + 1);
+
+            if (state_name == "ACTIVE") {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
 // active.
 // This ENV variable is used to specify visible devices by PCI BDF (Bus:Device.Function) addresses.
@@ -91,6 +136,79 @@ inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
                : target_devices;
+}
+
+// A cluster id has to fit in the fixed 128-byte buffer that tt-metal packs it into, which is not
+// NUL-terminated -- hence 128 and not 127.
+inline constexpr size_t CLUSTER_ID_MAX_LENGTH = 128;
+
+// Returns why cluster_id is not a legal cluster id, or nullopt when it is legal. Legal ids are 1 to
+// CLUSTER_ID_MAX_LENGTH characters from [A-Za-z0-9._-]. That charset is deliberately
+// hostname-shaped: cluster ids are currently hostname-valued and have to join against hostnames in
+// the factory system descriptor.
+inline std::optional<std::string> get_cluster_id_error(const std::string& cluster_id) {
+    if (cluster_id.empty()) {
+        return "it is empty";
+    }
+    if (cluster_id.size() > CLUSTER_ID_MAX_LENGTH) {
+        return fmt::format("it is {} characters long, the limit is {}", cluster_id.size(), CLUSTER_ID_MAX_LENGTH);
+    }
+    for (const char character : cluster_id) {
+        const unsigned char c = static_cast<unsigned char>(character);
+        const bool is_alphanumeric = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        if (!is_alphanumeric && character != '.' && character != '-' && character != '_') {
+            return fmt::format("it contains '{}', and only alphanumerics, '.', '-' and '_' are allowed", character);
+        }
+    }
+    return std::nullopt;
+}
+
+inline void validate_cluster_id(const std::string& cluster_id, const std::string_view source) {
+    const std::optional<std::string> cluster_id_error = get_cluster_id_error(cluster_id);
+    if (cluster_id_error.has_value()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Invalid cluster id \"{}\" from {}: {}.", cluster_id, source, cluster_id_error.value()));
+    }
+}
+
+// Cluster id to stamp on a cluster descriptor built by discovery: the caller-supplied one when there
+// is one, otherwise the OS hostname. Returns nullopt when there is no supplied id and the hostname
+// cannot be used as one, which leaves the field unset and lets consumers fall back to what they did
+// before.
+//
+// A supplied id that is not legal throws: the caller passed it on purpose, and quietly substituting
+// the hostname would produce a wrong-but-plausible topology, which is what supplying an id is meant
+// to prevent. An unusable hostname only warns, because that is not something the caller asked for.
+inline std::optional<std::string> resolve_cluster_id(const std::optional<std::string>& supplied_cluster_id) {
+    static constexpr std::string_view SOURCE = "TopologyDiscoveryOptions::cluster_id";
+
+    if (supplied_cluster_id.has_value()) {
+        validate_cluster_id(supplied_cluster_id.value(), SOURCE);
+        log_debug(LogUMD, "Using cluster id \"{}\" from {}.", supplied_cluster_id.value(), SOURCE);
+        return supplied_cluster_id;
+    }
+
+    std::array<char, 256> hostname = {};
+    if (gethostname(hostname.data(), hostname.size() - 1) != 0) {
+        log_warning(LogUMD, "gethostname() failed, leaving the cluster id unset. Pass one in {}.", SOURCE);
+        return std::nullopt;
+    }
+
+    // Stored raw, with no FQDN stripping -- consumers canonicalize.
+    std::string cluster_id(hostname.data());
+    const std::optional<std::string> cluster_id_error = get_cluster_id_error(cluster_id);
+    if (cluster_id_error.has_value()) {
+        log_warning(
+            LogUMD,
+            "Leaving the cluster id unset because the OS hostname \"{}\" cannot be used as one: {}. Pass one in {}.",
+            cluster_id,
+            cluster_id_error.value(),
+            SOURCE);
+        return std::nullopt;
+    }
+    log_debug(LogUMD, "Using cluster id \"{}\" from the OS hostname.", cluster_id);
+    return cluster_id;
 }
 
 template <typename... Args>
@@ -180,99 +298,6 @@ inline bool check_timeout(
     return timed_out;
 }
 
-class MultiProcessPipe {
-private:
-    static constexpr int PIPE_READ = 0;
-    static constexpr int PIPE_WRITE = 1;
-
-    // Stores [read_fd, write_fd] for each child.
-    std::vector<std::array<int, 2>> child_pipes;
-    int num_children;
-
-public:
-    explicit MultiProcessPipe(int count) : num_children(count) {
-        child_pipes.resize(num_children);
-        for (int i = 0; i < num_children; ++i) {
-            if (pipe(child_pipes[i].data()) == -1) {
-                int saved_errno = errno;
-                for (int j = 0; j < i; ++j) {
-                    close(child_pipes[j][PIPE_READ]);
-                    close(child_pipes[j][PIPE_WRITE]);
-                }
-                errno = saved_errno;
-                UMD_THROW(
-                    error::RuntimeError,
-                    "Failed to create synchronization pipe. errno: {}" + std::string(std::strerror(saved_errno)));
-            }
-        }
-    }
-
-    MultiProcessPipe(const MultiProcessPipe&) = delete;
-    MultiProcessPipe& operator=(const MultiProcessPipe&) = delete;
-
-    ~MultiProcessPipe() {
-        for (auto& p : child_pipes) {
-            if (p[PIPE_READ] != -1) {
-                close(p[PIPE_READ]);
-            }
-            if (p[PIPE_WRITE] != -1) {
-                close(p[PIPE_WRITE]);
-            }
-        }
-    }
-
-    // Called by the Child process after it is fully initialized.
-    void signal_ready_from_child(int child_index) {
-        // Close the read end we don't need in the child.
-        close(child_pipes[child_index][PIPE_READ]);
-        child_pipes[child_index][PIPE_READ] = -1;
-
-        char sync_token = '1';
-        if (write(child_pipes[child_index][PIPE_WRITE], &sync_token, 1) == -1) {
-            perror("Barrier: Failed to write sync token");
-        }
-
-        // Close the write end after signaling.
-        close(child_pipes[child_index][PIPE_WRITE]);
-        child_pipes[child_index][PIPE_WRITE] = -1;
-    }
-
-    // Called by the Parent process to block until all children signal.
-    bool wait_for_all_children(int timeout_seconds_per_process = 5) {
-        for (int i = 0; i < num_children; ++i) {
-            // Close the write end we don't need in the parent.
-            if (child_pipes[i][PIPE_WRITE] != -1) {
-                close(child_pipes[i][PIPE_WRITE]);
-                child_pipes[i][PIPE_WRITE] = -1;
-            }
-
-            fd_set read_set;
-            FD_ZERO(&read_set);
-            FD_SET(child_pipes[i][PIPE_READ], &read_set);
-
-            struct timeval timeout;
-            timeout.tv_sec = timeout_seconds_per_process;
-            timeout.tv_usec = 0;
-
-            // Wait here for up to timeout_seconds.
-            int ready = select(child_pipes[i][PIPE_READ] + 1, &read_set, nullptr, nullptr, &timeout);
-
-            if (ready <= 0) {
-                return false;
-            }
-
-            char sync_token;
-            if (read(child_pipes[i][PIPE_READ], &sync_token, 1) <= 0) {
-                return false;
-            }
-
-            close(child_pipes[i][PIPE_READ]);
-            child_pipes[i][PIPE_READ] = -1;
-        }
-        return true;
-    }
-};
-
 constexpr bool is_arm_platform() {
 #if defined(__aarch64__) || defined(__arm__)
     return true;
@@ -290,3 +315,21 @@ constexpr bool is_riscv_platform() {
 }
 
 }  // namespace tt::umd::utils
+
+namespace tt::umd {
+
+template <typename Alignment, typename Value>
+inline void throw_if_not_aligned(Value value, const std::string& what) {
+    static_assert(std::is_integral_v<Alignment>, "Alignment type must be integral.");
+    static_assert(std::is_integral_v<Value>, "Value type must be integral.");
+    if (value % sizeof(Alignment) != 0) {
+        UMD_THROW(error::RuntimeError, what + " must be " + std::to_string(sizeof(Alignment)) + "-byte aligned.");
+    }
+}
+
+inline void validate_register_access(uint64_t addr, size_t size) {
+    throw_if_not_aligned<uint32_t>(addr, "Register address");
+    throw_if_not_aligned<uint32_t>(size, "Register access size");
+}
+
+}  // namespace tt::umd

@@ -24,6 +24,9 @@ if(TT_UMD_BUILD_TESTS)
         SYSTEM YES
         OPTIONS
             "INSTALL_GTEST OFF"
+            # googletest builds gmock by default, but pin it so an upstream default change cannot
+            # silently drop the target that test_common links.
+            "BUILD_GMOCK ON"
     )
     if(GTest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
@@ -43,6 +46,7 @@ CPMAddPackage(
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
         "YAML_BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 if(yaml-cpp_ADDED)
@@ -146,7 +150,13 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
+CPMAddPackage(
+    NAME tt-logger
+    GITHUB_REPOSITORY tenstorrent/tt-logger
+    VERSION 1.1.8
+    SYSTEM YES
+    FIND_PACKAGE_ARGUMENTS GLOBAL
+)
 
 ####################################################################################################################
 # cxxopts
@@ -159,6 +169,7 @@ CPMAddPackage(
     SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################
@@ -217,10 +228,11 @@ if(TT_UMD_ENABLE_TRACY)
     CPMAddPackage(
         NAME tracy
         GITHUB_REPOSITORY tenstorrent/tracy
-        GIT_TAG 0aaefbb689b4c60694edc905545fc4709fd13f6a
+        GIT_TAG v0.13.3-tt.0
         SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+            "TRACY_ENABLE ON"
     )
 endif()
 

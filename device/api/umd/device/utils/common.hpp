@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,4 +24,9 @@ static inline std::string to_lower(const std::string& str) {
     std::string res = str;
     std::transform(res.begin(), res.end(), res.begin(), ::tolower);
     return res;
+}
+
+// Returns true if value is within the given percentage of reference.
+static inline bool is_within_percentage(double value, double reference, double percentage) {
+    return std::abs(value - reference) <= std::abs(reference) * (percentage / 100.0);
 }

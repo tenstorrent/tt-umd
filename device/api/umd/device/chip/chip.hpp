@@ -33,16 +33,16 @@ struct CoreCoord;
 // An abstract class that represents a chip.
 class Chip {
 public:
-    Chip(SocDescriptor soc_descriptor);
+    Chip(tt::ARCH arch);
 
-    Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor);
+    Chip(const ChipInfo chip_info, tt::ARCH arch);
 
     virtual ~Chip() = default;
 
     virtual void start_device(uint32_t dram_membar_subchannel = 0) = 0;
     virtual void close_device() = 0;
 
-    SocDescriptor& get_soc_descriptor();
+    virtual const SocDescriptor& get_soc_descriptor() const = 0;
 
     virtual bool is_mmio_capable() const = 0;
 
@@ -67,8 +67,9 @@ public:
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_multicast_write(
         void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
-    virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
-    virtual void noc_multicast_write(void* dst, size_t size, uint64_t addr);
+    virtual void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(const void* src, size_t size, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -107,7 +108,7 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state);
+    void set_clock_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -127,9 +128,6 @@ public:
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
-    // TODO: To be moved to private implementation once methods are moved to chip.
-    void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
-
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
     DeviceDramAddressParams dram_address_params;
@@ -144,16 +142,7 @@ protected:
 
     void set_default_params(ARCH arch);
 
-    uint32_t get_power_state_arc_msg(DevicePowerState state);
-
-    void wait_for_aiclk_value(
-        TTDevice* tt_device,
-        DevicePowerState power_state,
-        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
     ChipInfo chip_info_;
-
-    SocDescriptor soc_descriptor_;
 };
 
 }  // namespace tt::umd

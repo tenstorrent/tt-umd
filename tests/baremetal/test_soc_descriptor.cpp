@@ -437,7 +437,7 @@ TEST(SocDescriptor, NocTranslation) {
         const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
+        EXPECT_EQ(tensix_core_translated.to_pair(), tensix_core.to_pair());
     }
     // Test when noc translation is enabled.
     {
@@ -449,7 +449,7 @@ TEST(SocDescriptor, NocTranslation) {
         const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
-        EXPECT_NE((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
+        EXPECT_NE(tensix_core_translated.to_pair(), tensix_core.to_pair());
     }
 }
 

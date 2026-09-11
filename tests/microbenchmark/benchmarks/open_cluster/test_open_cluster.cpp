@@ -30,15 +30,22 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     auto devices_info = PCIDevice::enumerate_devices_info();
     ASSERT_FALSE(devices_info.empty());
     tt::ARCH arch = devices_info.begin()->second.get_arch();
-    ClusterOptions options;
-    options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
 
-    auto bench =
-        ankerl::nanobench::Bench().maxEpochTime(std::chrono::seconds(30)).title("ClusterConstructor").unit("cluster");
+    ClusterOptions options;
+    options.num_host_mem_ch_per_mmio_device = 0;
+
+    auto bench = ankerl::nanobench::Bench()
+                     .maxEpochTime(std::chrono::seconds(30))
+                     .epochs(100)
+                     .title("ClusterConstructor")
+                     .unit("cluster")
+                     .minEpochIterations(10);
     bench.name("default").run([&] {
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
         ankerl::nanobench::doNotOptimizeAway(cluster);
     });
+
+    options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
     bench.name("from sdesc").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
         ankerl::nanobench::doNotOptimizeAway(cluster);

@@ -36,10 +36,11 @@
 
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
@@ -204,13 +205,13 @@ bool WarmReset::warm_reset_arch_agnostic(
     }
     log_info(tt::LogUMD, "Starting reset on devices: {}", fmt::join(device_infos, ", "));
     if (secondary_bus_reset) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
     }
 
     if (reset_m3) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
     } else {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_RESET);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::ASIC_RESET);
     }
 
     // Calculate post-reset wait time: use provided M3 timeout if M3 reset, otherwise scale based on device count
@@ -233,13 +234,13 @@ bool WarmReset::warm_reset_arch_agnostic(
         }
     }
 
-    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
     return true;
 }
 
 bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
 
@@ -286,7 +287,7 @@ bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     if (all_reset_bits_set) {
         log_info(tt::LogUMD, "Reset successfully completed.");
     }
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
     return all_reset_bits_set;
 }
 
@@ -297,7 +298,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());
@@ -305,9 +306,16 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         try {
-            tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        } catch (error::ArcStartupError& arc_error) {
-            log_warning(LogUMD, arc_error.message());
+            tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        } catch (error::UmdBaseException& err) {
+            // UMD_THROW raises UmdException<E>, which wraps E rather than deriving from it, so a
+            // plain catch (error::FirmwareStartupError&) can never match. The catch this replaces
+            // (error::ArcStartupError&) had the same flaw and silently never fired; this is the
+            // log-and-skip behavior it always intended. See topology_utils.hpp for the same pattern.
+            if (dynamic_cast<error::UmdException<error::FirmwareStartupError>*>(&err) == nullptr) {
+                throw;
+            }
+            log_warning(LogUMD, err.message());
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));
@@ -324,17 +332,23 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
         refclk_values_old.emplace_back(tt_device->get_refclk_counter());
     }
 
-    std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
-        tt_device->get_arc_messenger()->send_message(
-            MSG_TYPE_ARC_STATE3, arc_msg_return_values, {default_arg_value, default_arg_value});
+        auto* firmware = tt_device->get_device_firmware();
+        firmware->send_device_command(
+            MSG_TYPE_ARC_STATE3,
+            {default_arg_value, default_arg_value},
+            timeout::ARC_MESSAGE_TIMEOUT,
+            get_selected_noc_id());
         usleep(30'000);
         if (reset_m3) {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {3, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT, get_selected_noc_id());
         } else {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {default_arg_value, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET,
+                {default_arg_value, default_arg_value},
+                timeout::ARC_MESSAGE_TIMEOUT,
+                get_selected_noc_id());
         }
     }
 
@@ -343,7 +357,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
 
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
         refclk_current.emplace_back(tt_device->get_refclk_counter());

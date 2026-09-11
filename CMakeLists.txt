@@ -48,15 +48,18 @@ if(MASTER_PROJECT)
     endif()
 
     include(sanitizers)
+    include(sccache)
 endif()
-
-message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
 option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+# The RDMA dma-buf test and example need libibverbs and RDMA hardware, so they are opt-in rather
+# than auto-detected: with this ON, missing or too-old libibverbs is a configure error rather than
+# a silent skip, so a host that cannot build them says so instead of quietly producing nothing.
+option(TT_UMD_BUILD_RDMA "Enables build of the RDMA dma-buf test and example (requires libibverbs)" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
 option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
@@ -94,7 +97,6 @@ if(TT_UMD_BUILD_ALL)
     set(TT_UMD_BUILD_PYTHON ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
     set(TT_UMD_BUILD_TOOLS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
     set(TT_UMD_BUILD_EXAMPLES ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
-    message(STATUS "TT_UMD_BUILD_ALL enabled - building all components")
 endif()
 
 # Control compile time logging
@@ -145,8 +147,10 @@ if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
     set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 endif()
 
+set(TT_X86_MARCH "x86-64-v3" CACHE STRING "x86_64 architecture passed to -march")
+
 add_compile_options(
-    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
+    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=${TT_X86_MARCH}>"
     -Wall
     -Wno-sign-compare
 )
@@ -162,28 +166,55 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
-if(TT_UMD_BUILD_SIMULATION)
-    message(STATUS "Building ${PROJECT_NAME} with Simulation")
-endif()
+add_subdirectory(tt-kmd-lib)
 add_subdirectory(device)
 if(TT_UMD_BUILD_PYTHON)
-    message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
     add_subdirectory(nanobind)
 endif()
-add_subdirectory(src)
 if(TT_UMD_BUILD_TOOLS)
-    message(STATUS "Building ${PROJECT_NAME} with Tools")
     add_subdirectory(tools)
 endif()
 
+# Locate and version-check libibverbs once, for both the RDMA test and the RDMA example.
+if(TT_UMD_BUILD_RDMA)
+    include(${PROJECT_SOURCE_DIR}/cmake/ibverbs.cmake)
+endif()
+
 if(TT_UMD_BUILD_EXAMPLES)
-    message(STATUS "Building ${PROJECT_NAME} with Examples")
     add_subdirectory(examples)
 endif()
 
 if(TT_UMD_BUILD_TESTS)
-    message(STATUS "Building ${PROJECT_NAME} with Tests")
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
 
 include(packaging)
+
+# Print the effective value of every UMD option at the end of configuration.
+# Values come from the cache, so this reflects what is actually used for this
+# build, including values inherited from a previous configure of the same dir.
+# Listed explicitly (rather than filtered by prefix) so that when UMD is part of
+# a larger build we only print options we own, not unrelated cache variables.
+set(_umd_summary_vars
+    CMAKE_BUILD_TYPE
+    TT_EMULE_PATH
+    TT_UMD_BUILD_ALL
+    TT_UMD_BUILD_EMULE
+    TT_UMD_BUILD_EXAMPLES
+    TT_UMD_BUILD_JTAG
+    TT_UMD_BUILD_PIP
+    TT_UMD_BUILD_PYTHON
+    TT_UMD_BUILD_SIMULATION
+    TT_UMD_BUILD_STATIC
+    TT_UMD_BUILD_TESTS
+    TT_UMD_BUILD_TOOLS
+    TT_UMD_ENABLE_CLANG_TIDY
+    TT_UMD_ENABLE_LOGGING
+    TT_UMD_ENABLE_TRACY
+)
+message(STATUS "")
+message(STATUS "==================== UMD configuration summary ====================")
+foreach(_var IN LISTS _umd_summary_vars)
+    message(STATUS "  ${_var} = ${${_var}}")
+endforeach()
+message(STATUS "===================================================================")

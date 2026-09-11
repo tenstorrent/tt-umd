@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
+#include <tuple>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -21,7 +23,23 @@
 using namespace tt::umd;
 
 using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, RiscType>;
-using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
+
+// One ClusterAssertDeassertRiscsTest case: a non-empty subset of the RISC cores to bring up together,
+// plus that subset's position in the generated list. The index is what lets the test spread its cases
+// over the available chips instead of re-running every case on every chip.
+struct RiscSetUnderTest {
+    size_t index;
+    std::vector<RiscCoreProgramConfig> riscs;
+};
+
+// Without this gtest prints the parameter as a raw byte dump in failure messages.
+inline void PrintTo(const RiscSetUnderTest& risc_set, std::ostream* os) {
+    *os << "case " << risc_set.index << " {";
+    for (size_t i = 0; i < risc_set.riscs.size(); i++) {
+        *os << (i == 0 ? "" : ", ") << std::get<RiscType>(risc_set.riscs[i]);
+    }
+    *os << "}";
+}
 
 class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
 public:
@@ -75,38 +93,28 @@ private:
         const size_t n = cores.size();
 
         for (size_t bitmask = 1; bitmask < (1 << n); ++bitmask) {
-            RiscSetUnderTest risc_core_subset;
+            std::vector<RiscCoreProgramConfig> risc_core_subset;
             for (size_t i = 0; i < n; ++i) {
                 if (bitmask & (1 << i)) {
                     risc_core_subset.push_back(cores[i]);
                 }
             }
-            risc_core_combinations.push_back(std::move(risc_core_subset));
+            risc_core_combinations.push_back({risc_core_combinations.size(), std::move(risc_core_subset)});
         }
         return risc_core_combinations;
     }
 };
 
+inline bool is_galaxy_board_type(tt::BoardType board_type) {
+    return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
+           board_type == tt::BoardType::UBB_BLACKHOLE_BIN6;
+}
+
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     return !cluster->get_target_device_ids().empty() &&
-           (cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_WORMHOLE ||
-            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE);
+           is_galaxy_board_type(cluster->get_cluster_description()->get_board_type(0));
 }
-
-inline bool has_remote_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        return false;
-    }
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
-    tt_device->init_tt_device();
-
-    auto board_type = tt_device->get_board_type();
-    return board_type == tt::BoardType::N300;
-}
-
-inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
 
 // Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores
 // in translated coordinates for the given SoC descriptor.
@@ -138,15 +146,3 @@ constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;
 // True when the test should run against a simulator, indicated by TT_UMD_SIMULATOR
 // pointing at the simulator binary directory.
 inline bool is_simulation_test() { return std::getenv("TT_UMD_SIMULATOR") != nullptr; }
-
-// Creates a Cluster for an API test. If TT_UMD_SIMULATOR is set the chip_type,
-// target_devices, and simulator_directory fields of `options` are overridden to
-// target the simulator; otherwise `options` is used as-is (default = silicon).
-inline std::unique_ptr<Cluster> make_cluster_for_test(ClusterOptions options = {}) {
-    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
-        options.chip_type = ChipType::SIMULATION;
-        options.target_devices = {0};
-        options.simulator_directory = std::filesystem::path(sim_path);
-    }
-    return std::make_unique<Cluster>(options);
-}

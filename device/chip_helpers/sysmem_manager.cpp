@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
@@ -76,6 +77,15 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     memcpy(dest, user_scratchspace, size);
 }
 
+std::unique_ptr<SysmemBuffer> SysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
+    return allocate_sysmem_buffer(size, bind_to_noc);
+}
+
+std::unique_ptr<SysmemBuffer> SysmemManager::map_user_buffer(
+    void *user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) {
+    return map_sysmem_buffer(user_ptr, size, bind_to_noc, device_access);
+}
+
 uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
@@ -88,6 +98,11 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
 }
 
 size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
+
+bool SysmemManager::is_read_only_page_pinning_supported() const {
+    // Managers without a PCI device behind them (simulation) cannot pin host pages at all.
+    return pci_device_ != nullptr && pci_device_->is_read_only_page_pinning_supported();
+}
 
 HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {

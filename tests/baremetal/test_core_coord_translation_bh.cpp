@@ -460,9 +460,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         EXPECT_EQ(eth_translated.x, eth_translated_coordinate_start_x + eth_channel);
         EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
 
-        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel]);
+        EXPECT_EQ(eth_noc0.to_pair(), blackhole::ETH_CORES_NOC0[eth_channel]);
         EXPECT_EQ(
-            static_cast<tt_xy_pair>(eth_translated),
+            eth_translated.to_pair(),
             tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
@@ -478,7 +478,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
             std::find(eth_cores_first_triplet.begin(), eth_cores_first_triplet.end(), eth_noc0) !=
             eth_cores_first_triplet.end());
         EXPECT_EQ(
-            static_cast<tt_xy_pair>(eth_translated),
+            eth_translated.to_pair(),
             tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
@@ -494,7 +494,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
             std::find(eth_cores_second_triplet.begin(), eth_cores_second_triplet.end(), eth_noc0) !=
             eth_cores_second_triplet.end());
         EXPECT_EQ(
-            static_cast<tt_xy_pair>(eth_translated),
+            eth_translated.to_pair(),
             tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 
@@ -504,9 +504,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         const CoreCoord eth_noc0 = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ(static_cast<tt_xy_pair>(eth_noc0), blackhole::ETH_CORES_NOC0[eth_channel + 2]);
+        EXPECT_EQ(eth_noc0.to_pair(), blackhole::ETH_CORES_NOC0[eth_channel + 2]);
         EXPECT_EQ(
-            static_cast<tt_xy_pair>(eth_translated),
+            eth_translated.to_pair(),
             tt_xy_pair(eth_translated_coordinate_start_x + eth_channel, eth_translated_coordinate_start_y));
     }
 }

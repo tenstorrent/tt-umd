@@ -14,6 +14,7 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -25,7 +26,9 @@ using namespace tt::umd::blackhole;
 
 namespace tt::umd {
 
-class TTDevice;
+class BlackholeArcApb;
+class DeviceProtocol;
+class JtagInterface;
 
 /* On Blackhole there are few ARC message queues that can be used to communicate with ARC FW.
  * ARC message queues are simple circular queues. There are read/write pointers both for requests and responses.
@@ -57,7 +60,11 @@ private:
 
 public:
     BlackholeArcMessageQueue(
-        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const tt_xy_pair arc_core);
+        DeviceProtocol* device_protocol,
+        BlackholeArcApb* arc_apb,
+        const uint64_t base_address,
+        const uint64_t size,
+        const bool noc_translation_enabled);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -66,29 +73,43 @@ public:
         const ArcMessageType message_type,
         std::vector<uint32_t>& return_values,
         const std::vector<uint32_t>& args = {},
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
+        const NocId noc_id = NocId::DEFAULT_NOC);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
-        TTDevice* tt_device, const size_t queue_index);
+        DeviceProtocol* device_protocol,
+        JtagInterface* jtag_interface,
+        BlackholeArcApb* arc_apb,
+        const bool noc_translation_enabled,
+        const size_t queue_index,
+        const NocId noc_id = NocId::DEFAULT_NOC);
 
 private:
     void push_request(
-        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, const std::chrono::milliseconds timeout_ms);
+        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request,
+        const std::chrono::milliseconds timeout_ms,
+        const NocId noc_id);
 
-    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms);
+    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms, const NocId noc_id);
 
-    void read_words(uint32_t* data, size_t num_words, size_t offset);
+    void read_words(uint32_t* data, size_t num_words, size_t offset, const NocId noc_id);
 
-    uint32_t read_word(size_t offset);
+    uint32_t read_word(size_t offset, const NocId noc_id);
 
-    void write_words(uint32_t* data, size_t num_words, size_t offset);
+    void write_words(uint32_t* data, size_t num_words, size_t offset, const NocId noc_id);
 
-    void trigger_fw_int();
+    void trigger_fw_int(const NocId noc_id);
+
+    // The ARC core coordinate depends on the NOC the access is routed over, so it is resolved per
+    // call rather than stored.
+    tt_xy_pair get_arc_core(const NocId noc_id) const;
 
     const uint64_t base_address;
     const uint64_t size;
-    TTDevice* tt_device;
-    const tt_xy_pair arc_core;
+    // Non-owning; both belong to the component that owns this queue and must outlive it.
+    DeviceProtocol* device_protocol;
+    BlackholeArcApb* arc_apb;
+    const bool noc_translation_enabled;
 };
 
 }  // namespace tt::umd

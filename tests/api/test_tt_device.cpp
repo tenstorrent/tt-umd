@@ -15,14 +15,16 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -39,12 +41,12 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(
             data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
@@ -56,7 +58,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -69,13 +71,13 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
+        uint64_t address = get_architecture_registers(tt_device->get_arch()).riscv_debug_bus_cntl_reg;
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
         tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -87,7 +89,30 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
         ASSERT_EQ(data_write1, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    }
+}
+
+TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->init_tt_device();
+
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+        CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        uint32_t buf = 0;
+
+        EXPECT_ANY_THROW(tt_device->write_to_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS + 1, sizeof(buf)));
+        EXPECT_ANY_THROW(tt_device->read_from_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS + 1, sizeof(buf)));
+
+        EXPECT_ANY_THROW(tt_device->write_to_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
+        EXPECT_ANY_THROW(tt_device->read_from_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
+
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -95,7 +120,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         BoardType board_type = tt_device->get_board_type();
@@ -103,9 +128,9 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
             board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
-            board_type == BoardType::UBB_BLACKHOLE);
+            board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_BIN6);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -120,11 +145,11 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         std::thread thread0([&]() {
             std::vector<uint32_t> data_read(data_write.size(), 0);
@@ -159,14 +184,13 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         thread0.join();
         thread1.join();
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -228,7 +252,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
@@ -259,7 +283,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
             }
         }
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -270,7 +294,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -300,6 +324,80 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
                                             << " should have received the broadcast write.";
         }
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    }
+}
+
+TEST(ApiTTDeviceTest, UninitializedError) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+
+        // These methods should work without initialization.
+        EXPECT_NO_THROW(tt_device->get_arc_core());
+        EXPECT_NO_THROW(tt_device->get_arch());
+        EXPECT_NO_THROW(tt_device->get_architecture_implementation());
+        EXPECT_NO_THROW(tt_device->get_min_clock_freq());
+        EXPECT_NO_THROW(tt_device->is_remote());
+        EXPECT_NO_THROW(tt_device->get_refclk_counter());
+        EXPECT_NO_THROW(tt_device->get_communication_device_id());
+        EXPECT_NO_THROW(tt_device->get_communication_device_type());
+
+        using err = error::UmdException<error::UninitializedDeviceError>;
+        EXPECT_THROW(tt_device->get_chip_info(), err);
+        EXPECT_THROW(tt_device->get_soc_descriptor(), err);
+        EXPECT_THROW(tt_device->get_firmware_telemetry_reader(), err);
+        EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
+        EXPECT_THROW(tt_device->get_board_id(), err);
+        EXPECT_THROW(tt_device->get_board_type(), err);
+        EXPECT_THROW(tt_device->get_asic_location(), err);
+        EXPECT_THROW(tt_device->get_asic_temperature(), err);
+        EXPECT_THROW(tt_device->get_clock(), err);
+        EXPECT_THROW(tt_device->get_max_clock_freq(), err);
+        EXPECT_THROW(tt_device->get_firmware_version(), err);
+
+        // Initialize device.
+        ASSERT_NO_THROW(tt_device->init_tt_device());
+
+        // These methods should work only after successful initialization.
+        EXPECT_NO_THROW(tt_device->get_chip_info());
+        EXPECT_NO_THROW(tt_device->get_soc_descriptor());
+        EXPECT_NO_THROW(tt_device->get_firmware_telemetry_reader());
+        EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
+        EXPECT_NO_THROW(tt_device->get_board_id());
+        EXPECT_NO_THROW(tt_device->get_board_type());
+        EXPECT_NO_THROW(tt_device->get_asic_location());
+        EXPECT_NO_THROW(tt_device->get_asic_temperature());
+        EXPECT_NO_THROW(tt_device->get_clock());
+        EXPECT_NO_THROW(tt_device->get_max_clock_freq());
+        EXPECT_NO_THROW(tt_device->get_firmware_version());
+    }
+}
+
+TEST(ApiTTDeviceTest, UninitializedIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->init_tt_device();
+
+        CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(tt::CoreType::TENSIX).at(0);
+        xy_pair tensix_core_xy =
+            tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
+        tt_device.reset();
+
+        tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        using err = error::UmdException<error::UnresolvableCoordinateError>;
+
+        const uint32_t value = 0xAABB;
+        const uint32_t bad_value = 0xCCDD;
+        EXPECT_NO_THROW(tt_device->write_to_device(&value, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
+        EXPECT_THROW(tt_device->write_to_device(&bad_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof bad_value), err);
+        uint32_t readback = 0;
+        EXPECT_NO_THROW(tt_device->read_from_device(&readback, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
+        EXPECT_THROW(tt_device->read_from_device(&readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof value), err);
+        EXPECT_EQ(value, readback);
     }
 }

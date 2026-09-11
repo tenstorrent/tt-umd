@@ -1,0 +1,24 @@
+# tests/microbenchmark/baselines/sim-wh.yaml
+# Calibrated for sim-wh from a single bench invocation on dedicated runner 'tt-ubuntu-2204-large-stable-gg6km-runner-8fdp9'.
+# To recalibrate: download a benchmark-json-* artifact from a CI run
+# of build-and-run-all-benchmarks.yml and pass its directory to
+# tests/microbenchmark/tools/update_baseline.py via --from-results-dir.
+#
+# Schema (no in-file arch label — the file is dedicated to one arch):
+#   <bench_title>:
+#     <case_name>: { median_value: <float>, tolerance_pct: <float>[, gate: true] }
+
+metadata:
+  schema_version: 1
+  arch: "sim-wh"
+  runner_hostname: "tt-ubuntu-2204-large-stable-gg6km-runner-8fdp9"
+  calibrated_at: "2026-07-06"
+  notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
+
+ClusterConstructorSim:
+  default: { median_value: 198.5, tolerance_pct: 20 }
+
+DeviceIOSim:
+  "write, 4096 bytes": { median_value: 2.167e+10, tolerance_pct: 20 }
+  "read, 4096 bytes": { median_value: 1.092e+10, tolerance_pct: 20 }
+

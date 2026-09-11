@@ -4,7 +4,7 @@
 
 #pragma once
 
-// IWYU pragma: private, include "umd/device/utils/error.hpp".
+// IWYU pragma: private, include "umd/device/utils/error.hpp"
 
 #ifndef UMD_ERROR_HPP_INTERNAL_INCLUDE
 #error "error_detail.hpp is a private header. Include umd/device/utils/error.hpp instead."

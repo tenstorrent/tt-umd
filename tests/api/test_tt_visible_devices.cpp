@@ -78,7 +78,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsById) {
         }
 
         // Make sure that Cluster construction is without exceptions.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
         if (!target_device_ids.empty()) {
             // If target_device_ids is empty, then full cluster will be created, so skip the check.
@@ -139,7 +139,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDF) {
         }
 
         // Make sure that Cluster construction is without exceptions.
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
         // Check that the cluster has the expected number of chips.
         auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
@@ -149,7 +149,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDF) {
 
 TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     // Get all available PCI devices and their BDF addresses.
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
@@ -162,7 +162,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     }
 
     // Make sure that Cluster construction is without exceptions.
-    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = test_utils::make_default_test_cluster();
 
     // Check that the cluster has the expected number of chips.
     auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
@@ -171,7 +171,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
 
 TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     // Get all available PCI devices and their BDF addresses.
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
@@ -185,7 +185,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     }
 
     // Make sure that Cluster construction is without exceptions.
-    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = test_utils::make_default_test_cluster();
 
     // Check that the cluster has the expected number of chips, which is 1 because of the BDF being the lowest out of
     // all chips on galaxy, which is at the same time represented by logical ID 0.
@@ -195,7 +195,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
 
 TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     // Get all available PCI devices and their BDF addresses.
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_tt_device(0)->get_board_type() != BoardType::UBB_WORMHOLE) {
         GTEST_SKIP() << "This test is intended to be run on Wormhole 6U systems only.";
@@ -208,7 +208,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     }
 
     // Make sure that Cluster construction is without exceptions.
-    std::unique_ptr<Cluster> cluster_tt_visible_devices = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster_tt_visible_devices = test_utils::make_default_test_cluster();
 
     // Check that the cluster has the expected number of chips. By pattern in TT_VISIBLE_DEVICES, we should select full
     // tray of chips, which is 8 chips in total.
@@ -241,7 +241,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByIdException) {
 TEST_F(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     // Verify that for each logical ID i, the PCI device behind it matches
     // the i-th device returned by enumerate_devices() (which is BDF-sorted).
@@ -262,7 +262,7 @@ TEST_F(TestTTVisibleDevices, DifferentConstructors) {
     std::unique_ptr<Cluster> umd_cluster;
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.
-    umd_cluster = std::make_unique<Cluster>();
+    umd_cluster = test_utils::make_default_test_cluster();
     bool chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster.reset();
 
@@ -271,7 +271,7 @@ TEST_F(TestTTVisibleDevices, DifferentConstructors) {
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
         std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
-        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
             .sdesc_path = sdesc_path,
         });
         umd_cluster.reset();

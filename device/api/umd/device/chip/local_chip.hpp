@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -17,36 +18,20 @@
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/lock_manager.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
+#include "umd/device/utils/mutex_interface.hpp"
 
 namespace tt::umd {
-class RemoteCommunication;
 class SocDescriptor;
 class SysmemManager;
 class TLBManager;
 
 class LocalChip : public Chip {
 public:
-    // In some of the constructor implementations, we want to create TTDevice objects and then use them to obtain the
-    // necessary information needed for soc descriptor construction. Due to this inverse member initialization order, we
-    // cannot have simple constructors as they require the base class to be constructed first.
-    static std::unique_ptr<LocalChip> create(
-        int physical_device_id,
-        const std::string& sdesc_path = "",
-        int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<LocalChip> create(
-        int physical_device_id,
-        const SocDescriptor& soc_descriptor,
-        int num_host_mem_channels = 0,
-        IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<LocalChip> create(
-        std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels = 0);
+    static std::unique_ptr<LocalChip> create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
 
     ~LocalChip() override;
 
@@ -58,6 +43,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -71,14 +58,12 @@ public:
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
-    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
-    void ethernet_broadcast_write(
-        const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
+    int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering);
 
     void wait_for_non_mmio_flush() override;
 
@@ -90,32 +75,22 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
-
 private:
     LocalChip(
-        SocDescriptor soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
-        std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication);
+        std::unique_ptr<SysmemManager> sysmem_manager);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
-    LockManager lock_manager_;
-    // Used only for ethernet broadcast to all remote chips.
-    std::unique_ptr<RemoteCommunication> remote_communication_;
 
-    // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
-    // RobustMutex is unlocked.
-    std::optional<std::unique_lock<RobustMutex>> chip_started_lock_;
+    // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
+    // mutex is unlocked.
+    std::optional<std::unique_lock<MutexInterface>> chip_started_lock_;
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars(uint32_t dram_subchannel);
-
-    void init_pcie_iatus();
 
     void set_membar_flag(
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
@@ -125,6 +100,8 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
+
+    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;

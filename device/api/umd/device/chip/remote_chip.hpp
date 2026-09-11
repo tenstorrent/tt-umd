@@ -12,9 +12,6 @@
 #include <unordered_set>
 
 #include "umd/device/chip/chip.hpp"
-// TODO : tt-metal uses SysmemBuffer transitively through this header. Remove once tt-metal includes it directly.
-// Link to issue: https://github.com/tenstorrent/tt-umd/issues/2437.
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -25,7 +22,7 @@ struct EthCoord;
 }  // namespace tt
 
 namespace tt::umd {
-class LocalChip;
+class Chip;
 class RemoteCommunication;
 class SocDescriptor;
 
@@ -33,21 +30,18 @@ class RemoteChip : public Chip {
 public:
     /** Create a RemoteChip instance.
      *
+     * @param remote_tt_device An existing, initialized remote TTDevice.
      * @param local_chip The local chip to be used for communication to this remote chip.
-     * @param target_eth_coord The target Ethernet coordinates for the remote chip.
-     * @param remote_transfer_eth_channels The set of Ethernet channels on local chip to use for remote communication.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip,
-        EthCoord target_eth_coord,
-        const std::set<uint32_t>& remote_transfer_eth_channels,
-        const std::string& sdesc_path = "");
-    static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip,
-        EthCoord target_eth_coord,
-        const std::set<uint32_t>& remote_transfer_eth_channels,
-        SocDescriptor soc_descriptor);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Simulation-only factory for a simulated remote chip (no ARC to probe), matching
+    // TTDevice::create_simulation_remote. Compiled in only for simulation builds so the simulation-specific
+    // construction path is not exposed in silicon builds.
+    static std::unique_ptr<RemoteChip> create_for_simulation(
+        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info);
+#endif  // TT_UMD_BUILD_SIMULATION
 
     bool is_mmio_capable() const override;
 
@@ -57,6 +51,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -86,10 +82,17 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+#ifdef TT_UMD_BUILD_SIMULATION
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info);
+#endif
 
-    LocalChip* local_chip_;
+    Chip* local_chip_;
     RemoteCommunication* remote_communication_;
+
+    // True when this remote chip is simulated (constructed via create_for_simulation). A simulated remote chip has
+    // no ARC, so ARC-dependent steps (reset/power) are skipped.
+    bool is_simulation_ = false;
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };

@@ -28,8 +28,8 @@ jobs:
           tt-ubuntu-2204-n300-llmbox-viommu-stable,
           tt-ubuntu-2204-p150b-stable,
           tt-ubuntu-2204-p150b-viommu-stable,
-          bh-gh-07,
-          tt-ubuntu-2204-bh-loudbox-viommu-stable]
+          P300-viommu,
+          BH-Quietbox-2]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -91,8 +91,8 @@ jobs:
           tt-ubuntu-2204-n300-llmbox-viommu-stable,
           tt-ubuntu-2204-p150b-stable,
           tt-ubuntu-2204-p150b-viommu-stable,
-          bh-gh-07,
-          tt-ubuntu-2204-bh-loudbox-viommu-stable]
+          P300-viommu,
+          BH-Quietbox-2]
         image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
 
     name: Check runner docker

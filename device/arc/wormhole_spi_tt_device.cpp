@@ -15,10 +15,13 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/arc/arc_messenger.hpp"
+#include "spi_arc_command.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
+#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -75,7 +78,13 @@ static inline uint32_t spi_ser_slave_disable(uint32_t slave_id) { return 0x0 << 
 
 static inline uint32_t spi_ser_slave_enable(uint32_t slave_id) { return 0x1 << slave_id; }
 
-WormholeSPITTDevice::WormholeSPITTDevice(TTDevice* tt_device) : SPITTDevice(tt_device) {}
+WormholeSPITTDevice::WormholeSPITTDevice(TTDevice* tt_device) :
+    SPITTDevice(tt_device), firmware_(dynamic_cast<WormholeDeviceFirmware*>(tt_device->get_device_firmware())) {
+    UMD_ASSERT(
+        firmware_ != nullptr,
+        error::RuntimeError,
+        "WormholeSPITTDevice requires a device backed by WormholeDeviceFirmware.");
+}
 
 void WormholeSPITTDevice::get_aligned_params(
     uint32_t addr,
@@ -98,7 +107,7 @@ void WormholeSPITTDevice::get_aligned_params(
 }
 
 uint32_t WormholeSPITTDevice::get_clock() {
-    auto* telemetry = device_->get_arc_telemetry_reader();
+    auto* telemetry = device_->get_firmware_telemetry_reader();
     uint32_t arcclk = 540;  // Default pessimistic value
 
     if (telemetry) {
@@ -128,82 +137,82 @@ uint32_t WormholeSPITTDevice::get_clock() {
 
 void WormholeSPITTDevice::init(uint32_t clock_div) {
     uint32_t reg;
-    device_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    firmware_->read_from_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     reg |= 1 << 2;     // Enable tristate for SPI data in PAD
     reg &= ~(1 << 5);  // Disable tristate for SPI chip select PAD
     reg &= ~(1 << 6);  // Disable tristate for SPI clock PAD
-    device_->write_to_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg));
+    firmware_->write_to_arc_apb(&reg, GPIO2_PAD_TRIEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     uint32_t val = 0xffffffff;
-    device_->write_to_arc_apb(&val, GPIO2_PAD_DRV_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, GPIO2_PAD_DRV_CNTL, sizeof(val), get_selected_noc_id());
 
     // Enable RX for all SPI PADS.
-    device_->read_from_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    firmware_->read_from_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg), get_selected_noc_id());
     reg |= 0x3f << 1;  // PADs 1 to 6 are used for SPI quad SCPH support
-    device_->write_to_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg));
+    firmware_->write_to_arc_apb(&reg, GPIO2_PAD_RXEN_CNTL, sizeof(reg), get_selected_noc_id());
 
     val = SPI_CNTL_SPI_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = 0;
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     val = spi_baudr_sckdv(clock_div);
-    device_->write_to_arc_apb(&val, SPI_BAUDR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_BAUDR, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 }
 
 void WormholeSPITTDevice::disable() {
     uint32_t val = SPI_CNTL_CLK_DISABLE | SPI_CNTL_SPI_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CNTL, sizeof(val), get_selected_noc_id());
 }
 
 uint8_t WormholeSPITTDevice::read_status(uint8_t register_addr) {
     uint32_t val;
 
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_EEPROM_READ | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = spi_ctrl1_ndf(0);
-    device_->write_to_arc_apb(&val, SPI_CTRLR1, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR1, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Write status register to read.
     val = register_addr;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for data to be available.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_RFNE) == 0);
 
-    device_->read_from_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->read_from_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
     uint8_t read_buf = val & 0xff;
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     return read_buf;
 }
@@ -213,41 +222,41 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
 
     // Set slave address.
     val = SPI_SSIENR_DISABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = SPI_CTRL0_TMOD_TRANSMIT_ONLY | SPI_CTRL0_SPI_FRF_STANDARD | SPI_CTRL0_DFS32_FRAME_08BITS |
           spi_ctrl0_spi_scph(0x1);
-    device_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_CTRLR0, sizeof(val), get_selected_noc_id());
 
     val = SPI_SSIENR_ENABLE;
-    device_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SSIENR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Enable write.
     val = SPI_WR_EN_CMD;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for TX FIFO empty.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Write sectors to lock.
     val = SPI_WR_STATUS_CMD;
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     // Determine board type to figure out which SPI to use.
     uint64_t board_id = device_->get_board_id();
@@ -262,23 +271,23 @@ void WormholeSPITTDevice::lock(uint8_t sections) {
     } else {
         val = (0x1 << 5) | ((static_cast<uint32_t>(sections) - 5) << 2);
     }
-    device_->write_to_arc_apb(&val, SPI_DR, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_DR, sizeof(val), get_selected_noc_id());
 
     val = spi_ser_slave_enable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for TX FIFO empty.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_TFE) != SPI_SR_TFE);
 
     // Wait for not busy.
     do {
-        device_->read_from_arc_apb(&val, SPI_SR, sizeof(val));
+        firmware_->read_from_arc_apb(&val, SPI_SR, sizeof(val), get_selected_noc_id());
     } while ((val & SPI_SR_BUSY) == SPI_SR_BUSY);
 
     val = spi_ser_slave_disable(0);
-    device_->write_to_arc_apb(&val, SPI_SER, sizeof(val));
+    firmware_->write_to_arc_apb(&val, SPI_SER, sizeof(val), get_selected_noc_id());
 
     // Wait for lock operation to complete.
     while ((read_status(SPI_RD_STATUS_CMD) & 0x1) == 0x1) {
@@ -299,14 +308,16 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         return;
     }
 
-    auto* messenger = device_->get_arc_messenger();
-    if (!messenger) {
-        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Wormhole.");
+    auto* firmware = device_->get_device_firmware();
+    if (!firmware) {
+        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI read on Wormhole.");
     }
 
     std::vector<uint32_t> ret(1);
-    uint32_t rc = messenger->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
+    uint32_t rc = send_spi_arc_command(
+        firmware,
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
+        ret);
     if (rc != 0 || ret.empty()) {
         UMD_THROW(error::RuntimeError, "Failed to get SPI dump address on Wormhole.");
     }
@@ -328,9 +339,13 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
 
         uint32_t spi_read_msg =
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-        messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
+        send_spi_arc_command(firmware, spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
         device_->read_from_device(
-            chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+            chunk_buf.data(),
+            device_->get_arc_core(),
+            spi_dump_addr,
+            wormhole::ARC_SPI_CHUNK_SIZE,
+            get_selected_noc_id());
 
         // Copy the relevant portion of the chunk to the output buffer.
         if (offset < start_offset) {
@@ -352,9 +367,9 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
         return;
     }
 
-    auto* messenger = device_->get_arc_messenger();
-    if (!messenger) {
-        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Wormhole.");
+    auto* firmware = device_->get_device_firmware();
+    if (!firmware) {
+        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI write on Wormhole.");
     }
 
     uint32_t clock_div = get_clock();
@@ -371,7 +386,8 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
     std::exception_ptr write_exception;
     try {
         std::vector<uint32_t> ret(1);
-        uint32_t rc = messenger->send_message(
+        uint32_t rc = send_spi_arc_command(
+            firmware,
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
             ret);
         if (rc != 0 || ret.empty()) {
@@ -396,10 +412,14 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             // Read the current chunk first.
             uint32_t spi_read_msg =
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
-            messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
+            send_spi_arc_command(firmware, spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
 
             device_->read_from_device(
-                chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+                chunk_buf.data(),
+                device_->get_arc_core(),
+                spi_dump_addr,
+                wormhole::ARC_SPI_CHUNK_SIZE,
+                get_selected_noc_id());
 
             // Keep a copy to check if we need to write.
             std::vector<uint8_t> orig_data = chunk_buf;
@@ -420,12 +440,16 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             // Only write if the data changed.
             if (chunk_buf != orig_data) {
                 device_->write_to_device(
-                    chunk_buf.data(), device_->get_arc_core(), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE);
+                    chunk_buf.data(),
+                    device_->get_arc_core(),
+                    spi_dump_addr,
+                    wormhole::ARC_SPI_CHUNK_SIZE,
+                    get_selected_noc_id());
 
                 if (!skip_write_to_spi) {
                     uint32_t spi_write_msg =
                         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_WRITE);
-                    messenger->send_message(spi_write_msg, ret, {0xFFFF, 0xFFFF});
+                    send_spi_arc_command(firmware, spi_write_msg, ret, {0xFFFF, 0xFFFF});
                 }
             }
         }

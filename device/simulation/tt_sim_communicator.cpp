@@ -14,10 +14,12 @@
 
 #include <cerrno>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/utils/error.hpp"
 
 // NOLINTBEGIN.
@@ -31,19 +33,219 @@
 
 namespace tt::umd {
 
-TTSimCommunicator::TTSimCommunicator(const std::filesystem::path &simulator_directory, bool copy_sim_binary) :
-    simulator_directory_(simulator_directory), copy_sim_binary_(copy_sim_binary) {}
+// Multichip shared-library state. When the loaded libttsim.so exports
+// libttsim_create_device_by_id + libttsim_select_device_by_id, all
+// TTSimCommunicators share a single dlopen of the .so so they also share its
+// process-global state (eth_switch routing table, Device* registry).
+std::weak_ptr<void> TTSimCommunicator::s_shared_lib_;
+bool TTSimCommunicator::s_sim_initialized_ = false;
+std::recursive_mutex TTSimCommunicator::s_shared_init_mutex_;
+std::mutex TTSimCommunicator::device_lock_;
+
+std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
+    // libttsim_exit is resolved up front so the deleter never has to dlsym the handle it is about to
+    // dlclose.  Both shared modes require the symbol, so it is non-null in practice.
+    auto exit_fn = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_exit"));
+    return std::shared_ptr<void>(handle, [exit_fn](void *h) {
+        // Runs when the last owner drops its copy: the last communicator to destruct, or -- if symbol
+        // resolution threw before any of them committed -- the reference initialize() held while
+        // probing.  It also runs on this thread, with s_shared_init_mutex_ already held, if the
+        // shared_ptr construction below throws while allocating its control block: the standard hands
+        // the deleter the handle to release.  That is why the mutex is recursive.
+        std::lock_guard<std::recursive_mutex> lock(s_shared_init_mutex_);
+        // The simulator is process-global, so libttsim_exit runs exactly once -- and only if some
+        // communicator got as far as start_sim() and actually called libttsim_init.
+        if (s_sim_initialized_ && exit_fn) {
+            exit_fn();
+        }
+        dlclose(h);
+        s_sim_initialized_ = false;
+    });
+}
+
+TTSimCommunicator::TTSimCommunicator(
+    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    simulator_directory_(simulator_directory),
+    copy_sim_binary_(copy_sim_binary),
+    chip_id_(chip_id),
+    num_chips_(num_chips) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
-    if (libttsim_handle_) {
+    // Unregister from the process-global DMA routing tables first. The shared simulator may still be
+    // alive (other chips not yet destructed) and could emit a DMA; leaving a stale entry/callback
+    // pointing at this freed communicator would route into freed memory (use-after-free).
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {
+                dma_ranges_[i] = dma_ranges_[dma_range_count_ - 1];  // compact: move last into the hole
+                dma_ranges_[--dma_range_count_] = {};
+                break;
+            }
+        }
+        if (callback_instance_ == this) {
+            callback_instance_ = nullptr;
+        }
+    }
+    if (!shared_lib_ && libttsim_handle_) {
+        // Legacy per-chip dlopen: this communicator owns the handle outright.  In the shared modes the
+        // handle belongs to shared_lib_, and initialize() clears the raw view if it never committed.
         dlclose(libttsim_handle_);
     }
     close_simulator_binary();
+    // shared_lib_ is released once this body returns.  If this was the last communicator on the shared
+    // dlopen, its deleter calls libttsim_exit (which the deferred shutdown() path skipped) and dlcloses.
 }
 
 void TTSimCommunicator::initialize() {
     std::lock_guard<std::mutex> lock(device_lock_);
 
+    // Probe the .so for multichip ABI symbols. We do this before
+    // committing to memfd-vs-direct dlopen because the shared-library path
+    // skips memfd entirely (multiple chips share one dlopen).
+    //
+    // If the shared handle already exists, use it for the probe directly
+    // to avoid dlopen/dlclose running global constructors/destructors.
+    //
+    // shared_lib carries the probe's own reference through the rest of initialize().  If symbol
+    // resolution below throws, unwinding drops it, and when this call performed the fresh dlopen that
+    // closes the library so a retry starts clean.
+    std::shared_ptr<void> shared_lib;
+    bool multichip_supported = false;
+    {
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        shared_lib = s_shared_lib_.lock();
+        if (shared_lib) {
+            // Already loaded by another communicator -- probe in-place.
+            multichip_supported = dlsym(shared_lib.get(), "libttsim_create_device_by_id") != nullptr &&
+                                  dlsym(shared_lib.get(), "libttsim_select_device_by_id") != nullptr;
+        } else {
+            // Fresh load: open, probe, and keep the handle if multichip is supported
+            // to avoid a wasteful close+reopen cycle.
+            void *probe = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
+            if (probe) {
+                multichip_supported = dlsym(probe, "libttsim_create_device_by_id") != nullptr &&
+                                      dlsym(probe, "libttsim_select_device_by_id") != nullptr;
+                if (multichip_supported) {
+                    // Keep this handle as the shared handle.
+                    shared_lib = adopt_shared_library(probe);
+                    s_shared_lib_ = shared_lib;
+                } else {
+                    dlclose(probe);
+                }
+            }
+        }
+    }
+
+    if (multichip_supported) {
+        log_info(tt::LogEmulationDriver, "TTSim multichip mode enabled (chip_id={}, shared dlopen)", chip_id_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        // shared_lib is guaranteed non-null here (adopted by the probe above, or locked from a prior
+        // communicator's).
+        libttsim_handle_ = shared_lib.get();
+
+        try {
+            // Resolve all required multichip symbols via DLSYM_FUNCTION (throws on missing).
+            DLSYM_FUNCTION(libttsim_init)
+            DLSYM_FUNCTION(libttsim_exit)
+            DLSYM_FUNCTION(libttsim_pci_config_rd32)
+            DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
+            DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
+            DLSYM_FUNCTION(libttsim_tile_rd_bytes)
+            DLSYM_FUNCTION(libttsim_tile_wr_bytes)
+            DLSYM_FUNCTION(libttsim_clock)
+            DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+            DLSYM_FUNCTION(libttsim_create_device_by_id)
+            DLSYM_FUNCTION(libttsim_select_device_by_id)
+            DLSYM_FUNCTION(libttsim_clock_all_devices)
+            DLSYM_FUNCTION(libttsim_switch_reset)
+            DLSYM_FUNCTION(libttsim_switch_register)
+            DLSYM_FUNCTION(libttsim_switch_drain)
+            DLSYM_FUNCTION(libttsim_configure_eth_link_virtual)
+            DLSYM_FUNCTION(libttsim_switch_register_peer)
+        } catch (...) {
+            // Never committed, so no owning reference was taken.  Drop the raw view: the handle belongs
+            // to the shared control block, and leaving it set would make the destructor dlclose a
+            // library it does not own.  Unwinding then releases the probe reference above, which closes
+            // the library if this call performed the fresh dlopen and leaves it alone otherwise.
+            libttsim_handle_ = nullptr;
+            throw;
+        }
+
+        // Optional extension symbols -- resolved with raw dlsym and allowed to be
+        // nullptr.  These are newer additions to the libttsim ABI that not all .so
+        // builds export yet; callers check for nullptr before use.
+        pfn_libttsim_dram_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_rd_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_rd_bytes_by_id"));
+        pfn_libttsim_dram_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_wr_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_wr_bytes_by_id"));
+        pfn_libttsim_dram_core_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_rd_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id"));
+        pfn_libttsim_dram_core_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_wr_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id"));
+        pfn_libttsim_switch_register_fabric_node_id_ =
+            reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_node_id_)>(
+                dlsym(libttsim_handle_, "libttsim_switch_register_fabric_node_id"));
+        pfn_libttsim_switch_register_fabric_endpoint_direction_ =
+            reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
+                dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
+
+        // Only commit to multichip mode and take an owning reference after ALL symbol
+        // resolution has succeeded.  Until then the probe reference is the only one this
+        // call holds, so an exception releases the library instead of leaking it.
+        multichip_mode_ = true;
+        shared_lib_ = std::move(shared_lib);
+        return;
+    }
+
+    // No multichip ABI, but a *self-describing multi-MMIO* simulator: one libttsim .so image hosts
+    // several PCIe chips, addressed by PCI device (BDF) + per-device BAR window. All chips share a single
+    // dlopen (one shared per-chip state array). This is the BDF host-enumeration path
+    // (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id, no virtual eth switch (the simulator
+    // routes inter-chip eth internally).
+    //
+    // The signal is a cluster_descriptor.yaml shipped beside the .so (e.g. P300 bh_x2): the .so declares
+    // the topology it hosts. A plain multi-chip cluster that replicates a *single-chip* .so per chip
+    // (e.g. galaxy wormhole, driven by an external mock cluster desc) has no such file -- it must keep
+    // the per-chip isolated dlopen (legacy memfd path below) so each chip is its own simulator process.
+    const bool self_describing_multi_mmio =
+        num_chips_ > 1 &&
+        std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+    if (self_describing_multi_mmio) {
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        if (!shared_lib) {
+            void *handle = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
+            // Guard before wrapping: a shared_ptr built on nullptr would still run the teardown deleter.
+            if (!handle) {
+                UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+            }
+            shared_lib = adopt_shared_library(handle);
+            s_shared_lib_ = shared_lib;
+        }
+        libttsim_handle_ = shared_lib.get();
+        try {
+            DLSYM_FUNCTION(libttsim_init)
+            DLSYM_FUNCTION(libttsim_exit)
+            DLSYM_FUNCTION(libttsim_pci_config_rd32)
+            DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
+            DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
+            DLSYM_FUNCTION(libttsim_tile_rd_bytes)
+            DLSYM_FUNCTION(libttsim_tile_wr_bytes)
+            DLSYM_FUNCTION(libttsim_clock)
+            DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+        } catch (...) {
+            // Never committed -- see the multichip path above.
+            libttsim_handle_ = nullptr;
+            throw;
+        }
+        shared_bdf_mode_ = true;
+        shared_lib_ = std::move(shared_lib);
+        log_info(
+            tt::LogEmulationDriver, "TTSim BDF multichip mode (chip_id={}, shared dlopen, per-device BARs)", chip_id_);
+        return;
+    }
+
+    // Legacy path: per-chip memfd + dlopen.
     if (copy_sim_binary_) {
         create_simulator_binary();
         copy_simulator_binary();
@@ -56,67 +258,248 @@ void TTSimCommunicator::initialize() {
 
 void TTSimCommunicator::start_sim() {
     std::lock_guard<std::mutex> lock(device_lock_);
+    if (multichip_mode_) {
+        // libttsim_init only on the first communicator. Subsequent
+        // communicators register their chip into the shared registry.
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        if (!s_sim_initialized_) {
+            pfn_libttsim_init_();
+            s_sim_initialized_ = true;
+        }
+        // Register this chip in the shared chip_id registry.
+        // Capture Device* handle for later eth-MAC registration.
+        dev_handle_ = pfn_libttsim_create_device_by_id_(chip_id_, /*chip_x=*/int(chip_id_), /*chip_y=*/0);
+        return;
+    }
+    if (shared_bdf_mode_) {
+        // Shared dlopen: initialize the simulator exactly once. Chips are addressed by
+        // BDF, so there is no per-chip registration call.
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+        if (!s_sim_initialized_) {
+            pfn_libttsim_init_();
+            s_sim_initialized_ = true;
+        }
+        return;
+    }
     pfn_libttsim_init_();
 }
 
 void TTSimCommunicator::shutdown() {
     std::lock_guard<std::mutex> lock(device_lock_);
+    // Guard against double-shutdown: close_device() calls mark_closed() then
+    // shutdown(); the destructor also calls shutdown(). Without this check the
+    // destructor would call pfn_libttsim_exit_() a second time.
+    if (closed_) {
+        return;
+    }
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
+    if (uses_shared_handle()) {
+        // Defer libttsim_exit until the last communicator destructs (handled
+        // by the shared_lib_ teardown deleter). The simulator is process-global;
+        // calling exit per chip would be wrong.
+        return;
+    }
     pfn_libttsim_exit_();
+}
+
+// Multichip mode: every I/O entry point first selects the right chip via
+// libttsim_select_device_by_id(chip_id_) under the held device_lock_.
+// The shared libttsim's internal recursive_mutex provides defense-in-depth.
+void TTSimCommunicator::select_chip_if_needed() {
+    if (multichip_mode_) {
+        pfn_libttsim_select_device_by_id_(chip_id_);
+    }
 }
 
 void TTSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core ({},{})", size, addr, x, y);
+    select_chip_if_needed();
     pfn_libttsim_tile_wr_bytes_(x, y, addr, data, size);
 }
 
 void TTSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
+    select_chip_if_needed();
     pfn_libttsim_tile_rd_bytes_(x, y, addr, data, size);
+}
+
+bool TTSimCommunicator::dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    if (!multichip_mode_ || pfn_libttsim_dram_core_wr_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_dram_core_wr_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
+}
+
+bool TTSimCommunicator::dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    if (!multichip_mode_ || pfn_libttsim_dram_core_rd_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_dram_core_rd_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
 }
 
 void TTSimCommunicator::pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
+    select_chip_if_needed();
     pfn_libttsim_pci_mem_rd_bytes_(paddr, data, size);
 }
 
 void TTSimCommunicator::pci_mem_write_bytes(uint64_t paddr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
+    select_chip_if_needed();
     pfn_libttsim_pci_mem_wr_bytes_(paddr, data, size);
 }
 
 uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    return pfn_libttsim_pci_config_rd32_(bus_device_function, offset);
+    // In BDF mode there is no select_device_by_id: this chip's PCI device is named by
+    // its BDF (device field = chip_id), so each chip reads its own per-device BAR bases.
+    // Callers pass bus_device_function 0 ("this device"); we fill in the device field.
+    uint32_t bdf = bus_device_function;
+    if (shared_bdf_mode_) {
+        // BDF: function[2:0], device[7:3], bus[15:8]. The device field is only 5 bits, so chip_id >= 32
+        // would silently overflow into the bus field and misroute. Fail loudly instead.
+        UMD_ASSERT(chip_id_ < 32, error::RuntimeError, "BDF device field is 5 bits; chip_id must be < 32 in BDF mode.");
+        bdf |= (chip_id_ << 3);
+    }
+    select_chip_if_needed();  // no-op outside the multichip-ABI mode
+    return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     std::lock_guard<std::mutex> lock(device_lock_);
+    if (multichip_mode_ && pfn_libttsim_clock_all_devices_) {
+        // In shared-dlopen multichip mode, tick ALL chips together so
+        // cross-chip eth handshakes converge (chip A waiting on a packet from chip B
+        // would otherwise stall -- only the chip being read gets advanced).
+        // libttsim_clock_all_devices walks the simulator chip_id registry internally
+        // and drains the eth switch in sort order, so no extra switch_drain call.
+        pfn_libttsim_clock_all_devices_(n_clocks);
+        return;
+    }
+    select_chip_if_needed();
     pfn_libttsim_clock_(n_clocks);
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+std::array<TTSimCommunicator::DmaHostRange, TTSimCommunicator::MAX_DMA_DEVICES> TTSimCommunicator::dma_ranges_{};
+std::size_t TTSimCommunicator::dma_range_count_ = 0;
+std::mutex TTSimCommunicator::dma_ranges_mutex_;
 
-void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
-        callback_instance_->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+// Route a sysmem DMA to the owning MMIO chip by host address: the address the chip emits already went
+// through its outbound iATU (UMD-programmed target = that chip's distinct host base), so we just find
+// the registered host window [host_base, host_base+size) that contains it -- exactly as a host routes a
+// DMA by which pinned region the physical address falls in. Rebase physical_address to the within-window
+// offset (so the per-chip callback sees an offset relative to its own host base, like the single-device
+// case) and return the owning communicator.
+//
+// With 0 or 1 window registered (legacy / single-device, host_base 0), an unmatched address is harmless
+// -- the mapping is an identity, so we fall back to callback_instance_. With more than one window
+// (multichip), an address matching no window means the simulator emitted an out-of-region outbound
+// address that never went through the iATU (e.g. a mapped-buffer arena IOVA, which sits above the
+// channel grid that the iATU covers). We cannot rebase it to the right chip, and silently falling back
+// would deliver it un-rebased to the wrong chip's sysmem. Hard-fail instead; extending iATU coverage to
+// the arena (or routing it explicitly) is the real fix, tracked separately.
+TTSimCommunicator *TTSimCommunicator::dma_route(uint64_t &physical_address) {
+    std::lock_guard<std::mutex> lock(dma_ranges_mutex_);
+    for (std::size_t i = 0; i < dma_range_count_; i++) {
+        const DmaHostRange &range = dma_ranges_[i];
+        if (physical_address >= range.host_base && (physical_address - range.host_base) < range.host_size) {
+            physical_address -= range.host_base;
+            return range.inst;
+        }
+    }
+    UMD_ASSERT(
+        dma_range_count_ <= 1,
+        error::RuntimeError,
+        fmt::format(
+            "TTSim multichip DMA to host address 0x{:x} matches no registered chip window ({} windows registered). "
+            "The simulator passed through an out-of-region outbound address (e.g. a mapped-buffer arena IOVA) that "
+            "the outbound iATU does not cover, so it cannot be routed to the owning chip.",
+            physical_address,
+            dma_range_count_));
+    return callback_instance_;
+}
+
+// Thread-safety note: dma_route() returns a communicator under dma_ranges_mutex_, then the callback is
+// dereferenced here outside the lock. This is safe because DMA callbacks only fire synchronously from
+// the owning chip's own thread while it drives the simulator (advance_clock / pci_mem_* under
+// device_lock_) -- a chip cannot be issuing a DMA and running its own ~TTSimCommunicator (which
+// unregisters the range under the same mutex) at the same time. No other thread holds a reference to
+// the returned instance across the call.
+void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t physical_address, void *p, uint32_t size) {
+    TTSimCommunicator *dma_cb = dma_route(physical_address);
+    if (dma_cb && dma_cb->pci_dma_mem_rd_bytes_callback_) {
+        dma_cb->pci_dma_mem_rd_bytes_callback_(physical_address, p, size);
     }
 }
 
-void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_wr_bytes_callback_) {
-        callback_instance_->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t physical_address, const void *p, uint32_t size) {
+    TTSimCommunicator *dma_cb = dma_route(physical_address);
+    if (dma_cb && dma_cb->pci_dma_mem_wr_bytes_callback_) {
+        dma_cb->pci_dma_mem_wr_bytes_callback_(physical_address, p, size);
     }
 }
 
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
+    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+    uint64_t host_base,
+    uint64_t host_size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
-    callback_instance_ = this;
+    // callback_instance_ and dma_ranges_ are both read by dma_route() under dma_ranges_mutex_, so they
+    // must be written under that same mutex (not device_lock_) to avoid a data race with DMA callbacks.
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        callback_instance_ = this;
+        // Register this chip's host window for address-range DMA routing (dma_route()). The chip's
+        // outbound iATU targets this window, so DMAs land here by address alone -- no per-chip tag.
+        // Locate any window already registered for this instance so we can update or drop it in place.
+        std::size_t existing = dma_range_count_;
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {
+                existing = i;
+                break;
+            }
+        }
+        if (host_size == 0) {
+            // host_size==0 (legacy / single-device) registers no window and relies on the
+            // callback_instance_ fallback. Drop any stale window this instance had registered, so a
+            // re-register with host_size==0 doesn't leave a dangling range that misroutes DMAs.
+            if (existing != dma_range_count_) {
+                dma_ranges_[existing] = dma_ranges_[dma_range_count_ - 1];  // compact: move last into the hole
+                dma_ranges_[--dma_range_count_] = {};
+            }
+        } else if (existing != dma_range_count_) {
+            dma_ranges_[existing] = {host_base, host_size, this};  // re-registration: update in place
+        } else {
+            // New window. Overflowing the table would silently drop this chip's window and let dma_route
+            // fall back to callback_instance_, delivering un-rebased host addresses to the wrong chip's
+            // sysmem -- silent corruption. Make it a hard error instead.
+            UMD_ASSERT(
+                dma_range_count_ < MAX_DMA_DEVICES,
+                error::RuntimeError,
+                fmt::format(
+                    "TTSim DMA host-range table full (MAX_DMA_DEVICES={}); cannot register another chip's "
+                    "host window for DMA routing.",
+                    MAX_DMA_DEVICES));
+            dma_ranges_[dma_range_count_++] = {host_base, host_size, this};
+        }
+    }
+    // The DMA callbacks are process-global, and libttsim forbids (re)registering them
+    // once the simulator is running. With one shared simulator across chips, only the
+    // first chip -- which runs libttsim_init in start_sim() -- registers them, before
+    // init. Later chips just record their callback (last-writer-wins, the pre-existing
+    // single-instance limitation) and skip the now-illegal re-registration.
+    if (uses_shared_handle() && s_sim_initialized_) {
+        return;
+    }
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 
@@ -194,6 +577,61 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
     DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+}
+
+// Multichip eth-MAC wiring methods. All no-ops in legacy single-chip mode.
+
+void TTSimCommunicator::switch_reset() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (multichip_mode_ && pfn_libttsim_switch_reset_) {
+        pfn_libttsim_switch_reset_();
+    }
+}
+
+void TTSimCommunicator::register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_) {
+        return;
+    }
+    // Prefer configure_eth_link_virtual: sets link_mode=Virtual + writes
+    // link-up sentinel + registers MAC. Falls back to switch_register if
+    // configure_eth_link_virtual is not exported.
+    if (pfn_libttsim_configure_eth_link_virtual_) {
+        pfn_libttsim_configure_eth_link_virtual_(dev_handle_, eth_tile_id, mac);
+    } else if (pfn_libttsim_switch_register_) {
+        pfn_libttsim_switch_register_(dev_handle_, eth_tile_id, mac);
+    }
+}
+
+void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_peer_ || !peer_dev) {
+        return;
+    }
+    pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
+}
+
+void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_fabric_node_id_) {
+        return;
+    }
+    pfn_libttsim_switch_register_fabric_node_id_(dev_handle_, mesh_id, chip_id);
+}
+
+void TTSimCommunicator::register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_fabric_endpoint_direction_) {
+        return;
+    }
+    pfn_libttsim_switch_register_fabric_endpoint_direction_(dev_handle_, eth_tile_id, direction);
+}
+
+void TTSimCommunicator::switch_drain() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (multichip_mode_ && pfn_libttsim_switch_drain_) {
+        pfn_libttsim_switch_drain_();
+    }
 }
 
 void TTSimCommunicator::close_simulator_binary() {

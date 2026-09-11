@@ -12,7 +12,7 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -23,48 +23,27 @@ enum class IODeviceType;
 
 class WormholeTTDevice : public TTDevice {
 public:
-    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
-
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
-
     uint32_t get_clock() override;
 
     uint32_t get_min_clock_freq() override;
 
-    bool get_noc_translation_enabled() override;
-
-    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    ChipInfo get_chip_info() override;
-
-    std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    void noc_multicast_write(
-        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
-
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
-
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
-
-    void retrain_dram_core(const uint32_t dram_channel) override;
+    explicit WormholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number,
+        IODeviceType device_type,
+        bool use_safe_api,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+#ifdef TT_UMD_BUILD_SIMULATION
+    friend std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+#endif  // TT_UMD_BUILD_SIMULATION
 };
 }  // namespace tt::umd

@@ -23,10 +23,35 @@ on:
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
+      repeat-count:
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
+        required: false
+        default: "1"
+        type: string
+      cards-filter:
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
+        required: false
+        default: ""
+        type: string
   pull_request:
   merge_group:
   push:
     branches: ["main"]
+
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   merge_group - queue entries are independent merge candidates over different commit sets;
+#                 dequeuing them is the merge queue's job. Early kill on failure is handled by
+#                 the fail-fast-* watchers in build-and-run-all-tests.yml.
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 # Granted to all jobs that don't declare their own `permissions:` block.
 # `actions: write` is required so the merge-queue fail-fast watchers (inside
@@ -39,17 +64,43 @@ permissions:
   packages: read
 
 jobs:
+  # Gatekeeper job allows us to define an environment which only affects pushes to main, but not other types of jobs.
+  # With this environment, we can control how the jobs run on main, for example delayed or waiting for approval.
+  gatekeeper:
+    # Only use the environment (the pause) if it's a push to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: main-gate
+    steps:
+      - name: Gate Open
+        run: true
+
   # Ensure the Docker image for CI exists. If the Dockerfile (or its
   # install scripts) changed on this branch the image is rebuilt and pushed
   # with a content-hash tag.  Otherwise the existing image is reused.
   ensure-image:
     name: Ensure Docker image
+    needs: gatekeeper
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
     permissions:
       packages: write
     secrets: inherit
     uses: ./.github/workflows/docker-image.yml
     with:
       docker-version: ubuntu-22.04
+
+  # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
+  # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -
+  # so all build-type runs share one artifact instead of racing to upload identically-named
+  # ones. The build-* jobs below pass build-exalens-kernels: false so they don't build their
+  # own (which would collide); a standalone dispatch of build-and-run-all-tests.yml keeps the
+  # default (true) and builds its own.
+  build-exalens-kernels:
+    name: Build tt-exalens kernels
+    needs: gatekeeper
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
+    secrets: inherit
+    uses: ./.github/workflows/build-exalens-kernels.yml
 
   # On pull_request, only Release should run. But GitHub applies the same required-status-check
   # rules to PRs and merge queues — if a check is required for merge_group it must also be
@@ -64,17 +115,31 @@ jobs:
   # On pull requests we run only Release to get faster feedback.
   # On main we also run only Release to maintain a consistent baseline, but don't want to spend resources
   # on extensive testing at this point.
+  #
+  # Each of the following jobs needs a status check function in its if-condition, because the default
+  # behavior of GitHub Actions is to skip all downstream jobs if one job is skipped, so a skipped
+  # gatekeeper would end up skipping all jobs. Any status check function suppresses that implicit
+  # needs-succeeded gate, which is why the explicit ensure-image condition is spelled out as well.
+  #
+  # The function must be !cancelled() and not always(): always() evaluates true even in a run that
+  # has been cancelled, so GitHub keeps starting these jobs (and the hardware matrices underneath
+  # them) after the run is cancelled, making the run effectively uncancellable. !cancelled() keeps
+  # the skip-propagation override but returns false once the run is cancelled.
 
   build-release:
     name: "Build and Test (Release)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
-      github.event_name == 'pull_request' ||
-      github.event_name == 'merge_group' ||
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-      contains(fromJson(github.event.inputs['build-types']), 'Release'))
+      !cancelled() &&
+      needs.ensure-image.result == 'success' &&
+      (
+        github.event_name == 'pull_request' ||
+        github.event_name == 'merge_group' ||
+        github.event_name == 'push' ||
+        (github.event_name == 'workflow_dispatch' &&
+        contains(fromJson(github.event.inputs['build-types']), 'Release'))
+      )
     secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
@@ -82,17 +147,23 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
-      github.event_name == 'merge_group' ||
-      (github.event_name == 'workflow_dispatch' &&
-      contains(fromJson(github.event.inputs['build-types']), 'ASan'))
+      !cancelled() &&
+      needs.ensure-image.result == 'success' &&
+      (
+        github.event_name == 'merge_group' ||
+        (github.event_name == 'workflow_dispatch' &&
+        contains(fromJson(github.event.inputs['build-types']), 'ASan'))
+      )
     secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
@@ -100,17 +171,23 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
-      github.event_name == 'merge_group' ||
-      (github.event_name == 'workflow_dispatch' &&
-      contains(fromJson(github.event.inputs['build-types']), 'TSan'))
+      !cancelled() &&
+      needs.ensure-image.result == 'success' &&
+      (
+        github.event_name == 'merge_group' ||
+        (github.event_name == 'workflow_dispatch' &&
+        contains(fromJson(github.event.inputs['build-types']), 'TSan'))
+      )
     secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
@@ -118,16 +195,22 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      contains(fromJson(github.event.inputs['build-types']), 'RelWithDebInfo')
+      !cancelled() &&
+      needs.ensure-image.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' &&
+        contains(fromJson(github.event.inputs['build-types']), 'RelWithDebInfo')
+      )
     secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
@@ -135,16 +218,24 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      # Kernels are built once by the build-exalens-kernels job above and shared across all
+      # build-types; building them here too would collide on the artifact name.
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      contains(fromJson(github.event.inputs['build-types']), 'Debug')
+      !cancelled() &&
+      needs.ensure-image.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' &&
+        contains(fromJson(github.event.inputs['build-types']), 'Debug')
+      )
     secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
@@ -152,24 +243,40 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   # Single leaf check that can be required in branch rulesets.
   # Treats skipped jobs as passing (expected on pull_request), fails on failure or cancellation.
+  #
+  # This is the one job that keeps always() rather than !cancelled(). A skipped job counts as
+  # passing for branch protection, so under !cancelled() a cancelled run would report this
+  # required check as green. always() makes it run and report the cancellation as a failure, and
+  # being a trivial ubuntu job it does not hold the cancellation up.
   all-builds-passed:
     name: All builds and tests passed
     runs-on: ubuntu-latest
-    needs: [build-release, build-asan, build-tsan, build-relwithdebinfo, build-debug]
+    needs:
+      - ensure-image
+      - build-exalens-kernels
+      - build-release
+      - build-asan
+      - build-tsan
+      - build-relwithdebinfo
+      - build-debug
     if: always()
     steps:
       - name: Check no job failed or was cancelled
         run: |
-          echo "build-release:        ${{ needs.build-release.result }}"
-          echo "build-asan:           ${{ needs.build-asan.result }}"
-          echo "build-tsan:           ${{ needs.build-tsan.result }}"
-          echo "build-relwithdebinfo: ${{ needs.build-relwithdebinfo.result }}"
-          echo "build-debug:          ${{ needs.build-debug.result }}"
+          echo "ensure-image:          ${{ needs.ensure-image.result }}"
+          echo "build-exalens-kernels: ${{ needs.build-exalens-kernels.result }}"
+          echo "build-release:         ${{ needs.build-release.result }}"
+          echo "build-asan:            ${{ needs.build-asan.result }}"
+          echo "build-tsan:            ${{ needs.build-tsan.result }}"
+          echo "build-relwithdebinfo:  ${{ needs.build-relwithdebinfo.result }}"
+          echo "build-debug:           ${{ needs.build-debug.result }}"
           results="${{ join(needs.*.result, ' ') }}"
           for r in $results; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then

@@ -10,13 +10,14 @@
 #include <set>
 #include <string>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 
 // This test is used that cluster can be created in a baremetal environment.
 TEST(TestClusterBaremetal, BasicClusterAPI) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     EXPECT_EQ(cluster->get_target_device_ids().size(), 0);
     EXPECT_EQ(cluster->get_target_mmio_device_ids().size(), 0);

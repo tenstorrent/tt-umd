@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -25,14 +26,19 @@
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/simulation/simulation_connector.hpp"
+#endif  // TT_UMD_BUILD_SIMULATION
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -46,6 +52,8 @@ enum class ARCH;
 namespace tt::umd {
 
 class ClusterDescriptor;
+class EthernetBroadcast;
+class IoWindow;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
@@ -83,7 +91,7 @@ struct ClusterOptions {
      * If not provided, the value is determined automatically by determining the max
      * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -108,6 +116,28 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+
+    /**
+     * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
+     * processes can attach as clients. Disabled by default so ordinary in-process simulator runs
+     * remain private and can run independently in parallel.
+     */
+    bool serve_simulation_devices_over_sockets = false;
+
+    /**
+     * Host SIMULATION chip type only: optional callback invoked when a client sends SHUTDOWN over a
+     * chip's socket, so a long-running host (e.g. the sim_server tool) can be stopped in-band. It is
+     * fixed when the host starts serving and must only signal (be non-blocking) and be safe to call
+     * more than once. Empty means SHUTDOWN is acknowledged as a no-op.
+     */
+    std::function<void()> simulation_shutdown_handler;
+
+    /**
+     * Host SIMULATION chip type only: the directory this host serves its per-chip sockets in.
+     * Empty means allocate a fresh one, so distinct hosts on the same machine never collide; set it
+     * to serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+     */
+    std::filesystem::path simulator_server_directory = "";
 
     /**
      * I/O device type to use for the cluster.
@@ -141,7 +171,11 @@ public:
      * - Perform this for each of the chips connected to the system.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
-    Cluster(ClusterOptions options = {});
+    Cluster() : Cluster(ClusterOptions{}) {}
+
+    // Explicit to prevent implicit conversion from ClusterOptions at call sites.
+    explicit Cluster(ClusterOptions options);
+
     /**
      * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
      * leave the device in a state where it can be re-initialized.
@@ -251,6 +285,35 @@ public:
         uint64_t ordering = tlb_data::Relaxed);
 
     /**
+     * Maps a core into host address space, anchored at an address on that core. Reads and writes
+     * through the returned window address it as offsets from that anchor. The window is created
+     * large enough to cover the requested size, rounded up to a size the architecture provides.
+     *
+     * The caller owns the window: the mapping is released when it is destroyed, so it must be held
+     * for as long as it is used, and it must not outlive this Cluster. Returns nullptr for chips
+     * with no device behind them (mock and emulated).
+     *
+     * Cores may be given in any coordinate system; they are translated against this chip's mapping.
+     * Naming a second corner makes the window a multicast grid, which requires NOC translation.
+     *
+     * @param chip Device to target.
+     * @param core_start Core to map, or upper-left corner of a multicast grid.
+     * @param addr Address on the core(s) the window is anchored at.
+     * @param host Host-side window properties (caching strategy and requested size).
+     * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
+     * @param flags Transaction attributes.
+     * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
+     */
+    std::unique_ptr<IoWindow> create_io_window(
+        const ChipId chip,
+        CoreCoord core_start,
+        uint64_t addr,
+        HostIoWindowConfig host = {},
+        std::optional<CoreCoord> core_end = std::nullopt,
+        WindowFlags flags = WindowFlags::None,
+        std::optional<NocId> noc = std::nullopt);
+
+    /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
      * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
      * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If
@@ -263,6 +326,23 @@ public:
     void configure_active_ethernet_cores_for_mmio_device(
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Passthroughs to libttsim_switch_register_fabric_* for wiring mock
+    // multichip fabric topologies under craq-sim.  Only available when
+    // the library is built with TT_UMD_BUILD_SIMULATION=ON.
+    void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
+    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
+
+    /**
+     * What simulation this cluster is connected to: whether this process hosts the simulation or
+     * attached to one another process hosts, which simulator sits behind it, and -- for a host that
+     * serves -- the directory and sockets it serves on, including one UMD allocated itself.
+     *
+     * std::nullopt for a cluster that is not a simulation cluster.
+     */
+    std::optional<SimulationConnector::Connection> get_simulation_connection() const;
+#endif  // TT_UMD_BUILD_SIMULATION
+
     //---------- Start and stop the device and tensix cores.
 
     /**
@@ -271,8 +351,6 @@ public:
      * - Assert soft Tensix reset
      * - Deassert RiscV reset
      * - Set power state to busy (ramp up AICLK)
-     * - Initialize iATUs for PCIe devices
-     * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
      */
@@ -287,10 +365,10 @@ public:
     void close_device();
 
     /**
-     * Explicitly set the power state of the device.
+     * Explicitly set the clock state of the device.
      * Note that start/close the device already do this implicitly.
      */
-    void set_power_state(DevicePowerState state);
+    void set_clock_state(DevicePowerState state);
 
     /**
      * Broadcast deassert BRISC soft Tensix Reset to the entire device.
@@ -437,7 +515,7 @@ public:
         void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     void noc_multicast_write(
-        void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -478,6 +556,23 @@ public:
      * @param core The core to access.
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
+
+    /**
+     * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
+     * an fd the caller owns.
+     * - The caller must close() the returned fd when done to release the underlying resources.
+     * - `addr` and `size` must both be host-page-aligned.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address within the core to export. Must be page-aligned.
+     * @param size Bytes to export. Must be non-zero and page-aligned. The returned dma-buf is
+     *             exactly this long, which is the length a peer registers its MR with.
+     * @param ordering Ordering mode for the export.
+     * @return dma-buf file descriptor; the caller owns it and must close() it when done.
+     */
+    int export_dmabuf(
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -589,11 +684,22 @@ public:
     void* host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const;
 
     /**
-     * Get base PCIe address that is used to access the device.
+     * Get the NOC base address of the chip's sysmem (PCIe) window.
      *
      * @param chip_id Chip to target.
      */
-    std::uint64_t get_pcie_base_addr_from_device(const ChipId chip_id) const;
+    std::uint64_t get_sysmem_window_noc_base(const ChipId chip_id) const;
+
+    /**
+     * Get the NOC base address of the chip's sysmem (PCIe) window.
+     *
+     * @param chip_id Chip to target.
+     *
+     * @deprecated Renamed to get_sysmem_window_noc_base(), which describes what the returned address
+     * actually is. This overload only forwards to it and will be removed once all clients migrate.
+     */
+    [[deprecated("Use get_sysmem_window_noc_base() instead.")]] std::uint64_t get_pcie_base_addr_from_device(
+        const ChipId chip_id) const;
 
     //---------- Misc system functions
 
@@ -692,30 +798,7 @@ private:
     // Helper functions
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
-    void deassert_resets_and_set_power_state();
-
-    // Validates that the caller-supplied rows/columns lie in the coordinate space selected by
-    // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
-    // virtual-space equivalents used by the ethernet broadcast path.
-    static void adjust_coordinates_for_ethernet_broadcast(
-        const std::set<uint32_t>& rows_to_exclude,
-        const std::set<uint32_t>& columns_to_exclude,
-        bool use_translated_coords,
-        std::set<uint32_t>& rows_to_exclude_virtual,
-        std::set<uint32_t>& cols_to_exclude_virtual);
-
-    // Communication Functions.
-    void ethernet_broadcast_write(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        uint64_t address,
-        const std::set<ChipId>& chips_to_exclude,
-        const std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude,
-        bool use_translated_coords);
-
-    std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
-        const std::set<ChipId>& chips_to_exclude);
+    void deassert_resets_and_set_clock_state();
 
     // Test functions.
     void log_device_summary();
@@ -730,6 +813,26 @@ private:
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<TTDevice> tt_device = nullptr);
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Builds the RemoteChip for a non-MMIO chip in a multichip ttsim cluster. A simulated remote chip has no
+    // ARC/topology discovery, so its RemoteCommunication and TTDevice (carrying the cluster-derived SocDescriptor
+    // and ChipInfo) are constructed here against the MMIO gateway.
+    std::unique_ptr<RemoteChip> create_simulation_remote_chip(
+        ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc);
+
+    // Host simulation Cluster only: describes the simulation this process runs, for
+    // get_simulation_connection(). Called once the chips exist, so the arch is known. The serving
+    // directory and sockets are filled in afterwards by serve_simulation_devices_over_sockets().
+    SimulationConnector::Connection describe_simulation_host(const std::filesystem::path& simulator_directory) const;
+
+    // Host simulation Cluster only: exposes each simulation chip's device on its per-chip socket so a
+    // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
+    // no-op for a client Cluster. Called once from the constructor after the chips are built.
+    void serve_simulation_devices_over_sockets(
+        const std::filesystem::path& simulator_directory,
+        const std::filesystem::path& simulator_server_directory,
+        const std::function<void()>& shutdown_handler);
+#endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
@@ -741,15 +844,20 @@ private:
     std::set<ChipId> remote_chip_ids_;
     std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
+    std::unordered_map<ChipId, std::unique_ptr<RemoteCommunication>> remote_communications_;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Filled during construction for a simulation cluster: by discovery on the client path, by
+    // describe_simulation_host() plus serve_simulation_devices_over_sockets() on the host path.
+    std::optional<SimulationConnector::Connection> simulation_connection_;
+#endif  // TT_UMD_BUILD_SIMULATION
 
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast = false;
     bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;

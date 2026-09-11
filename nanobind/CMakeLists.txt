@@ -25,7 +25,7 @@ find_package(
 )
 
 # Define the Python interface target
-nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_error.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp)
+nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_error.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp py_api_simulation.cpp)
 if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(nanobind_tt_umd PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
@@ -145,8 +145,6 @@ endfunction()
 option(TT_UMD_BUILD_PIP "By default build pip package" ON)
 if(TT_UMD_BUILD_PIP)
     # --- PIP WHEEL LOGIC ---
-    message(STATUS "Configuring Python bindings for pip wheel")
-
     # Set RPATH: BUILD_RPATH for stub generation, INSTALL_RPATH for runtime
     set_target_properties(
         nanobind_tt_umd
@@ -184,8 +182,6 @@ if(TT_UMD_BUILD_PIP)
     endif()
 else()
     # --- FHS/CPACK LOGIC ---
-    message(STATUS "Configuring Python bindings for FHS package")
-
     # Set RPATH for system lib directory (clear for lib64 per rpmbuild requirements)
     if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
         set_target_properties(

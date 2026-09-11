@@ -15,11 +15,14 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
@@ -29,6 +32,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
 // allowing other Python threads to run in parallel while this binding executes. Pass
@@ -38,6 +42,61 @@ namespace nb = nanobind;
 // marshalling, use a scoped nb::gil_scoped_release release; block around the native
 // call instead.
 using release_gil = nb::call_guard<nb::gil_scoped_release>;
+
+// RAII wrapper around Py_buffer so the device read/write bindings can accept
+// anything that supports the buffer protocol — bytes, bytearray, memoryview —
+// instead of forcing callers to materialize an extra copy first.
+//
+// The `writable` constructor flag selects the access mode:
+//   - writable == false (default): requests PyBUF_SIMPLE. Use for transfers that
+//     only READ from the buffer (device writes); read-only exporters such as
+//     bytes are accepted. Read the data through readable_data() (const void*).
+//   - writable == true: requests PyBUF_WRITABLE. Use for transfers that WRITE
+//     into the buffer (device reads); read-only exporters (bytes, a read-only
+//     memoryview) are rejected with a BufferError instead of silently discarding
+//     the result. Fill the buffer through writable_data() (void*).
+//
+// Both modes request only a C-contiguous buffer, so non-contiguous exporters
+// (e.g. a strided memoryview such as memoryview(b"...")[::2], or a non-contiguous
+// NumPy view) are rejected with a BufferError instead of silently producing
+// wrong data; callers must pass a contiguous buffer.
+//
+// Acquire/release must happen with the GIL held; callers are expected to keep
+// this object alive across any nb::gil_scoped_release block that uses
+// readable_data()/writable_data(). Since the device transfer runs with the GIL released,
+// the caller owns the buffer for the duration of the call and must not mutate it
+// concurrently from another thread.
+class PyBufferView {
+public:
+    explicit PyBufferView(nb::handle obj, bool writable = false) : writable_(writable) {
+        if (PyObject_GetBuffer(obj.ptr(), &buffer_, writable ? PyBUF_WRITABLE : PyBUF_SIMPLE) != 0) {
+            throw nb::python_error();
+        }
+    }
+
+    ~PyBufferView() { PyBuffer_Release(&buffer_); }
+
+    PyBufferView(const PyBufferView &) = delete;
+    PyBufferView &operator=(const PyBufferView &) = delete;
+
+    // Read-only view of the data, for transfers that read FROM the buffer.
+    const void *readable_data() const { return buffer_.buf; }
+
+    // Writable view of the data, for transfers that write INTO the buffer. Only
+    // valid on a view constructed with writable == true.
+    void *writable_data() const {
+        if (!writable_) {
+            UMD_THROW(tt::umd::error::RuntimeError, "PyBufferView::writable_data() called on a read-only view");
+        }
+        return buffer_.buf;
+    }
+
+    size_t size() const { return static_cast<size_t>(buffer_.len); }
+
+private:
+    Py_buffer buffer_{};
+    bool writable_ = false;
+};
 
 using namespace tt;
 using namespace tt::umd;
@@ -89,6 +148,21 @@ void bind_tt_device(nb::module_ &m) {
         release_gil(),
         "A helper function to verify SigbusError propagation");
 
+    // Runtime-configurable per-op MMIO (TLB-mapped) transfer budget. Lets a script tune the timeout
+    // explicitly (e.g. tighten it for latency-sensitive ops). Values are datetime.timedelta.
+    nb::class_<MmioTimeoutConfig>(m, "MmioTimeoutConfig")
+        .def_static(
+            "set_op_timeout",
+            &MmioTimeoutConfig::set_op_timeout,
+            nb::arg("timeout"),
+            release_gil(),
+            "Set the per-op MMIO transfer budget (datetime.timedelta).")
+        .def_static(
+            "get_op_timeout",
+            &MmioTimeoutConfig::get_op_timeout,
+            release_gil(),
+            "Get the current per-op MMIO transfer budget (datetime.timedelta).");
+
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
         .def_ro("device_id", &PciDeviceInfo::device_id)
@@ -123,7 +197,7 @@ void bind_tt_device(nb::module_ &m) {
         .def_static(
             "read_device_info",
             &PCIDevice::read_device_info,
-            nb::arg("fd"),
+            nb::arg("device_path"),
             release_gil(),
             "Read PCI device information.")
         .def_static(
@@ -160,25 +234,40 @@ void bind_tt_device(nb::module_ &m) {
         .value("Throw", TTDevice::HangAction::THROW)
         .value("ReturnValue", TTDevice::HangAction::RETURN);
 
+    nb::enum_<TTDevice::PowerState>(tt_device_class, "PowerState")
+        .value("BUSY", TTDevice::PowerState::BUSY)
+        .value("IDLE", TTDevice::PowerState::IDLE);
+
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(
+                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
+            nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil())
-        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
+        .def(
+            "set_power_state",
+            &TTDevice::set_power_state,
+            nb::arg("state"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("soc_descriptor_path") = "",
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
-        .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
+        .def(
+            "get_firmware_telemetry_reader",
+            &TTDevice::get_firmware_telemetry_reader,
+            nb::rv_policy::reference_internal)
+        // TODO: Update exalens to call get_firmware_telemetry_reader().
+        .def("get_arc_telemetry_reader", &TTDevice::get_firmware_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())
@@ -218,7 +307,7 @@ void bind_tt_device(nb::module_ &m) {
                 uint32_t value = 0;
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                    self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
                 return value;
             },
@@ -232,7 +321,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                    self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -247,7 +336,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(buffer.data(), core, addr, size);
+                    self.read_from_device(buffer.data(), core, addr, size, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -258,33 +347,39 @@ void bind_tt_device(nb::module_ &m) {
             "Read arbitrary-length data from a core at the specified address")
         .def(
             "noc_write",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
+                PyBufferView buffer(data);
                 tt_xy_pair core = {core_x, core_y};
-                const char *data_ptr = data.c_str();
-                size_t data_size = data.size();
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(data_ptr, core, addr, data_size);
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
+            nb::sig("def noc_write(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> "
+                    "None"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "noc_broadcast",
-            [](TTDevice &self, uint64_t addr, const nb::bytes &data) -> void {
-                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
-                self.noc_multicast_write(buffer.data(), buffer.size(), addr);
+            [](TTDevice &self, uint64_t addr, nb::handle data) -> void {
+                PyBufferView buffer(data);
+                {
+                    nb::gil_scoped_release release;
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
+                }
             },
             nb::arg("addr"),
             nb::arg("data"),
-            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address")
+            nb::sig("def noc_broadcast(self, addr: int, data: bytes | bytearray | memoryview) -> None"),
+            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address. data may be any "
+            "buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("addr"),
             nb::arg("value"),
@@ -297,11 +392,15 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t end_x,
                uint32_t end_y,
                uint64_t addr,
-               const nb::bytes &data) -> void {
+               nb::handle data) -> void {
+                PyBufferView buffer(data);
                 tt_xy_pair core_start = {start_x, start_y};
                 tt_xy_pair core_end = {end_x, end_y};
-                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
-                self.noc_multicast_write(buffer.data(), buffer.size(), core_start, core_end, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.noc_multicast_write(
+                        buffer.readable_data(), buffer.size(), core_start, core_end, addr, get_selected_noc_id());
+                }
             },
             nb::arg("start_x"),
             nb::arg("start_y"),
@@ -309,7 +408,10 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("end_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address")
+            nb::sig("def noc_multicast(self, start_x: int, start_y: int, end_x: int, end_y: int, addr: int, data: "
+                    "bytes | bytearray | memoryview) -> None"),
+            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address. data "
+            "may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_multicast32",
             [](TTDevice &self,
@@ -321,7 +423,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t value) -> void {
                 tt_xy_pair core_start = {start_x, start_y};
                 tt_xy_pair core_end = {end_x, end_y};
-                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr, get_selected_noc_id());
             },
             nb::arg("start_x"),
             nb::arg("start_y"),
@@ -378,6 +480,10 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soft_reset_raw_value"),
             release_gil(),
             "Set the raw soft reset register value for a core in translated coordinates. ")
+        // TODO: rename dma_read_from_device/dma_write_to_device to dma_read/dma_write to match
+        // TTDevice. tt-exalens vendors a UMD version and uplifts on its own schedule, so there's no
+        // atomic flip: register the new name as an additional alias here, let tt-exalens's
+        // umd_device.py migrate to it, then drop the old name once nothing calls it.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -385,7 +491,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(buffer.data(), size, core, addr);
+                    self.dma_read(buffer.data(), addr, size, core, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -394,21 +500,23 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_write_to_device",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
+                PyBufferView buffer(data);
                 tt_xy_pair core = {core_x, core_y};
-                const char *data_ptr = data.c_str();
-                size_t data_size = data.size();
                 {
                     nb::gil_scoped_release release;
-                    self.dma_write_to_device(data_ptr, data_size, core, addr);
+                    self.dma_write(buffer.readable_data(), addr, buffer.size(), core, get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
+            nb::sig("def dma_write_to_device(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "arc_msg",
@@ -426,14 +534,16 @@ void bind_tt_device(nb::module_ &m) {
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -462,14 +572,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -498,14 +610,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout * 1000), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -520,40 +634,56 @@ void bind_tt_device(nb::module_ &m) {
         // ---------------------------------------------------------------------------
         .def(
             "noc_read",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
                 -> void {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0");
                 }
+                PyBufferView view(buffer, /*writable=*/true);
+                void *data_ptr = view.writable_data();
+                size_t data_size = view.size();
                 tt_xy_pair core = {core_x, core_y};
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
-                size_t data_size = buffer.size();
-                self.read_from_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(data_ptr, core, addr, data_size, get_selected_noc_id());
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("buffer"),
-            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+            nb::sig("def noc_read(self, noc_id: int, core_x: int, core_y: int, addr: int, buffer: bytearray | "
+                    "memoryview) -> None"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
+            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_read_from_device",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
                 -> void {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
+                PyBufferView view(buffer, /*writable=*/true);
+                void *data_ptr = view.writable_data();
+                size_t data_size = view.size();
                 tt_xy_pair core = {core_x, core_y};
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
-                size_t data_size = buffer.size();
-                self.dma_read_from_device(data_ptr, data_size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_read(data_ptr, addr, data_size, core, get_selected_noc_id());
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("buffer"),
-            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+            nb::sig(
+                "def dma_read_from_device(self, noc_id: int, core_x: int, core_y: int, addr: int, buffer: bytearray "
+                "| memoryview) -> None"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
+            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
@@ -562,7 +692,7 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 return value;
             },
             nb::arg("noc_id"),
@@ -572,21 +702,25 @@ void bind_tt_device(nb::module_ &m) {
             "Read a 32-bit value from a core at the specified address. noc_id must be 0 for now.")
         .def(
             "noc_write",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, const nb::bytes &data)
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data)
                 -> void {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
+                PyBufferView buffer(data);
                 tt_xy_pair core = {core_x, core_y};
-                const char *data_ptr = data.c_str();
-                size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
+            nb::sig("def noc_write(self, noc_id: int, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
             "Write arbitrary-length data to a core at the specified address. noc_id must be 0 for now.")
         .def(
             "noc_write32",
@@ -596,7 +730,7 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -606,25 +740,29 @@ void bind_tt_device(nb::module_ &m) {
             "Write a 32-bit value to a core at the specified address. noc_id must be 0 for now.")
         .def(
             "noc_broadcast",
-            [](TTDevice &self, uint32_t noc_id, uint64_t addr, const nb::bytes &data) -> void {
+            [](TTDevice &self, uint32_t noc_id, uint64_t addr, nb::handle data) -> void {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
-                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
-                self.noc_multicast_write(buffer.data(), buffer.size(), addr);
+                PyBufferView buffer(data);
+                {
+                    nb::gil_scoped_release release;
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
+                }
             },
             nb::arg("noc_id"),
             nb::arg("addr"),
             nb::arg("data"),
+            nb::sig("def noc_broadcast(self, noc_id: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
             "Broadcast arbitrary-length data to all cores on the chip at the specified address. noc_id must be 0 for "
-            "now.")
+            "now. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint32_t noc_id, uint64_t addr, uint32_t value) -> void {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("addr"),
@@ -655,34 +793,21 @@ void bind_tt_device(nb::module_ &m) {
             "Read data from SPI flash memory")
         .def(
             "write",
-            [](SPITTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
-                const char *data_ptr = data.c_str();
-                size_t data_size = data.size();
+            [](SPITTDevice &self, uint32_t addr, nb::handle data, bool skip_write_to_spi = false) -> void {
+                PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+                    self.write(
+                        addr, static_cast<const uint8_t *>(buffer.readable_data()), buffer.size(), skip_write_to_spi);
                 }
             },
             nb::arg("addr"),
             nb::arg("data"),
             nb::arg("skip_write_to_spi") = false,
+            nb::sig("def write(self, addr: int, data: bytes | bytearray | memoryview, skip_write_to_spi: bool = False) "
+                    "-> None"),
             "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
-            "SPI.")
-        .def(
-            "write",
-            [](SPITTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
-                size_t data_size = data.size();
-                {
-                    nb::gil_scoped_release release;
-                    self.write(addr, data_ptr, data_size, skip_write_to_spi);
-                }
-            },
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::arg("skip_write_to_spi") = false,
-            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
-            "SPI.")
+            "SPI. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "get_spi_fw_bundle_version",
             &SPITTDevice::get_spi_fw_bundle_version,
@@ -694,7 +819,8 @@ void bind_tt_device(nb::module_ &m) {
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
         "create_simulation_tt_device",
-        &create_simulation_tt_device,
+        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int, bool)>(
+            &create_simulation_tt_device),
         nb::arg("simulator_path"),
         nb::arg("num_host_mem_channels") = 0,
         nb::arg("copy_sim_binary") = false,

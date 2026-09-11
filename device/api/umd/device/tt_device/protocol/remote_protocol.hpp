@@ -9,9 +9,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "umd/device/tt_device/ethernet_broadcast.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -30,10 +30,12 @@ public:
     ~RemoteProtocol() override = default;
 
     // DeviceProtocol interface.
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     bool write_to_core_range(
-        const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id)
+        const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id)
         override;
     int get_mmio_id() override;
 
@@ -43,6 +45,7 @@ public:
 
 private:
     std::unique_ptr<RemoteCommunication> remote_communication_;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
 };
 
 }  // namespace tt::umd

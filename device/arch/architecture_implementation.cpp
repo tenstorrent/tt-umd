@@ -12,14 +12,14 @@
 
 namespace tt::umd {
 
-std::unique_ptr<architecture_implementation> architecture_implementation::create(tt::ARCH architecture) {
+std::unique_ptr<ArchitectureImplementation> ArchitectureImplementation::create(tt::ARCH architecture) {
     switch (architecture) {
         case tt::ARCH::QUASAR:
-            return std::make_unique<grendel_implementation>();
+            return std::make_unique<GrendelImplementation>();
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<blackhole_implementation>();
+            return std::make_unique<BlackholeImplementation>();
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<wormhole_implementation>();
+            return std::make_unique<WormholeImplementation>();
         default:
             return nullptr;
     }

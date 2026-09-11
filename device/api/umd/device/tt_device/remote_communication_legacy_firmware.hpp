@@ -12,6 +12,7 @@
 
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -43,9 +44,15 @@ public:
 
     void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
+    std::optional<EthCoord> get_target_eth_coord() override;
+
 private:
     EthCoord target_chip;
     bool large_transfer_warning_printed_ = false;
+
+    const DriverHostAddressParams host_address_params_;
+    const DriverEthInterfaceParams eth_interface_params_;
+    const DriverNocParams noc_params_;
 };
 
 }  // namespace tt::umd

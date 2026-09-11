@@ -7,7 +7,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -17,22 +16,21 @@
 #include <functional>
 #include <future>
 #include <iostream>
-#include <map>
 #include <memory>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 #include <thread>
-#include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/multi_process_event.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
+#include "tests/test_utils/process_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -41,16 +39,13 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
-using namespace tt::umd::error;
 
 // Small helper function to check if the ipmitool is ready.
 bool is_ipmitool_ready() {
@@ -73,290 +68,14 @@ bool is_ipmitool_ready() {
     return true;
 }
 
-TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    auto arch = PCIDevice(pci_device_ids[0]).get_arch();
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP()
-            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
-               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
-    }
-
-    if (utils::is_arm_platform()) {
-        // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
-        // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
-        GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
-    }
-
-    auto cluster = std::make_unique<Cluster>();
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
-    }
-
-    uint64_t address = 0x0;
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
-    tt_device->init_tt_device();
-
-    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-    // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), xy_pair{15, 15}, address, data.size());
-
-    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
-    }
-
-    WarmResetWithRecovery::warm_reset();
-
-    // After a warm reset, topology discovery must be performed to detect available chips.
-    // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
-    // even though this is a TTDevice test.
-    cluster = std::make_unique<Cluster>();
-
-    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
-
-    // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
-
-    tt_device.reset();
-
-    tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
-    tt_device->init_tt_device();
-
-    tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
-
-    tt_device->write_to_device(data.data(), tensix_core, SAFE_IO_L1_ADDRESS, data.size());
-
-    tt_device->read_from_device(readback_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
-
-    ASSERT_EQ(data, readback_data);
-
-    tt_device->set_power_state(false);
-}
-
-bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
-    if (expected.size() != actual.size()) {
-        std::cerr << "Device " << device_id << ": Size mismatch! Expected " << expected.size() << " but got "
-                  << actual.size() << std::endl;
-        return false;
-    }
-
-    for (size_t i = 0; i < expected.size(); i++) {
-        if (expected[i] != actual[i]) {
-            std::cerr << "Device " << device_id << ": Data mismatch at index " << i << "! Expected " << expected[i]
-                      << " but got " << actual[i] << std::endl;
-            return false;
-        }
-    }
-    return true;
-}
-
-class WarmResetParamTest : public ::testing::TestWithParam<int> {};
-
-// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
-// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
-// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
-TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    int delay_us = GetParam();
-    std::atomic<bool> sigbus_caught{false};
-
-    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    std::vector<uint32_t> data_read(data_write.size(), 0);
-    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
-
-    tt_xy_pair tensix_core;
-
-    for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-        tt_devices[pci_device_id]->set_power_state(true);
-
-        tt_devices[pci_device_id]->init_tt_device();
-
-        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
-
-        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-    }
-
-    std::thread background_reset_thread([&]() {
-        std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        WarmResetWithRecovery::warm_reset();
-    });
-
-    auto start_time = std::chrono::steady_clock::now();
-    auto timeout = std::chrono::seconds(5);
-
-    try {
-        while (!sigbus_caught) {
-            if (std::chrono::steady_clock::now() - start_time > timeout) {
-                break;
-            }
-
-            for (int i = 0; i < 100; ++i) {
-                for (int pci_device_id : pci_device_ids) {
-                    tt_devices[pci_device_id]->write_to_device(
-                        data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
-
-                    tt_devices[pci_device_id]->read_from_device(
-                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
-
-                    verify_data(data_write, data_read, pci_device_id);
-
-                    data_read = std::vector<uint32_t>(data_write.size(), 0);
-                }
-            }
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-        }
-    } catch (const SigbusError& e) {
-        sigbus_caught = true;
-    } catch (const std::exception& e) {
-        if (background_reset_thread.joinable()) {
-            background_reset_thread.join();
-        }
-        FAIL() << "Caught unexpected exception: " << e.what();
-    }
-
-    if (background_reset_thread.joinable()) {
-        background_reset_thread.join();
-    }
-
-    if (sigbus_caught) {
-        SUCCEED() << "Successfully triggered SIGBUS within timeout.";
-    } else {
-        FAIL() << "Timed out after 5 seconds without hitting SIGBUS. Reset did not invalidate mappings in time.";
-    }
-}
-
-INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, WarmResetParamTest, ::testing::Values(0, 10, 50, 100, 500, 1000));
-
-// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
-// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
-// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
-TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    std::vector<uint32_t> data_read(data_write.size(), 0);
-    std::map<int, std::unique_ptr<TTDevice>> tt_devices;
-
-    tt_xy_pair tensix_core;
-
-    for (int pci_device_id : pci_device_ids) {
-        tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-        tt_devices[pci_device_id]->set_power_state(true);
-
-        tt_devices[pci_device_id]->init_tt_device();
-
-        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
-
-        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-    }
-
-    std::atomic<int> caught_sigbus{0};
-
-    auto worker = [&](int id) {
-        try {
-            // This thread hammers the device and waits for the reset to kill it.
-            while (true) {
-                tt_devices[pci_device_ids[0]]->read_from_device(
-                    data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
-            }
-        } catch (const SigbusError& e) {
-            caught_sigbus++;
-        } catch (const std::exception& e) {
-        }
-    };
-
-    std::thread t1(worker, 1);
-    std::thread t2(worker, 2);
-
-    // Trigger the reset after a small delay.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmResetWithRecovery::warm_reset();
-
-    t1.join();
-    t2.join();
-
-    EXPECT_EQ(caught_sigbus, 2);
-}
-
-// This test is currently disabled pending kernel driver support for mapping invalidation during resets.
-// The test will be enabled once the kernel driver properly invalidates PCIe mappings when a warm
-// reset occurs, allowing user-space to detect and handle the invalidation gracefully.
-TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    constexpr int NUM_CHILDREN = 3;
-    utils::MultiProcessPipe pipes(NUM_CHILDREN);
-    std::vector<pid_t> pids;
-
-    for (int i = 0; i < NUM_CHILDREN; ++i) {
-        pid_t pid = fork();
-        if (pid == 0) {  // Child Process
-
-            std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-            std::vector<uint32_t> data_read(data_write.size(), 0);
-            std::map<int, std::unique_ptr<TTDevice>> tt_devices;
-
-            tt_xy_pair tensix_core;
-
-            for (int pci_device_id : pci_device_ids) {
-                tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-                tt_devices[pci_device_id]->set_power_state(true);
-
-                tt_devices[pci_device_id]->init_tt_device();
-
-                const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
-
-                tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-            }
-
-            pipes.signal_ready_from_child(i);
-
-            try {
-                // The "Hammer" loop.
-                while (true) {
-                    tt_devices[pci_device_ids[0]]->read_from_device(
-                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
-                    std::this_thread::sleep_for(std::chrono::microseconds(100));
-                }
-            } catch (const SigbusError& e) {
-                std::exit(0);  // Success: SIGBUS was isolated and caught
-            } catch (const std::exception& e) {
-                std::exit(1);  // Error: Wrong exception
-            }
-            std::exit(2);  // Error: Timed out/Loop exited without signal
-        }
-        pids.push_back(pid);
-    }
-
-    pipes.wait_for_all_children(20);
-
-    // Parent triggers the reset that affects ALL windows on that PCIe link.
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    WarmResetWithRecovery::warm_reset();
-
-    for (pid_t p : pids) {
-        int status;
-        waitpid(p, &status, 0);
-        EXPECT_EQ(WEXITSTATUS(status), 0) << "Child process " << p << " failed.";
-    }
+// BAR0 address of the ARC scratch register these tests use to prove a reset happened.
+static uint32_t arc_scratch_2_bar_address(TTDevice* tt_device) {
+    const ArchitectureRegisters registers = get_architecture_registers(tt_device->get_arch());
+    return registers.arc_apb_bar0_offset + registers.arc_reset_scratch_2_offset;
 }
 
 TEST(WarmResetTest, GalaxyWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
 
     if (!is_galaxy_configuration(cluster.get())) {
@@ -376,24 +95,19 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
-        tt_device->bar_write32(
-            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-                tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
-            write_test_data);
+        tt_device->bar_write32(arc_scratch_2_bar_address(tt_device), write_test_data);
     }
 
     WarmResetWithRecovery::ubb_warm_reset();
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-        auto read_test_data = tt_device->bar_read32(
-            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+        auto read_test_data = tt_device->bar_read32(arc_scratch_2_bar_address(tt_device));
 
         EXPECT_NE(write_test_data, read_test_data);
         EXPECT_EQ(DEFAULT_VALUE_IN_SCRATCH_REGISTER, read_test_data);
@@ -404,7 +118,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
@@ -435,7 +149,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -472,7 +186,7 @@ enum class WarmResetMethod { PCI_DEVICE_IDS, CHIP_IDS, PCI_BDFS };
 class ClusterWarmResetScratchMethodTest : public testing::TestWithParam<WarmResetMethod> {};
 
 TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -487,10 +201,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
     auto chip_id = *cluster->get_target_mmio_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    tt_device->bar_write32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
-        write_test_data);
+    tt_device->bar_write32(arc_scratch_2_bar_address(tt_device), write_test_data);
 
     switch (GetParam()) {
         case WarmResetMethod::PCI_DEVICE_IDS:
@@ -519,13 +230,11 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    auto read_test_data = tt_device->bar_read32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+    auto read_test_data = tt_device->bar_read32(arc_scratch_2_bar_address(tt_device));
 
     EXPECT_NE(write_test_data, read_test_data);
 }
@@ -797,4 +506,123 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
 
     ASSERT_TRUE(WIFEXITED(status));
     EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
+}
+
+// After a warm reset, P2 must tear down and recreate its Cluster while P1 still holds pre-reset FDs.
+TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
+    if constexpr (utils::is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
+
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No chips present on the system.";
+    }
+
+    // KMD versions after 2.8.0 disable PCIe hot-plug on galaxy machines. Without this,
+    // a warm reset triggers PCI remove/re-probe, creating new cdevs on the host while
+    // Docker's device inodes remain stale. If a process holds pre-reset FDs, the old cdev
+    // stays alive via refcount, and chrdev_open() dispatches new opens to it instead of
+    // falling through cdev_map to the new cdev — blocking all device access in the container.
+    static constexpr SemVer MIN_KMD_VERSION{2, 8, 0};
+    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << MIN_KMD_VERSION.str();
+    }
+
+    static constexpr int NUM_CHILDREN = 2;
+    static constexpr int P1_SLOT = 0;
+    static constexpr int P2_SLOT = 1;
+    static constexpr int RESET_DONE_SLOT = 0;
+    static constexpr int SYNC_TIMEOUT_S = 180;
+
+    static constexpr int EXIT_SUCCESS_CODE = 0;
+    static constexpr int EXIT_FAILURE_CODE = 1;   // rebuild never produced a usable Cluster
+    static constexpr int EXIT_TIMEOUT_CODE = 2;   // never received the reset-done signal
+    static constexpr int EXIT_TEARDOWN_CODE = 3;  // destroying the pre-reset Cluster threw
+
+    // Each reset+discovery attempt is empirically ~70s; derive P2's wait from the full retry budget so
+    // it never times out mid-reset and misreports the reset as a rebuild failure.
+    static constexpr int WARM_RESET_MAX_ATTEMPTS = 3;
+    static constexpr int RESET_ATTEMPT_BUDGET_S = 120;
+    static constexpr int P2_RESET_WAIT_S = (WARM_RESET_MAX_ATTEMPTS + 1) * RESET_ATTEMPT_BUDGET_S;
+
+    static constexpr int P2_REBUILD_WATCHDOG_S = 300;
+
+    test_utils::MultiProcessEvent children_ready(NUM_CHILDREN);
+    test_utils::MultiProcessEvent reset_done(1);
+
+    // P1: holds Cluster (stale FDs) and never releases.
+    pid_t p1 = fork();
+    ASSERT_NE(p1, -1);
+    if (p1 == 0) {
+        auto cluster = std::make_unique<Cluster>();
+        (void)cluster;
+        children_ready.notify(P1_SLOT);
+        pause();
+        _exit(EXIT_SUCCESS_CODE);
+    }
+
+    // P2: holds Cluster, waits for reset, then destroys and recreates.
+    pid_t p2 = fork();
+    if (p2 == -1) {
+        test_utils::terminate_processes({p1});
+        FAIL() << "Second fork() failed";
+    }
+    if (p2 == 0) {
+        auto cluster = std::make_unique<Cluster>();
+        children_ready.notify(P2_SLOT);
+
+        if (!reset_done.wait_for(RESET_DONE_SLOT, P2_RESET_WAIT_S)) {
+            _exit(EXIT_TIMEOUT_CODE);
+        }
+
+        // Release this process's stale FDs; the destructor touches just-reset devices, so guard it.
+        try {
+            cluster.reset();
+        } catch (const std::exception& e) {
+            std::cerr << "P2 teardown threw: " << e.what() << std::endl;  // endl flushes before _exit
+            _exit(EXIT_TEARDOWN_CODE);
+        }
+
+        try {
+            cluster = std::make_unique<Cluster>();
+        } catch (const std::exception& e) {
+            std::cerr << "P2 rebuild threw: " << e.what() << std::endl;
+            _exit(EXIT_FAILURE_CODE);
+        }
+        _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
+    }
+
+    if (!children_ready.wait_for_all(SYNC_TIMEOUT_S)) {
+        test_utils::terminate_processes({p1, p2});
+        FAIL() << "Timed out waiting for child processes to create Cluster.";
+    }
+
+    // Only signal P2 once the board actually recovered, so a reset failure isn't blamed on the rebuild.
+    if (!WarmResetWithRecovery::warm_reset(WARM_RESET_MAX_ATTEMPTS)) {
+        test_utils::terminate_processes({p1, p2});
+        FAIL() << "Warm reset with recovery failed to bring the board back; P2 rebuild not exercised.";
+    }
+
+    reset_done.notify(RESET_DONE_SLOT);
+
+    // Bounded reap so a stuck P2 can't hang the test.
+    int status = 0;
+    if (!test_utils::wait_for_child(p2, &status, P2_REBUILD_WATCHDOG_S)) {
+        test_utils::terminate_processes({p1, p2});
+        FAIL() << "P2 did not finish teardown+rebuild within " << P2_REBUILD_WATCHDOG_S << "s; treating as a hang.";
+    }
+
+    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally (killed by signal or crashed).";
+    if (WIFEXITED(status)) {
+        const int rc = WEXITSTATUS(status);
+        EXPECT_EQ(rc, EXIT_SUCCESS_CODE) << "P2 did not recover after warm reset (exit code " << rc << "): "
+                                         << (rc == EXIT_TIMEOUT_CODE    ? "never received the reset-done signal"
+                                             : rc == EXIT_TEARDOWN_CODE ? "destroying the pre-reset Cluster threw"
+                                             : rc == EXIT_FAILURE_CODE
+                                                 ? "failed to recreate Cluster while P1 held stale FDs"
+                                                 : "unknown failure");
+    }
+
+    test_utils::terminate_processes({p1});
 }

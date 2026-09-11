@@ -6,11 +6,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -34,6 +36,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
@@ -51,11 +54,8 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
-        options.push_back(ClusterOptions{
-            .chip_type = ChipType::SIMULATION,
-            .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    if (const char* sim_path = std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(test_utils::get_default_sim_cluster_options(sim_path));
     }
     return options;
 }
@@ -64,7 +64,7 @@ class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {};
 
 TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -108,7 +108,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
 
 TEST_P(TestDeviceIOFixture, RemoteFlush) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -151,7 +151,7 @@ TEST_P(TestDeviceIOFixture, RemoteFlush) {
 
 TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -200,7 +200,8 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // to be reconfigured for each transaction
     const CoreType core_type = GetParam();
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -241,17 +242,13 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 }
 
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
-
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
-    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (is_simulation_test()) {
         GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
     }
 
-    const tt_xy_pair grid_size = {8, 8};
+    const tt_xy_pair grid_size = cluster->get_soc_descriptor(0).get_grid_size(CoreType::TENSIX);
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -290,7 +287,7 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
+class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
 //   use_noc0       - true: NOC0 coordinates; false: translated coordinates
@@ -299,10 +296,12 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // For full_grid+NOC0 the range is {0,0}–{grid_size-1}; for full_grid+translated the tensix corners are used.
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
-    // TODO: sysmem_enabled parameter to be added in the following PR.
-    auto [use_noc0, full_grid] = GetParam();
+    auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
+        ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
+
+    test_utils::safe_test_cluster_start(cluster.get());
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
@@ -321,11 +320,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     for (const ChipId chip_id : cluster->get_target_device_ids()) {
         log_info(
             LogUMD,
-            "Testing {} {} multicast writes on chip {} remote: {}",
+            "Testing {} {} multicast writes on chip {} remote: {} sysmem_enabled: {}",
             use_noc0 ? "NOC0" : "translated",
             full_grid ? "full-grid" : "single-core",
             chip_id,
-            cluster->get_cluster_description()->is_chip_remote(chip_id));
+            cluster->get_cluster_description()->is_chip_remote(chip_id),
+            sysmem_enabled);
 
         TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
@@ -382,7 +382,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 v++;
             }
 
-            const tt_xy_pair multicast_coord =
+            const CoreCoord multicast_coord =
                 soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
             if (full_grid) {
                 log_info(LogUMD, "Multicast to full grid from coord {} on chip {}", multicast_coord.str(), chip_id);
@@ -431,15 +431,17 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
-static std::vector<std::tuple<bool, bool>> get_multicast_write_params() {
+static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
     const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
-    std::vector<std::tuple<bool, bool>> params;
+    std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
         if (use_noc0 && is_blackhole) {
             continue;  // NOC0 multicast not supported on Blackhole
         }
         for (bool full_grid : {false, true}) {
-            params.emplace_back(use_noc0, full_grid);
+            for (bool sysmem_enabled : {false, true}) {
+                params.emplace_back(use_noc0, full_grid, sysmem_enabled);
+            }
         }
     }
     return params;
@@ -449,14 +451,15 @@ INSTANTIATE_TEST_SUITE_P(
     AllCombinations,
     TestMulticastWriteFixture,
     ::testing::ValuesIn(get_multicast_write_params()),
-    [](const ::testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+    [](const ::testing::TestParamInfo<std::tuple<bool, bool, bool>>& info) {
         return std::string(std::get<0>(info.param) ? "NOC0" : "Translated") + "_" +
-               (std::get<1>(info.param) ? "FullGrid" : "SingleCore");
+               (std::get<1>(info.param) ? "FullGrid" : "SingleCore") + "_" +
+               (std::get<2>(info.param) ? "SysmemEnabled" : "SysmemDisabled");
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
 
     if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});
@@ -542,15 +545,10 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     }
 
     std::unique_ptr<Cluster> cluster =
-        make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
     if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR) {
         GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
     }
-
-    constexpr auto mmio_chip_id = 0;
-    const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
-    const auto pcie_core = pci_cores.at(0);
-    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
 
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;
@@ -563,107 +561,133 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         test_utils::safe_test_cluster_start(cluster.get());
     }
 
-    for (uint32_t channel = 0; channel < channels_to_test; channel++) {
-        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
+    // Exercise more than chip 0's sysmem: on a multi-MMIO system (e.g. P300 / bh_x2) this is what
+    // actually validates the host-DMA routing model, since each chip's DMA must land in *its own*
+    // host window. Two chips are enough - each fills its host buffer with a chip-distinct pattern, so
+    // a misrouted DMA (landing in the other chip's window, or aliasing host_base 0) already surfaces
+    // as a readback mismatch. Every further chip only repeats that check, and it is not cheap: a
+    // 1 GiB fill plus a full offset sweep per chip and channel. On an all-MMIO Galaxy (32 MMIO chips,
+    // 3 channels each) the unbounded sweep was the single slowest test in the suite.
+    static constexpr size_t MAX_MMIO_CHIPS_TO_TEST = 2;
+    const auto all_mmio_chips = cluster->get_target_mmio_device_ids();
+    const std::vector<ChipId> mmio_chips(
+        all_mmio_chips.begin(),
+        std::next(all_mmio_chips.begin(), std::min(MAX_MMIO_CHIPS_TO_TEST, all_mmio_chips.size())));
+    for (const ChipId mmio_chip_id : mmio_chips) {
+        const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+        const auto pcie_core = pci_cores.at(0);
+        const auto base_address = cluster->get_sysmem_window_noc_base(mmio_chip_id);
 
-        ASSERT_NE(sysmem, nullptr);
+        // Distinct per-chip sentinel so a misrouted DMA (landing in another chip's window, or aliasing
+        // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.
+        const uint32_t chip_pattern = 0xDEAD'BEEFu + static_cast<uint32_t>(mmio_chip_id);
 
-        if (is_simulation_test()) {
-            for (size_t i = 0; i < ONE_GIG; i++) {
-                sysmem[i] = i % 256;
-            }
-        } else {
-            test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
-        }
+        for (uint32_t channel = 0; channel < channels_to_test; channel++) {
+            uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(/*offset=*/0, mmio_chip_id, channel));
 
-        std::vector<uint64_t> test_offsets;
-        if (is_simulation_test()) {
-            test_offsets = {0x0};
-        } else {
-            test_offsets = {
-                0x0,
-                (ONE_GIG / 4) - 0x1000,
-                (ONE_GIG / 4) - 0x0004,
-                (ONE_GIG / 4),
-                (ONE_GIG / 4) + 0x0004,
-                (ONE_GIG / 4) + 0x1000,
-                (ONE_GIG / 2) - 0x1000,
-                (ONE_GIG / 2) - 0x0004,
-                (ONE_GIG / 2),
-                (ONE_GIG / 2) + 0x0004,
-                (ONE_GIG / 2) + 0x1000,
-                (ONE_GIG - 0x1000),
-                (ONE_GIG - 0x0004),
-            };
-            for (size_t i = 0; i < 8192; ++i) {
-                uint64_t address = random_address_between(0, ONE_GIG);
-                test_offsets.push_back(address);
-            }
-        }
+            ASSERT_NE(sysmem, nullptr);
 
-        // Read test - read the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t expected = 0;
-            uint32_t value = 0;
-
-            std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
-
-            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-
-            if (!is_simulation_test() && value != expected) {
-                std::stringstream error_msg;
-                const bool is_vm = test_utils::is_virtual_machine();
-                const bool has_iommu = test_utils::is_iommu_available();
-                error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
-                          << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")"
-                          << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
-                          << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
-                          << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
-
-                if (is_vm && has_iommu) {
-                    error_msg << "\n"
-                              << "\n  - VM with IOMMU detected: This is likely a DMA mapping limit issue"
-                              << "\n  - FIX: On the HOST machine, add this kernel boot parameter:"
-                              << "\n      vfio_iommu_type1.dma_entry_limit=4294967295"
-                              << "\n  - After adding the parameter, reboot the HOST (not just the VM)"
-                              << "\n  - Check host dmesg for IO page faults"
-                              << "\n  - Failure at offset >= 255MB strongly indicates dma_entry_limit issue";
+            if (is_simulation_test()) {
+                // Sim only reads offset 0x0 (test_offsets == {0x0}); fill just the first page rather than a
+                // byte-at-a-time 1 GiB loop, which is slow and can time out CI.
+                for (size_t i = 0; i + sizeof(chip_pattern) <= 0x1000; i += sizeof(chip_pattern)) {
+                    std::memcpy(&sysmem[i], &chip_pattern, sizeof(chip_pattern));
                 }
-
-                FAIL() << error_msg.str();
             } else {
-                EXPECT_EQ(value, expected)
-                    << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex << aligned_offset
-                    << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")\n"
-                    << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+                test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
             }
-        }
 
-        // Write test - zero out the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t value = 0;
-            cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
-            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-        }
+            std::vector<uint64_t> test_offsets;
+            if (is_simulation_test()) {
+                test_offsets = {0x0};
+            } else {
+                test_offsets = {
+                    0x0,
+                    (ONE_GIG / 4) - 0x1000,
+                    (ONE_GIG / 4) - 0x0004,
+                    (ONE_GIG / 4),
+                    (ONE_GIG / 4) + 0x0004,
+                    (ONE_GIG / 4) + 0x1000,
+                    (ONE_GIG / 2) - 0x1000,
+                    (ONE_GIG / 2) - 0x0004,
+                    (ONE_GIG / 2),
+                    (ONE_GIG / 2) + 0x0004,
+                    (ONE_GIG / 2) + 0x1000,
+                    (ONE_GIG - 0x1000),
+                    (ONE_GIG - 0x0004),
+                };
+                for (size_t i = 0; i < 8192; ++i) {
+                    // Upper bound is inclusive; cap so an aligned 4-byte read stays inside the 1 GiB channel.
+                    uint64_t address = random_address_between(0, ONE_GIG - sizeof(uint32_t));
+                    test_offsets.push_back(address);
+                }
+            }
 
-        // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint32_t value = 0xffffffff;
-            std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
-            EXPECT_EQ(value, 0);
+            // Read test - read the sysmem at the various offsets.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+                uint64_t noc_addr = base_address + device_offset;
+                uint32_t expected = 0;
+                uint32_t value = 0;
+
+                std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
+
+                cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+
+                if (!is_simulation_test() && value != expected) {
+                    std::stringstream error_msg;
+                    const bool is_vm = test_utils::is_virtual_machine();
+                    const bool has_iommu = test_utils::is_iommu_available();
+                    error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
+                              << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec
+                              << ")"
+                              << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
+                              << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
+                              << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+
+                    if (is_vm && has_iommu) {
+                        error_msg << "\n"
+                                  << "\n  - VM with IOMMU detected: This is likely a DMA mapping limit issue"
+                                  << "\n  - FIX: On the HOST machine, add this kernel boot parameter:"
+                                  << "\n      vfio_iommu_type1.dma_entry_limit=4294967295"
+                                  << "\n  - After adding the parameter, reboot the HOST (not just the VM)"
+                                  << "\n  - Check host dmesg for IO page faults"
+                                  << "\n  - Failure at offset >= 255MB strongly indicates dma_entry_limit issue";
+                    }
+
+                    FAIL() << error_msg.str();
+                } else {
+                    EXPECT_EQ(value, expected)
+                        << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex << aligned_offset
+                        << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")\n"
+                        << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+                }
+            }
+
+            // Write test - zero out the sysmem at the various offsets.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+                uint64_t noc_addr = base_address + device_offset;
+                uint32_t value = 0;
+                cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
+                cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+            }
+
+            // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint32_t value = 0xffffffff;
+                std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
+                EXPECT_EQ(value, 0);
+            }
         }
     }
 }
 
 TEST_F(TestDeviceIOFixture, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -708,7 +732,7 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -744,6 +768,40 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
     [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });
 
+// SMN (System Management Network) read/write round-trip through the NocId::SYSTEM_NOC path.
+// SMN is only implemented on the RTL simulator (Quasar), so the test skips when not running
+// against a simulator.
+TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
+    if (!is_simulation_test()) {
+        GTEST_SKIP() << "SMN is only available on the RTL simulator.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    cluster->start_device({.init_device = true});
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const SocDescriptor& soc_desc = cluster->get_soc_descriptor(0);
+    const CoreCoord core =
+        soc_desc.translate_coord_to(soc_desc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+
+    // SMN writes require the size to be a multiple of 4 bytes.
+    constexpr size_t data_size = 256;
+    constexpr uint64_t addr = SAFE_IO_L1_ADDRESS;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (size_t i = 0; i < data_size; i++) {
+        write_data[i] = i % 256;
+    }
+
+    // Selecting SYSTEM_NOC routes write_to_device/read_from_device through the SMN path.
+    NocIdSwitcher noc_switcher(NocId::SYSTEM_NOC);
+    tt_device->write_to_device(write_data.data(), core, addr, data_size, NocId::SYSTEM_NOC);
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->read_from_device(read_data.data(), core, addr, data_size, NocId::SYSTEM_NOC);
+
+    EXPECT_EQ(write_data, read_data);
+}
+
 /**
  * Helper that reads data from a device core using the appropriate mechanism for the
  * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
@@ -764,7 +822,8 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  */
 TEST(TestDeviceIO, DMA1) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -812,7 +871,8 @@ TEST(TestDeviceIO, DMA1) {
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = 1;
@@ -954,10 +1014,9 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 }
 
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
-// (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
-// still lives in tests/simulation/ for the tt-umd-simulators consumer.
+// (up to 1 MB) and a DRAM core (up to 256 MB).
 TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t seed = std::random_device{}();
     GTEST_LOG_(INFO) << "LoopbackStressSize RNG seed = " << seed;

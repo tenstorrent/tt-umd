@@ -24,6 +24,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -32,12 +33,11 @@
 namespace tt::umd {
 enum class IODeviceType;
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
-
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
-    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<EthCoord> eth_coord,
+    TTDevice* gateway_device,
+    std::set<uint32_t> gateway_eth_channels,
+    const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) {
     return nullptr;
 }
 
@@ -56,10 +56,10 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, Co
     }
 
     uint32_t board_id_lo;
-    tt_device->read_from_device(&board_id_lo, eth_core, 0x7CFE8, sizeof(board_id_lo));
+    tt_device->read_from_device(&board_id_lo, eth_core, 0x7CFE8, sizeof(board_id_lo), get_selected_noc_id());
 
     uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, eth_core, 0x7CFE4, sizeof(board_id_hi));
+    tt_device->read_from_device(&board_id_hi, eth_core, 0x7CFE4, sizeof(board_id_hi), get_selected_noc_id());
 
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
@@ -75,10 +75,10 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, Cor
     }
 
     uint32_t board_id_lo;
-    tt_device->read_from_device(&board_id_lo, eth_core, 0x7CFC8, sizeof(board_id_lo));
+    tt_device->read_from_device(&board_id_lo, eth_core, 0x7CFC8, sizeof(board_id_lo), get_selected_noc_id());
 
     uint32_t board_id_hi;
-    tt_device->read_from_device(&board_id_hi, eth_core, 0x7CFC4, sizeof(board_id_hi));
+    tt_device->read_from_device(&board_id_hi, eth_core, 0x7CFC4, sizeof(board_id_hi), get_selected_noc_id());
 
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
@@ -86,17 +86,17 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, Cor
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFD4, sizeof(asic_id_hi));
+        tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFD4, sizeof(asic_id_hi), get_selected_noc_id());
 
         uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, eth_core, 0x7CFD8, sizeof(asic_id_lo));
+        tt_device->read_from_device(&asic_id_lo, eth_core, 0x7CFD8, sizeof(asic_id_lo), get_selected_noc_id());
 
         return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
     }
 
     uint64_t board_id = get_local_board_id(tt_device, eth_core);
     uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, eth_core, 0x7CFC1, sizeof(asic_location));
+    tt_device->read_from_device(&asic_location, eth_core, 0x7CFC1, sizeof(asic_location), get_selected_noc_id());
 
     return mangle_asic_id(board_id, asic_location);
 }
@@ -104,30 +104,32 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, Core
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
-        tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFF4, sizeof(asic_id_hi));
+        tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFF4, sizeof(asic_id_hi), get_selected_noc_id());
 
         uint32_t asic_id_lo;
-        tt_device->read_from_device(&asic_id_lo, eth_core, 0x7CFF8, sizeof(asic_id_lo));
+        tt_device->read_from_device(&asic_id_lo, eth_core, 0x7CFF8, sizeof(asic_id_lo), get_selected_noc_id());
 
         return ((uint64_t)asic_id_hi << 32) | asic_id_lo;
     }
 
     uint64_t board_id = get_remote_board_id(tt_device, eth_core);
     uint8_t asic_location;
-    tt_device->read_from_device(&asic_location, eth_core, 0x7CFE1, sizeof(asic_location));
+    tt_device->read_from_device(&asic_location, eth_core, 0x7CFE1, sizeof(asic_location), get_selected_noc_id());
 
     return mangle_asic_id(board_id, asic_location);
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {
     uint8_t remote_eth_channel = 0;
-    tt_device->read_from_device(&remote_eth_channel, local_eth_core, 0x7CFE2, sizeof(remote_eth_channel));
+    tt_device->read_from_device(
+        &remote_eth_channel, local_eth_core, 0x7CFE2, sizeof(remote_eth_channel), get_selected_noc_id());
     return remote_eth_channel;
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {
     uint8_t remote_logical_eth_id;
-    tt_device->read_from_device(&remote_logical_eth_id, local_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
+    tt_device->read_from_device(
+        &remote_logical_eth_id, local_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id), get_selected_noc_id());
 
     // For FW Versions older than 18.12.0, querying remote eth channels in logical space is only supported
     // for P150 Board Types (with a  SW workaround).
@@ -176,46 +178,13 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 }
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
-    is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
-}
-
-bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
-    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
-    uint64_t current_device_asic_id = get_asic_id(tt_device);
-
-    bool eth_fw_problem = false;
-    if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
-        if (expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
-        } else {
-            expected_eth_fw_version = eth_fw_version;
-            log_debug(
-                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
-        }
-        if (erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
-            log_warning(LogUMD, "ETH FW version is older than UMD supported version");
-            eth_fw_problem = true;
-        }
-    }
-
-    if (eth_fw_version != expected_eth_fw_version) {
-        log_warning(
-            LogUMD,
-            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
-            current_device_asic_id,
-            eth_core.str(),
-            expected_eth_fw_version->to_string(),
-            eth_fw_version.to_string());
-        eth_fw_problem = true;
-    }
-
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
+    const BoardType board_type = tt_device->get_board_type();
+    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_BIN6;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
-    uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
-    uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
+    uint32_t asic_id_lo = tt_device->get_firmware_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
+    uint32_t asic_id_hi = tt_device->get_firmware_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
@@ -225,7 +194,8 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, Core
         &heartbeat_value,
         eth_core,
         blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, heartbeat[0]),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     return heartbeat_value;
 }
 
@@ -235,7 +205,8 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, CoreC
         &postcode,
         eth_core,
         blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, postcode),
-        sizeof(uint32_t));  // eth_status.postcode
+        sizeof(uint32_t),
+        get_selected_noc_id());  // eth_status.postcode
     return postcode;
 }
 

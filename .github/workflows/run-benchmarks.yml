@@ -49,8 +49,14 @@ jobs:
     env:
       LD_LIBRARY_PATH: ./build/lib
       UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
+      # Kept separate from the results dir so the Superset export JSON isn't picked
+      # up by the nanobench-only *.json consumers (analyze_results, summarize_regressions).
+      UMD_MICROBENCHMARK_EXPORT_PATH: /tmp/umd_microbenchmark_export
 
     steps:
+      - name: Record run start timestamp
+        run: echo "RUN_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd
@@ -75,20 +81,16 @@ jobs:
           sparse-checkout: |
             tests/microbenchmark/tools/gather_host_specs.py
             tests/microbenchmark/tools/analyze_results.py
+            tests/microbenchmark/tools/emit_benchmark_export.py
+            tests/microbenchmark/tools/utils.py
           sparse-checkout-cone-mode: false
           path: tt-umd
 
       - name: Install python dependencies
-        run: python3 -m pip install --no-cache-dir pandas psutil tabulate
+        run: python3 -m pip install --no-cache-dir pandas psutil tabulate pydantic
 
       - name: Create benchmark results directory
         run: mkdir -p /tmp/umd_microbenchmark_results
-
-      - name: Gather host machine specification
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
-            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
@@ -115,6 +117,18 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
 
+      # Latest released UMD Python bindings, used only by gather_host_specs to
+      # detect the board type.
+      - name: Install UMD Python bindings
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: python3 -m pip install --no-cache-dir tt-umd
+
+      - name: Gather host machine specification
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
+            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
+
       - name: Upload JSON benchmark results
         uses: actions/upload-artifact@v7
         with:
@@ -129,5 +143,26 @@ jobs:
           path: /tmp/umd_microbenchmark_results/*.html
           if-no-files-found: warn
 
+      # Fold the nanobench results + host spec into a single {context, results[]}
+      # JSON matching the Data team's ingest contract, validating it before it is
+      # uploaded.
+      - name: Emit Superset export JSON
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+            EXPORT_FILE="benchmark_export_${{ github.run_id }}_${{ inputs.arch }}_${{ inputs.card }}"
+            EXPORT_FILE="${EXPORT_FILE}_${{ inputs.ubuntu-docker-version }}.json"
+            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/emit_benchmark_export.py \
+            --results-dir $UMD_MICROBENCHMARK_RESULTS_PATH \
+            --arch ${{ inputs.arch }} \
+            --output $UMD_MICROBENCHMARK_EXPORT_PATH/$EXPORT_FILE
+
+      - name: Upload Superset export JSON
+        if: ${{ inputs.arch != 'baremetal' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-export-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          path: /tmp/umd_microbenchmark_export/*.json
+          if-no-files-found: warn
+
       - name: Cleanup benchmark results directory
-        run: rm -rf /tmp/umd_microbenchmark_results
+        run: rm -rf /tmp/umd_microbenchmark_results /tmp/umd_microbenchmark_export

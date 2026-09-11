@@ -4,16 +4,16 @@
 
 #pragma once
 
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 
 namespace tt::umd {
-class TTDevice;
+class DeviceProtocol;
 
 class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:
-    WormholeArcTelemetryReader(TTDevice* tt_device);
+    WormholeArcTelemetryReader(
+        DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);
 
 protected:
     void get_telemetry_address() override;

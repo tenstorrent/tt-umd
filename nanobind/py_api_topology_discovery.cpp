@@ -12,6 +12,7 @@
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/unordered_set.h>
+#include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/cluster_descriptor.hpp"
@@ -59,6 +60,13 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_ethernet_connections", &ClusterDescriptor::get_ethernet_connections, release_gil())
         .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids, release_gil())
         .def("get_io_device_type", &ClusterDescriptor::get_io_device_type, release_gil())
+        .def(
+            "get_cluster_id",
+            &ClusterDescriptor::get_cluster_id,
+            release_gil(),
+            "Unique id of the group of accelerators attached to a common host / controller / root complex. "
+            "Currently that machine's hostname. "
+            "None when the YAML omitted the key and discovery did not stamp one.")
         .def(
             "serialize_to_file",
             [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {
@@ -114,6 +122,7 @@ void bind_topology_discovery(nb::module_& m) {
             release_gil(),
             "Returns the ASIC location index within the chip's board (uint8), or 0 if unknown.")
         .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
+        .def("get_health_errors", &ClusterDescriptor::get_health_errors, release_gil())
         .def_static(
             "create_constrained_cluster_descriptor",
             [](const ClusterDescriptor& full_cluster_desc, const std::unordered_set<ChipId>& target_chip_ids) {
@@ -141,7 +150,13 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)
         // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
         .def_rw("low_power", &TopologyDiscoveryOptions::low_power)
-        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api);
+        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api)
+        .def_rw(
+            "cluster_id",
+            &TopologyDiscoveryOptions::cluster_id,
+            "Cluster id to stamp on the discovered cluster descriptor. Defaults to the OS hostname, which is "
+            "only correct on bare metal; supply one when running in a container or a VM. Discovery raises if it "
+            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

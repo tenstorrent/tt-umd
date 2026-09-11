@@ -6,6 +6,9 @@
 - Where this file disagrees with personal or global agent instructions, this file wins for work in this repository.
 
 ## Design
+- If a code change requires design or architectural decisions, always evaluate multiple options and ask the user about preferred design. Discuss and argue with the user, until they confirm which design to use.
+- Prefer code of less complexity, less duplication, clean and concise. Same goes for comments and tests. This doesn't mean you should try to cram as much stuff in one line as possible. Add additional variables and functions where their names would help code more readable.
+- Implement the simplest solution for simple problems, better solutions for harder problems. Do not over-engineer or add flexibility that isn't needed yet. 
 
 ## Development workflow
 

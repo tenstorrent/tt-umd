@@ -52,6 +52,14 @@ public:
      */
     int get_tlb_id() const { return tlb_id_; }
 
+    /**
+     * Whether a window was laid out behind this handle, i.e. whether it has an index with a base
+     * address (get_base()) and configuration registers to program. Always true on silicon. False for
+     * a simulation backend that models no TLB windows at all: there is nothing to program, and the
+     * window object names its target core explicitly instead of deriving an address from the handle.
+     */
+    virtual bool maps_window() const { return true; }
+
     virtual tt::ARCH get_arch() const = 0;
 
 protected:

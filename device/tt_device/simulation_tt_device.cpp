@@ -15,6 +15,7 @@
 #include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -27,6 +28,29 @@
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Window layout the simulator models for `arch`, or nullptr when it models none at all -- Quasar,
+// where the communicator carries every access and a window index is bookkeeping only. Which
+// architectures are modelled is a property of the simulator, not of the allocator, which lays out
+// whatever layout it is handed.
+const ArchitectureTlbs* simulated_tlb_layout(const tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+        case tt::ARCH::BLACKHOLE:
+            return &get_architecture_tlbs(arch);
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not yet have support for TLB management in simulation. UMD will use legacy "
+                "tile_wr_bytes and tile_rd_bytes path.",
+                tt::arch_to_str(arch));
+            return nullptr;
+    }
+}
+
+}  // namespace
 
 // The constructor and destructor are defined out-of-line so that socket_
 // (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
@@ -254,13 +278,16 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch());
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), simulated_tlb_layout(get_arch()));
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
     // Quasar has no real TLBs; the communicator handles all I/O underneath. The 4GB size for Quasar is
     // a dummy value -- it just needs to be large enough so that TlbWindow::validate doesn't reject any
     // valid access (size 0 would cause division by zero in the TLB handle configure).
+    // TODO: these are not the architecture TLB table's cached_window_size. Blackhole agrees at 2MB,
+    // but Wormhole picks 16MB where the table says 1MB, so pointing this at the table would shrink
+    // the Wormhole window -- a behaviour change rather than a cleanup.
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
@@ -294,9 +321,10 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
-    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested size
-    // through, since get_tlb_size_from_index has no pool to look up for the bypass index.
-    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    // An allocator without a layout hands out bookkeeping indices with no pool behind them, so
+    // get_tlb_size_from_index cannot answer for them; pass the requested size through instead.
+    size_t actual_size =
+        tlb_allocator_->uses_window_addressing() ? tlb_allocator_->get_tlb_size_from_index(tlb_index) : size;
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 

@@ -105,8 +105,6 @@ private:
     }
 };
 
-// True for the UBB board types reset over IPMI (ubb_warm_reset()) rather than through PCIe-level
-// warm_reset(), i.e. 4U and 6U Galaxy configurations.
 inline bool is_galaxy_board_type(tt::BoardType board_type) {
     return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
            board_type == tt::BoardType::UBB_BLACKHOLE_BIN6;

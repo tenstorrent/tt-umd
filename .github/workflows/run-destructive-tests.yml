@@ -1,4 +1,5 @@
-# Destructive NOC hang / MMIO-timeout tests.
+# Destructive tests: NOC hang / MMIO-timeout detection, and the safe-I/O warm-reset tests
+# (which reset the board repeatedly to prove a reset-invalidated mapping surfaces as SigbusError).
 # Runs automatically every weeknight on a set of cards, and can also be
 # triggered manually from the Actions tab ("Run workflow"), picking the card to run on.
 name: Run destructive tests

@@ -1,5 +1,6 @@
 set(DESTRUCTIVE_TESTS_SRCS
     test_hang_detection.cpp
+    test_safe_io_warm_reset.cpp
     test_warm_reset_after_noc_hang.cpp
 )
 

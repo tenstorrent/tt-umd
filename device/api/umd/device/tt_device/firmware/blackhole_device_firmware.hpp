@@ -37,11 +37,16 @@ class PcieInterface;
  */
 class BlackholeDeviceFirmware : public DeviceFirmware {
 public:
+    // kmd_lock_available is whether the ARC message lock this device shares with other processes can
+    // be taken through its KMD lock table. On silicon it can, which is the default. A simulated device
+    // models the PCIe surface in-process with no /dev/tenstorrent node behind it, so it passes false
+    // and the lock falls back to shared memory alone.
     BlackholeDeviceFirmware(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
-        ArchitectureImplementation* architecture_impl);
+        ArchitectureImplementation* architecture_impl,
+        bool kmd_lock_available = true);
 
     // Defined in the .cpp, where the owned components' types are complete.
     ~BlackholeDeviceFirmware() override;

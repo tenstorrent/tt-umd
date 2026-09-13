@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/utils.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -422,12 +423,7 @@ std::filesystem::path SocDescriptor::serialize_to_file(const std::filesystem::pa
 }
 
 std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
-    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
-    std::string soc_path_dir_template = temp_path / "umd_XXXXXX";
-    std::filesystem::path soc_path_dir = mkdtemp(soc_path_dir_template.data());
-    std::filesystem::path soc_path = soc_path_dir / "soc_descriptor.yaml";
-
-    return soc_path;
+    return utils::create_unique_temp_dir() / "soc_descriptor.yaml";
 }
 
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(

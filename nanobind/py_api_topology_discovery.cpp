@@ -161,7 +161,12 @@ void bind_topology_discovery(nb::module_& m) {
             "simulator_path",
             &TopologyDiscoveryOptions::simulator_path,
             "Path to a simulator (a libttsim .so) whose chips are discovered instead of the host's. Empty "
-            "means discover the host's own devices.");
+            "means discover the host's own devices.")
+        .def_rw(
+            "simulator_num_host_mem_channels",
+            &TopologyDiscoveryOptions::simulator_num_host_mem_channels,
+            "Host memory channels to give each simulated device. A simulation backend sizes its system memory as "
+            "the device is constructed, so this has to be known before discovery runs.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

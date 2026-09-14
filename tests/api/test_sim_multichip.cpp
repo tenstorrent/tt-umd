@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -347,10 +348,10 @@ TEST_F(TTSimDiscoveryTest, ChipCountMatchesEnumeratedEndpoints) {
     const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
     ASSERT_FALSE(bdfs.empty());
 
+    // target_devices is deliberately left unset, so every chip discovery finds stays visible.
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
     options.simulator_directory = simulator_path_;
-    // Left empty so every discovered chip is visible; the shared helper constrains to chip 0.
     options.num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster(options);
 
@@ -390,9 +391,23 @@ TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
             << "chip " << chip << " ETH harvesting did not come from telemetry";
 
         // Whatever the image harvests, the descriptor and the SoC descriptor built from it have to
-        // tell the same story about how many Tensix columns survived.
+        // tell the same story about how many Tensix columns survived. The mask is what discovery
+        // read off the device; the harvested grid is what the SoC descriptor built from it actually
+        // took out, one column per set bit on Blackhole. A regression that reads the mask and then
+        // drops it leaves a full grid behind a nonzero mask, which a nonempty core set cannot see.
         const SocDescriptor& soc_desc = cluster.get_soc_descriptor(chip);
-        EXPECT_FALSE(soc_desc.get_cores(CoreType::TENSIX).empty()) << "chip " << chip << " has no Tensix cores";
+        const size_t harvested_columns =
+            CoordinateManager::get_num_harvested(cluster_desc->get_harvesting_masks(chip).tensix_harvesting_mask);
+        const tt_xy_pair harvested_grid = soc_desc.get_harvested_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(harvested_grid.x, harvested_columns)
+            << "chip " << chip << ": SoC descriptor harvested " << harvested_grid.x
+            << " Tensix column(s), discovered mask names " << harvested_columns;
+
+        // And the cores that survived are exactly the grid that survived.
+        const tt_xy_pair live_grid = soc_desc.get_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(soc_desc.get_cores(CoreType::TENSIX).size(), live_grid.x * live_grid.y)
+            << "chip " << chip << " Tensix core count disagrees with its " << live_grid.x << "x" << live_grid.y
+            << " grid";
     }
 }
 

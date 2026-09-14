@@ -300,6 +300,7 @@ public:
      * @param core_start Core to map, or upper-left corner of a multicast grid.
      * @param addr Address on the core(s) the window is anchored at.
      * @param host Host-side window properties (caching strategy and requested size).
+     * @param ordering Transaction ordering mode to apply to the mapping.
      * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
      * @param flags Transaction attributes.
      * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
@@ -309,6 +310,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
+        IoOrdering ordering = IoOrdering::Strict,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -428,6 +430,13 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
+     * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
+     * other. The call returns once the writes are issued, not once they are acknowledged by the
+     * target — the underlying MMIO stores are posted. This costs write throughput; a caller that
+     * does not need the ordering guarantee can take an @ref IoWindow from @ref create_io_window
+     * with a weaker ordering mode and drive it directly, using @ref IoWindow::configure to advance
+     * across chunks larger than the window.
+     *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
      * @param chip Chip to target.
@@ -440,6 +449,9 @@ public:
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
+     *
+     * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
+     * respect to each other.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.

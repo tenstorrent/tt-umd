@@ -635,6 +635,21 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
     }
 }
 
+uint64_t WormholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
+    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
+    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
+    uint32_t high1_addr = 0;
+    uint32_t high2_addr = 0;
+    uint32_t low_addr = 0;
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    if (high2_addr > high1_addr) {
+        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 void WormholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_apb_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
@@ -646,6 +661,24 @@ void WormholeDeviceFirmware::write_to_arc_apb(
 
 void WormholeDeviceFirmware::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_csm_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t address = 0;
+    read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address), noc_id);
+    return address;
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t size = 0;
+    read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size), noc_id);
+    return size;
 }
 
 }  // namespace tt::umd

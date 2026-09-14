@@ -368,12 +368,17 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
+std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return create_io_window(target, host, IoOrdering::Strict);
+}
+
 // Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
 // virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
 // SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
 // the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
 // without touching this signature or any caller.
-std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+std::unique_ptr<IoWindow> TTDevice::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
     // which harvesting shifts, so the rectangle they bound is not the one the caller asked for.
     UMD_ASSERT(
@@ -417,7 +422,7 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
-    window->configure(target);
+    window->configure(target, ordering);
     return window;
 }
 
@@ -439,10 +444,6 @@ void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
     get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
-}
-
-void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
@@ -523,22 +524,7 @@ IODeviceType TTDevice::get_communication_device_type() const {
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
-uint64_t TTDevice::get_refclk_counter() {
-    uint32_t high1_addr = 0;
-    uint32_t high2_addr = 0;
-    uint32_t low_addr = 0;
-    read_from_arc_apb(
-        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(
-        &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(
-        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    if (high2_addr > high1_addr) {
-        read_from_arc_apb(
-            &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    }
-    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
-}
+uint64_t TTDevice::get_refclk_counter() { return get_device_firmware()->get_refclk_counter(get_selected_noc_id()); }
 
 uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id().value_or(0); }
 

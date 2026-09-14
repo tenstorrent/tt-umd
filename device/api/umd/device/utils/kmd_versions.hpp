@@ -45,4 +45,10 @@ inline constexpr SemVer KMD_TLB_DMABUF_EXPORT = SemVer(2, 10, 0, 1);
  * introduced in that release.
  */
 inline constexpr SemVer MIN_KERNEL_TLB_DMABUF_EXPORT = SemVer(5, 8, 0);
+
+/**
+ * KMD version 2.6.0 also started invalidating a device's PCIe BAR mappings on reset, so a stale
+ * access raises SIGBUS instead of silently reading back stale data.
+ */
+inline constexpr SemVer KMD_RESET_MAPPING_INVALIDATION = SemVer(2, 6, 0);
 }  // namespace tt::umd

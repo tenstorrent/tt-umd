@@ -261,6 +261,9 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
+        // Strict orders this write against other Strict transfers, but the underlying MMIO stores
+        // are posted: the call returns once issued, not once landed. This path reconfigures the
+        // window between transfers, so nothing else orders them.
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
         write_block_reconfigure(
             *get_cached_wc_tlb_window(),
@@ -269,7 +272,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest,
             size,
             get_selected_noc_id(),
-            IoOrdering::Relaxed);
+            IoOrdering::Strict);
     }
 }
 
@@ -293,6 +296,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
+        // Strict, matching write_to_device so both directions of the bulk path carry the same guarantee.
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
         read_block_reconfigure(
             *get_cached_wc_tlb_window(),
@@ -301,7 +305,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
             l1_src,
             size,
             get_selected_noc_id(),
-            IoOrdering::Relaxed);
+            IoOrdering::Strict);
     }
 }
 

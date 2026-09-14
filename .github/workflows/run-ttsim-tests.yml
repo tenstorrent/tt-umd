@@ -347,14 +347,19 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
 
-      # TTSimDiscoveryTest checks the topology UMD derived against the image it came from: one chip per
-      # host-visible PCI endpoint, all MMIO, and harvesting read from telemetry rather than assumed. It
-      # skips itself on any image with a cluster_descriptor.yaml beside it, and on Quasar, which TTSim
-      # models without ARC or Ethernet.
+      # TTSimDiscoveryTest checks the topology UMD derived against the image it came from: one MMIO chip
+      # per host-visible PCI endpoint, chips beyond those reached over ethernet, and harvesting read from
+      # telemetry rather than assumed. It skips itself on any image with a cluster_descriptor.yaml beside
+      # it, and on Quasar, which TTSim models without ARC or Ethernet.
+      #
+      # TT_UMD_SIM_EXPECTED_CHIPS is how many chips each image models, which only the job staging it
+      # knows. Without it the remote half of the test passes vacuously on a discovery that found the MMIO
+      # chip and nothing else -- the regression wh_x2 is here to catch.
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
@@ -362,6 +367,7 @@ jobs:
         timeout-minutes: 2
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
@@ -369,6 +375,7 @@ jobs:
         timeout-minutes: 5
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 32
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
@@ -376,6 +383,7 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
@@ -385,6 +393,7 @@ jobs:
         timeout-minutes: 2
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 

@@ -14,9 +14,10 @@
 
 #include "spi_arc_command.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
@@ -144,22 +145,22 @@ std::optional<uint32_t> BlackholeSPITTDevice::extract_protobuf_uint32_field(
     return std::nullopt;
 }
 
-BlackholeSPITTDevice::BlackholeSPITTDevice(TTDevice* tt_device) :
-    SPITTDevice(tt_device), firmware_(dynamic_cast<BlackholeDeviceFirmware*>(tt_device->get_device_firmware())) {
-    UMD_ASSERT(
-        firmware_ != nullptr,
-        error::RuntimeError,
-        "BlackholeSPITTDevice requires a device backed by BlackholeDeviceFirmware.");
+BlackholeSPITTDevice::BlackholeSPITTDevice(DeviceProtocol* protocol, BlackholeDeviceFirmware* firmware) :
+    SPITTDevice(protocol), firmware_(firmware) {}
+
+void BlackholeSPITTDevice::read_from_arc(void* dst, uint64_t addr, size_t size) {
+    const NocId noc_id = get_selected_noc_id();
+    protocol_->read_data(dst, firmware_->get_firmware_noc_coord(noc_id), addr, size, noc_id);
+}
+
+void BlackholeSPITTDevice::write_to_arc(const void* src, uint64_t addr, size_t size) {
+    const NocId noc_id = get_selected_noc_id();
+    protocol_->write_data(src, firmware_->get_firmware_noc_coord(noc_id), addr, size, noc_id);
 }
 
 void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     if (size == 0) {
         return;
-    }
-
-    auto* firmware = device_->get_device_firmware();
-    if (!firmware) {
-        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI read on Blackhole.");
     }
 
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(firmware_);
@@ -173,7 +174,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         // Request ARC to read chunk into dump buffer using READ_EEPROM (0x19).
         std::vector<uint32_t> read_ret;
         uint32_t rc = send_spi_arc_command(
-            firmware,
+            firmware_,
             static_cast<uint32_t>(blackhole::ArcMessageType::READ_EEPROM),
             read_ret,
             {chunk_addr, chunk_size, buffer_addr});
@@ -183,8 +184,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         }
 
         // Read data from buffer.
-        device_->read_from_device(
-            data + bytes_read, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
+        read_from_arc(data + bytes_read, buffer_addr, chunk_size);
         bytes_read += chunk_size;
         // Guard against bytes_read exceeding size (e.g. if device returned more than requested).
         bytes_read = std::min(bytes_read, size);
@@ -196,21 +196,16 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         return;
     }
 
-    auto* firmware = device_->get_device_firmware();
-    if (!firmware) {
-        UMD_THROW(error::RuntimeError, "Device firmware not available for SPI write on Blackhole.");
-    }
-
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(firmware_);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
-    FirmwareBundleVersion fw_version = device_->get_firmware_version();
+    FirmwareBundleVersion fw_version = firmware_->get_firmware_info_provider()->get_firmware_version();
     const bool need_lock_unlock = (fw_version >= BH_SPI_LOCK_REQUIRED_SINCE_FW) && !skip_write_to_spi;
 
     if (need_lock_unlock) {
         std::vector<uint32_t> unlock_ret;
         uint32_t rc = send_spi_arc_command(
-            firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
+            firmware_, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
         if (rc != 0) {
             UMD_THROW(error::RuntimeError, "Failed to unlock SPI for write on Blackhole (fw >= 19.0).");
         }
@@ -223,14 +218,13 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(remaining), buffer_size);
 
         // Write data to buffer first.
-        device_->write_to_device(
-            data + bytes_written, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
+        write_to_arc(data + bytes_written, buffer_addr, chunk_size);
 
         if (!skip_write_to_spi) {
             // Request ARC to write chunk from buffer to SPI using WRITE_EEPROM (0x1A).
             std::vector<uint32_t> write_ret;
             uint32_t rc = send_spi_arc_command(
-                firmware,
+                firmware_,
                 static_cast<uint32_t>(blackhole::ArcMessageType::WRITE_EEPROM),
                 write_ret,
                 {chunk_addr, chunk_size, buffer_addr});
@@ -243,7 +237,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
                 if (need_lock_unlock) {
                     std::vector<uint32_t> lock_ret;
                     send_spi_arc_command(
-                        firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
+                        firmware_, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
                 }
                 UMD_THROW(error::RuntimeError, "Failed to write to SPI on Blackhole.");
             }
@@ -256,7 +250,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
     if (need_lock_unlock) {
         std::vector<uint32_t> lock_ret;
         uint32_t rc =
-            send_spi_arc_command(firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
+            send_spi_arc_command(firmware_, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
         if (rc != 0) {
             UMD_THROW(error::RuntimeError, "Failed to lock SPI after write on Blackhole (fw >= 19.0).");
         }

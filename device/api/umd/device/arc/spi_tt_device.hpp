@@ -12,13 +12,12 @@
 
 namespace tt::umd {
 
+class DeviceProtocol;
 class TTDevice;
 
 /**
  * Interface to the SPI flash memory on Tenstorrent devices.
  * This SPI flash stores device images including ARC firmware, ETH base firmware, and other system images.
- * This class takes a pointer to TTDevice on construction and provides
- * read/write operations to the SPI flash memory.
  */
 class SPITTDevice {
 public:
@@ -31,11 +30,9 @@ public:
     static std::unique_ptr<SPITTDevice> create(TTDevice *device);
 
     /**
-     * Constructor that takes a pointer to TTDevice.
-     *
-     * @param device Pointer to the TTDevice to use for SPI operations
+     * @param protocol Protocol to issue the SPI flows' NOC accesses through. Must not be null.
      */
-    explicit SPITTDevice(TTDevice *device);
+    explicit SPITTDevice(DeviceProtocol *protocol);
 
     virtual ~SPITTDevice() = default;
 
@@ -70,7 +67,8 @@ public:
     virtual uint32_t get_spi_fw_bundle_version();
 
 protected:
-    TTDevice *device_;
+    // Non-owning; belongs to the device this was created for and must outlive this object.
+    DeviceProtocol *protocol_;
 };
 
 }  // namespace tt::umd

@@ -17,7 +17,7 @@ namespace tt::umd {
 
 class BlackholeDeviceFirmware;
 
-class TTDevice;
+class DeviceProtocol;
 
 // Boot filesystem structures and constants.
 constexpr size_t IMAGE_TAG_SIZE = 8;
@@ -66,7 +66,11 @@ static_assert(sizeof(TtBootFsFd) == 32, "TtBootFsFd must be 32 bytes");
  */
 class BlackholeSPITTDevice : public SPITTDevice {
 public:
-    explicit BlackholeSPITTDevice(TTDevice* tt_device);
+    /**
+     * @param protocol Protocol to issue the ARC dump-buffer accesses through.
+     * @param firmware The device's firmware component. Must not be null; SPITTDevice::create resolves it.
+     */
+    BlackholeSPITTDevice(DeviceProtocol* protocol, BlackholeDeviceFirmware* firmware);
 
     void read(uint32_t addr, uint8_t* data, size_t size) override;
     void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) override;
@@ -111,9 +115,13 @@ private:
      */
     std::optional<uint32_t> extract_protobuf_uint32_field(const uint8_t* data, size_t size, uint32_t field_number);
 
-    // The concrete firmware, for its ARC APB window (the SPI dump buffer descriptor lives in ARC
-    // scratch registers); see WormholeSPITTDevice for why the concrete type is held here.
-    BlackholeDeviceFirmware* firmware_ = nullptr;
+    // Data accesses to the ARC core's SPI dump buffer, routed on the thread-selected NOC.
+    void read_from_arc(void* dst, uint64_t addr, size_t size);
+    void write_to_arc(const void* src, uint64_t addr, size_t size);
+
+    // The SPI dump buffer descriptor lives in ARC scratch registers, reached through the firmware
+    // component's ARC APB window, which is not part of its interface, so the concrete type is held here.
+    BlackholeDeviceFirmware* firmware_;
 };
 
 }  // namespace tt::umd

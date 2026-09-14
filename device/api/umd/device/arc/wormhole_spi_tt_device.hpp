@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-class TTDevice;
+class DeviceProtocol;
 class WormholeDeviceFirmware;
 
 /**
@@ -22,7 +22,11 @@ class WormholeDeviceFirmware;
  */
 class WormholeSPITTDevice : public SPITTDevice {
 public:
-    explicit WormholeSPITTDevice(TTDevice* tt_device);
+    /**
+     * @param protocol Protocol to issue the ARC dump-buffer accesses through.
+     * @param firmware The device's firmware component. Must not be null; SPITTDevice::create resolves it.
+     */
+    WormholeSPITTDevice(DeviceProtocol* protocol, WormholeDeviceFirmware* firmware);
 
     void read(uint32_t addr, uint8_t* data, size_t size) override;
     void write(uint32_t addr, const uint8_t* data, size_t size, bool skip_write_to_spi = false) override;
@@ -58,11 +62,13 @@ private:
     void lock(uint8_t sections);
     uint8_t read_status(uint8_t register_addr);
 
-    // The concrete firmware, for its ARC APB window: SPI control registers live behind ARC APB, and
-    // raw APB access is deliberately not part of TTDevice or DeviceFirmware. This class is
-    // constructed only for Wormhole devices, so the concrete type is resolved (and checked) once in
-    // the constructor.
-    WormholeDeviceFirmware* firmware_ = nullptr;
+    // Data accesses to the ARC core's SPI dump buffer, routed on the thread-selected NOC.
+    void read_from_arc(void* dst, uint64_t addr, size_t size);
+    void write_to_arc(const void* src, uint64_t addr, size_t size);
+
+    // SPI control registers live behind the ARC APB window, which is an implementation detail of the
+    // firmware component rather than part of its interface, so the concrete type is held here.
+    WormholeDeviceFirmware* firmware_;
 };
 
 }  // namespace tt::umd

@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <map>
@@ -13,6 +15,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -100,9 +103,26 @@ TEST(TestCluster, TestClusterAICLKControl) {
         return 0u;
     };
 
+    // The AICLK readout comes from firmware telemetry, which is published on a refresh interval,
+    // so poll briefly until the expected condition holds instead of asserting on the instantaneous
+    // value; the final snapshot is asserted on either way, so a failure still reports the values.
+    auto wait_for_clocks = [&cluster](auto&& expected) {
+        std::map<int, int> clocks;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (true) {
+            clocks = cluster->get_clocks();
+            if (std::all_of(clocks.begin(), clocks.end(), expected) || std::chrono::steady_clock::now() >= deadline) {
+                return clocks;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    };
+
     cluster->set_clock_state(DevicePowerState::BUSY);
 
-    auto clocks_busy = cluster->get_clocks();
+    auto clocks_busy = wait_for_clocks([&get_expected_clock_val](const std::pair<const int, int>& clock) {
+        return clock.second > static_cast<int>(get_expected_clock_val(clock.first, false));
+    });
     for (auto& clock : clocks_busy) {
         // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
         // larger than Idle value.
@@ -111,7 +131,9 @@ TEST(TestCluster, TestClusterAICLKControl) {
 
     cluster->set_clock_state(DevicePowerState::LONG_IDLE);
 
-    auto clocks_idle = cluster->get_clocks();
+    auto clocks_idle = wait_for_clocks([&get_expected_clock_val](const std::pair<const int, int>& clock) {
+        return clock.second == static_cast<int>(get_expected_clock_val(clock.first, false));
+    });
     for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
     }

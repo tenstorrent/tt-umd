@@ -535,11 +535,15 @@ Cluster::Cluster(ClusterOptions options) {
                     };
                     auto [discovered_desc, discovered_devices] =
                         TopologyDiscovery::discover(discovery_options, options.io_device_type, options.sdesc_path);
+                    // discover() answers with a valid, chipless descriptor when it found nothing --
+                    // callers and the Python bindings go through it on an empty machine too -- so
+                    // the devices, not the pointer, are what say whether this simulator was
+                    // discovered at all.
                     UMD_ASSERT(
-                        discovered_desc != nullptr,
+                        !discovered_devices.empty(),
                         error::RuntimeError,
                         fmt::format(
-                            "Discovering simulator {} produced no cluster.", options.simulator_directory.string()));
+                            "Discovering simulator {} produced no chips.", options.simulator_directory.string()));
                     // Constrained the same way the descriptor-supplied path is, so target_devices means the
                     // same thing however the topology was obtained.
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(

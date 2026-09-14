@@ -267,10 +267,10 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     host_options.serve_simulation_devices_over_sockets = true;
     host_options.simulator_server_directory = server_directory;
     // A simulator that ships a cluster_descriptor.yaml is enumerated from it, and an empty
-    // target_devices then means "every chip in it". Without one, Cluster falls back to a mock
-    // descriptor built *from* target_devices -- so leaving it empty there yields a Cluster with zero
-    // chips, which serves zero sockets and gives the client nothing to attach to. Name chip 0 in that
-    // case, and only that case.
+    // target_devices then means "every chip in it". Without one the topology is discovered, which
+    // reaches every chip the image models -- including, on wh_x2, one reached over ethernet that has
+    // no simulator socket of its own for a client to attach to. Name chip 0 in that case, and only
+    // that case, so the host serves exactly the chips the client can reconstruct.
     if (!std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path))) {
         host_options.target_devices = {0};
     }

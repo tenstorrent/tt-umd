@@ -31,7 +31,6 @@
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
@@ -45,7 +44,6 @@
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
-#include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/tt_device_model/blackhole_tt_device_model.hpp"
 #include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
@@ -113,12 +111,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         arch = jtag_device->get_jtag_arch(device_number);
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
                     std::move(jtag_device), device_number, soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(
-                    new BlackholeTTDevice(std::make_unique<BlackholeTTDeviceModel>(
-                        std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<BlackholeTTDeviceModel>(
+                    std::move(jtag_device), device_number, soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -131,10 +128,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         default:
             UMD_THROW(
@@ -151,7 +148,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
+            return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication), soc_arch_descriptor)));
         default:
             UMD_THROW(
@@ -175,9 +172,8 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             arch_to_str(arch)));
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            auto device =
-                std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
-                    std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
+            auto device = std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
+                std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
             // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
             // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
             device->set_soc_descriptor(soc_descriptor);

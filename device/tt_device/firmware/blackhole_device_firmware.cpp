@@ -145,7 +145,7 @@ DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
     return DeviceCommandResult{exit_code, std::move(return_values)};
 }
 
-void BlackholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
+void BlackholeDeviceFirmware::set_power_state(PowerState state, [[maybe_unused]] NocId noc_id) {
     // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
     // which matches what TTDevice::set_power_state did by returning early for them.
     if (pcie_interface_ == nullptr) {
@@ -218,6 +218,12 @@ void BlackholeDeviceFirmware::log_aiclk_timeout_warning(
 
 void BlackholeDeviceFirmware::wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms) {
     constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
+
+    // read_entry() throws a bare error on a missing entry; check availability up front and fail
+    // with the message the deleted get_clock() path used.
+    if (!firmware_telemetry_reader_->is_entry_available(TelemetryTag::AICLK)) {
+        UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
+    }
 
     uint32_t aiclk = 0;
     const bool settled = utils::poll_until(
@@ -355,6 +361,11 @@ bool BlackholeDeviceFirmware::get_noc_translation_enabled(NocId /*noc_id*/) {
 }
 
 tt_xy_pair BlackholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
+    // Only the two data NOCs have an ARC coordinate; SYSTEM_NOC routing has no meaning here.
+    UMD_ASSERT(
+        noc_id == NocId::NOC0 || noc_id == NocId::NOC1,
+        error::RuntimeError,
+        "get_firmware_noc_coord expects NOC0 or NOC1.");
     return noc_id == NocId::NOC1 ? arc_core_noc1_ : arc_core_noc0_;
 }
 
@@ -384,6 +395,12 @@ EthTrainingStatus BlackholeDeviceFirmware::get_eth_core_training_status(tt_xy_pa
 
 bool BlackholeDeviceFirmware::wait_dram_channel_training(
     uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // The status comes from the info provider, which exists only once init_firmware() has run; the
+    // deleted TTDevice path threw the same error through its facade getter.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
+
     const uint32_t dram_banks_number = architecture_impl_->get_dram_banks_number();
     if (dram_channel >= dram_banks_number) {
         UMD_THROW(

@@ -56,6 +56,15 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
+    /**
+     * Write/read a tile address given in the TRANSLATED coordinate frame, applying the NoC address
+     * resolver (when one is installed) the same way host_write/host_read do. Used by the RTL-sim TLB
+     * windows: without this a window sends a raw (x, y, addr) that the simulator interprets in its own
+     * frame, so on a model with translation enabled the access lands on the wrong tile.
+     */
+    void resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
+    void resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
+
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 

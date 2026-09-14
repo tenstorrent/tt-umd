@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <initializer_list>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -39,12 +40,14 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(ClusterBH, CreateDestroy) {
-    DeviceParams default_params;
+    // Construction and teardown only. Starting the cluster here would also drag in the tensix RISC
+    // setup that makes start_device() safe to call in tests, which is a per-core sweep of every chip
+    // and dominates the loop on a Galaxy. Starting a cluster and tearing it down is covered by the
+    // tests that actually do device IO.
     for (int i = 0; i < 50; i++) {
         auto cluster_ptr = test_utils::make_default_test_cluster();
         Cluster& cluster = *cluster_ptr;
         set_barrier_params(cluster);
-        test_utils::safe_test_cluster_start(&cluster);
         cluster.close_device();
     }
 }
@@ -469,10 +472,19 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
         24, 25};  // Exclude ETH and PCIE rows for the DRAM broadcast
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 
+    // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
+    // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
+    // always run against cores with a known baseline.
+    std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
+            cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
+    }
+
     // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
     std::vector<uint32_t> initial_zeros(broadcast_sizes.back(), 0);
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+        for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
             cluster.write_to_device(
                 initial_zeros.data(), initial_zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
         }
@@ -500,15 +512,7 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
 
         for (auto chip_id : cluster.get_target_device_ids()) {
             // Tensix cores received the broadcast; zero them out.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -554,15 +558,7 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
                 readback_vec = {};
             }
             // Tensix cores must NOT have been written by the DRAM broadcast.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(zeros, readback_vec) << "Tensix core " << chip_id << " " << core.str()

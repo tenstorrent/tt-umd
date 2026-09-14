@@ -159,6 +159,42 @@ TEST(AttResolver, RejectsATransferThatRunsPastTheSlot) {
     EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0x100, 1), std::runtime_error);
 }
 
+// three_window_map() with a full-tile window whose slots are 4 KiB instead of 256 bytes, so the
+// full-tile window can carry Tensix offsets the L1 window cannot.
+att::MapData tall_full_tile_map() {
+    att::MapData map = three_window_map();
+    att::Window& tile_window = map.windows[static_cast<size_t>(att::WindowClass::FULL_TILE)];
+    tile_window.mask_bits = 16;
+    tile_window.endpoint_shift = 12;
+    return map;
+}
+
+TEST(AttResolver, ReachesTensixRegistersThroughTheFullTileWindow) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    // L1 offsets keep resolving through the worker window.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0xfc, 4), 0x100fcu);
+    // The first offset past L1 is a register: it resolves through the full-tile window, whose
+    // selector 0 names the same tile.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0x100, 4), 0x40100u);
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0xffc, 4), 0x40ffcu);
+}
+
+TEST(AttResolver, RejectsATensixTransferThatRunsOutOfL1) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    // A transfer that starts in L1 and crosses its end is not a register access even though the
+    // full-tile window could hold it.
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0xfc, 8), std::runtime_error);
+}
+
+TEST(AttResolver, RejectsATensixOffsetPastTheFullTile) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0x1000, 1), std::runtime_error);
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0xffc, 8), std::runtime_error);
+}
+
 TEST(AttResolver, RejectsACoordinateThatWouldNotFitAnEndpointWord) {
     const att::EndpointResolver resolver(three_window_map());
 

@@ -249,6 +249,11 @@ private:
     // Thread safety for send operations.
     mutable std::mutex device_lock_;
 
+    // One read at a time. All responses arrive on one queue, so two threads reading at once (e.g. the
+    // DPRINT poller and the main thread) could take each other's reply. Held from send to parse.
+    // Separate from device_lock_, which the notification thread still needs while a read waits.
+    mutable std::mutex request_lock_;
+
     // Notification handler thread.
     std::thread notification_thread_;
     std::atomic<bool> notification_thread_running_{false};

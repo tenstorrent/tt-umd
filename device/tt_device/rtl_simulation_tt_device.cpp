@@ -6,16 +6,19 @@
 
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
 
+#include "common/utils.hpp"
 #include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -33,6 +36,16 @@
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Names the ATT map a simulation target implements, mirroring tt-metal's TT_METAL_NOC_ATT. Left
+// unset, no coordinate is folded into an address: architecture alone cannot say whether a model
+// carries an ATT, and the Quasar models that do not would be sent addresses they cannot route.
+constexpr const char* NOC_ATT_MAP_ENV_VAR = "TT_UMD_NOC_ATT";
+constexpr const char* GRENDEL_QSR1_MAP_NAME = "grendel_qsr1";
+
+}  // namespace
 
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
 
@@ -98,6 +111,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -116,6 +130,31 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+}
+
+void RtlSimulationTTDevice::setup_noc_address_resolver() {
+    const std::optional<std::string> map_name = utils::get_env_var_value(NOC_ATT_MAP_ENV_VAR);
+    if (!map_name.has_value()) {
+        return;
+    }
+
+    UMD_ASSERT(
+        map_name == GRENDEL_QSR1_MAP_NAME,
+        error::RuntimeError,
+        fmt::format(
+            "{} names ATT map '{}', which this build does not carry. Known maps: {}.",
+            NOC_ATT_MAP_ENV_VAR,
+            *map_name,
+            GRENDEL_QSR1_MAP_NAME));
+
+    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(att::GRENDEL_QSR1_MAP);
+    global_address_mode_ = true;
+}
+
+bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
+    // A global address already names its destination, so the dummy window Quasar would allocate to
+    // carry that coordinate in tlb_data has nothing left to carry.
+    return !global_address_mode_ && cached_tlb_window_ != nullptr;
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
@@ -173,10 +212,20 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
 }
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    if (global_address_mode_) {
+        communicator_->global_read_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    // In this mode addr already names the destination, so the coordinate is not sent: the
+    // simulator has nothing to translate and cannot resolve a resolved address again.
+    if (global_address_mode_) {
+        communicator_->global_write_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 

@@ -337,7 +337,14 @@ public:
      */
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual uint32_t get_clock() = 0;
+    /**
+     * @brief Retrieves the current AICLK frequency, read from the telemetry the firmware publishes.
+     *
+     * @return uint32_t Current AICLK frequency in MHz.
+     * @throws error::UninitializedDeviceError before init_tt_device() has run.
+     * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
+     */
+    uint32_t get_clock();
 
     uint32_t get_max_clock_freq();
 

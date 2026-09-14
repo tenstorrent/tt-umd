@@ -46,7 +46,8 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
-    ArchitectureImplementation* architecture_impl) :
+    ArchitectureImplementation* architecture_impl,
+    bool kmd_lock_available) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
@@ -91,7 +92,8 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
         device_id_,
         remote_interface_ != nullptr
             ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
-            : get_io_device_type());
+            : get_io_device_type(),
+        kmd_lock_available);
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.

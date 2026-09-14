@@ -2,6 +2,7 @@ set(BAREMETAL_TESTS_SRCS
     test_architecture_tlbs.cpp
     test_att_window.cpp
     test_att_resolver.cpp
+    test_grendel_att_map.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp
     test_core_coord_translation_wh.cpp
@@ -23,7 +24,14 @@ set(BAREMETAL_TESTS_SRCS
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
-target_link_libraries(baremetal_tests PRIVATE test_common)
+# yaml-cpp is private to tt-umd, so test_common does not carry it: the ATT map fidelity test
+# parses the vendored tables itself and needs its own link.
+target_link_libraries(
+    baremetal_tests
+    PRIVATE
+        test_common
+        yaml-cpp::yaml-cpp
+)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
 endif()

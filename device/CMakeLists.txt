@@ -203,6 +203,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinates/att/att_map.hpp
                 api/umd/device/coordinates/att/att_window.hpp
                 api/umd/device/coordinates/att/att_resolver.hpp
+                api/umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/coordinates/quasar_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp

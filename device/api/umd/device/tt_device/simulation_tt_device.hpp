@@ -58,7 +58,6 @@ public:
         const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     uint32_t get_clock() override;
-    uint32_t get_min_clock_freq() override;
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,

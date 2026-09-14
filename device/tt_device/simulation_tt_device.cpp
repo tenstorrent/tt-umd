@@ -320,8 +320,4 @@ uint32_t SimulationTTDevice::get_clock() {
     UMD_THROW(error::RuntimeError, "Getting clock is not supported for simulation devices.");
 }
 
-uint32_t SimulationTTDevice::get_min_clock_freq() {
-    UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported for simulation devices.");
-}
-
 }  // namespace tt::umd

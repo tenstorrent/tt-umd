@@ -25,8 +25,6 @@ class BlackholeTTDevice : public TTDevice {
 public:
     uint32_t get_clock() override;
 
-    uint32_t get_min_clock_freq() override;
-
 protected:
     explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 

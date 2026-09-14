@@ -57,7 +57,8 @@ void SimulationTTDeviceModel::use_arch_device_firmware() {
                 tt_sim_protocol_.get(),
                 /*jtag_interface=*/nullptr,
                 /*remote_interface=*/nullptr,
-                architecture_impl_.get());
+                architecture_impl_.get(),
+                /*kmd_lock_available=*/false);
             auto *raw = firmware.get();
             telemetry_reader_lookup_ = [raw]() { return raw->get_firmware_telemetry_reader(); };
             info_provider_lookup_ = [raw]() { return raw->get_firmware_info_provider(); };

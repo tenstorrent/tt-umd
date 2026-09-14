@@ -67,7 +67,18 @@ Resolver::Resolver(const MapData& map) : map_(map) {
 uint64_t Resolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t offset, uint64_t size) const {
     const auto x = static_cast<uint32_t>(core.x);
     const auto y = static_cast<uint32_t>(core.y);
-    const WindowClass window_class = window_class_for(core_type);
+    WindowClass window_class = window_class_for(core_type);
+
+    // The worker window only covers a Tensix tile's L1. Its registers (NEO_REGS, semaphores, overlay)
+    // sit above L1 and are reached through the full-tile window, like on every other tile. So an
+    // offset that does not fit the L1 window is a register access: use the full-tile window instead.
+    if (window_class == WindowClass::Worker) {
+        const Window& l1_window = map_.windows[static_cast<size_t>(WindowClass::Worker)];
+        const Window& tile_window = map_.windows[static_cast<size_t>(WindowClass::FullTile)];
+        if (!l1_window.transfer_supported(offset, size) && tile_window.transfer_supported(offset, size)) {
+            window_class = WindowClass::FullTile;
+        }
+    }
 
     const auto& selectors = selectors_[static_cast<size_t>(window_class)];
     const auto entry = selectors.find(pack_coord(x + map_.package_offset_x, y + map_.package_offset_y));

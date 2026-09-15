@@ -545,6 +545,12 @@ uint32_t TTDevice::get_clock() {
     // confirmed, delete this branch; if they differ, the provider grows the per-arch handling
     // instead.
     if (get_arch() == tt::ARCH::WORMHOLE_B0) {
+        // The clock is firmware-reported state, so refuse before the firmware is up rather than putting a
+        // message to one that has not reported ready; this throws UninitializedDeviceError when it is not.
+        // send_device_command() no longer makes that check itself -- a Wormhole ARC message rides scratch
+        // registers that are readable from reset -- so it belongs to the callers that actually need it.
+        static_cast<void>(get_firmware_info_provider());
+
         // There is one return value from the GET_AICLK message.
         DeviceCommandResult result = get_device_firmware()->send_device_command(
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),

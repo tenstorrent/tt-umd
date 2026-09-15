@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_set>
 
 #include "firmware_telemetry_reader.hpp"
@@ -27,11 +28,17 @@ public:
     bool is_entry_available(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
     // Constructs the reader and waits for the ARC telemetry table to be fully populated.
+    //
+    // legacy_telemetry_noc_addr is where the firmware reported it published the legacy Wormhole
+    // telemetry block. Reading that block is how the firmware version is established, which is what
+    // decides between the readers, so a caller that can ask the firmware should: without it the
+    // block is assumed to be at SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR.
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(
         DeviceProtocol* device_protocol,
         const tt::ARCH arch,
         const tt_xy_pair arc_core_noc0,
-        const tt_xy_pair arc_core_noc1);
+        const tt_xy_pair arc_core_noc1,
+        std::optional<uint64_t> legacy_telemetry_noc_addr = std::nullopt);
 
 protected:
     ArcTelemetryReader(DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);

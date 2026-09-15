@@ -129,6 +129,11 @@ private:
 
     IODeviceType get_io_device_type() const;
 
+    // Asks the firmware where it published the legacy SMBus telemetry block. Firmware that does not
+    // answer gets SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR, which is where the firmwares
+    // that do answer have always put it.
+    uint64_t get_legacy_telemetry_noc_addr(NocId noc_id);
+
     // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
     // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint
     // when the timeout is within the telemetry update interval.

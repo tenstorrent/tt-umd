@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <tt-logger/tt-logger.hpp>
@@ -178,6 +179,12 @@ void TTSimTTDevice::initialize_backend() {
             HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
             configure_iatu_region(ch, m.physical_address, m.mapping_size);
         }
+        auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+        const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
+        const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
+        if (arena_size > 0) {
+            configure_iatu_region_at(nch, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+        }
     }
 }
 
@@ -338,6 +345,11 @@ void TTSimTTDevice::advance_device_execution() {
 }
 
 void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    constexpr uint64_t CHANNEL_STRIDE = 1ULL << 30;
+    configure_iatu_region_at(region, uint64_t(region) * CHANNEL_STRIDE, target, region_size);
+}
+
+void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size) {
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
     // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the
@@ -347,12 +359,14 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
-    // Channels sit on a fixed 1 GiB NOC-window grid (matching SimulationSysmemManager's placement),
-    // independent of region_size. region_size is the channel's actual mapping size and only bounds the
-    // limit: keeping base on the grid means a sub-1-GiB channel (WH channel 3 = 768 MiB) still starts at
-    // the right NOC offset (region * 1 GiB) while mapping only its backed range.
-    constexpr uint64_t CHANNEL_STRIDE = 1ULL << 30;
-    const uint64_t base = uint64_t(region) * CHANNEL_STRIDE;  // region offset within the NOC sysmem window
+    // The standard channel helper places channels on a fixed 1 GiB NOC-window grid. This lower-level
+    // helper also accepts an arbitrary base for the mapped-buffer arena. In both cases region_size
+    // bounds the backed range.
+    UMD_ASSERT(region_size > 0, error::RuntimeError, "Cannot configure an empty iATU region.");
+    UMD_ASSERT(
+        base <= std::numeric_limits<uint64_t>::max() - (region_size - 1),
+        error::RuntimeError,
+        "iATU base plus region size overflows uint64_t.");
     const uint64_t limit = base + region_size - 1;
     // limit and base are written as 32-bit registers (limit hi shares base hi). This holds only while the
     // top of the region stays within 4 GiB; assert rather than silently truncate if stride/channel count

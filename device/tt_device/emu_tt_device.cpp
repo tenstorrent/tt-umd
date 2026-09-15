@@ -6,7 +6,10 @@
 
 #include <fmt/format.h>
 
-#include "emu_axi_transport.h"  // chippy
+#include <functional>
+
+#include "emu_axi_transport.h"       // chippy
+#include "jtag2axi_v2_transport.h"   // chippy
 #include "mimir.h"              // chippy
 #include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/coordinates/att/configs/mimir_1x1_att_map.hpp"
@@ -73,25 +76,50 @@ const att::MapData& EmuTTDevice::mimir_att_map(const SocDescriptor& soc_descript
     return att::MIMIR_1X1_MAP;
 }
 
-// Owns the chippy transport. Held by shared_ptr because chippy's decorator transports
+// Owns the chippy transport, held through TransportInterface so the device is transport-agnostic:
+// tile_read_bytes/tile_write_bytes go through the base's read/write, which every chippy transport
+// implements. Shared rather than unique because chippy's decorator transports
 // (MultiChipletEmuAxiTransport for a multi-chiplet model, SmcRemapTransport for SMC register
 // access) take a shared inner transport, so a multi-chiplet package will wrap this rather than
 // replace it.
+//
+// `open` is the protocol handshake a transport needs before its first access. emu_axi sends INIT to
+// the command server; jtag2axi has none, because OpenOCD owns the TAP and is already attached by
+// the time this device is built.
 struct EmuTTDevice::Impl {
-    std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> transport;
+    std::shared_ptr<chippy::transport::TransportInterface> transport;
+    std::function<void()> open;
 
-    Impl(const std::string& host, uint32_t port) :
-        transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {}
+    static std::unique_ptr<Impl> emu_axi(const std::string& host, uint32_t port) {
+        auto transport = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port);
+        return std::unique_ptr<Impl>(new Impl{transport, [transport] { transport->initialize(); }});
+    }
+
+    static std::unique_ptr<Impl> jtag2axi(const std::string& host, uint32_t port, size_t chiplet) {
+        auto transport = std::make_shared<chippy::transport::jtag2axi::v2::Jtag2AxiV2Transport>(
+            host, static_cast<uint16_t>(port), chiplet);
+        return std::unique_ptr<Impl>(new Impl{transport, [] {}});
+    }
 };
 
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
     const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) {
+    return create(soc_descriptor, Transport::EmuAxi, host, port);
+}
+
+/* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
+    const SocDescriptor& soc_descriptor,
+    Transport transport,
+    const std::string& host,
+    uint32_t port,
+    size_t chiplet) {
     UMD_ASSERT(
         soc_descriptor.arch == tt::ARCH::GRENDEL,
         error::RuntimeError,
         fmt::format("EmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
-    return std::unique_ptr<EmuTTDevice>(
-        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
+    auto impl = transport == Transport::Jtag2Axi ? Impl::jtag2axi(host, port, chiplet)
+                                                 : Impl::emu_axi(host, port);
+    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(impl)));
 }
 
 EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
@@ -104,8 +132,8 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
     noc_address_resolver_ = std::make_unique<att::Resolver>(mimir_att_map(soc_descriptor));
 
-    // INIT opens the session with the command server.
-    impl_->transport->initialize();
+    // Whatever handshake this transport needs before its first access.
+    impl_->open();
 }
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the

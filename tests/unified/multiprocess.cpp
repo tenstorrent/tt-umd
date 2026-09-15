@@ -565,9 +565,8 @@ protected:
             tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
             tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
 
-            // We just wrote this payload, so the read back is expected to match it exactly.
-            // If the race above corrupts the read, the tag encoded in the returned data tells
-            // us whether it came from this worker's own core (stale) or another worker's (foreign).
+            // Readback should exactly match what we just wrote; a mismatch's tag reveals whether
+            // the race above returned stale (this core) or foreign (another worker's) data.
             result->completed_iterations++;
             if (readback == payload) {
                 continue;
@@ -586,6 +585,8 @@ protected:
     }
 };
 
+// Reproduces DMA reads landing on the wrong core when device create/destroy races across workers.
+//
 // Disabled by default: real fork() alongside gtest has known flakiness, see issue #2579.
 // Run explicitly with --gtest_also_run_disabled_tests.
 TEST_F(DmaReadMixedCoreReproTest, DISABLED_DmaReadMixedCoreRepro) {

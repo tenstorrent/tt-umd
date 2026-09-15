@@ -56,3 +56,32 @@ TEST(TestLockManager, ChipSpecificPcieLockIsHeldInBothBackends) {
         << "Shared memory lock should have been released";
     shm_lock.unlock();
 }
+
+// A device that presents a PCIe surface with no /dev/tenstorrent node behind it opts out of the KMD half of the
+// lock. Two things have to hold for that to be safe, and neither needs hardware to check: setting the lock up must
+// not reach for a KMD node, and the shared memory half must keep the very name the KMD-backed path registers under,
+// so that a caller which did take the KMD half still contends with this one.
+TEST(TestLockManager, ChipSpecificPcieLockCanOptOutOfKmd) {
+    // A device number no hardware has, for two reasons. The registry keeps whichever lock was registered under a name
+    // first, so sharing a number with the test above would hand this one that test's composite lock instead. And it
+    // is what makes the opt-out observable: taking the KMD half here would have to open /dev/tenstorrent/250.
+    constexpr int device_num = 250;
+
+    RobustMutex shm_lock(mem_barrier_lock_name(device_num));
+    shm_lock.initialize();
+
+    ASSERT_NO_THROW(LockManager::initialize_mutex(
+        MutexType::MEM_BARRIER, device_num, IODeviceType::PCIe, /* kmd_lock_available= */ false))
+        << "Opting out should not open a KMD lock device";
+
+    {
+        auto lock = LockManager::acquire_mutex(MutexType::MEM_BARRIER, device_num, IODeviceType::PCIe);
+
+        EXPECT_TRUE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value())
+            << "Shared memory lock should be held, under the name the KMD-backed path registers under";
+    }
+
+    EXPECT_FALSE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value())
+        << "Shared memory lock should have been released";
+    shm_lock.unlock();
+}

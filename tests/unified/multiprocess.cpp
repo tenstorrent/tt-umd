@@ -621,9 +621,6 @@ TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
     ASSERT_NE(results_mem, MAP_FAILED);
     WorkerResult* results = static_cast<WorkerResult*>(results_mem);
 
-    std::cout << "Testing DMA read mixed-core repro on PCI device " << pci_device_id << " with " << NUM_WORKERS
-              << " workers, " << NUM_ITERATIONS << " iterations each (cores shown as NOC translated x,y)" << std::endl;
-
     std::vector<pid_t> pids;
     pids.reserve(NUM_WORKERS);
     for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {

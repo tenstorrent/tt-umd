@@ -4,9 +4,10 @@
 
 // Tests for the simulation multichip core infrastructure:
 // - SocDescriptor::is_core_of_type (moved from a local helper in tt_sim_tt_device.cpp)
+// - TTSimProtocol's process-qualified MMIO id
 // - TTSimCommunicator shared dlopen / select_chip_if_needed patterns
 //
-// The SocDescriptor tests run on any CI host (no hardware required).
+// The SocDescriptor and MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
 
 #include <gtest/gtest.h>
@@ -24,8 +25,14 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
+#include <unistd.h>
+
+#include <exception>
+
 #include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 #endif
 
 using namespace tt;
@@ -129,6 +136,39 @@ INSTANTIATE_TEST_SUITE_P(
 // ---------------------------------------------------------------------------
 
 #ifdef TT_UMD_BUILD_SIMULATION
+
+// ---------------------------------------------------------------------------
+// TTSimProtocol's MMIO id
+// ---------------------------------------------------------------------------
+
+// A simulated endpoint exists only inside the process that brought its image up, so the id UMD
+// addresses and locks it by carries the process as well as the endpoint. These are the properties
+// the lock names depend on: the endpoint is still in there, two chips of one image stay apart, and
+// two processes never agree.
+TEST(TTSimProtocolMmioId, CarriesTheEndpointAndTheProcess) {
+    const int chip0 = TTSimProtocol::process_local_mmio_id(0);
+    const int chip1 = TTSimProtocol::process_local_mmio_id(1);
+
+    // The endpoint survives in the low bits, and the process in the rest.
+    EXPECT_EQ(chip0 & 31, 0);
+    EXPECT_EQ(chip1 & 31, 1);
+    EXPECT_EQ(chip0 >> 5, static_cast<int>(getpid()));
+
+    // Each chip of a multi-endpoint image keeps its own lock, and nothing claims a PCI device number
+    // silicon could also be using.
+    EXPECT_NE(chip0, chip1);
+    EXPECT_GT(chip0, 31);
+
+    // Stable for the process, so a lock initialized under this name is found again when acquired.
+    EXPECT_EQ(chip0, TTSimProtocol::process_local_mmio_id(0));
+}
+
+// The 5 bits reserved for the endpoint are the same 5 bits the BDF device field has, so a chip id
+// that does not fit would silently land in the process part instead of overflowing visibly.
+TEST(TTSimProtocolMmioId, RefusesAChipIdThatDoesNotFitTheBdfField) {
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(32), std::exception);
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(-1), std::exception);
+}
 
 class TTSimCommunicatorTest : public ::testing::Test {
 protected:

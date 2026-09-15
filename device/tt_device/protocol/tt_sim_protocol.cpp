@@ -4,6 +4,9 @@
 
 #include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 
+#include <fmt/format.h>
+#include <unistd.h>
+
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -15,6 +18,7 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     device_ = device;
     communicator_ = communicator;
     chip_id_ = chip_id;
+    mmio_id_ = process_local_mmio_id(chip_id);
 }
 
 void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
@@ -54,7 +58,15 @@ bool TTSimProtocol::write_to_core_range(
     return false;
 }
 
-int TTSimProtocol::get_mmio_id() { return chip_id_; }
+int TTSimProtocol::get_mmio_id() { return mmio_id_; }
+
+/* static */ int TTSimProtocol::process_local_mmio_id(int chip_id) {
+    UMD_ASSERT(
+        chip_id >= 0 && chip_id < 32,
+        error::RuntimeError,
+        fmt::format("A simulated chip id has to fit the 5-bit BDF device field; got {}.", chip_id));
+    return (static_cast<int>(getpid()) << 5) | chip_id;
+}
 
 uint64_t TTSimProtocol::bar0_base() {
     if (!bar0_base_read_) {

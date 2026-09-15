@@ -497,6 +497,14 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
 
 class DmaReadMixedCoreReproTest : public ::testing::Test {
 protected:
+    void SetUp() override {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        ASSERT_FALSE(pci_device_ids.empty());
+        pci_device_id = pci_device_ids.at(0);
+    }
+
+    int pci_device_id;
+
     static constexpr int NUM_WORKERS = 16;
     static constexpr int NUM_ITERATIONS = 300;
     static constexpr uint64_t SCRATCH_ADDR = 0x10000;
@@ -587,10 +595,6 @@ protected:
 
 // Reproduces DMA reads landing on the wrong core when device create/destroy races across workers.
 TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    ASSERT_FALSE(pci_device_ids.empty());
-    const int pci_device_id = pci_device_ids.at(0);
-
     void* barrier_mem =
         mmap(nullptr, sizeof(pthread_barrier_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     ASSERT_NE(barrier_mem, MAP_FAILED);

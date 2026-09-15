@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Tests that verify write_to_device/read_from_device (TLB-based path) and
-// tile_wr_bytes/tile_rd_bytes (direct simulator API) produce consistent results.
+// tile_wr_bytes/tile_rd_bytes (direct simulator API) produce consistent results, plus the
+// explicitly allocated 4GB TLB window (BAR4) path on Blackhole.
 
 #include <gtest/gtest.h>
 
@@ -31,7 +32,9 @@
 
 namespace tt::umd {
 
-class TTSimDeviceIOFixture : public ::testing::Test {
+// Opens the simulator named by TT_UMD_SIMULATOR. Creating the device is arch-agnostic; what is not
+// is the simulator's direct tile API, so the skip for that lives in the fixture whose tests need it.
+class TTSimDeviceFixtureBase : public ::testing::Test {
 protected:
     void SetUp() override {
         const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
@@ -45,12 +48,6 @@ protected:
         }
         tt_device.reset(sim_device);
         device.release();  // NOLINT(bugprone-unused-return-value)
-
-        const tt::ARCH arch = tt_device->get_soc_descriptor().arch;
-        if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-            GTEST_SKIP() << "tile_wr_bytes/tile_rd_bytes are no longer supported on TTSim for arch "
-                         << tt::arch_to_str(arch);
-        }
     }
 
     void TearDown() override {
@@ -71,6 +68,31 @@ protected:
 
     std::unique_ptr<TTSimTTDevice> tt_device;
 };
+
+// For the tests that cross-check UMD's I/O against the simulator's direct tile API. TTSim no longer
+// supports that API on Wormhole and Blackhole, where I/O routes through a cached TLB window
+// instead, so these tests only run on Quasar.
+class TTSimDeviceIOFixture : public TTSimDeviceFixtureBase {
+protected:
+    void SetUp() override {
+        TTSimDeviceFixtureBase::SetUp();
+        // GTEST_SKIP() returns from the function it appears in, so a skip in the base leaves
+        // tt_device null here rather than ending SetUp outright.
+        if (IsSkipped()) {
+            return;
+        }
+
+        const tt::ARCH arch = tt_device->get_soc_descriptor().arch;
+        if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "tile_wr_bytes/tile_rd_bytes are no longer supported on TTSim for arch "
+                         << tt::arch_to_str(arch);
+        }
+    }
+};
+
+// For the tests that only use UMD's own accessors. Keeping them off TTSimDeviceIOFixture is what
+// makes them runnable at all: they are Blackhole-only, which that fixture skips.
+class TTSimTlbWindowFixture : public TTSimDeviceFixtureBase {};
 
 // ---------------------------------------------------------------------------
 // write_to_device (TLB path) → tile_rd_bytes (direct path)
@@ -401,7 +423,7 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
 // Allocate a 4GB TLB window explicitly. On Blackhole this is mapped through BAR4
 // rather than BAR0, exercising SimulationTlbAllocator::get_tlb_address_from_index's
 // BAR4 branch and the simulator's BAR4 TLB-translation path.
-TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
+TEST_F(TTSimTlbWindowFixture, FourGBTlbBar4PathRoundTrip) {
     const SocDescriptor& soc = tt_device->get_soc_descriptor();
     if (soc.arch != tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "4GB TLBs only exist on Blackhole; skipping for arch " << tt::arch_to_str(soc.arch);
@@ -419,22 +441,23 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
     constexpr uint64_t addr = 0x1000;
     auto write_data = make_pattern(data_size, [](size_t i) { return (i * 7 + 11) % 256; });
 
-    // Write through the 4GB window (hits BAR4), read back through both the direct API and the
-    // same 4GB window — all three views must agree.
+    // Write through the 4GB window (hits BAR4), read back through both the same 4GB window and
+    // read_from_device — all three views must agree. read_from_device goes through the cached 2MB
+    // BAR0 window on Blackhole, so it is a genuinely different route to the same memory.
     write_block_reconfigure(*tlb_window, write_data.data(), core, addr, data_size, NocId::NOC0);
-
-    std::vector<uint8_t> direct_read(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
-    EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write";
 
     std::vector<uint8_t> tlb_read(data_size, 0);
     read_block_reconfigure(*tlb_window, tlb_read.data(), core, addr, data_size, NocId::NOC0);
     EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write";
+
+    std::vector<uint8_t> bar0_read(data_size, 0);
+    tt_device->read_from_device(bar0_read.data(), core, addr, data_size, NocId::NOC0);
+    EXPECT_EQ(write_data, bar0_read) << "BAR0-window read disagrees with 4GB-TLB write";
 }
 
 // Same BAR4 path, but targeting a DRAM tile. The 4GB TLB resolves to a NOC (x,y) address
 // independent of tile type, so this confirms the BAR4 route reaches DRAM as well as Tensix.
-TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
+TEST_F(TTSimTlbWindowFixture, FourGBTlbBar4PathDramRoundTrip) {
     const SocDescriptor& soc = tt_device->get_soc_descriptor();
     if (soc.arch != tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "4GB TLBs only exist on Blackhole; skipping for arch " << tt::arch_to_str(soc.arch);
@@ -455,13 +478,13 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
 
     write_block_reconfigure(*tlb_window, write_data.data(), core, addr, data_size, NocId::NOC0);
 
-    std::vector<uint8_t> direct_read(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
-    EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write to DRAM";
-
     std::vector<uint8_t> tlb_read(data_size, 0);
     read_block_reconfigure(*tlb_window, tlb_read.data(), core, addr, data_size, NocId::NOC0);
     EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write to DRAM";
+
+    std::vector<uint8_t> bar0_read(data_size, 0);
+    tt_device->read_from_device(bar0_read.data(), core, addr, data_size, NocId::NOC0);
+    EXPECT_EQ(write_data, bar0_read) << "BAR0-window read disagrees with 4GB-TLB write to DRAM";
 }
 
 }  // namespace tt::umd

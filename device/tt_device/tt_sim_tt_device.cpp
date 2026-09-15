@@ -157,7 +157,7 @@ void TTSimTTDevice::initialize_backend() {
         }
     }
 
-    init_tlb_allocator(bar0_base);
+    init_tlb_allocator(bar0_base, bar4_base);
     setup_cached_tlb_window();
 
     // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):

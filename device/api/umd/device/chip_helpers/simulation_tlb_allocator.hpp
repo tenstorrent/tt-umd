@@ -21,10 +21,22 @@ namespace tt::umd {
  * Tracks which TLB indices are allocated per size class, and computes BAR0-relative
  * addresses for a given index. Counterpart to KMD-managed allocation on silicon —
  * no knowledge of TlbHandle / TlbWindow types.
+ *
+ * The window layout is handed in at construction rather than derived from the architecture, so
+ * supporting a new architecture is a matter of it having an entry in the architecture TLB table.
  */
 class SimulationTlbAllocator {
 public:
-    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base = 0);
+    /**
+     * @param bar0_base Base address the architecture's BAR0-resident windows are mapped at.
+     * @param arch Architecture of the device this allocator serves. Carried so the TLB handles
+     *             built on top of it can answer get_arch(); the allocator never branches on it.
+     * @param tlbs Window layout to lay the pools out from, or nullptr when the simulator models no
+     *             TLB windows for this device at all (its communicator carries all I/O); see
+     *             allocate_tlb_index() for what that mode means.
+     * @param bar4_base Base address for the layout's BAR4-resident windows, if it has any.
+     */
+    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, const ArchitectureTlbs* tlbs, uint64_t bar4_base = 0);
 
     /**
      * Allocate the smallest TLB whose size class is >= the requested size. If no
@@ -33,11 +45,11 @@ public:
      *
      * If size is 0, allocate any available TLB, preferring smaller size classes first.
      *
-     * QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
-     * handles all I/O underneath). For QUASAR, hand back an auto-incrementing dummy
-     * index so TLBManager bookkeeping (keyed by tlb id) does not collide across
-     * allocations. Callers should use the requested size directly on QUASAR rather
-     * than querying get_tlb_size_from_index() (which has no pool to look up).
+     * An allocator built without a layout has no pools to allocate from. It hands back an
+     * auto-incrementing index instead, so TLBManager bookkeeping (keyed by tlb id) does not
+     * collide across allocations. Such an index addresses no window: callers should use the
+     * requested size directly rather than querying get_tlb_size_from_index(), which has no pool to
+     * look it up in. uses_window_addressing() distinguishes the two modes.
      *
      * @param size Requested TLB size in bytes (0 means any available).
      * @return TLB index if successful, -1 if no TLB available.
@@ -64,6 +76,12 @@ public:
      */
     uint64_t get_tlb_reg_address_from_index(int tlb_index);
 
+    /**
+     * Whether the indices this allocator hands out address a real window, i.e. whether it was given
+     * a layout. See allocate_tlb_index() for the layout-less mode.
+     */
+    bool uses_window_addressing() const;
+
     tt::ARCH get_architecture() const;
 
 private:
@@ -73,7 +91,7 @@ private:
         std::vector<bool> allocated;
     };
 
-    void initialize_architecture_config();
+    void initialize_pools(const ArchitectureTlbs* tlbs);
 
     // Returns the pool that owns `tlb_index`, or nullptr if no pool covers it
     // (including for negative indices).
@@ -82,15 +100,18 @@ private:
     uint64_t bar0_base_ = 0;
     uint64_t bar4_base_ = 0;
     tt::ARCH architecture_;
-    size_t tlb_reg_size_bytes_ = 8;  // Default to Wormhole size.
+    // Both taken from the layout. Left at zero without one, where every getter that would use them
+    // throws before reaching them.
+    uint64_t cfg_reg_base_offset_ = 0;
+    uint64_t tlb_reg_size_bytes_ = 0;
 
     std::mutex allocation_mutex_;
     // Ordered smallest window size first, so allocate-with-escalation and the BAR0 address
     // layout both follow the iteration order.
     std::vector<TlbPool> pools_;
 
-    // Counter for the Quasar bypass branch of allocate_tlb_index(); see its docstring.
-    std::atomic<int> next_bypass_tlb_id_{0};
+    // Counter for the layout-less branch of allocate_tlb_index(); see its docstring.
+    std::atomic<int> next_bookkeeping_tlb_id_{0};
 };
 
 }  // namespace tt::umd

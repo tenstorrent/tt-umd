@@ -10,6 +10,7 @@
 
 namespace tt::umd {
 class DeviceFirmware;
+class RiscReset;
 
 class ArchitectureImplementation;
 class DmaInterface;
@@ -53,6 +54,9 @@ public:
      * architecture and backend statically, so no dispatch is involved in picking the implementation.
      */
     virtual DeviceFirmware *get_device_firmware() = 0;
+
+    // Controls the reset state of the device's RISC cores.
+    virtual RiscReset *get_risc_reset() = 0;
 
     virtual ArchitectureImplementation *get_architecture_impl() = 0;
 

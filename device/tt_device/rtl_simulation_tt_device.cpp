@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/reset/rtl_sim_risc_reset.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -35,17 +36,6 @@
 namespace tt::umd {
 
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
-
-// Array of DM RiscType values for iteration.
-static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
-    RiscType::DM0,
-    RiscType::DM1,
-    RiscType::DM2,
-    RiscType::DM3,
-    RiscType::DM4,
-    RiscType::DM5,
-    RiscType::DM6,
-    RiscType::DM7};
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
@@ -103,6 +93,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
     teardown_ = [this] { communicator_->shutdown(); };
     setup_();
+    dynamic_cast<SimulationTTDeviceModel*>(get_model())
+        ->set_risc_reset(std::make_unique<RtlSimRiscReset>(communicator_.get(), soc_descriptor.arch, device_lock));
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
@@ -116,6 +108,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+    // Client mode has no communicator; the reset control reports itself unwired if reached.
+    dynamic_cast<SimulationTTDeviceModel*>(get_model())
+        ->set_risc_reset(std::make_unique<RtlSimRiscReset>(nullptr, soc_descriptor.arch, device_lock));
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
@@ -207,88 +202,6 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
         return true;
     }
     return false;
-}
-
-void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
-    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
-    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL) {
-            communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
-            communicator_->all_neo_dms_uncore_reset_assert();
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
-            communicator_->all_neo_dms_uncore_reset_assert();
-            return;
-        }
-        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_assert(translated_core.x, translated_core.y);
-            return;
-        }
-        // Check if this is a request per individual DM core reset.
-        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
-            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_assert(translated_core.x, translated_core.y, i);
-            }
-        }
-    }
-
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
-        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
-        // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
-        // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
-        // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
-        // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
-        // always call this command as if reset for all was requested.
-        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-    }
-}
-
-void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    // See the comment in assert_risc_reset for more details.
-    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL) {
-            communicator_->all_neo_dms_uncore_reset_deassert();
-            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
-            communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
-            communicator_->all_neo_dms_uncore_reset_deassert();
-            return;
-        }
-        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        // Check if this is a request per individual DM core reset.
-        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
-            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_deassert(translated_core.x, translated_core.y, i);
-            }
-        }
-    }
-
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
-        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
-        // See the comment in assert_risc_reset for more details.
-        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-    }
 }
 
 }  // namespace tt::umd

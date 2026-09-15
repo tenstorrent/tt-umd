@@ -114,19 +114,7 @@ endif()
 
 add_subdirectory(third_party)
 
-# Unity builds batch several sources into one translation unit, so the cost of parsing
-# our headers is paid once per batch instead of once per source. Set AFTER third_party
-# so dependencies keep building one source at a time.
-#
-# Opt-in and off by default, so this commit changes nothing on its own. Turning it on also
-# needs the tests to be batching-safe, which is a follow-up; and it changes how the library
-# is compiled (static-initialisation order within a batch, inlining across what used to be
-# separate translation units), which is not something to hand a release build or a
-# developer's incremental loop without asking.
 option(TT_UMD_ENABLE_UNITY_BUILD "Batch UMD sources into unity translation units" OFF)
-# 16 from a sweep of 1..24 at -j4, the parallelism a CI runner actually has. The curve is
-# almost spent by 8 (2.56x of an available 3.01x) and 16 captures 97% of it; 24 buys 3% more
-# while leaving libtt-umd only 5 units, so the tail idles cores on a 4-core runner.
 set(TT_UMD_UNITY_BUILD_BATCH_SIZE "16" CACHE STRING "Number of sources per unity translation unit")
 if(TT_UMD_ENABLE_UNITY_BUILD)
     set(CMAKE_UNITY_BUILD ON)

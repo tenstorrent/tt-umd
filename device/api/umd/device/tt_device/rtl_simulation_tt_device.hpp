@@ -51,9 +51,6 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info);
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
-
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
 protected:

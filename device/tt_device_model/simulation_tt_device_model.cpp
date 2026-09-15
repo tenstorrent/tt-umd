@@ -4,8 +4,11 @@
 
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 
+#include <utility>
+
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_device/firmware/simulation_device_firmware.hpp"
+#include "umd/device/tt_device/reset/risc_reset.hpp"
 
 namespace tt::umd {
 
@@ -22,6 +25,12 @@ SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 DeviceProtocol *SimulationTTDeviceModel::get_device_protocol() { return nullptr; }
 
 DeviceFirmware *SimulationTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
+
+RiscReset *SimulationTTDeviceModel::get_risc_reset() { return risc_reset_.get(); }
+
+void SimulationTTDeviceModel::set_risc_reset(std::unique_ptr<RiscReset> risc_reset) {
+    risc_reset_ = std::move(risc_reset);
+}
 
 ArchitectureImplementation *SimulationTTDeviceModel::get_architecture_impl() { return architecture_impl_.get(); }
 

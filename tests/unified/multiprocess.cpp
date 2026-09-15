@@ -502,6 +502,10 @@ protected:
         ASSERT_FALSE(pci_device_ids.empty());
         pci_device_id = pci_device_ids.at(0);
 
+        if (PCIDevice(pci_device_id).get_arch() == tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
+        }
+
         barrier_mem_ =
             mmap(nullptr, sizeof(pthread_barrier_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         ASSERT_NE(barrier_mem_, MAP_FAILED);

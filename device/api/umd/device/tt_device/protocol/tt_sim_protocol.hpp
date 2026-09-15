@@ -55,6 +55,10 @@ public:
 
     int get_mmio_id() override;
 
+    // The id a simulated chip in this process is addressed and locked by. Exposed for the test that
+    // pins the composition; attach() resolves it for the device.
+    static int process_local_mmio_id(int chip_id);
+
     // --- PcieInterface ---
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
@@ -75,6 +79,16 @@ private:
     // TTDevice::get_communication_device_id() reports as -1. Defaulting to 0 would instead have
     // those devices claim MMIO device 0.
     int chip_id_ = -1;
+    // What get_mmio_id() answers: the endpoint's PCI device number qualified by this process -- the
+    // pid, with the chip id in the low 5 bits. A simulated endpoint exists only inside the process
+    // that brought its image up, so the device number alone means nothing outside it, and UMD names
+    // the cross-process locks keyed on this id after it: every simulator run on a machine contended
+    // with every other, and with silicon's PCI device of the same number.
+    //
+    // Chip ids are below 32 in BDF mode, which TTSimCommunicator asserts, and Linux caps pids at
+    // 2^22, so the composed value stays well inside an int. Resolved once at attach() rather than
+    // read live, so a process which forks after its devices are up keeps the names it registered.
+    int mmio_id_ = -1;
     uint64_t bar0_base_ = 0;
     bool bar0_base_read_ = false;
 };

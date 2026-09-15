@@ -540,7 +540,8 @@ protected:
             probe_device->init_tt_device();
             std::vector<CoreCoord> cores =
                 probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-            core = cores.at(worker_id % cores.size());
+            CoreCoord translated_core = cores.at(worker_id % cores.size());
+            core = CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::LITERAL);
         }
         result->core = core;
 
@@ -549,9 +550,11 @@ protected:
         std::vector<uint32_t> payload(NUM_WORDS);
         std::vector<uint32_t> readback(NUM_WORDS);
 
+        // The per-iteration device create/destroy is the mechanism under test: it frees the DMA TLB
+        // window back to KMD, which then hands the id to another worker while its config still
+        // points at the previous owner's core.
         for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-            tt_device->init_tt_device();
 
             std::fill(
                 payload.begin(),

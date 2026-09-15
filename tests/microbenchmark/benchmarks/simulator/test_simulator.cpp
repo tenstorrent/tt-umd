@@ -28,7 +28,6 @@ using namespace tt::umd::test::utils;
 
 namespace {
 
-constexpr ChipId CHIP_ID = 0;
 constexpr uint64_t ADDRESS = 0x0;
 constexpr size_t TRANSFER_SIZE = 4 * ONE_KIB;
 
@@ -43,8 +42,6 @@ protected:
 
     const char* sim_path_ = nullptr;
 };
-
-}  // namespace
 
 TEST_F(MicrobenchmarkSim, ClusterConstructor) {
     ClusterOptions options =
@@ -77,3 +74,5 @@ TEST_F(MicrobenchmarkSim, DeviceIO) {
     });
     test::utils::export_results(bench);
 }
+
+}  // namespace

@@ -23,8 +23,6 @@ using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-constexpr ChipId CHIP_ID = 0;
-
 // Measure bandwidth of IO to DRAM core.
 TEST(MicrobenchmarkTLB, DRAM) {
     auto bench = ankerl::nanobench::Bench().title("TLB_DRAM").unit("byte");

@@ -138,6 +138,8 @@ set(_chippy_includes
     ${_chippy_lib_src}/arch/asic
     ${_chippy_lib_src}/arch/grendel
     ${_chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_transport_interface
+    ${_chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_v1_transport
+    ${_chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_v2_transport
     ${_chippy_lib_src}/transport/emu_axi_transport
     ${_chippy_lib_src}/transport/sim_axi_transport
     ${_chippy_lib_src}/transport/distsim_axi_transport

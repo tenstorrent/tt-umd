@@ -37,6 +37,16 @@ class TlbWindow;
  */
 class EmuTTDevice : public SimulationTTDevice {
 public:
+    /** Which chippy transport carries this device's accesses. */
+    enum class Transport {
+        /** The emu_axi text protocol over TCP to the emulation command server, which drives the
+            model's own AXI transactor. */
+        EmuAxi,
+        /** chippy's JTAG2AXI bridge, reached through an OpenOCD already attached to the model's
+            jtag_vpi server. The emulated TAP carries the access instead of the AXI transactor. */
+        Jtag2Axi,
+    };
+
     /**
      * Connect to an emu_axi command server.
      *
@@ -47,6 +57,23 @@ public:
      */
     static std::unique_ptr<EmuTTDevice> create(
         const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port);
+
+    /**
+     * Connect over a chosen transport.
+     *
+     * @param transport Which chippy transport to use.
+     * @param host      Server host. For Jtag2Axi this is the OpenOCD RPC endpoint, not the
+     *                  jtag_vpi server: chippy speaks to OpenOCD, which owns the TAP.
+     * @param port      Server port. OpenOCD's RPC default is 6666.
+     * @param chiplet   0-indexed chiplet on the JTAG chain. Ignored for EmuAxi, where the server
+     *                  selects the chiplet instead.
+     */
+    static std::unique_ptr<EmuTTDevice> create(
+        const SocDescriptor& soc_descriptor,
+        Transport transport,
+        const std::string& host,
+        uint32_t port,
+        size_t chiplet = 0);
 
     ~EmuTTDevice() override;
 

@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <memory>
 #include <optional>
 #include <string>
@@ -151,6 +152,39 @@ TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
 
     EXPECT_EQ(read_first, first);
     EXPECT_EQ(read_second, second);
+}
+
+// The UMD counterpart of chippy's scratch_reg validation test, so the two stacks can be compared
+// doing the same thing to the same register. chippy resolves it through the RDL register map
+// (chiplet.smc().registers.smc_cpu_ctrl.scratch[index]); UMD has no register map, so the address is
+// the AXI-view one the emulation rules give for Mimir SMC scratch[0] -- 0x0001_0100, the same
+// memory 0xC001_0100 reaches through the SMC core-local alias.
+//
+// The value carries a die ordinal exactly as chippy's does. On a single-Mimir package it cannot
+// catch mis-routing the way it does across a multi-die one, but keeping the shape identical means
+// the test extends to mmk without changing what it asserts.
+constexpr uint64_t kSmcScratch0Offset = 0x00010100;
+constexpr uint32_t kScratchUniqueValue = 0xA5A50000;  // chippy's unique_value_base, Mimir instance 0
+
+TEST(EmuTTDevice, SmcScratchRegisterRoundTrip) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    auto device = EmuTTDevice::create(soc_descriptor, transport_from_env(), server->host, server->port);
+    const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
+
+    uint32_t initial = 0;
+    device->read_from_device(&initial, smc_core, kSmcScratch0Offset, sizeof(initial));
+
+    device->write_to_device(&kScratchUniqueValue, smc_core, kSmcScratch0Offset, sizeof(kScratchUniqueValue));
+
+    uint32_t readback = 0;
+    device->read_from_device(&readback, smc_core, kSmcScratch0Offset, sizeof(readback));
+    EXPECT_EQ(readback, kScratchUniqueValue)
+        << "scratch[0] initial was 0x" << std::hex << initial;
+
+    // Restore, so a later run does not start from this test's value.
+    device->write_to_device(&initial, smc_core, kSmcScratch0Offset, sizeof(initial));
 }
 
 // DRAM is opt-in, and deliberately so.

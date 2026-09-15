@@ -28,8 +28,23 @@ if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_simulation_device_identity.cpp)
 endif()
 
+if(TT_UMD_BUILD_GRENDEL_JTAG AND TT_UMD_BUILD_SIMULATION)
+    list(APPEND API_TESTS_SRCS test_emu_tt_device.cpp)
+endif()
+
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
+
+if(TT_UMD_BUILD_GRENDEL_JTAG AND TT_UMD_BUILD_SIMULATION)
+    # The emu test is chippy-aware -> C++20.
+    target_link_libraries(api_tests PRIVATE umd_grendel_jtag)
+    set_source_files_properties(
+        test_emu_tt_device.cpp
+        PROPERTIES
+            COMPILE_OPTIONS
+                "-std=c++20"
+    )
+endif()
 set_target_properties(
     api_tests
     PROPERTIES

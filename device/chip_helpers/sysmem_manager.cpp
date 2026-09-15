@@ -77,11 +77,11 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     memcpy(dest, user_scratchspace, size);
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
+std::unique_ptr<SystemMemoryBuffer> SysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
     return allocate_sysmem_buffer(size, bind_to_noc);
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::map_user_buffer(
+std::unique_ptr<SystemMemoryBuffer> SysmemManager::map_user_buffer(
     void *user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) {
     return map_sysmem_buffer(user_ptr, size, bind_to_noc, device_access);
 }

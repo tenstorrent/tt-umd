@@ -21,8 +21,8 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -387,9 +387,9 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
     test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }
 
-// Same scenario as Map1GBPages (three coexisting 1GiB buffers mapped to NOC), but routed through the SysmemBuffer
+// Same scenario as Map1GBPages (three coexisting 1GiB buffers mapped to NOC), but routed through the SystemMemoryBuffer
 // class to confirm there is no overhead compared to calling map_buffer_to_noc/unmap_for_dma directly.
-TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
+TEST(MicrobenchmarkIOMMU, Map1GBPagesSystemMemoryBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
@@ -423,7 +423,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     }
 
     auto bench = ankerl::nanobench::Bench()
-                     .title("IOMMU_Map1GBPagesSysmemBuffers")
+                     .title("IOMMU_Map1GBPagesSystemMemoryBuffers")
                      .unit("byte")
                      .epochs(NUM_EPOCHS)
                      .epochIterations(1);
@@ -433,7 +433,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     ankerl::nanobench::Result unmap_result(bench.config());
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
 
-    std::array<std::unique_ptr<SysmemBuffer>, NUM_PAGES> sysmem_buffers{};
+    std::array<std::unique_ptr<SystemMemoryBuffer>, NUM_PAGES> sysmem_buffers{};
     for (int i = 0; i < NUM_EPOCHS; i++) {
         for (size_t page = 0; page < NUM_PAGES; page++) {
             auto now = std::chrono::high_resolution_clock::now();

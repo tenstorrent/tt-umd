@@ -592,7 +592,7 @@ protected:
             std::fill(readback.begin(), readback.end(), 0);
 
             tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
-            tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
+            tt_device->dma_read(readback.data(), SCRATCH_ADDR, NUM_BYTES, core);
 
             // Readback should exactly match what we just wrote; a mismatch's tag reveals whether
             // the race above returned stale (this core) or foreign (another worker's) data.

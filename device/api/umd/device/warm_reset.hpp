@@ -41,6 +41,10 @@ public:
 
     static bool ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
+    // Power-cycles devices by removing them from the PCIe bus and triggering a rescan.
+    // Requires CAP_SYS_ADMIN (root).  Returns false if unsupported or permission is denied.
+    static bool cold_reset(std::vector<int> pci_device_ids = {});
+
 private:
     static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);
     static constexpr auto UBB_POST_RESET_WAIT = std::chrono::milliseconds(30'000);

@@ -364,6 +364,20 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 # so this link is a no-op for normal builds.
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
 
+if(TT_UMD_BUILD_GRENDEL_JTAG AND TT_UMD_BUILD_SIMULATION)
+    # The emu backend includes chippy headers and must compile as C++20. Confine the bump to it
+    # (the -std override comes after the target's -std=c++17, so it wins); UMD's public standard
+    # stays C++17. It derives from SimulationTTDevice, which only exists in a simulation build.
+    set(GRENDEL_CHIPPY_SRCS tt_device/emu_tt_device.cpp)
+    target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
+    set_source_files_properties(
+        ${GRENDEL_CHIPPY_SRCS}
+        PROPERTIES
+            COMPILE_OPTIONS
+                "-std=c++20"
+    )
+endif()
+
 check_function_exists(
     backtrace
     HAVE_BACKTRACE

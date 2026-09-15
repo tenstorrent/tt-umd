@@ -33,7 +33,7 @@
 #include "tracy.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
@@ -99,7 +99,7 @@ T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name
     return result.value_or(default_value);
 }
 
-static bool detect_iommu(const PciDeviceInfo &device_info) {
+bool PCIDevice::detect_iommu(const PciDeviceInfo &device_info) {
     auto iommu_type = try_read_sysfs<std::string>(device_info, "iommu_group/type");
     if (iommu_type) {
         return iommu_type->substr(0, 3) == "DMA";  // DMA or DMA-FQ
@@ -394,8 +394,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)),
-    arch_impl_(ArchitectureImplementation::create(arch)) {
+    iommu_enabled(detect_iommu(info)) {
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
@@ -490,7 +489,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.base + arch_impl_->get_static_tlb_cfg_addr());
+        bar0_uc_mapping.base + get_architecture_tlbs(arch).static_cfg_addr);
 
     if (tlb_config_space == MAP_FAILED) {
         UMD_THROW(
@@ -596,8 +595,6 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
-
 bool PCIDevice::is_read_only_page_pinning_supported() const {
     // Use the version cached at construction: this is reached from the mapping path, once per pinned buffer, and
     // read_kmd_version() re-opens and re-parses sysfs on every call.
@@ -606,9 +603,6 @@ bool PCIDevice::is_read_only_page_pinning_supported() const {
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
     void *buffer, size_t size, DeviceBufferAccess device_access) {
-    if (kmd_version < KMD_MAP_TO_NOC) {
-        UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
-    }
     if (device_access == DeviceBufferAccess::READ_ONLY && !is_read_only_page_pinning_supported()) {
         UMD_THROW(
             error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
@@ -657,10 +651,6 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (kmd_version < KMD_MAP_TO_NOC) {
-        UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use hugepages with NOC mapping.");
-    }
-
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t virtual_address = reinterpret_cast<uint64_t>(hugepage);
 
@@ -826,13 +816,13 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
 
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
+    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
     auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = arch_impl_->get_tlb_cfg_reg_size_bytes();
+    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.

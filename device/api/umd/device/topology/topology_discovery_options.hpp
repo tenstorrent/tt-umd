@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <optional>
+#include <string>
+
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
@@ -95,5 +98,17 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief Cluster id to stamp on the discovered cluster descriptor: a unique string identifying
+     * the group of Tenstorrent accelerators attached to a common host / controller / root complex.
+     * Defaults to the OS hostname, which is the right answer on bare metal. Callers running in a
+     * container or a VM, where gethostname() names the container or the guest rather than the
+     * accelerator group, have to supply one.
+     *
+     * Discovery throws when the supplied id is empty, longer than 128 characters, or contains
+     * anything outside [A-Za-z0-9._-].
+     */
+    std::optional<std::string> cluster_id;
 };
 }  // namespace tt::umd

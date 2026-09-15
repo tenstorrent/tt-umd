@@ -9,8 +9,10 @@
 #include <functional>
 #include <memory>
 
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -18,106 +20,49 @@
 namespace tt::umd {
 
 /**
+ * Safe-I/O policy of a window, fixed for its lifetime.
+ *
+ * With Enabled, the window's memory-access methods recover from a SIGBUS raised by a failing device
+ * access and throw SigbusError instead of letting the fault take the process down. Only
+ * SiliconTlbWindow can offer this, since simulation windows never touch mapped device memory; where it
+ * cannot be offered the policy is ignored.
+ *
+ * The underlying type is bool so that a caller still holding a flag can cast it directly.
+ */
+enum class IoSafety : bool {
+    Disabled = false,
+    Enabled = true,
+};
+
+/**
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
  */
-class TlbWindow {
+class TlbWindow : public IoWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, IoSafety io_safety = IoSafety::Disabled);
 
     virtual ~TlbWindow() = default;
 
     // Pure virtual methods for memory access - to be implemented by derived classes.
-    virtual void write16(uint64_t offset, uint16_t value) = 0;
-    virtual uint16_t read16(uint64_t offset) = 0;
-    virtual void write32(uint64_t offset, uint32_t value) = 0;
-    virtual uint32_t read32(uint64_t offset) = 0;
+    void write16(uint64_t offset, uint16_t value) override = 0;
+    uint16_t read16(uint64_t offset) override = 0;
+    void write32(uint64_t offset, uint32_t value) override = 0;
+    uint32_t read32(uint64_t offset) override = 0;
     virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
     virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
-    virtual void write_block(uint64_t offset, const void* data, size_t size) = 0;
-    virtual void read_block(uint64_t offset, void* data, size_t size) = 0;
+    void write_block(uint64_t offset, const void* data, size_t size) override = 0;
+    void read_block(uint64_t offset, void* data, size_t size) override = 0;
 
-    // Shared higher-level methods that use the virtual methods above.
-    virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void noc_multicast_write_reconfigure(
-        const void* src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    // Register reconfigure methods perform 32-bit chunked transfers with strict ordering.
-    // Alignment enforcement is the caller's responsibility.
-    virtual void read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void write_register_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
-
-    virtual uint16_t safe_read16(uint64_t offset) = 0;
-
-    virtual void safe_write32(uint64_t offset, uint32_t value);
-
-    virtual uint32_t safe_read32(uint64_t offset);
-
-    virtual void safe_write_register(uint64_t offset, const void* data, size_t size);
-
-    virtual void safe_read_register(uint64_t offset, void* data, size_t size);
-
-    virtual void safe_write_block(uint64_t offset, const void* data, size_t size);
-
-    virtual void safe_read_block(uint64_t offset, void* data, size_t size);
-
-    virtual void safe_write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_write_register_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_noc_multicast_write_reconfigure(
-        const void* src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+    // IoWindow spec surface.
+    void write_aligned(uint64_t offset, const void* data, size_t size) override;
+    void read_aligned(uint64_t offset, void* data, size_t size) override;
+    void configure(const TargetIoWindowConfig& config) override;
+    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
+    TargetIoWindowConfig get_target_config() const override;
+    IoOrdering get_io_ordering() const override;
+    HostMemoryCaching get_memory_caching_type() const override;
 
     // Installs a per-op MMIO timeout hang check used by the timed memcpy path. No-op by default; only
     // SiliconTlbWindow consults it (simulation windows do not run the timed path). See SiliconTlbWindow.
@@ -125,7 +70,7 @@ public:
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;
-    size_t get_size() const;
+    size_t get_size() const override;
     virtual void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
@@ -138,15 +83,13 @@ protected:
         tt_xy_pair core_end,
         NocId noc_id,
         uint64_t ordering,
+        WindowFlags flags,
         bool mcast = false,
         tt_xy_pair core_start = {}) const;
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
-
-private:
-    template <typename buffer_pointer, typename io_operation>
-    void transfer_and_reconfigure(tlb_data config, buffer_pointer buffer, size_t size, io_operation op);
+    const IoSafety io_safety_;
 };
 
 }  // namespace tt::umd

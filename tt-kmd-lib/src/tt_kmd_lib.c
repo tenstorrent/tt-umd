@@ -741,3 +741,71 @@ int tt_device_reset(tt_device_t* dev, uint32_t reset_flags) {
 
     return tt_device_close(dev);
 }
+
+/* All three lock operations issue the same ioctl, differing only in the flag they pass and in how
+ * they interpret out.value. */
+static int lock_ctl(tt_device_t* dev, uint8_t index, uint32_t flags, uint8_t* out_value) {
+    if (dev == NULL || index >= TT_RESOURCE_LOCK_COUNT) {
+        return -EINVAL;
+    }
+
+    struct tenstorrent_lock_ctl ctl = {0};
+    ctl.in.output_size_bytes = sizeof(ctl.out);
+    ctl.in.flags = flags;
+    ctl.in.index = index;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_LOCK_CTL, &ctl) != 0) {
+        return -errno;
+    }
+
+    *out_value = ctl.out.value;
+
+    return 0;
+}
+
+int tt_lock_acquire(tt_device_t* dev, uint8_t index, int* out_acquired) {
+    if (out_acquired == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value = 0;
+    int result = lock_ctl(dev, index, TENSTORRENT_LOCK_CTL_ACQUIRE, &value);
+    if (result != 0) {
+        return result;
+    }
+
+    *out_acquired = (value == 1);
+
+    return 0;
+}
+
+int tt_lock_release(tt_device_t* dev, uint8_t index, int* out_was_held) {
+    uint8_t value = 0;
+    int result = lock_ctl(dev, index, TENSTORRENT_LOCK_CTL_RELEASE, &value);
+    if (result != 0) {
+        return result;
+    }
+
+    if (out_was_held != NULL) {
+        *out_was_held = (value == 1);
+    }
+
+    return 0;
+}
+
+int tt_lock_test(tt_device_t* dev, uint8_t index, uint32_t* out_state) {
+    if (out_state == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value = 0;
+    int result = lock_ctl(dev, index, TENSTORRENT_LOCK_CTL_TEST, &value);
+    if (result != 0) {
+        return result;
+    }
+
+    /* The driver's value bits are laid out exactly as enum tt_lock_state. */
+    *out_state = value;
+
+    return 0;
+}

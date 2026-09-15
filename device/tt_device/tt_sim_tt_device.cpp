@@ -26,6 +26,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -99,6 +100,7 @@ TTSimTTDevice::TTSimTTDevice(
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
@@ -111,11 +113,6 @@ TTSimTTDevice::TTSimTTDevice(
         simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    // Populate the base-class arch field from the soc descriptor. TTSim does not go through
-    // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream
-    // consumers (e.g. tt-exalens constructing a SocDescriptor from the device) see the wrong arch.
-    arch = soc_descriptor.arch;
-    architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
@@ -175,7 +172,7 @@ void TTSimTTDevice::initialize_backend() {
     // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
     // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
     // of the multichip work), which is the behaviour of the stable simulator release.
-    if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+    if (get_arch() == tt::ARCH::WORMHOLE_B0 || get_arch() == tt::ARCH::BLACKHOLE) {
         size_t nch = sysmem_manager_->get_num_host_mem_channels();
         for (size_t ch = 0; ch < nch; ch++) {
             HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
@@ -186,10 +183,9 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::move(client)), chip_id_(chip_id) {
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
+    chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    arch = soc_descriptor.arch;
-    architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -294,8 +290,8 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
 void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
@@ -313,8 +309,8 @@ void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_ri
 void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
 
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
@@ -341,38 +337,13 @@ void TTSimTTDevice::advance_device_execution() {
     }
 }
 
-void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
-}
-
-std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
-    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");
-}
-
-EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
-}
-
-ChipInfo TTSimTTDevice::get_chip_info() {
-    // No firmware_info_provider on the simulator; mirror the defaults used inside
-    // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
-    // ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so apply the same 0x120
-    // default here. Keep in sync with create() above.
-    ChipInfo chip_info{};
-    if (arch == tt::ARCH::BLACKHOLE) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
-    }
-    return chip_info;
-}
-
 void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
     // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the
     // modeled outbound iATU and honors it at DMA egress. `target` is this chip's host base for the
     // region (per-chip distinct); `base` is the region's offset within the chip's NOC sysmem window.
-    const uint64_t iatu_bar2_off = (arch == tt::ARCH::BLACKHOLE) ? 0x1000 : 0x1200;
+    const uint64_t iatu_bar2_off = (get_arch() == tt::ARCH::BLACKHOLE) ? 0x1000 : 0x1200;
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
@@ -399,7 +370,8 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     wr(0x10, uint32_t(limit));         // limit (low 32b; upper bits share base hi)
     wr(0x14, uint32_t(target));        // target lo
     wr(0x18, uint32_t(target >> 32));  // target hi
-    // Note: unlike BlackholeTTDevice::configure_iatu_region we do NOT write limit_hi (0x1c) or
+    // Note: unlike the silicon Blackhole iATU programming this models (retired unused; see git
+    // history), we do NOT write limit_hi (0x1c) or
     // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
     // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
     // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not

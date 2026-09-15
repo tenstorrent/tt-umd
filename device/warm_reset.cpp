@@ -36,7 +36,7 @@
 
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
@@ -306,9 +306,16 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         try {
-            tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        } catch (error::ArcStartupError& arc_error) {
-            log_warning(LogUMD, arc_error.message());
+            tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        } catch (error::UmdBaseException& err) {
+            // UMD_THROW raises UmdException<E>, which wraps E rather than deriving from it, so a
+            // plain catch (error::FirmwareStartupError&) can never match. The catch this replaces
+            // (error::ArcStartupError&) had the same flaw and silently never fired; this is the
+            // log-and-skip behavior it always intended. See topology_utils.hpp for the same pattern.
+            if (dynamic_cast<error::UmdException<error::FirmwareStartupError>*>(&err) == nullptr) {
+                throw;
+            }
+            log_warning(LogUMD, err.message());
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));
@@ -325,17 +332,23 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
         refclk_values_old.emplace_back(tt_device->get_refclk_counter());
     }
 
-    std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
-        tt_device->get_arc_messenger()->send_message(
-            MSG_TYPE_ARC_STATE3, arc_msg_return_values, {default_arg_value, default_arg_value});
+        auto* firmware = tt_device->get_device_firmware();
+        firmware->send_device_command(
+            MSG_TYPE_ARC_STATE3,
+            {default_arg_value, default_arg_value},
+            timeout::ARC_MESSAGE_TIMEOUT,
+            get_selected_noc_id());
         usleep(30'000);
         if (reset_m3) {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {3, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT, get_selected_noc_id());
         } else {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {default_arg_value, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET,
+                {default_arg_value, default_arg_value},
+                timeout::ARC_MESSAGE_TIMEOUT,
+                get_selected_noc_id());
         }
     }
 

@@ -63,8 +63,4 @@ void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size
 
 void RtlSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) { translate_and_read(offset, data, size); }
 
-void RtlSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
-
-uint16_t RtlSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
-
 }  // namespace tt::umd

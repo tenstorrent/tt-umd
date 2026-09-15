@@ -620,6 +620,64 @@ int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
  */
 int tt_device_reset(tt_device_t* dev, uint32_t reset_flags);
 
+/**
+ * @brief Number of independent resource locks a device exposes.
+ *
+ * Valid lock indices are [0, TT_RESOURCE_LOCK_COUNT). Indices 0..15 are reserved
+ * by convention for ERISC cores; use higher indices for other coordination.
+ */
+#define TT_RESOURCE_LOCK_COUNT 64
+
+/**
+ * @brief State bits reported by `tt_lock_test()`.
+ */
+enum tt_lock_state {
+    TT_LOCK_STATE_HELD_BY_SELF = (1U << 0), /**< Held by this device handle */
+    TT_LOCK_STATE_HELD_BY_ANY = (1U << 1),  /**< Held by some handle, possibly this one */
+};
+
+/**
+ * @brief Attempts to acquire a device resource lock without blocking.
+ *
+ * A resource lock is a cross-process lock that lives in the driver, keyed by device and index. Any
+ * process that can open the device's chardev contends over the same lock, with no shared host
+ * filesystem required. The lock is owned by the device handle that acquired it, and the driver
+ * releases every lock a handle holds when it is closed, so a crashed holder cannot leak it.
+ *
+ * The driver offers no timed acquire; build a bounded or blocking wait by polling this call.
+ *
+ * @param dev Device handle
+ * @param index Lock index in [0, TT_RESOURCE_LOCK_COUNT)
+ * @param out_acquired 1 if `dev` now holds the lock, 0 if another handle holds it
+ * @return 0 on success, negative error code on failure. -ENODEV if a device reset invalidated the
+ *         handle, in which case the caller must reopen the device to retry.
+ */
+int tt_lock_acquire(tt_device_t* dev, uint8_t index, int* out_acquired);
+
+/**
+ * @brief Releases a device resource lock.
+ *
+ * @param dev Device handle
+ * @param index Lock index in [0, TT_RESOURCE_LOCK_COUNT)
+ * @param out_was_held 1 if `dev` held the lock, 0 if it did not (e.g. a double release). May be NULL.
+ * @return 0 on success, negative error code on failure. On -ENODEV the lock remains held until the
+ *         device handle is closed.
+ */
+int tt_lock_release(tt_device_t* dev, uint8_t index, int* out_was_held);
+
+/**
+ * @brief Queries whether a device resource lock is held.
+ *
+ * Inherently racy - another handle may acquire or release the lock before the result is used - so
+ * this is intended for diagnostics.
+ *
+ * @param dev Device handle
+ * @param index Lock index in [0, TT_RESOURCE_LOCK_COUNT)
+ * @param out_state Bitmask of `enum tt_lock_state`
+ * @return 0 on success, negative error code on failure
+ */
+int tt_lock_test(tt_device_t* dev, uint8_t index, uint32_t* out_state);
+
 #ifdef __cplusplus
 }
 #endif

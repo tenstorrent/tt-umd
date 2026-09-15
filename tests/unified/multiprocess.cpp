@@ -36,13 +36,13 @@ using namespace tt::umd;
 /**
  * Helper that reads data from a device core using the appropriate mechanism for the
  * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
- * dma_read_from_device is used. On other architectures (including Blackhole), the standard
+ * dma_read is used. On other architectures (including Blackhole), the standard
  * read_from_device path is used instead.
  */
 void read_data_based_on_architecture(
     TTDevice& tt_device, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
     if (tt_device.get_arch() == tt::ARCH::WORMHOLE_B0) {
-        tt_device.dma_read_from_device(mem_ptr, size, core, address);
+        tt_device.dma_read(mem_ptr, address, size, core);
     } else {
         tt_device.read_from_device(mem_ptr, core, address, size);
     }
@@ -376,7 +376,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
                     uint64_t process_address = test_address + (process_id * data_size * 2);
 
                     // Write data using DMA.
-                    tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
+                    tt_device->dma_write(write_data.data(), process_address, data_size, tensix_core);
 
                     // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);
@@ -449,7 +449,7 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
                     uint64_t process_address = test_address + (process_id * data_size * 2);
 
                     // Write data using DMA.
-                    tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
+                    tt_device->dma_write(write_data.data(), process_address, data_size, tensix_core);
 
                     // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);

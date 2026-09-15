@@ -18,8 +18,12 @@ namespace tt::umd {
 // topology without a local simulator build.
 
 // Host side: package this device's SocDescriptor into a wire message, so a client can receive it
-// and build its own matching SocDescriptor. backend_type records which simulator the host runs.
-SimulationServerDeviceInfo describe_device(const SocDescriptor& soc_descriptor, SimulationBackendType backend_type);
+// and build its own matching SocDescriptor. backend_type records which kind of simulator the host
+// runs, simulator_path which build of it -- together they let a client report what it is attached to.
+SimulationServerDeviceInfo describe_device(
+    const SocDescriptor& soc_descriptor,
+    SimulationBackendType backend_type,
+    const std::filesystem::path& simulator_path);
 
 // Client side: build a SocDescriptor from a wire message served by the host.
 SocDescriptor build_soc_descriptor(const SimulationServerDeviceInfo& device_info);

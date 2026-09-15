@@ -82,7 +82,6 @@ protected:
 
     TTDevice* local_tt_device_;
 
-    LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };
 

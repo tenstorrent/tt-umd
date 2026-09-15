@@ -24,6 +24,9 @@ if(TT_UMD_BUILD_TESTS)
         SYSTEM YES
         OPTIONS
             "INSTALL_GTEST OFF"
+            # googletest builds gmock by default, but pin it so an upstream default change cannot
+            # silently drop the target that test_common links.
+            "BUILD_GMOCK ON"
     )
     if(GTest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)

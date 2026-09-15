@@ -17,6 +17,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -113,7 +114,8 @@ inline std::string convert_to_comma_separated_string(const std::unordered_set<in
 }
 
 inline bool is_iommu_available() {
-    return make_default_test_cluster()->get_tt_device(0)->get_pci_device()->is_iommu_enabled();
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    return !devices_info.empty() && PCIDevice::detect_iommu(devices_info.begin()->second);
 }
 
 inline bool is_virtual_machine() {

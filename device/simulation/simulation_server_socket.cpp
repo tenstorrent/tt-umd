@@ -165,17 +165,18 @@ void SimulationServerSocket::do_accept() {
     });
 }
 
-bool SimulationServerSocket::is_live() {
+bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
     // is_live() is a predicate; a path too long to name a reachable listener can't have one,
     // so report not-live rather than letting make_endpoint() throw.
-    if (socket_path_.string().size() >= sizeof(sockaddr_un::sun_path)) {
+    if (socket_path.string().size() >= sizeof(sockaddr_un::sun_path)) {
         return false;
     }
-    // Reuse impl_->io rather than spin up a throwaway io_context: a synchronous connect()
-    // doesn't run the event loop, so the shared context is untouched (cf. warm_reset.cpp).
-    stream_protocol::socket probe(impl_->io);
+    // A synchronous connect() doesn't run the event loop, so this context exists only to own the
+    // probe socket and never processes anything (cf. warm_reset.cpp).
+    asio::io_context io;
+    stream_protocol::socket probe(io);
     std::error_code ec;
-    probe.connect(make_endpoint(socket_path_), ec);
+    probe.connect(make_endpoint(socket_path), ec);
     return !ec;
 }
 
@@ -219,7 +220,7 @@ bool SimulationServerSocket::bind_and_listen() {
         // the gap) is undefined. The socket dir is assumed trusted (see
         // default_socket_path), which is what makes this acceptable. Note a stale socket
         // owned by another user may not be removable under a sticky dir (e.g. /tmp).
-        if (is_live()) {
+        if (is_live(socket_path_)) {
             return false;
         }
         // Reclaim only an actual stale socket. A non-socket object squatting the path (regular

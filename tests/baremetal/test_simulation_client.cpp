@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -57,6 +58,17 @@ TEST_F(SimulationClientTest, DestructorDetaches) {
         SimulationClient client(path_);
         EXPECT_NO_THROW(client.attach());
     }
+}
+
+// A host that is bound but not yet serving (serve() not called) still accepts the connection via
+// the listen backlog, then never answers. transact() must time out and throw rather than block
+// forever waiting for a reply.
+TEST_F(SimulationClientTest, TransactTimesOutWhenHostNotServing) {
+    auto server = SimulationServerSocket::create(path_);  // bound + connectable, but serve() not called
+
+    SimulationClient client(path_, std::chrono::milliseconds(300));
+    ASSERT_NO_THROW(client.attach());
+    EXPECT_THROW(client.transact({0x01, 0x02, 0x03}), std::exception);
 }
 
 // End to end over the socket: transact() returns the host's reply, not the request it sent (the

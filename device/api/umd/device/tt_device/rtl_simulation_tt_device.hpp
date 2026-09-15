@@ -51,18 +51,13 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info);
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
-    std::chrono::milliseconds wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
-
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
 protected:
-    SimulationBackendType backend_type() const override { return SimulationBackendType::Rtl; }
+    SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;

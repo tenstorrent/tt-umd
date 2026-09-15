@@ -4,14 +4,16 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <mutex>
+#include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
+#include "umd/device/utils/mutex_interface.hpp"
 
 namespace tt::umd {
 
@@ -32,23 +34,28 @@ enum class MutexType {
     PCIE_DMA,
 };
 
-// Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying
-// RobustMutexes. Also note that clear_mutex doesn't need to be explicitly called, since the mutexes will all get
-// cleared automatically when the LockManager goes out of scope. We could implement these lock such that initialization
-// is not needed, and they are initialized every time they're locked, but since that communicates with the OS filesystem
-// it might be slower do to it each time. This way, locking/unlocking should be faster.
+// Name of a mutex type, for logging and diagnostics.
+std::string to_string(MutexType mutex_type);
+
+// The locks handed out here are process wide, and the underlying ones system wide, so LockManager holds them in a
+// single registry for the whole process rather than one per owner. A lock is initialized once, by whoever needs it
+// first, and lives until the process exits.
+// Besides being the honest model, this bounds how many locks a process can have open at a time. An initialized mutex
+// may hold a file descriptor for as long as it lives, so a registry per owner meant the same lock was opened once per
+// chip, per device and per cluster, and a process working with many chips could run itself out of descriptors.
+// We could implement these locks such that initialization is not needed, and they are initialized every time they're
+// locked, but since that communicates with the OS it might be slower to do it each time. This way, locking/unlocking
+// should be faster.
+// Locks are only ever added to the registry, never removed, and that is what makes the returned
+// std::unique_lock<MutexInterface> safe to hold for as long as the caller likes: the mutex it refers to stays where it
+// is for the lifetime of the process. Anything that removed locks again would leave every outstanding one dangling.
+//
+// Chip specific locks on a PCIe device are backed by a KMD resource lock, so that processes which share the device but
+// not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a JTAG device - is
+// backed by RobustMutex, since a KMD resource lock exists only per local PCIe device.
 class LockManager {
 public:
-    // Maps MutexType enum values to their string names used in shared-memory lock names.
-    inline static const std::unordered_map<MutexType, std::string> MUTEX_TYPE_TO_STRING = {
-        {MutexType::ARC_MSG, "ARC_MSG"},
-        {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
-        {MutexType::NON_MMIO, "NON_MMIO"},
-        {MutexType::MEM_BARRIER, "MEM_BARRIER"},
-        {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
-        {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
-        {MutexType::PCIE_DMA, "PCIE_DMA"},
-    };
+    LockManager() = delete;
 
     // Mutex types that are initialized per chip (combined with device_id + device_type).
     inline static const std::vector<MutexType> CHIP_SPECIFIC_MUTEX_TYPES = {
@@ -67,32 +74,34 @@ public:
     };
 
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
-    void initialize_mutex(MutexType mutex_type);
-    void clear_mutex(MutexType mutex_type);
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type);
+    static void initialize_mutex(MutexType mutex_type);
+    static std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
-    void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    std::unique_lock<RobustMutex> acquire_mutex(
-        MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    static void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    static std::unique_lock<MutexInterface> acquire_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
 
-    // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
-    void initialize_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    std::unique_lock<RobustMutex> acquire_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is
+    // held, and std::nullopt if it is not - which covers both a mutex nobody had taken and one whose owner died holding
+    // it, since probing a shared memory mutex recovers it from a dead owner rather than reporting it as held. Since a
+    // free mutex has to be acquired to find that out, and is released again right after, the answer is best effort and
+    // may be stale as soon as it is returned.
+    static std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
+    static std::optional<std::pair<pid_t, pid_t>> probe_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
-    void initialize_mutex_internal(const std::string& mutex_name);
-    void clear_mutex_internal(const std::string& mutex_name);
-    std::unique_lock<RobustMutex> acquire_mutex_internal(const std::string& mutex_name);
+    // Locks backed by a shared memory RobustMutex, addressed by their name.
+    static void initialize_robust_mutex(const std::string& mutex_name);
+    static std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
+    static std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
 
-    // Maps from mutex name to an initialized mutex.
-    // Mutex names are made from mutex type name or directly mutex name combined with device number.
-    // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.
-    std::unordered_map<std::string, RobustMutex> mutexes;
+    // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
+    // well, for as long as clients on an older UMD exist which know only about that one.
+    static void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    static std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    static std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);
 };
 
 }  // namespace tt::umd

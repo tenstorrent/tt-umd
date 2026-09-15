@@ -32,7 +32,7 @@ using namespace std::chrono_literals;
 // LOCKED long after the read had failed. The natural suspicion was "tt-telemetry swallows UMD's
 // exception, so the lock is never released". These tests pin down what actually happens:
 //   1. LockReleasedWhenHolderThrows  -> an exception thrown while the lock is held DOES release it,
-//      because LockManager hands out a std::unique_lock<RobustMutex> whose destructor runs during
+//      because LockManager hands out a std::unique_lock whose destructor runs during
 //      stack unwinding. So swallowing the exception upstream is NOT what leaks the lock.
 //   2. LockStaysHeldWhenHolderNeverReturns -> if a code path holds the lock and neither returns nor
 //      throws (e.g. an unbounded poll loop with no check_timeout), the lock is held forever and every
@@ -55,16 +55,17 @@ void unlink_backing_file(std::string_view mutex_name) {
 
 }  // namespace
 
-// An exception thrown while a std::unique_lock<RobustMutex> is in scope releases the lock during
-// stack unwinding (the unique_lock destructor calls unlock()). This is exactly the type LockManager
-// returns, so the production read/write paths get this behavior for free. A subsequent acquirer must
-// therefore succeed immediately.
+// An exception thrown while a std::unique_lock over the mutex is in scope releases the lock during
+// stack unwinding (the unique_lock destructor calls unlock()). LockManager hands out a
+// std::unique_lock<MutexInterface> over the same mutex, so the production read/write paths get this
+// behavior for free. A subsequent acquirer must therefore succeed immediately.
 TEST(RobustMutex, LockReleasedWhenHolderThrows) {
     RobustMutex mutex(kExceptionMutexName);
     mutex.initialize();
 
     try {
-        // Same RAII wrapper LockManager::acquire_mutex() returns to callers like read_non_mmio().
+        // The RAII wrapper LockManager::acquire_mutex() returns to callers like read_non_mmio(), over
+        // the concrete type, since this test is about RobustMutex rather than about which backend.
         std::unique_lock<RobustMutex> lock(mutex);
 
         // Simulate read_non_mmio() hitting utils::check_timeout() and throwing while holding the lock.

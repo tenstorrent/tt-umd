@@ -84,6 +84,27 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_constrained_cluster_descriptor(
         const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids = {});
 
+    /* Cluster id of the accelerator group this descriptor describes. */
+
+    /**
+     * Returns the cluster id: a unique string identifying the group of Tenstorrent accelerators
+     * connected to a common host / controller / root complex. One cluster descriptor describes one
+     * such group.
+     *
+     * The value is currently that group's bare metal hostname, because that is what the factory
+     * system descriptor and the fabric topology solver join on. Semantically this identifies the
+     * accelerator group and not a machine, so the value scheme can change without the field
+     * changing meaning.
+     *
+     * Set when parsing a YAML that carries the key, and by discovery from
+     * TopologyDiscoveryOptions::cluster_id or the OS hostname. It does not change over a
+     * descriptor's lifetime, so there is no setter.
+     *
+     * Empty when the YAML omitted the key and discovery did not stamp one. That is the case for
+     * every descriptor written before this field existed, and is not an error.
+     */
+    const std::optional<std::string> &get_cluster_id() const;
+
     /* Getters for various chip related information. */
 
     /**
@@ -167,6 +188,12 @@ public:
      * Returns the map of logical chip IDs and their ETH locations as reported by the routing firmware.
      */
     const std::unordered_map<ChipId, uint64_t> &get_chip_unique_ids() const;
+
+    // True only when the ids came from the source (a chip_unique_ids block, or real hardware).
+    // False when they were synthesized for backward compatibility, in which case they are stable
+    // WITHIN a process but say nothing about which physical chip they name -- so they must not be
+    // used as a cross-process identity.
+    bool has_authentic_chip_unique_ids() const;
 
     /**
      * Returns the map of logical chip IDs and their PCIe ids as reported by the operating system.
@@ -256,7 +283,7 @@ public:
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
     using DeviceHealthError = std::variant<
-        error::ArcStartupError,
+        error::FirmwareStartupError,
         error::NocHangError,
         error::PcieHangError,
         error::UnsupportedCMFWError,
@@ -319,6 +346,7 @@ private:
     std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio;
     std::unordered_map<ChipId, tt::ARCH> chip_arch;
     std::unordered_map<ChipId, uint64_t> chip_unique_ids;
+    bool authentic_chip_unique_ids = false;
     std::map<ChipId, std::set<uint32_t>> active_eth_channels;
     std::map<ChipId, std::set<uint32_t>> idle_eth_channels;
     std::map<uint64_t, std::unordered_set<ChipId>> board_to_chips;
@@ -330,6 +358,10 @@ private:
 
     std::vector<ChipId> unhealthy_devices;
     std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
+
+    // Unset on descriptors written before this field existed, and on mock descriptors that were
+    // never given one. Consumers fall back to whatever they used before in that case.
+    std::optional<std::string> cluster_id;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

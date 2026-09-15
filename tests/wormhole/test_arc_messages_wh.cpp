@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -14,15 +15,16 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 using namespace tt::umd;
 
@@ -34,18 +36,60 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
-        std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+        DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
+            {0, 0},
+            timeout::ARC_MESSAGE_TIMEOUT);
 
-        std::vector<uint32_t> arc_msg_return_values = {0};
-        arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-            arc_msg_return_values,
-            {0, 0});
-
+        EXPECT_EQ(result.exit_code, 0u);
         EXPECT_EQ(
-            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0)),
             harvesting_mask_cluster_desc.tensix_harvesting_mask);
+    }
+}
+
+// Verifies the firmware info provider's telemetry-backed AICLK matches the value the GET_AICLK
+// firmware command reports, at both settled clock states. This gates deleting the temporary
+// Wormhole branch in TTDevice::get_clock(): the provider reads the smbus telemetry word, which the
+// firmware publishes on a refresh interval, so each comparison polls the provider until it
+// converges to the command's value or times out. If this fails, the provider needs per-arch
+// handling for Wormhole instead.
+TEST(WormholeArcMessages, WormholeFirmwareInfoProviderAiclkParity) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+
+        auto read_aiclk_via_command = [&tt_device]() {
+            DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
+                {0xFFFF, 0xFFFF},
+                timeout::ARC_MESSAGE_TIMEOUT);
+            EXPECT_EQ(result.exit_code, 0u);
+            return result.return_values.at(0);
+        };
+
+        // BUSY last, so the device is left at full speed for whatever runs next.
+        for (ClockState state : {ClockState::IDLE, ClockState::BUSY}) {
+            // Drives AICLK through the firmware and waits for it to settle near the target.
+            tt_device->set_clock_state(state);
+
+            const uint32_t command_aiclk = read_aiclk_via_command();
+            std::optional<uint32_t> provider_aiclk;
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (true) {
+                provider_aiclk = tt_device->get_firmware_info_provider()->get_clock_freq();
+                if (provider_aiclk == command_aiclk || std::chrono::steady_clock::now() >= deadline) {
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+
+            ASSERT_TRUE(provider_aiclk.has_value());
+            EXPECT_EQ(provider_aiclk.value(), command_aiclk)
+                << "Telemetry AICLK never converged to the GET_AICLK value at "
+                << (state == ClockState::BUSY ? "BUSY" : "IDLE") << " on chip " << chip_id;
+        }
     }
 }
 
@@ -56,33 +100,34 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
     std::set<tt::ChipId> target_chips = cluster->get_target_device_ids();
     std::unordered_map<uint32_t, TTDevice*> tt_devices;
-    std::unordered_map<uint32_t, std::unique_ptr<ArcMessenger>> arc_messengers;
 
     for (uint32_t chip_id : target_chips) {
-        TTDevice* tt_device = cluster->get_tt_device(chip_id);
-        tt_devices.emplace(chip_id, tt_device);
-        arc_messengers.emplace(chip_id, ArcMessenger::create_arc_messenger(tt_device));
+        tt_devices.emplace(chip_id, cluster->get_tt_device(chip_id));
     }
 
     for (uint32_t chip_id : target_chips) {
-        [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
+        TTDevice* tt_device = tt_devices.at(chip_id);
+        [[maybe_unused]] DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_busy(),
-            {0, 0});
+                tt_device->get_architecture_implementation()->get_firmware_message_go_busy(),
+            {0, 0},
+            timeout::ARC_MESSAGE_TIMEOUT);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
     for (uint32_t chip_id : target_chips) {
-        uint32_t aiclk = tt_devices.at(chip_id)->get_clock();
+        TTDevice* tt_device = tt_devices.at(chip_id);
+        uint32_t aiclk = tt_device->get_clock();
 
         // TODO #781: For now expect only that busy val is something larger than idle val.
         EXPECT_GT(aiclk, wormhole::AICLK_IDLE_VAL);
 
-        [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
+        [[maybe_unused]] DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
-            {0, 0});
+                tt_device->get_architecture_implementation()->get_firmware_message_go_idle(),
+            {0, 0},
+            timeout::ARC_MESSAGE_TIMEOUT);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
@@ -104,39 +149,25 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
-        std::thread thread0([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
-
+        // Both threads drive the same firmware command path; the named ARC mutexes serialize them
+        // exactly as they serialized the per-thread ArcMessenger instances this test used to create.
+        auto harvesting_loop = [&]() {
             for (uint32_t loop = 0; loop < num_loops; loop++) {
-                std::vector<uint32_t> arc_msg_return_values = {0};
-                arc_messenger->send_message(
+                DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
                     wormhole::ARC_MSG_COMMON_PREFIX |
-                        tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-                    arc_msg_return_values,
-                    {0, 0});
+                        static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
+                    {0, 0},
+                    timeout::ARC_MESSAGE_TIMEOUT);
 
                 EXPECT_EQ(
-                    CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+                    CoordinateManager::shuffle_tensix_harvesting_mask(
+                        tt::ARCH::WORMHOLE_B0, result.return_values.at(0)),
                     harvesting_mask_cluster_desc.tensix_harvesting_mask);
             }
-        });
+        };
 
-        std::thread thread1([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
-
-            for (uint32_t loop = 0; loop < num_loops; loop++) {
-                std::vector<uint32_t> arc_msg_return_values = {0};
-                arc_messenger->send_message(
-                    wormhole::ARC_MSG_COMMON_PREFIX |
-                        tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-                    arc_msg_return_values,
-                    {0, 0});
-
-                EXPECT_EQ(
-                    CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
-                    harvesting_mask_cluster_desc.tensix_harvesting_mask);
-            }
-        });
+        std::thread thread0(harvesting_loop);
+        std::thread thread1(harvesting_loop);
 
         thread0.join();
         thread1.join();

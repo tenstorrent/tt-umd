@@ -15,3 +15,7 @@ endif()
 # Add all example subdirectories
 add_subdirectory(tt_device_example)
 add_subdirectory(reset_notification_example)
+# Opt-in via TT_UMD_BUILD_RDMA: needs libibverbs to build and two RDMA hosts to run.
+if(TT_UMD_BUILD_RDMA)
+    add_subdirectory(rdma_dmabuf_p2p)
+endif()

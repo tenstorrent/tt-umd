@@ -4,10 +4,13 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <vector>
+
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -18,7 +21,10 @@ namespace tt::umd {
 // asio is held behind a pImpl so this header stays asio-free (see Impl in the .cpp).
 class SimulationClient {
 public:
-    explicit SimulationClient(std::filesystem::path socket_path);
+    // timeout bounds each blocking send/recv on the socket, so transact() fails with an error
+    // instead of hanging forever if the host is reachable (connect succeeds) but not answering.
+    explicit SimulationClient(
+        std::filesystem::path socket_path, std::chrono::milliseconds timeout = timeout::SIMULATION_SOCKET_TIMEOUT);
     ~SimulationClient();
 
     SimulationClient(const SimulationClient&) = delete;
@@ -37,6 +43,7 @@ public:
 
 private:
     std::filesystem::path socket_path_;
+    std::chrono::milliseconds timeout_;
 
     // Holds the asio transport (io_context + connected socket). Defined in the .cpp so asio
     // stays out of this header; owns the connection fd (RAII).

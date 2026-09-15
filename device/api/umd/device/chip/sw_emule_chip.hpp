@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -24,15 +25,29 @@ namespace tt::umd {
 
 class SimulationSysmemManager;
 
+// TRANSLATED Tensix core -> worker-pool slot, in the SoC descriptor's deterministic order.
+//
+// Free function, not a member: a rank resolving a fabric write into a chip owned by ANOTHER PROCESS
+// has that chip's SocDescriptor but no SWEmuleChip for it, and must derive the same layout to index
+// the peer's shared segment. One implementation, so the two sides cannot drift.
+std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor& soc_descriptor);
+
 /// SWEmuleChip extends Chip with real memory-backed I/O.
 ///
-/// Worker L1 regions are allocated from a single contiguous L1Pool
-/// (MAP_32BIT mmap with 2 MB aligned slots) for bitmask offset extraction.
+/// Worker L1 regions come from a single contiguous L1Pool carved into fixed-size slots, so an
+/// in-slot offset is recoverable with one mask. Under TT_EMULE_CHIP_SHM that pool is a named
+/// shared segment, and a slot index is then a portable identity a peer process can resolve.
 /// DRAM cores use individual mmaps (not directly dereferenced by kernels).
 /// All non-memory operations (barriers, resets, power management) are no-ops.
 class SWEmuleChip : public Chip {
 public:
-    explicit SWEmuleChip(const SocDescriptor& soc_descriptor);
+    // chip_uid is the chip's GLOBALLY stable unique id, used to name the shared L1 segment under
+    // TT_EMULE_CHIP_SHM. It must not be the ChipId: TT_VISIBLE_DEVICES makes the cluster descriptor
+    // renumber each process's visible chips to 0..N-1, so two processes holding different physical
+    // chips would both call theirs chip 0 and collide on one segment. std::nullopt means "no stable
+    // identity", which is why the caller must not substitute a synthesized id: an id the descriptor
+    // invented per-process is not shareable, and passing one would name a colliding segment.
+    explicit SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid = std::nullopt);
     ~SWEmuleChip() override;
 
     // Chip lifecycle — no-ops.
@@ -94,16 +109,29 @@ public:
     // coord of a channel resolves here, so a noc=1 read sees a noc=0 / host write.
     tt_emule::Core* get_dram_channel_backing(uint32_t channel);
 
+    // Pool slot for a worker core in TRANSLATED naming, or nullopt if it has none.
+    std::optional<size_t> slot_of(tt_xy_pair translated_core_xy) const;
+
+    // Slots in the worker pool; with SLOT_SIZE this is the shared segment's exact size.
+    size_t num_pool_slots() const;
+
+    // Identity of this chip's shared segment: the harvesting mask folded exactly as the ctor folds it.
+    uint64_t shm_harvest_mask() const;
+
 private:
     std::mutex core_mutex_;
 
-    // L1Pool for worker cores — single contiguous MAP_32BIT mmap with
-    // 2 MB aligned slots for bitmask offset extraction.
+    // L1Pool for worker cores — one contiguous mmap carved into fixed-size slots.
     std::unique_ptr<tt_emule::L1Pool> worker_pool_;
-    size_t next_slot_ = 0;
 
-    // Slot index tracking: physical core → pool slot.
-    std::unordered_map<tt_xy_pair, size_t> core_to_slot_;
+    // Tensix core → pool slot, built ONCE from the SoC descriptor rather than on first touch.
+    // Touch order differs between a process that dispatches kernels (grid walk) and one that only
+    // host-writes buffers (write order), so a first-touch counter gives the same core a different
+    // slot in each — invisible today, silent cross-process corruption once the pool is shared.
+    std::unordered_map<tt_xy_pair, size_t> slot_of_;
+
+    // Folded once in the ctor so the segment key and the peer-side lookup cannot drift apart.
+    uint64_t shm_harvest_mask_ = 0;
 
     // All cores (worker + DRAM), keyed by physical {x,y}.
     std::unordered_map<tt_xy_pair, std::unique_ptr<tt_emule::Core>> cores_;

@@ -11,7 +11,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -37,7 +36,7 @@ TTSimTlbHandle::TTSimTlbHandle(
     // handles all I/O), so the allocator has no pools and the get_*_from_index
     // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
     // their defaults (nullptr / 0), which the QUASAR path never dereferences.
-    if (allocator_ && allocator_->get_architecture_impl()->get_architecture() != tt::ARCH::QUASAR) {
+    if (allocator_ && allocator_->get_architecture() != tt::ARCH::QUASAR) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }
@@ -66,9 +65,11 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
     tlb_config_.local_offset = new_config.local_offset / tlb_size_;
 
-    // These fields are not supported for TTSim, so we set it to 0.
+    // These fields are not supported for TTSim, so we set them to 0.
     tlb_config_.ordering = 0;
     tlb_config_.static_vc = 0;
+    tlb_config_.static_vc_buddy = 0;
+    tlb_config_.static_vc_class = 0;
 
     // Get architecture from allocator to determine correct offsets.
     tt::ARCH architecture = get_arch();

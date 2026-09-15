@@ -6,11 +6,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -242,15 +244,11 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
-    }
-
     if (is_simulation_test()) {
         GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
     }
 
-    const tt_xy_pair grid_size = {8, 8};
+    const tt_xy_pair grid_size = cluster->get_soc_descriptor(0).get_grid_size(CoreType::TENSIX);
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -563,15 +561,22 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         test_utils::safe_test_cluster_start(cluster.get());
     }
 
-    // Exercise every MMIO chip's sysmem, not just chip 0. On a multi-MMIO simulator (e.g. P300 / bh_x2)
-    // this is what actually validates the host-DMA routing model: each chip's DMA must land in *its own*
-    // host window. Each chip fills its host buffer with a chip-distinct pattern, so a misrouted DMA
-    // (landing in another chip's window, or aliasing host_base 0) would surface as a readback mismatch.
-    const auto mmio_chips = cluster->get_target_mmio_device_ids();
+    // Exercise more than chip 0's sysmem: on a multi-MMIO system (e.g. P300 / bh_x2) this is what
+    // actually validates the host-DMA routing model, since each chip's DMA must land in *its own*
+    // host window. Two chips are enough - each fills its host buffer with a chip-distinct pattern, so
+    // a misrouted DMA (landing in the other chip's window, or aliasing host_base 0) already surfaces
+    // as a readback mismatch. Every further chip only repeats that check, and it is not cheap: a
+    // 1 GiB fill plus a full offset sweep per chip and channel. On an all-MMIO Galaxy (32 MMIO chips,
+    // 3 channels each) the unbounded sweep was the single slowest test in the suite.
+    static constexpr size_t MAX_MMIO_CHIPS_TO_TEST = 2;
+    const auto all_mmio_chips = cluster->get_target_mmio_device_ids();
+    const std::vector<ChipId> mmio_chips(
+        all_mmio_chips.begin(),
+        std::next(all_mmio_chips.begin(), std::min(MAX_MMIO_CHIPS_TO_TEST, all_mmio_chips.size())));
     for (const ChipId mmio_chip_id : mmio_chips) {
         const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
         const auto pcie_core = pci_cores.at(0);
-        const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
+        const auto base_address = cluster->get_sysmem_window_noc_base(mmio_chip_id);
 
         // Distinct per-chip sentinel so a misrouted DMA (landing in another chip's window, or aliasing
         // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.

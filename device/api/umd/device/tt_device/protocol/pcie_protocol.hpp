@@ -28,6 +28,7 @@ namespace tt::umd {
 class PCIDevice;
 class TlbWindow;
 struct tlb_data;
+enum class WindowFlags : uint32_t;
 
 /**
  * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
@@ -79,10 +80,7 @@ public:
     PCIDevice* get_pci_device();
 
 private:
-    // WC-mapped window for device memory access (read_from_device/write_to_device, multicast).
-    TlbWindow* get_cached_wc_tlb_window();
-    // UC-mapped window for register access (read_from_device_reg/write_to_device_reg).
-    TlbWindow* get_cached_uc_tlb_window();
+    TlbWindow* get_cached_tlb_window();
     TlbWindow* get_cached_dma_tlb_window(tlb_data config);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
@@ -96,14 +94,13 @@ private:
 
     enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
-        uint64_t addr, tt_xy_pair core_end, NocId noc_id, std::optional<tt_xy_pair> core_start = std::nullopt);
+        uint64_t addr,
+        tt_xy_pair core_end,
+        NocId noc_id,
+        WindowFlags flags,
+        std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
-
-    template <bool safe>
-    void write_data_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
-    template <bool safe>
-    void read_data_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
@@ -113,12 +110,11 @@ private:
     bool use_safe_api_;
     std::mutex io_lock_;
     std::mutex dma_mutex_;
-    std::unique_ptr<TlbWindow> cached_wc_tlb_window_;
-    std::unique_ptr<TlbWindow> cached_uc_tlb_window_;
+    std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 
     // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
-    // TTDevice::set_hang_detector).
+    // TTDevice::wire_hang_detector).
     std::function<bool(NocId)> hang_check_;
 };
 

@@ -156,7 +156,12 @@ void bind_topology_discovery(nb::module_& m) {
             &TopologyDiscoveryOptions::cluster_id,
             "Cluster id to stamp on the discovered cluster descriptor. Defaults to the OS hostname, which is "
             "only correct on bare metal; supply one when running in a container or a VM. Discovery raises if it "
-            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].");
+            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].")
+        .def_rw(
+            "simulator_path",
+            &TopologyDiscoveryOptions::simulator_path,
+            "Path to a simulator (a libttsim .so) whose chips are discovered instead of the host's. Empty "
+            "means discover the host's own devices.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

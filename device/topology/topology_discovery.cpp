@@ -259,7 +259,8 @@ void TopologyDiscovery::get_connected_devices() {
             fmt::format(
                 "Simulation topology discovery models PCIe, but {} was requested.",
                 DeviceTypeToString.at(io_device_type)));
-        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(options.simulator_path)) {
+        for (auto& [chip_id, tt_device] :
+             create_local_simulation_tt_devices(options.simulator_path, options.simulator_num_host_mem_channels)) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());

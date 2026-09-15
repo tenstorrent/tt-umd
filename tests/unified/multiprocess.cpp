@@ -565,6 +565,9 @@ protected:
             tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
             tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
 
+            // We just wrote this payload, so the read back is expected to match it exactly.
+            // If the race above corrupts the read, the tag encoded in the returned data tells
+            // us whether it came from this worker's own core (stale) or another worker's (foreign).
             result->completed_iterations++;
             if (readback == payload) {
                 continue;

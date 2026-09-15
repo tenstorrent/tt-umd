@@ -586,10 +586,7 @@ protected:
 };
 
 // Reproduces DMA reads landing on the wrong core when device create/destroy races across workers.
-//
-// Disabled by default: real fork() alongside gtest has known flakiness, see issue #2579.
-// Run explicitly with --gtest_also_run_disabled_tests.
-TEST_F(DmaReadMixedCoreReproTest, DISABLED_DmaReadMixedCoreRepro) {
+TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     ASSERT_FALSE(pci_device_ids.empty());
     const int pci_device_id = pci_device_ids.at(0);

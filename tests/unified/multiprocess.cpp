@@ -496,98 +496,101 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
     std::cout << "DMA race condition test (real fork) completed" << std::endl;
 }
 
-constexpr int NUM_WORKERS = 16;
-constexpr int NUM_ITERATIONS = 300;
-constexpr uint64_t SCRATCH_ADDR = 0x10000;
-constexpr size_t NUM_BYTES = 256;
-constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint32_t);
-constexpr int MAX_SAMPLES = 8;
+class DmaReadMixedCoreReproTest : public ::testing::Test {
+protected:
+    static constexpr int NUM_WORKERS = 16;
+    static constexpr int NUM_ITERATIONS = 300;
+    static constexpr uint64_t SCRATCH_ADDR = 0x10000;
+    static constexpr size_t NUM_BYTES = 256;
+    static constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint32_t);
+    static constexpr int MAX_SAMPLES = 8;
 
-uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
-    return ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF);
-}
+    struct DecodedTag {
+        uint32_t worker_id;
+        uint32_t noc_x;
+        uint32_t noc_y;
+        uint32_t iteration;
+    };
 
-struct DecodedTag {
-    uint32_t worker_id;
-    uint32_t noc_x;
-    uint32_t noc_y;
-    uint32_t iteration;
-};
+    struct ForeignSample {
+        int iteration;
+        DecodedTag got;
+    };
 
-DecodedTag decode_tag(uint32_t word) {
-    return DecodedTag{(word >> 28) & 0xF, (word >> 22) & 0x3F, (word >> 16) & 0x3F, word & 0xFFFF};
-}
-
-struct ForeignSample {
-    int iteration;
-    DecodedTag got;
-};
-
-struct WorkerResult {
-    CoreCoord core;
-    int completed_iterations = 0;
-    int stale = 0;
-    int foreign = 0;
-    int num_samples = 0;
-    ForeignSample samples[MAX_SAMPLES] = {};
-    bool errored = false;
-    char error_message[256] = {};
-};
-
-void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
-    try {
+    struct WorkerResult {
         CoreCoord core;
-        {
-            std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
-            probe_device->init_tt_device();
-            std::vector<CoreCoord> cores =
-                probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-            core = cores.at(worker_id % cores.size());
-        }
-        result->core = core;
+        int completed_iterations = 0;
+        int stale = 0;
+        int foreign = 0;
+        int num_samples = 0;
+        ForeignSample samples[MAX_SAMPLES] = {};
+        bool errored = false;
+        char error_message[256] = {};
+    };
 
-        pthread_barrier_wait(start_barrier);
+    static uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
+        return ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF);
+    }
 
-        std::vector<uint32_t> payload(NUM_WORDS);
-        std::vector<uint32_t> readback(NUM_WORDS);
+    static DecodedTag decode_tag(uint32_t word) {
+        return DecodedTag{(word >> 28) & 0xF, (word >> 22) & 0x3F, (word >> 16) & 0x3F, word & 0xFFFF};
+    }
 
-        for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
-            std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-            tt_device->init_tt_device();
-
-            std::fill(
-                payload.begin(),
-                payload.end(),
-                encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
-            std::fill(readback.begin(), readback.end(), 0);
-
-            tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
-            tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
-
-            result->completed_iterations++;
-            if (readback == payload) {
-                continue;
+    static void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
+        try {
+            CoreCoord core;
+            {
+                std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
+                probe_device->init_tt_device();
+                std::vector<CoreCoord> cores =
+                    probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+                core = cores.at(worker_id % cores.size());
             }
+            result->core = core;
 
-            DecodedTag got = decode_tag(readback[0]);
-            if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
-                result->stale++;
-            } else {
-                result->foreign++;
-                if (result->num_samples < MAX_SAMPLES) {
-                    result->samples[result->num_samples++] = ForeignSample{iteration, got};
+            pthread_barrier_wait(start_barrier);
+
+            std::vector<uint32_t> payload(NUM_WORDS);
+            std::vector<uint32_t> readback(NUM_WORDS);
+
+            for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
+                std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+                tt_device->init_tt_device();
+
+                std::fill(
+                    payload.begin(),
+                    payload.end(),
+                    encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
+                std::fill(readback.begin(), readback.end(), 0);
+
+                tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
+                tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
+
+                result->completed_iterations++;
+                if (readback == payload) {
+                    continue;
+                }
+
+                DecodedTag got = decode_tag(readback[0]);
+                if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
+                    result->stale++;
+                } else {
+                    result->foreign++;
+                    if (result->num_samples < MAX_SAMPLES) {
+                        result->samples[result->num_samples++] = ForeignSample{iteration, got};
+                    }
                 }
             }
+        } catch (const std::exception& e) {
+            result->errored = true;
+            std::strncpy(result->error_message, e.what(), sizeof(result->error_message) - 1);
         }
-    } catch (const std::exception& e) {
-        result->errored = true;
-        std::strncpy(result->error_message, e.what(), sizeof(result->error_message) - 1);
     }
-}
+};
 
 // Disabled by default: real fork() alongside gtest has known flakiness, see issue #2579.
 // Run explicitly with --gtest_also_run_disabled_tests.
-TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
+TEST_F(DmaReadMixedCoreReproTest, DISABLED_DmaReadMixedCoreRepro) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     ASSERT_FALSE(pci_device_ids.empty());
     const int pci_device_id = pci_device_ids.at(0);

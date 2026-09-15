@@ -1,0 +1,59 @@
+name: macOS simulator
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    name: Apple Silicon simulator
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install host dependencies
+        run: brew install cmake ninja hwloc
+      - name: Configure UMD
+        run: >-
+          cmake -S . -B build/macos -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DTT_UMD_BUILD_SIMULATION=ON
+          -DTT_UMD_BUILD_TESTS=ON
+          -DTT_UMD_BUILD_TOOLS=OFF
+          -DTT_UMD_ENABLE_CLANG_TIDY=OFF
+      - name: Build native library and tests
+        run: cmake --build build/macos --target tt-umd api_tests baremetal_tests -j 3
+      - name: Checkout public simulator
+        uses: actions/checkout@v6
+        with:
+          repository: tenstorrent/ttsim
+          ref: 89bdc5eb726c4f1ebbe597e03b1b9cdf7622c779
+          path: ttsim
+      - name: Build native Blackhole simulator
+        working-directory: ttsim
+        run: python3 make.py src/_out/release_bh/libttsim.so -j 3
+      - name: Prepare simulator descriptor
+        run: >-
+          cp tests/soc_descs/blackhole_140_arch.yaml
+          ttsim/src/_out/release_bh/soc_descriptor.yaml
+      - name: Verify native binaries
+        run: |
+          file -L build/macos/lib/libtt-umd.dylib | grep 'Mach-O.*arm64'
+          file ttsim/src/_out/release_bh/libttsim.so | grep 'Mach-O.*arm64'
+      - name: Run simulator and platform tests
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/ttsim/src/_out/release_bh/libttsim.so
+        run: >-
+          ./build/macos/test/umd/api/api_tests
+          --gtest_filter='MacOSPlatform.*:SimulatorHost.*:*SimulationSysmemManager*'
+      - name: Run tests that need no card
+        run: ./build/macos/test/umd/baremetal/baremetal_tests

@@ -79,6 +79,12 @@ endif()
 # Flatbuffers
 ###################################################################################################################
 if(TT_UMD_BUILD_SIMULATION)
+    # Strict mode also adds -fno-rtti. On Darwin the resulting private copies of
+    # standard exception typeinfo break typed catches when linked into tt-umd.
+    set(UMD_FLATBUFFERS_STRICT_MODE ON)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(UMD_FLATBUFFERS_STRICT_MODE OFF)
+    endif()
     CPMAddPackage(
         NAME flatbuffers
         GITHUB_REPOSITORY google/flatbuffers
@@ -89,7 +95,7 @@ if(TT_UMD_BUILD_SIMULATION)
             "FLATBUFFERS_BUILD_FLATC ON"
             "FLATBUFFERS_BUILD_TESTS OFF"
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
-            "FLATBUFFERS_STRICT_MODE ON"
+            "FLATBUFFERS_STRICT_MODE ${UMD_FLATBUFFERS_STRICT_MODE}"
     )
 
     if(NOT TARGET flatbuffers::flatbuffers)

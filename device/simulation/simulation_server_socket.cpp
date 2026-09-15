@@ -21,6 +21,7 @@
 
 #include "simulation/simulation_server_transport.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils/local_socket.hpp"
 
 namespace tt::umd {
 
@@ -106,8 +107,8 @@ void SimulationServerSocket::serve(RequestHandler request_handler) {
 
 void SimulationServerSocket::do_accept() {
     auto sock = std::make_shared<stream_protocol::socket>(impl_->io);
-    impl_->acceptor.async_accept(*sock, [this, sock](const std::error_code& ec) {
-        // A non-aborted error or io_context::stop() (teardown) ends the loop.
+    async_accept_local(impl_->acceptor, *sock, [this, sock](const std::error_code& ec) {
+        // An accept error or io_context::stop() (teardown) ends the loop.
         if (ec) {
             return;
         }

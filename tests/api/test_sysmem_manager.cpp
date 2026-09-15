@@ -35,6 +35,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "utils/mmap.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -156,7 +157,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     const uint32_t one_mb = 1 << 20;
     void* mapping =
-        mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | mmap_populate, -1, 0);
     // It's important that this offset is not a multiple of the page size.
     const size_t unaligned_offset = 100;
     void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
@@ -218,7 +219,8 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     const size_t buf_size = 10;
 
     // Size is not multiple of page size.
-    void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void* mapping =
+        mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | mmap_populate, -1, 0);
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
@@ -340,7 +342,8 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
     const size_t buf_offset = 10;  // Deliberately not page aligned.
     const size_t buf_size = 128;
 
-    void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void* mapping =
+        mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | mmap_populate, -1, 0);
     ASSERT_NE(mapping, MAP_FAILED);
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_offset;

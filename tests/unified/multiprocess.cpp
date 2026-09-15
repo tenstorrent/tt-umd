@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <exception>
 #include <iomanip>
 #include <iostream>
@@ -524,8 +523,6 @@ protected:
         int foreign = 0;
         int num_samples = 0;
         ForeignSample samples[MAX_SAMPLES] = {};
-        bool errored = false;
-        char error_message[256] = {};
     };
 
     static uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
@@ -537,53 +534,48 @@ protected:
     }
 
     static void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
-        try {
-            CoreCoord core;
-            {
-                std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
-                probe_device->init_tt_device();
-                std::vector<CoreCoord> cores =
-                    probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-                core = cores.at(worker_id % cores.size());
+        CoreCoord core;
+        {
+            std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
+            probe_device->init_tt_device();
+            std::vector<CoreCoord> cores =
+                probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+            core = cores.at(worker_id % cores.size());
+        }
+        result->core = core;
+
+        pthread_barrier_wait(start_barrier);
+
+        std::vector<uint32_t> payload(NUM_WORDS);
+        std::vector<uint32_t> readback(NUM_WORDS);
+
+        for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+            tt_device->init_tt_device();
+
+            std::fill(
+                payload.begin(),
+                payload.end(),
+                encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
+            std::fill(readback.begin(), readback.end(), 0);
+
+            tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
+            tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
+
+            result->completed_iterations++;
+            if (readback == payload) {
+                continue;
             }
-            result->core = core;
 
-            pthread_barrier_wait(start_barrier);
-
-            std::vector<uint32_t> payload(NUM_WORDS);
-            std::vector<uint32_t> readback(NUM_WORDS);
-
-            for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
-                std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-                tt_device->init_tt_device();
-
-                std::fill(
-                    payload.begin(),
-                    payload.end(),
-                    encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
-                std::fill(readback.begin(), readback.end(), 0);
-
-                tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
-                tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
-
-                result->completed_iterations++;
-                if (readback == payload) {
-                    continue;
-                }
-
-                DecodedTag got = decode_tag(readback[0]);
-                if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
-                    result->stale++;
-                } else {
-                    result->foreign++;
-                    if (result->num_samples < MAX_SAMPLES) {
-                        result->samples[result->num_samples++] = ForeignSample{iteration, got};
-                    }
+            DecodedTag got = decode_tag(readback[0]);
+            if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
+                result->stale++;
+            } else {
+                result->foreign++;
+                if (result->num_samples < MAX_SAMPLES) {
+                    result->samples[result->num_samples++] = ForeignSample{iteration, got};
                 }
             }
-        } catch (const std::exception& e) {
-            result->errored = true;
-            std::strncpy(result->error_message, e.what(), sizeof(result->error_message) - 1);
         }
     }
 };
@@ -640,8 +632,6 @@ TEST_F(DmaReadMixedCoreReproTest, DISABLED_DmaReadMixedCoreRepro) {
               << "  status" << std::endl;
     for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {
         const WorkerResult& r = results[worker_id];
-        ASSERT_FALSE(r.errored) << "worker " << worker_id << " failed: " << r.error_message;
-
         const char* tag = r.foreign > 0 ? "FOREIGN" : (r.stale > 0 ? "stale-only" : "clean");
         std::cout << std::right << std::setw(3) << worker_id << "  " << std::left << std::setw(9)
                   << core_str(r.core.x, r.core.y) << std::right << std::setw(5) << r.completed_iterations

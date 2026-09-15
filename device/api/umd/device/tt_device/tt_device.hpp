@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -20,7 +21,6 @@
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -58,7 +58,6 @@ class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
-class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
 struct CoreCoord;
@@ -421,7 +420,7 @@ public:
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
     /**
-     * Allocate a TlbWindow for use by callers (typically TLBManager).
+     * Allocate a TlbWindow for use by callers.
      *
      * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
      * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
@@ -518,6 +517,10 @@ private:
     // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
     // check, and gives the detector a separately-locked window to probe through.
     void wire_hang_detector();
+
+    // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
+    // confirmed only when the in-flight op's NOC is hung.
+    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 

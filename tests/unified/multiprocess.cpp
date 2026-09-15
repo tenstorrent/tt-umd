@@ -496,11 +496,6 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
     std::cout << "DMA race condition test (real fork) completed" << std::endl;
 }
 
-namespace dma_reads_mixed_repro {
-
-// Tag layout mirrors the tt-metal/ttexalens repro this test is modeled on: worker(4b) |
-// noc_x(6b) | noc_y(6b) | iteration(16b). Every word of the payload carries the same tag, so a
-// short readback still identifies who actually produced the data.
 constexpr int NUM_WORKERS = 16;
 constexpr int NUM_ITERATIONS = 300;
 constexpr uint64_t SCRATCH_ADDR = 0x10000;
@@ -528,9 +523,6 @@ struct ForeignSample {
     DecodedTag got;
 };
 
-// Plain-old-data result block. One slot per worker, living in a MAP_SHARED|MAP_ANONYMOUS
-// mapping created by the parent before fork(), so each child can report back without a
-// pipe/queue: the parent reads every slot after waitpid() reaps the writer.
 struct WorkerResult {
     CoreCoord core;
     int completed_iterations = 0;
@@ -542,12 +534,6 @@ struct WorkerResult {
     char error_message[256] = {};
 };
 
-// Core of one worker: pin to a NOC core, then repeatedly tear down and re-create the TTDevice
-// (the mechanism under test, standing in for ttexalens' per-iteration init_ttexalens() in the
-// original repro), write a tagged payload with a plain MMIO write ("noc_write" in the repro),
-// and read it back via dma_read_from_device. A "foreign" result means the DMA read landed on
-// data tagged for a different worker/core -- the completed transfer was matched to the wrong
-// requester.
 void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
     try {
         CoreCoord core;
@@ -599,22 +585,9 @@ void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_
     }
 }
 
-}  // namespace dma_reads_mixed_repro
-
-// Reproduces a reported bug: a PCIe DMA read targeting one NOC core occasionally returns the
-// payload written to a different NOC core once the device/link is repeatedly re-initialized
-// while several processes drive concurrent DMA traffic against distinct cores on the same chip.
-// Modeled directly on the tt-metal/ttexalens repro (same worker|noc_x|noc_y|iteration tag, same
-// stale-vs-foreign classification) but reinitializes via UMD's own TTDevice::create() /
-// init_tt_device() instead of ttexalens, and drives I/O the same way UMD itself would: a plain
-// write_to_device ("noc_write") followed by a dma_read_from_device readback.
-//
-// Disabled by default, like DISABLED_DMAWriteReadRaceConditionProcessIsolation above (real
-// fork() alongside gtest has known flakiness, see issue #2579) -- run explicitly against real
-// Wormhole hardware with --gtest_also_run_disabled_tests to check for the bug.
+// Disabled by default: real fork() alongside gtest has known flakiness, see issue #2579.
+// Run explicitly with --gtest_also_run_disabled_tests.
 TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
-    using namespace dma_reads_mixed_repro;
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     ASSERT_FALSE(pci_device_ids.empty());
     const int pci_device_id = pci_device_ids.at(0);

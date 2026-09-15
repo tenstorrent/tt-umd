@@ -148,7 +148,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 
     communicator_->initialize();
 
-    init_tlb_allocator(/*bar0_base=*/0);
+    init_tlb_allocator(/*bar0_base=*/0, /*bar4_base=*/0);
     setup_cached_tlb_window();
 }
 

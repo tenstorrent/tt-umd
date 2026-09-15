@@ -105,8 +105,10 @@ protected:
     void attach_client();
     void detach_client();
 
-    // Build tlb_allocator_ once the backend knows its BAR0 base (0 for RTL, PCI-probed for TTSim).
-    void init_tlb_allocator(uint64_t bar0_base);
+    // Build tlb_allocator_ once the backend knows its BAR bases (0 for RTL, PCI-probed for TTSim).
+    // BAR4 carries the 4GB TLB windows on Blackhole, so both bases are required rather than
+    // defaulted: a backend that leaves BAR4 at 0 would place its 4GB windows at address 0.
+    void init_tlb_allocator(uint64_t bar0_base, uint64_t bar4_base);
     // Allocate the cached default TLB window for the current arch. Must be invoked from the derived
     // constructor once its communicator exists, since it reaches the backend through the virtual
     // create_tlb_window() hook.

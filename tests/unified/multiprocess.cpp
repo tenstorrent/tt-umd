@@ -501,10 +501,31 @@ protected:
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         ASSERT_FALSE(pci_device_ids.empty());
         pci_device_id = pci_device_ids.at(0);
+
+        barrier_mem_ =
+            mmap(nullptr, sizeof(pthread_barrier_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        ASSERT_NE(barrier_mem_, MAP_FAILED);
+        start_barrier_ = static_cast<pthread_barrier_t*>(barrier_mem_);
+        pthread_barrierattr_t barrier_attr;
+        pthread_barrierattr_init(&barrier_attr);
+        pthread_barrierattr_setpshared(&barrier_attr, PTHREAD_PROCESS_SHARED);
+        ASSERT_EQ(pthread_barrier_init(start_barrier_, &barrier_attr, NUM_WORKERS), 0);
     }
+
+    void TearDown() override {
+        pthread_barrier_destroy(start_barrier_);
+        munmap(barrier_mem_, sizeof(pthread_barrier_t));
+    }
+
+    pthread_barrier_t* start_barrier() const { return start_barrier_; }
 
     int pci_device_id;
 
+private:
+    void* barrier_mem_ = nullptr;
+    pthread_barrier_t* start_barrier_ = nullptr;
+
+protected:
     static constexpr int NUM_WORKERS = 16;
     static constexpr int NUM_ITERATIONS = 300;
     static constexpr uint64_t SCRATCH_ADDR = 0x10000;
@@ -595,15 +616,6 @@ protected:
 
 // Reproduces DMA reads landing on the wrong core when device create/destroy races across workers.
 TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
-    void* barrier_mem =
-        mmap(nullptr, sizeof(pthread_barrier_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    ASSERT_NE(barrier_mem, MAP_FAILED);
-    pthread_barrier_t* start_barrier = static_cast<pthread_barrier_t*>(barrier_mem);
-    pthread_barrierattr_t barrier_attr;
-    pthread_barrierattr_init(&barrier_attr);
-    pthread_barrierattr_setpshared(&barrier_attr, PTHREAD_PROCESS_SHARED);
-    ASSERT_EQ(pthread_barrier_init(start_barrier, &barrier_attr, NUM_WORKERS), 0);
-
     void* results_mem =
         mmap(nullptr, sizeof(WorkerResult) * NUM_WORKERS, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     ASSERT_NE(results_mem, MAP_FAILED);
@@ -618,7 +630,7 @@ TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
         pid_t pid = fork();
         ASSERT_NE(pid, -1) << "fork() failed for worker " << worker_id;
         if (pid == 0) {
-            run_worker(worker_id, pci_device_id, &results[worker_id], start_barrier);
+            run_worker(worker_id, pci_device_id, &results[worker_id], start_barrier());
             _exit(0);
         }
         pids.push_back(pid);
@@ -659,8 +671,6 @@ TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
     std::cout << "\ntotal: " << total_stale << " stale, " << total_foreign << " foreign / " << total_iterations
               << " inits" << std::endl;
 
-    pthread_barrier_destroy(start_barrier);
-    munmap(barrier_mem, sizeof(pthread_barrier_t));
     munmap(results_mem, sizeof(WorkerResult) * NUM_WORKERS);
 
     EXPECT_EQ(total_foreign, 0) << total_foreign << " DMA reads returned another core's data (see log above)";

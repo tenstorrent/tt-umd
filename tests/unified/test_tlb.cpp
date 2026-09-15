@@ -469,6 +469,79 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     }
 }
 
+// Checks how a TLB window behaves at the far edge of its mapping. The window can only satisfy a
+// transfer that fits entirely within it, so one starting in range but running past the end has to be
+// rejected without touching the device. Crossing the boundary is instead the reconfiguring path's
+// job, which splits the transfer and walks the window across; that is verified here too.
+//
+// DRAM is the target because the boundary sits a whole mapping past the start of the core's address
+// space, beyond the end of Tensix L1.
+TEST_F(TestTlb, TestTlbAccessAcrossWindowBoundary) {
+    const ChipId chip = 0;
+    const size_t requested_window_size = 1 << 21;
+    // Aligned to every window size class, so a mapping based here ends on a real boundary.
+    const uint64_t dram_base_addr = 0x30000000;
+    constexpr size_t chunk_size = 32;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const CoreCoord dram_core =
+        cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
+
+    SiliconTlbWindow tlb_window(pci_device->allocate_tlb(requested_window_size, TlbMapping::WC));
+    IoWindow& window = tlb_window;
+
+    TargetIoWindowConfig target;
+    target.core_start = dram_core;
+    target.addr = dram_base_addr;
+    target.noc = NocId::NOC0;
+    window.configure(target);
+
+    // The mapping can come back larger than requested, so the boundary comes from the window itself.
+    // The window reaches [dram_base_addr, boundary_addr) and is never reconfigured again.
+    const size_t mapping_size = window.get_size();
+    const uint64_t boundary_addr = dram_base_addr + mapping_size;
+
+    // Distinct values so each check below can tell which transfer produced the bytes it sees.
+    std::vector<uint8_t> seed_below(chunk_size);
+    std::vector<uint8_t> seed_above(chunk_size);
+    std::vector<uint8_t> scoped_write(chunk_size);
+    for (size_t i = 0; i < chunk_size; ++i) {
+        seed_below[i] = static_cast<uint8_t>(0xA0 + i);
+        seed_above[i] = static_cast<uint8_t>(0x50 + i);
+        scoped_write[i] = static_cast<uint8_t>(0x10 + i);
+    }
+
+    // Seed both sides of the boundary up front, so the checks at the end compare against a known
+    // state rather than whatever DRAM happened to hold. These go through the cluster, whose own
+    // chunking keeps each write inside a single window.
+    cluster->write_to_device(seed_below.data(), seed_below.size(), chip, dram_core, boundary_addr - chunk_size);
+    cluster->write_to_device(seed_above.data(), seed_above.size(), chip, dram_core, boundary_addr);
+
+    // Of the three writes through the window, only this one fits: it covers exactly the last
+    // chunk_size bytes of the mapping, ending flush with the boundary.
+    window.write_block(mapping_size - chunk_size, scoped_write.data(), scoped_write.size());
+
+    // The other two do not. The first starts in range and runs past the end, the second starts
+    // exactly on the boundary and so lies wholly outside. Reads are bounded the same way. The source
+    // is filled with a value neither seed uses, so a transfer that partially landed shows up below.
+    std::vector<uint8_t> overrun(chunk_size * 2, 0xFF);
+    EXPECT_THROW(window.write_block(mapping_size - chunk_size, overrun.data(), overrun.size()), std::out_of_range);
+    EXPECT_THROW(window.write_block(mapping_size, overrun.data(), chunk_size), std::out_of_range);
+    EXPECT_THROW(window.read_block(mapping_size - chunk_size, overrun.data(), overrun.size()), std::out_of_range);
+
+    // Read the straddling span in one call, which only the reconfiguring path can serve.
+    std::vector<uint8_t> readback(chunk_size * 2, 0);
+    read_block_reconfigure(
+        window, readback.data(), dram_core, boundary_addr - chunk_size, readback.size(), NocId::NOC0);
+
+    // Below the boundary holds what the scoped write put there, so that write reached the device and
+    // the rejected ones did not corrupt it. Above the boundary still holds the seed, so nothing
+    // spilled past the end of the mapping.
+    EXPECT_EQ(std::vector<uint8_t>(readback.begin(), readback.begin() + chunk_size), scoped_write);
+    EXPECT_EQ(std::vector<uint8_t>(readback.begin() + chunk_size, readback.end()), seed_above);
+}
+
 TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";

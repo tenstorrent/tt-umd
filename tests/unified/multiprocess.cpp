@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -538,7 +537,6 @@ protected:
     static constexpr uint64_t SCRATCH_ADDR = 0x10000;
     static constexpr size_t NUM_BYTES = 256;
     static constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint32_t);
-    static constexpr int MAX_SAMPLES = 8;
 
     struct DecodedTag {
         uint32_t worker_id;
@@ -547,18 +545,18 @@ protected:
         uint32_t iteration;
     };
 
-    struct ForeignSample {
-        int iteration;
-        DecodedTag got;
-    };
-
     struct WorkerResult {
+        int worker_id = -1;
         CoreCoord core;
         int completed_iterations = 0;
         int stale = 0;
         int foreign = 0;
-        int num_samples = 0;
-        ForeignSample samples[MAX_SAMPLES] = {};
+
+        friend std::ostream& operator<<(std::ostream& os, const WorkerResult& result) {
+            return os << "worker " << result.worker_id << " core (" << result.core.x << "," << result.core.y
+                      << "): " << result.stale << " stale, " << result.foreign << " foreign / "
+                      << result.completed_iterations << " inits";
+        }
     };
 
     static uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
@@ -579,6 +577,7 @@ protected:
             CoreCoord translated_core = cores.at(worker_id % cores.size());
             core = CoreCoord(translated_core.x, translated_core.y, CoreType::TENSIX, CoordSystem::LITERAL);
         }
+        result->worker_id = worker_id;
         result->core = core;
 
         pthread_barrier_wait(start_barrier);
@@ -613,9 +612,6 @@ protected:
                 result->stale++;
             } else {
                 result->foreign++;
-                if (result->num_samples < MAX_SAMPLES) {
-                    result->samples[result->num_samples++] = ForeignSample{iteration, got};
-                }
             }
         }
     }
@@ -646,37 +642,11 @@ TEST_F(DmaReadMixedCoreReproTest, DmaReadMixedCoreRepro) {
         EXPECT_TRUE(WIFEXITED(status) && WEXITSTATUS(status) == 0) << "worker process " << pid << " exited abnormally";
     }
 
-    int total_stale = 0;
-    int total_foreign = 0;
-    int total_iterations = 0;
-    auto core_str = [](int x, int y) { return "(" + std::to_string(x) + "," + std::to_string(y) + ")"; };
-
-    std::cout << std::right << std::setw(3) << "wk" << std::left << std::setw(9) << "  core" << std::right
-              << std::setw(6) << "inits" << std::setw(7) << "stale" << std::setw(8) << "foreign"
-              << "  status" << std::endl;
     for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {
         const WorkerResult& r = results[worker_id];
-        const char* tag = r.foreign > 0 ? "FOREIGN" : (r.stale > 0 ? "stale-only" : "clean");
-        std::cout << std::right << std::setw(3) << worker_id << "  " << std::left << std::setw(9)
-                  << core_str(r.core.x, r.core.y) << std::right << std::setw(5) << r.completed_iterations
-                  << std::setw(7) << r.stale << std::setw(8) << r.foreign << "  " << tag << std::endl;
-        for (int s = 0; s < r.num_samples; s++) {
-            const ForeignSample& sample = r.samples[s];
-            std::cout << "    read@" << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
-                      << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " write@"
-                      << sample.got.iteration << std::endl;
-        }
-
-        total_stale += r.stale;
-        total_foreign += r.foreign;
-        total_iterations += r.completed_iterations;
+        EXPECT_EQ(r.foreign, 0) << "DMA reads returned another core's data: " << r;
+        EXPECT_EQ(r.stale, 0) << "DMA reads returned a stale value: " << r;
     }
 
-    std::cout << "\ntotal: " << total_stale << " stale, " << total_foreign << " foreign / " << total_iterations
-              << " inits" << std::endl;
-
     munmap(results_mem, sizeof(WorkerResult) * NUM_WORKERS);
-
-    EXPECT_EQ(total_foreign, 0) << total_foreign << " DMA reads returned another core's data (see log above)";
-    EXPECT_EQ(total_stale, 0) << total_stale << " DMA reads returned a stale value (see log above)";
 }

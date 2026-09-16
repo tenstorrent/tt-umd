@@ -52,18 +52,22 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 
     std::vector<std::string> stack_frames;
     std::vector<void*> target_stack(max_frames);
-    int addr_count = backtrace(target_stack.data(), max_frames);
+    // backtrace() reports a non-negative count; keep it unsigned so it compares with skip
+    // (uint32_t) without a mixed-sign comparison.
+    const int captured_frames = backtrace(target_stack.data(), max_frames);
+    const uint32_t addr_count = captured_frames > 0 ? static_cast<uint32_t>(captured_frames) : 0;
 
     if (addr_count <= skip) {
         return stack_frames;
     }
 
-    std::unique_ptr<char*, void (*)(void*)> symbols(backtrace_symbols(target_stack.data(), addr_count), std::free);
+    std::unique_ptr<char*, void (*)(void*)> symbols(
+        backtrace_symbols(target_stack.data(), static_cast<int>(addr_count)), std::free);
 
     if (!symbols) {
         return stack_frames;
     }
-    for (int i = skip; i < addr_count; i++) {
+    for (uint32_t i = skip; i < addr_count; i++) {
         std::string entry(symbols.get()[i]);
 
         size_t open_paren = entry.find('(');

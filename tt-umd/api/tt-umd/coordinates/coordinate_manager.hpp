@@ -245,6 +245,7 @@ protected:
     virtual void translate_security_coords();
     virtual void translate_l2cpu_coords();
     virtual void translate_dispatch_coords();
+    virtual void translate_smc_coords();
 
     void identity_map_noc0_cores();
     void add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& noc0_pair);

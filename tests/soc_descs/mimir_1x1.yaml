@@ -23,6 +23,29 @@ dram:
   [[0-0],
   [1-0]]
 
+# Dram view parameters are used by tt-metal and are not recognized by UMD.
+# One view per GDDR instance; each bank is a single DRAM tile (subchannel 0).
+# There is no Ethernet, so eth_endpoint is empty. worker_endpoint names that tile
+# so Metal can address the bank without inventing Tensix endpoints.
+dram_views:
+  [
+    {
+      channel: 0,
+      eth_endpoint: [],
+      worker_endpoint: [0],
+      address_offset: 0
+    },
+    {
+      channel: 1,
+      eth_endpoint: [],
+      worker_endpoint: [0],
+      address_offset: 0
+    }
+  ]
+
+dram_view_size:
+  268435456
+
 eth:
   []
 
@@ -47,4 +70,5 @@ dram_bank_size:
 eth_l1_size:
   0
 
-arch_name: GRENDEL
+# Grendel is the package/project; the architecture Metal and UMD expose is Quasar.
+arch_name: QUASAR

@@ -61,7 +61,9 @@ SimulationChip::SimulationChip(
         !tt_device_->is_remote(),
         error::RuntimeError,
         fmt::format("SimulationChip for chip {} was handed a remote TTDevice; it belongs in a RemoteChip.", chip_id));
-    if (!std::filesystem::exists(simulator_directory_)) {
+    // A transport-backed simulation device (for example EmuTTDevice) has no local simulator
+    // binary or directory. Its already-created TTDevice is the complete backend.
+    if (!simulator_directory_.empty() && !std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
 }

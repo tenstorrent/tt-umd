@@ -67,6 +67,20 @@ TEST(GrendelNocAddressResolver, DramWindowIsIndexedByChannel) {
     EXPECT_EQ(windows.dram_address(3, 0), 0x1000600000000ULL);
 }
 
+TEST(GrendelNocAddressResolver, DramCoreL1TagSelectsPerChannelSram) {
+    GrendelAddressWindows windows = qsr_s1_windows();
+    windows.dram_l1_noc_offset = 0x2000000000ULL;
+    windows.dram_l1_base = 0x40000000ULL;
+    windows.dram_l1_stride = 0x400000ULL;
+    windows.dram_l1_size = 0x400000ULL;
+    ASSERT_NO_THROW(windows.validate());
+
+    EXPECT_FALSE(windows.is_dram_l1_address(0x800));
+    EXPECT_TRUE(windows.is_dram_l1_address(0x2000000800ULL));
+    EXPECT_EQ(windows.dram_l1_address(0, 0x2000000800ULL), 0x40000800ULL);
+    EXPECT_EQ(windows.dram_l1_address(1, 0x2000000800ULL), 0x40400800ULL);
+}
+
 TEST(GrendelNocAddressResolver, OffsetIsAddedWithinTheWindowGranule) {
     const GrendelAddressWindows windows = qsr_s1_windows();
 

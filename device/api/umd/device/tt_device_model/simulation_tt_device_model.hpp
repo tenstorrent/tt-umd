@@ -13,7 +13,6 @@
 namespace tt::umd {
 
 class TTSimProtocol;
-class SimulationDeviceFirmware;
 
 // Model for a simulated device. A simulation backend is reached in-process rather than over a host
 // transport, and takes its architecture from the SoC descriptor it is built with rather than from a

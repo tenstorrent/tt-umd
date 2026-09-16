@@ -50,34 +50,34 @@ DeviceProtocol *SimulationTTDeviceModel::get_device_protocol() { return tt_sim_p
 HangDetector *SimulationTTDeviceModel::get_hang_detector() { return hang_detector_.get(); }
 
 void SimulationTTDeviceModel::use_arch_device_firmware() {
+    // What every architecture firmware needs doing once built: keep it, and serve the telemetry
+    // reader and info provider it owns. Taking it already constructed leaves the constructor
+    // arguments at the call site, which is the only part that differs between architectures.
+    auto install = [this](auto firmware) {
+        auto *raw = firmware.get();
+        telemetry_reader_lookup_ = [raw]() { return raw->get_firmware_telemetry_reader(); };
+        info_provider_lookup_ = [raw]() { return raw->get_firmware_info_provider(); };
+        device_firmware_ = std::move(firmware);
+    };
+
     switch (arch_) {
-        case tt::ARCH::WORMHOLE_B0: {
-            auto firmware = std::make_unique<WormholeDeviceFirmware>(
+        case tt::ARCH::WORMHOLE_B0:
+            install(std::make_unique<WormholeDeviceFirmware>(
                 tt_sim_protocol_.get(),
                 tt_sim_protocol_.get(),
                 /*jtag_interface=*/nullptr,
                 /*remote_interface=*/nullptr,
                 architecture_impl_.get(),
-                /*kmd_lock_available=*/false);
-            auto *raw = firmware.get();
-            telemetry_reader_lookup_ = [raw]() { return raw->get_firmware_telemetry_reader(); };
-            info_provider_lookup_ = [raw]() { return raw->get_firmware_info_provider(); };
-            device_firmware_ = std::move(firmware);
+                /*kmd_lock_available=*/false));
             break;
-        }
-        case tt::ARCH::BLACKHOLE: {
-            auto firmware = std::make_unique<BlackholeDeviceFirmware>(
+        case tt::ARCH::BLACKHOLE:
+            install(std::make_unique<BlackholeDeviceFirmware>(
                 tt_sim_protocol_.get(),
                 tt_sim_protocol_.get(),
                 /*jtag_interface=*/nullptr,
                 architecture_impl_.get(),
-                /*kmd_lock_available=*/false);
-            auto *raw = firmware.get();
-            telemetry_reader_lookup_ = [raw]() { return raw->get_firmware_telemetry_reader(); };
-            info_provider_lookup_ = [raw]() { return raw->get_firmware_info_provider(); };
-            device_firmware_ = std::move(firmware);
+                /*kmd_lock_available=*/false));
             break;
-        }
         default:
             // Quasar models no ARC, no ethernet and no host BAR path, so there is nothing to read
             // and the firmware that reports nothing stays.

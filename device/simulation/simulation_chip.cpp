@@ -55,7 +55,9 @@ SimulationChip::SimulationChip(
     tt_device_(std::move(tt_device)),
     tlb_manager_(tt_device_ ? std::make_unique<TLBManager>(tt_device_.get()) : nullptr) {
     UMD_ASSERT(tt_device_ != nullptr, error::RuntimeError, "SimulationChip requires a non-null TTDevice.");
-    if (!std::filesystem::exists(simulator_directory_)) {
+    // A transport-backed simulation device (for example EmuTTDevice) has no local simulator
+    // binary or directory. Its already-created TTDevice is the complete backend.
+    if (!simulator_directory_.empty() && !std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
 }

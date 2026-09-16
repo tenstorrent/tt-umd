@@ -68,6 +68,7 @@ enum ChipType {
     SIMULATION,
     MOCK,
     SWEMULE,
+    EMU_AXI,
 };
 
 /**
@@ -111,6 +112,12 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+
+    /**
+     * Chippy emu_axi endpoint. Used only for EMU_AXI chip type.
+     */
+    std::string emu_host;
+    uint32_t emu_port = 0;
 
     /**
      * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
@@ -787,6 +794,10 @@ private:
 #endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
+
+    // True when any chip in the cluster has Tensix cores. A management-only package (a standalone
+    // Mimir is DRAM plus the SMC) has none, so there is no soft-reset register to drive.
+    bool has_tensix_cores() const;
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);

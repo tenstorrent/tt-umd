@@ -76,6 +76,7 @@ void CoordinateManager::initialize() {
     this->translate_security_coords();
     this->translate_l2cpu_coords();
     this->translate_dispatch_coords();
+    this->translate_smc_coords();
     this->add_noc1_to_noc0_mapping();
 }
 
@@ -355,6 +356,16 @@ void CoordinateManager::translate_dispatch_coords() {
         CoreCoord translated_coord = CoreCoord(dispatch_core, CoreType::DISPATCH, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, dispatch_core);
+    }
+}
+
+void CoordinateManager::translate_smc_coords() {
+    // Just do identity mapping for translated SMC coordinates.
+    // No logical coordinates available for SMC cores.
+    for (tt_xy_pair smc_core : smc_cores) {
+        CoreCoord translated_coord = CoreCoord(smc_core, CoreType::SMC, CoordSystem::TRANSLATED);
+
+        add_core_translation(translated_coord, smc_core);
     }
 }
 

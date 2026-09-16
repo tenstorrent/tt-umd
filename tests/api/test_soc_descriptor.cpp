@@ -70,7 +70,7 @@ TEST(TestSocDescriptor, LiteralCoordSystem) {
 TEST(TestSocDescriptor, MimirDescriptorEnumeratesDramAndSmcCores) {
     SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
 
-    EXPECT_EQ(soc_descriptor.get_arch_descriptor().get_arch(), tt::ARCH::GRENDEL);
+    EXPECT_EQ(soc_descriptor.get_arch_descriptor().get_arch(), tt::ARCH::QUASAR);
 
     // Two DRAM cores, one per chippy GDDR instance.
     EXPECT_EQ(soc_descriptor.get_cores(tt::CoreType::DRAM).size(), 2);

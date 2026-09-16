@@ -362,6 +362,7 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_GRENDEL_JTAG)
     # These translation units include chippy headers and must compile as C++20.
     # Confine the bump to them (the -std override comes after the target's
     # -std=c++17, so it wins); UMD's public standard stays C++17.

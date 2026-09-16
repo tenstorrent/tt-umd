@@ -563,6 +563,11 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
             // Example value from silicon machine.
             harvesting_masks.eth_harvesting_mask = 0x120;
             break;
+        case tt::ARCH::GRENDEL:
+            // A Grendel package's contents come from its YAML SoC descriptor, so there is no
+            // board type to assume and nothing is harvested by default.
+            board_type = BoardType::UNKNOWN;
+            break;
         default:
             board_type = BoardType::UNKNOWN;
             log_error(LogUMD, "Unsupported architecture for mock cluster");

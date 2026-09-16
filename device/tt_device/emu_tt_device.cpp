@@ -13,7 +13,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
 
-
 namespace tt::umd {
 
 namespace {
@@ -36,6 +35,13 @@ constexpr size_t kMinWordSizeBytes = 4;
 const uint64_t kMimirConfigLocalBase = chippy::grendel::kMimirSmcLocalAddr;
 const uint64_t kMimirConfigStride = chippy::grendel::kMimirConfigSize;
 const uint64_t kMimirGddrDramLocalBase = chippy::grendel::kMimirGddrDramLocalAddr;
+const uint64_t kMimirCceSramLocalBase = chippy::grendel::kMimirCce0SramLocalAddr;
+const uint64_t kMimirCceSramStride = chippy::grendel::kMimirCceSramSize;
+
+// Match Blackhole's DRISC convention: an address above the bank-relative GDDR range selects SRAM
+// at the same DRAM coordinate. This is a UMD-side tag and is translated to Mimir's local 0x40000000
+// CCE SRAM window before it reaches chippy.
+constexpr uint64_t kMimirCceL1NocOffset = 0x2000000000ULL;
 
 // A windows table for a single-Mimir package. The config window is indexed by chiplet instance
 // rather than by mesh position, so the mesh is collapsed to 1x1 anchored on the SMC core: the one
@@ -65,6 +71,10 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
     // DramCoresDoNotAlias test is what proves this against a real model: too small a stride would
     // land channel 1 inside channel 0.
     windows.dram_stride = soc_descriptor.get_arch_descriptor().get_dram_bank_size();
+    windows.dram_l1_noc_offset = kMimirCceL1NocOffset;
+    windows.dram_l1_base = kMimirCceSramLocalBase;
+    windows.dram_l1_stride = kMimirCceSramStride;
+    windows.dram_l1_size = kMimirCceSramStride;
 
     const tt_xy_pair grid = soc_descriptor.get_grid_size(CoreType::SMC);
     windows.neo_x_start = std::max<uint32_t>(grid.x, 1) + 1;
@@ -89,11 +99,12 @@ struct EmuTTDevice::Impl {
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
     const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) {
     UMD_ASSERT(
-        soc_descriptor.arch == tt::ARCH::GRENDEL,
+        soc_descriptor.arch == tt::ARCH::QUASAR || soc_descriptor.arch == tt::ARCH::GRENDEL,
         error::RuntimeError,
-        fmt::format("EmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
-    return std::unique_ptr<EmuTTDevice>(
-        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
+        fmt::format(
+            "EmuTTDevice requires a QUASAR (or GRENDEL package) descriptor, got {}.",
+            arch_to_str(soc_descriptor.arch)));
+    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
 }
 
 EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
@@ -104,7 +115,8 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // address, so the coordinate has to be flattened into the address before the access is issued.
     // Installed here, in the base's protected slot, so host_read/host_write apply it while the
     // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
-    noc_address_resolver_ = std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
+    noc_address_resolver_ =
+        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
 
     // INIT opens the session with the command server.
     impl_->transport->initialize();

@@ -1024,7 +1024,7 @@ Cluster::~Cluster() {
             close_device();
         } catch (const std::exception& e) {
             log_error(LogUMD, "Exception while closing devices in Cluster destructor: {}", e.what());
-        } catch(...) {
+        } catch (...) {
             log_error(LogUMD, "Unknown exception while closing devices in Cluster destructor.");
         }
     }

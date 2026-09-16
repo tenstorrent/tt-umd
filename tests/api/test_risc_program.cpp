@@ -22,6 +22,7 @@
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -367,6 +368,52 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     }
 
     cluster->close_device();
+}
+
+// Destroying a started Cluster must close the device. safe_test_cluster_start() leaves BRISC executing the
+// no-op kernel it parked in L1, and the Cluster destructor has to put it back in reset -- otherwise the core
+// keeps running with no owner left in the process. This test deliberately never calls close_device(): the
+// destructor is what is under test.
+TEST(TestRiscProgram, ClusterDestructorClosesDevice) {
+    if (is_simulation_test()) {
+        GTEST_SKIP() << "Reopening the device after the Cluster is destroyed needs a PCI device id.";
+    }
+
+    int pci_device_id = 0;
+    CoreCoord tensix_core;
+
+    {
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+        const tt::ARCH arch = cluster->get_tt_device(0)->get_arch();
+        if (arch != tt::ARCH::WORMHOLE_B0 && arch != tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Tensix soft reset masks are only defined for Wormhole and Blackhole.";
+        }
+
+        test_utils::safe_test_cluster_start(cluster.get());
+
+        const ChipId chip_id = *cluster->get_target_mmio_device_ids().begin();
+        pci_device_id = cluster->get_tt_device(chip_id)->get_communication_device_id();
+        tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        // Wormhole releases BRISC through start_device()'s ARC message, but Blackhole's deassert_risc_resets()
+        // is a no-op, so release it here to be sure there is something for the destructor to undo. Safe on
+        // both: safe_test_cluster_start() left the no-op kernel in L1 for BRISC to execute.
+        cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC, /*staggered_start=*/true);
+
+        ASSERT_EQ(cluster->get_risc_reset_state(chip_id, tensix_core) & RiscType::BRISC, RiscType::NONE)
+            << "BRISC is not running, so the destructor has nothing to undo";
+    }
+
+    // init_tt_device() is required: without the SocDescriptor it builds, the device cannot translate tensix_core.
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
+
+    const RiscType reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(
+        tt_device->get_risc_reset_state(tensix_core));
+
+    EXPECT_EQ(reset_state & RiscType::ALL_TENSIX, RiscType::ALL_TENSIX)
+        << "Tensix RISCs still out of reset after the Cluster was destroyed";
 }
 
 // Basic write/read loopback on the first TENSIX core followed by assert/deassert

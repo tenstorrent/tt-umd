@@ -850,7 +850,7 @@ private:
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
-    
+
     // Set when start_device() initialized the chips, cleared by close_device()
     bool needs_close_ = false;
 

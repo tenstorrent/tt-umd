@@ -31,8 +31,6 @@ protected:
         std::filesystem::temp_directory_path() / ("tt-umd-sim-client-test-" + std::to_string(::getpid()) + ".sock");
 };
 
-}  // namespace
-
 // attach() connects to a live host's socket; detach() closes and is idempotent.
 TEST_F(SimulationClientTest, AttachesToLiveHostThenDetaches) {
     auto server = SimulationServerSocket::create(path_);  // Binds + listens => a live host at path_.
@@ -114,3 +112,5 @@ TEST_F(SimulationClientTest, TransactThrowsAfterHostGone) {
 
     EXPECT_THROW(client.transact({0x01}), std::exception);
 }
+
+}  // namespace

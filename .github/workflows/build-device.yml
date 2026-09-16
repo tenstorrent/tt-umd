@@ -16,6 +16,13 @@ on:
           Enable sccache compiler caching.
         type: boolean
         default: true
+      enable-unity-build:
+        required: false
+        description: >-
+          Batch sources into unity translation units. On for every automatic event; this
+          input exists so a dispatch can turn it off and measure against it.
+        type: boolean
+        default: false
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -48,6 +55,12 @@ env:
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
   WHEEL_OUTPUT_DIR: ./build/wheel
+  # Batch sources into unity translation units. On for every triggering event, so PRs, the
+  # merge queue and main all compile the same way - a batching-only failure should show up on
+  # the PR that introduced it, not when the merge queue happens to build differently. Same
+  # shape as SCCACHE_GHA_ENABLED below: the `inputs` context only exists for
+  # workflow_dispatch, so a dispatch is the one way to turn this off and A/B it.
+  TT_UMD_UNITY_ENABLED: ${{ github.event_name != 'workflow_dispatch' || inputs.enable-unity-build }}
 
 jobs:
   # Skips the heavy sweep on PRs (a build already runs as part of the tests) but
@@ -259,6 +272,7 @@ jobs:
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
               -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
@@ -266,6 +280,7 @@ jobs:
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
               -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -378,6 +393,7 @@ jobs:
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
             -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
@@ -450,6 +466,7 @@ jobs:
                 -DTT_UMD_BUILD_PYTHON=ON \
                 -DTT_UMD_BUILD_EXAMPLES=OFF \
                 -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+                -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }} \
                 -DCMAKE_BUILD_TYPE=Release
               cmake --build ${{ env.BUILD_OUTPUT_DIR }}
               echo "Compile complete."

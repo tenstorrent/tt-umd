@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "umd/device/types/cluster_descriptor_types.hpp"
+
 using namespace ankerl::nanobench;
 
 namespace tt::umd::test::utils {
@@ -18,6 +20,10 @@ inline const char* OUTPUT_ENV_VAR = "UMD_MICROBENCHMARK_RESULTS_PATH";
 inline constexpr size_t ONE_KIB = 1 << 10;
 inline constexpr size_t ONE_MIB = 1 << 20;
 inline constexpr size_t ONE_GIB = 1 << 30;
+
+// Every benchmark below runs against the first chip. Defined here rather than per
+// benchmark so the sources can share one translation unit under a unity build.
+inline constexpr ChipId CHIP_ID = 0;
 
 inline void export_results(const std::string& title, std::vector<Result> const& results) {
     const char* results_path = std::getenv(OUTPUT_ENV_VAR);

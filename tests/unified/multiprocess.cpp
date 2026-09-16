@@ -517,6 +517,9 @@ protected:
     }
 
     void TearDown() override {
+        if (start_barrier_ == nullptr) {
+            return;
+        }
         pthread_barrier_destroy(start_barrier_);
         munmap(barrier_mem_, sizeof(pthread_barrier_t));
     }

@@ -1301,12 +1301,12 @@ void Cluster::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
+        needs_close_ = true;
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
         deassert_resets_and_set_clock_state();
-        needs_close_ = true;
     }
     log_info(LogUMD, "Starting devices in cluster completed.");
 }

@@ -27,19 +27,23 @@ dram:
 # One view per GDDR instance; each bank is a single DRAM tile (subchannel 0).
 # There is no Ethernet, so eth_endpoint is empty. worker_endpoint names that tile
 # so Metal can address the bank without inventing Tensix endpoints.
+# programmable: true marks the channel as a Mimir CCE (Metal DRAM core). Omitted
+# defaults to false.
 dram_views:
   [
     {
       channel: 0,
       eth_endpoint: [],
       worker_endpoint: [0],
-      address_offset: 0
+      address_offset: 0,
+      programmable: true
     },
     {
       channel: 1,
       eth_endpoint: [],
       worker_endpoint: [0],
-      address_offset: 0
+      address_offset: 0,
+      programmable: true
     }
   ]
 

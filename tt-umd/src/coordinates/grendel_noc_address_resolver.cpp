@@ -97,10 +97,37 @@ uint64_t GrendelAddressWindows::dram_address(uint32_t channel, uint64_t offset) 
     return dram_base + static_cast<uint64_t>(channel) * dram_stride + offset;
 }
 
+bool GrendelAddressWindows::is_dram_l1_address(uint64_t address) const {
+    return dram_l1_size != 0 && address >= dram_l1_noc_offset && address - dram_l1_noc_offset < dram_l1_size;
+}
+
+uint64_t GrendelAddressWindows::dram_l1_address(uint32_t channel, uint64_t address) const {
+    UMD_ASSERT(
+        is_dram_l1_address(address),
+        error::RuntimeError,
+        fmt::format(
+            "Address 0x{:x} is outside the DRAM-core L1 window [0x{:x}, 0x{:x}).",
+            address,
+            dram_l1_noc_offset,
+            dram_l1_noc_offset + dram_l1_size));
+    return dram_l1_base + static_cast<uint64_t>(channel) * dram_l1_stride + (address - dram_l1_noc_offset);
+}
+
 void GrendelAddressWindows::validate() const {
     check_stride(neo_l1_stride, "TensixNEO L1");
     check_stride(config_stride, "per-tile config");
     check_stride(dram_stride, "Mimir GDDR");
+    if (dram_l1_size != 0) {
+        check_stride(dram_l1_stride, "DRAM-core L1");
+        UMD_ASSERT(
+            dram_l1_size <= dram_l1_stride,
+            error::RuntimeError,
+            "Grendel address windows: DRAM-core L1 size must not exceed its channel stride.");
+        UMD_ASSERT(
+            dram_l1_noc_offset >= dram_stride,
+            error::RuntimeError,
+            "Grendel address windows: DRAM-core L1 tag must not overlap bank-relative GDDR addresses.");
+    }
     UMD_ASSERT(
         mesh_x_size > 0 && mesh_y_size > 0,
         error::RuntimeError,
@@ -153,6 +180,21 @@ uint64_t GrendelNocAddressResolver::to_flat_address(const CoreCoord& core, uint6
         const CoreCoord logical = soc_descriptor_->translate_coord_to(
             CoreCoord(noc0_xy, CoreType::DRAM, CoordSystem::NOC0), CoordSystem::LOGICAL);
         const auto channel = static_cast<uint32_t>(logical.x);
+        if (windows_.is_dram_l1_address(offset)) {
+            const uint64_t address = windows_.dram_l1_address(channel, offset);
+            log_debug(
+                tt::LogUMD,
+                "Grendel ATT: core ({}, {}) type {} -> DRAM-core L1 window, channel {} (subchannel {}), "
+                "tagged address 0x{:x} -> flat 0x{:x}",
+                x,
+                y,
+                to_str(core_type),
+                channel,
+                logical.y,
+                offset,
+                address);
+            return address;
+        }
         const uint64_t address = windows_.dram_address(channel, offset);
         log_debug(
             tt::LogUMD,

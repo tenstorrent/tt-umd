@@ -53,7 +53,7 @@ set(CHIPPY_GIT_REPOSITORY
     CACHE STRING
     "chippy git repository"
 )
-set(CHIPPY_GIT_TAG "bdcc120458fe181d1593cc08e69a8d1bbee14e6d" CACHE STRING "chippy pinned commit")
+set(CHIPPY_GIT_TAG "2334260ec852124f3e94edc93446fcd252498a89" CACHE STRING "chippy pinned commit")
 
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 include(ExternalProject)

@@ -7,6 +7,8 @@
 #include <fmt/format.h>
 
 #include <functional>
+#include <map>
+#include <vector>
 
 #include "emu_axi_transport.h"       // chippy
 #include "jtag2axi_v2_transport.h"   // chippy
@@ -15,6 +17,7 @@
 #include "umd/device/coordinates/att/configs/mimir_1x1_att_map.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 
 
@@ -87,20 +90,92 @@ const att::MapData& EmuTTDevice::mimir_att_map(const SocDescriptor& soc_descript
 // the command server; jtag2axi has none, because OpenOCD owns the TAP and is already attached by
 // the time this device is built.
 struct EmuTTDevice::Impl {
-    std::shared_ptr<chippy::transport::TransportInterface> transport;
+    /** One die: where to send its accesses. */
+    struct Target {
+        std::shared_ptr<chippy::transport::TransportInterface> transport;
+    };
+
+    // Routing table keyed by the translated core tile_*_bytes is handed. A single-die device holds
+    // one entry under kAnyCore and ignores the key; a package holds one entry per die.
+    std::map<tt_xy_pair, Target> targets;
+    bool route_by_core = false;
     std::function<void()> open;
+
+    static constexpr tt_xy_pair kAnyCore{0, 0};
+
+    const Target& target_for(tt_xy_pair core) const {
+        if (!route_by_core) {
+            return targets.begin()->second;
+        }
+        const auto entry = targets.find(core);
+        UMD_ASSERT(
+            entry != targets.end(),
+            error::RuntimeError,
+            fmt::format("Core ({}, {}) is not bound to a die on this package.", core.x, core.y));
+        return entry->second;
+    }
 
     static std::unique_ptr<Impl> emu_axi(const std::string& host, uint32_t port) {
         auto transport = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port);
-        return std::unique_ptr<Impl>(new Impl{transport, [transport] { transport->initialize(); }});
+        auto impl = std::make_unique<Impl>();
+        impl->targets.emplace(kAnyCore, Target{transport});
+        impl->open = [transport] { transport->initialize(); };
+        return impl;
     }
 
     static std::unique_ptr<Impl> jtag2axi(const std::string& host, uint32_t port, size_t chiplet) {
-        auto transport = std::make_shared<chippy::transport::jtag2axi::v2::Jtag2AxiV2Transport>(
+        auto impl = std::make_unique<Impl>();
+        impl->targets.emplace(kAnyCore, Target{make_jtag(host, port, chiplet)});
+        impl->open = [] {};
+        return impl;
+    }
+
+    static std::shared_ptr<chippy::transport::TransportInterface> make_jtag(
+        const std::string& host, uint32_t port, size_t chiplet) {
+        return std::make_shared<chippy::transport::jtag2axi::v2::Jtag2AxiV2Transport>(
             host, static_cast<uint16_t>(port), chiplet);
-        return std::unique_ptr<Impl>(new Impl{transport, [] {}});
     }
 };
+
+/* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create_multi_die(
+    const SocDescriptor& soc_descriptor,
+    const std::vector<DieBinding>& dies,
+    Transport transport,
+    const std::string& host,
+    uint32_t port) {
+    UMD_ASSERT(
+        soc_descriptor.arch == tt::ARCH::GRENDEL,
+        error::RuntimeError,
+        fmt::format("EmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
+    UMD_ASSERT(!dies.empty(), error::RuntimeError, "A package needs at least one die binding.");
+    UMD_ASSERT(
+        transport == Transport::Jtag2Axi,
+        error::RuntimeError,
+        "Only the JTAG transport reaches a die by chiplet index; emu_axi selects a chiplet through "
+        "the command server instead.");
+
+    auto impl = std::make_unique<Impl>();
+    impl->route_by_core = true;
+    impl->open = [] {};
+    for (const DieBinding& die : dies) {
+        // Key on the translated coordinate, because that is what host_write hands tile_*_bytes.
+        // Translating here rather than asking the caller for a translated core keeps the binding
+        // in the same coordinate system as the write that follows it. It also validates the core:
+        // one the descriptor does not know throws here, at construction, rather than on first
+        // access.
+        const tt_xy_pair routed = soc_descriptor.translate_chip_coord_to_translated(die.core, get_selected_noc_id());
+        const bool inserted =
+            impl->targets.emplace(routed, Impl::Target{Impl::make_jtag(host, port, die.chiplet)}).second;
+        UMD_ASSERT(
+            inserted,
+            error::RuntimeError,
+            fmt::format("Two dies claim core ({}, {}); each die needs its own.", routed.x, routed.y));
+    }
+
+    // Deliberately no resolver: see create_multi_die's declaration. The caller's address goes on
+    // the wire unchanged; only the chiplet the command is tagged with varies by die.
+    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(impl)));
+}
 
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
     const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) {
@@ -113,16 +188,26 @@ struct EmuTTDevice::Impl {
     const std::string& host,
     uint32_t port,
     size_t chiplet) {
+    return create(soc_descriptor, mimir_att_map(soc_descriptor), transport, host, port, chiplet);
+}
+
+/* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
+    const SocDescriptor& soc_descriptor,
+    const att::MapData& map,
+    Transport transport,
+    const std::string& host,
+    uint32_t port,
+    size_t chiplet) {
     UMD_ASSERT(
         soc_descriptor.arch == tt::ARCH::GRENDEL,
         error::RuntimeError,
         fmt::format("EmuTTDevice requires a GRENDEL descriptor, got {}.", arch_to_str(soc_descriptor.arch)));
     auto impl = transport == Transport::Jtag2Axi ? Impl::jtag2axi(host, port, chiplet)
                                                  : Impl::emu_axi(host, port);
-    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(impl)));
+    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, map, std::move(impl)));
 }
 
-EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
+EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, const att::MapData& map, std::unique_ptr<Impl> impl) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch)), impl_(std::move(impl)) {
     set_soc_descriptor(soc_descriptor);
 
@@ -130,9 +215,15 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // address, so the coordinate has to be flattened into the address before the access is issued.
     // Installed here, in the base's protected slot, so host_read/host_write apply it while the
     // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
-    noc_address_resolver_ = std::make_unique<att::Resolver>(mimir_att_map(soc_descriptor));
+    noc_address_resolver_ = std::make_unique<att::Resolver>(map);
 
     // Whatever handshake this transport needs before its first access.
+    impl_->open();
+}
+
+EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch)), impl_(std::move(impl)) {
+    set_soc_descriptor(soc_descriptor);
     impl_->open();
 }
 
@@ -159,14 +250,16 @@ std::unique_ptr<TlbWindow> EmuTTDevice::create_tlb_window(
 
 // `core` arrives already translated and `addr` already flattened by the base, so the coordinate is
 // deliberately unused: on Grendel the destination travels inside the address, not beside it.
-void EmuTTDevice::tile_read_bytes(tt_xy_pair /*core*/, uint64_t addr, void* mem_ptr, size_t size) {
-    impl_->transport->read(size, kMinWordSizeBytes, addr, mem_ptr);
+void EmuTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    const Impl::Target& target = impl_->target_for(core);
+    target.transport->read(size, kMinWordSizeBytes, addr, mem_ptr);
 }
 
-void EmuTTDevice::tile_write_bytes(tt_xy_pair /*core*/, uint64_t addr, const void* mem_ptr, size_t size) {
+void EmuTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    const Impl::Target& target = impl_->target_for(core);
     // chippy's write() takes a non-const void* even though it only reads the buffer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    impl_->transport->write(size, kMinWordSizeBytes, addr, const_cast<void*>(mem_ptr));
+    target.transport->write(size, kMinWordSizeBytes, addr, const_cast<void*>(mem_ptr));
 }
 
 }  // namespace tt::umd

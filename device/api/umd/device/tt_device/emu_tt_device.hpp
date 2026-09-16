@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include <string>
 
 #include "umd/device/coordinates/att/att_map.hpp"
@@ -75,6 +76,21 @@ public:
         uint32_t port,
         size_t chiplet = 0);
 
+    /**
+     * As above, but with the ATT map named rather than inferred.
+     *
+     * A multi-die package presents one descriptor per die and they cannot be told apart by arch --
+     * every Grendel die reports ARCH::GRENDEL -- so the caller, which knows which die it is opening,
+     * names the map. Prefer this over the overload above wherever more than one die is in play.
+     */
+    static std::unique_ptr<EmuTTDevice> create(
+        const SocDescriptor& soc_descriptor,
+        const att::MapData& map,
+        Transport transport,
+        const std::string& host,
+        uint32_t port,
+        size_t chiplet = 0);
+
     ~EmuTTDevice() override;
 
     /**
@@ -85,6 +101,48 @@ public:
      * restating the bases, and a caller building its own resolver cannot drift from the device.
      */
     static const att::MapData& mimir_att_map(const SocDescriptor& soc_descriptor);
+
+    /**
+     * One die of a multi-die package: which core stands for it, where its JTAG probe sits, and
+     * where its SMC bases.
+     */
+    struct DieBinding {
+        /** The descriptor core that routes to this die, named as a caller would name it. */
+        CoreCoord core;
+        /** Chiplet index chippy's OpenOCD router demultiplexes on. */
+        size_t chiplet;
+    };
+
+    /**
+     * A multi-die package as one device, each die reached over its own JTAG probe.
+     *
+     * All the bindings share one endpoint: chippy's router reads the chiplet index out of each
+     * command and forwards it to that die's OpenOCD, so several dies are several indices on one
+     * socket rather than several connections.
+     *
+     * A binding is a chiplet index and nothing else, because over JTAG a die's address map does
+     * not depend on which die it is: chippy reaches the SMC of every Mimir and Keraunos in an MMK
+     * package at the same core-local address and changes only the chiplet the command is tagged
+     * with. So there is no per-die base to carry, and no NocAddressResolver is installed -- the
+     * address the caller passes is the address that goes on the wire.
+     *
+     * That is worth stating because the flat/local map tempts the opposite design. Keraunos does
+     * base its SMC at 0x8000000 there, and addressing it that way over JTAG returns a bus DECERR:
+     * the local view and the core-local alias this path uses are different views of the part, not
+     * the same numbers.
+     *
+     * @param soc_descriptor Descriptor naming one core per die. Must describe ARCH::GRENDEL.
+     * @param dies           One binding per die. Each core is translated through the descriptor
+     *                       exactly as host_write translates it, so a binding and an access name
+     *                       the same die whichever coordinate system the caller works in.
+     * @param host,port      The router endpoint.
+     */
+    static std::unique_ptr<EmuTTDevice> create_multi_die(
+        const SocDescriptor& soc_descriptor,
+        const std::vector<DieBinding>& dies,
+        Transport transport,
+        const std::string& host,
+        uint32_t port);
 
 protected:
     SimulationBackendType backend_type() const override;
@@ -102,6 +160,10 @@ protected:
 private:
     struct Impl;
 
+    EmuTTDevice(const SocDescriptor& soc_descriptor, const att::MapData& map, std::unique_ptr<Impl> impl);
+
+    // Package form: no ATT map, so no resolver. Addresses stay die-local and tile_*_bytes adds the
+    // binding's base.
     EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl);
 
     std::unique_ptr<Impl> impl_;

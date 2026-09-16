@@ -24,6 +24,12 @@ namespace tt::umd::att {
  * Because the coordinates are UMD-side handles rather than NOC endpoints, the endpoint tables name
  * the cores of tests/soc_descs/mimir_1x1.yaml directly, in the order that file lists them.
  *
+ * Be clear about what this computes. With compare 0 and no selector, make_address() returns the
+ * offset unchanged -- on this die the config window is the identity. It is expressed as a MapData
+ * anyway so every die resolves through one mechanism and a caller asks for the same SMC offset on
+ * each, rather than some dies translating and others not. What the structure carries here is a
+ * per-die base address, not an address translation table: a lone chiplet reached flat has no ATT.
+ *
  * Bases come from chippy (lib/arch/grendel/mimir.h), which owns every address below the flat one:
  *   kMimirSmcLocalAddr      = 0x0          -> the config aperture base
  *   kMimirConfigSize        = 0x8000000    -> 128 MiB, so a 27-bit local field

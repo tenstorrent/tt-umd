@@ -4,7 +4,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -17,7 +16,6 @@
 #include <string>
 #include <thread>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -73,53 +71,6 @@ static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
         {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
-}
-
-// The tensix cores to read back after a broadcast on one chip. Reading back every targeted core
-// multiplies out with the number of broadcast sizes and the number of chips, which on an all-MMIO
-// Galaxy leaves these tests among the slowest in the suite while re-checking the same rectangle on
-// all 32 chips. Instead walk a staircase through the target rectangle: pair the i-th target row with
-// the i-th target column, cycling the shorter axis. That reads back every row and every column the
-// broadcast should reach, so a row or column strip wrongly dropped or added by the exclusion masks
-// still fails, at max(rows, columns) readbacks rather than rows x columns. Taking a contiguous run of
-// cores instead would not do: get_cores() is row major, so a short run collapses onto a couple of
-// rows and leaves whole columns unread - including the ones flanking an excluded column, which is
-// where an off-by-one in the masks shows up.
-//
-// `rows_to_exclude` and `cols_to_exclude` are the masks handed to the broadcast, expressed in
-// `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
-static std::vector<CoreCoord> broadcast_readback_cores(
-    const SocDescriptor& soc_desc,
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& cols_to_exclude,
-    const CoordSystem exclusion_coord_system) {
-    std::set<uint32_t> target_rows;
-    std::set<uint32_t> target_cols;
-    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
-    for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
-        const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
-        if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {
-            continue;
-        }
-        target_rows.insert(excluded_coord.y);
-        target_cols.insert(excluded_coord.x);
-        targets_by_row_and_col.emplace(std::make_pair(excluded_coord.y, excluded_coord.x), core);
-    }
-    if (target_rows.empty() || target_cols.empty()) {
-        return {};
-    }
-
-    const std::vector<uint32_t> rows(target_rows.begin(), target_rows.end());
-    const std::vector<uint32_t> cols(target_cols.begin(), target_cols.end());
-    std::vector<CoreCoord> sampled;
-    for (size_t step = 0; step < std::max(rows.size(), cols.size()); step++) {
-        // Harvesting can leave the target set non-rectangular, so a row/column pair may not exist.
-        const auto target = targets_by_row_and_col.find({rows[step % rows.size()], cols[step % cols.size()]});
-        if (target != targets_by_row_and_col.end()) {
-            sampled.push_back(target->second);
-        }
-    }
-    return sampled;
 }
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
@@ -527,7 +478,7 @@ TEST(ClusterWH, BroadcastWrite) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::NOC0);
     }
 
@@ -651,7 +602,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
     }
 
@@ -775,7 +726,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
     }
 

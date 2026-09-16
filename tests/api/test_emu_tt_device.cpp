@@ -24,18 +24,22 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
+#include <vector>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 
 #include "emu_axi_transport.h"      // chippy
 #include "jtag2axi_v2_transport.h"  // chippy
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/coordinates/att/att_resolver.hpp"
+#include "umd/device/coordinates/att/configs/mimir_1x1_att_map.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/emu_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 namespace tt::umd::test {
 
@@ -81,8 +85,21 @@ std::unique_ptr<chippy::transport::TransportInterface> raw_transport(const Serve
     return emu;
 }
 
+// chippy's scratch_reg value scheme, matched exactly so a divergence between the two stacks is a
+// difference in behaviour rather than in bookkeeping: base | instance << 8 | die-type ordinal,
+// where mimir is 0 and keraunos is 1.
+constexpr uint32_t kUniqueValueBase = 0xA5A50000;
+
+constexpr uint32_t unique_test_value(uint32_t die_type_ordinal, uint32_t instance) {
+    return kUniqueValueBase | (instance << 8) | die_type_ordinal;
+}
+
 SocDescriptor mimir_descriptor() {
     return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
+}
+
+SocDescriptor mmk_descriptor() {
+    return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk_1x3.yaml")));
 }
 
 }  // namespace
@@ -98,6 +115,13 @@ SocDescriptor mimir_descriptor() {
 // "AXI bus SRAM 0x0006_0000-0x0016_0000"; 0xC006_0000 is the same memory through the SMC's
 // core-local alias, which is what firmware download and reset vectors use).
 constexpr uint64_t kSmcSramOffset = 0x00060000;
+
+// scratch[0] through the SMC's core-local alias. The package tests use this rather than the AXI
+// view because it is what chippy puts on the wire for every die: a passing scratch_reg run on this
+// model addressed all three dies at 0xC001_0100 and varied only the chiplet index. The local map's
+// per-die SMC bases (Mimir 0x0, Keraunos 0x8000000) do not decode on this path -- 0x0801_0100
+// comes back as a bus DECERR.
+constexpr uint64_t kSmcScratch0CoreLocal = 0xC0010100;
 
 // A write through the public TTDevice API must land at the flat address the resolver derives for
 // that core -- verified by reading it back through a raw chippy transport, which shares nothing
@@ -187,16 +211,119 @@ TEST(EmuTTDevice, SmcScratchRegisterRoundTrip) {
     device->write_to_device(&initial, smc_core, kSmcScratch0Offset, sizeof(initial));
 }
 
-// DRAM is opt-in, and deliberately so.
+// Every die in an MMK package, each addressed through its own JTAG PTAP.
 //
-// The SiVal server runs preload and reset only -- test_sival_server.py skips tb.configure() -- so
-// GDDR has had no bringup and its window answers nothing. On a real model an access there does not
-// merely fail: the testbench AXI master stalls with no slave responding (`axi4m WR_STALL stalled at
-// 0x800000400, AWREADY=0`), the server drops the client, and the stalled transaction survives the
-// server's own DUT re-init -- every later access, reads included, reports the same stale stall. One
-// stray DRAM write wedges the model for the rest of the session.
+// This is chippy's multi-die scratch_reg, and on a package it asserts something the single-Mimir
+// version cannot: that an access reaches the die it names. Each die gets a value carrying its own
+// ordinal, so a readback returning a neighbour's value proves mis-routing -- which a single shared
+// test value could not tell apart from a working write. chippy's own rules warn that a half-wired
+// multi-chiplet setup enumerates phantom chiplets whose selection is silently dropped and reports a
+// pass per phantom, so the unique value is the check, not decoration.
 //
-// Set TT_UMD_EMU_DRAM=1 only against a model whose GDDR has been brought up.
+// Chiplet indices follow chippy's jtag_chiplet_order for mmk -- k0, m0, m1 -- which is also the
+// order its +jtag_chiplet / +jtag_extra_chiplets plusargs ask the model to open, so host wiring and
+// model bringup cannot disagree about which index is which die. All three transports share one
+// endpoint: chippy's OpenOCD router reads the index out of each command and forwards it to that
+// die's OpenOCD.
+// create_multi_die keys its routing table on the translated coordinate, so the descriptor must
+// give the three SMCs three distinct ones. Needs no server: if this fails, every package access
+// lands on one die and the hardware test below would be measuring nothing.
+TEST(EmuTTDevice, MmkSmcCoresTranslateDistinctly) {
+    const SocDescriptor soc_descriptor = mmk_descriptor();
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC);
+    ASSERT_EQ(smc_cores.size(), 3u) << "mmk_1x3.yaml should name one SMC per die.";
+
+    std::set<tt_xy_pair> translated;
+    for (const CoreCoord& core : smc_cores) {
+        translated.insert(soc_descriptor.translate_chip_coord_to_translated(core, get_selected_noc_id()));
+    }
+    EXPECT_EQ(translated.size(), smc_cores.size())
+        << "Two SMCs share a translated coordinate, so a package cannot tell those dies apart.";
+}
+
+// The package as one device: three dies behind a single EmuTTDevice, told apart by the core the
+// caller names. This is the shape UMD's API already wants -- a chip is one handle and a core
+// selects within it -- and it is only expressible because the router lets three chiplet indices
+// share one endpoint.
+//
+// What it proves over three separate devices is routing: three writes with distinct values go out
+// before any read comes back, so a device that ignored the core and drove one die would return the
+// last value written on all three cores.
+TEST(EmuTTDevice, MmkScratchRegisterPerDie) {
+    SKIP_WITHOUT_SERVER(server);
+    if (std::getenv("TT_UMD_EMU_MMK") == nullptr) {
+        GTEST_SKIP() << "Needs an MMK model serving three PTAPs; set TT_UMD_EMU_MMK=1.";
+    }
+
+    const SocDescriptor soc_descriptor = mmk_descriptor();
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC);
+    ASSERT_EQ(smc_cores.size(), 3u) << "mmk_1x3.yaml should name one SMC per die.";
+
+    // Ordered as mmk_1x3.yaml documents: k0 on chiplet 0, then the two Mimirs. The index order
+    // matches chippy's, confirmed against a passing scratch_reg wire transcript on this model:
+    // keraunos(0) went to chiplet 0, mimir(0) to 1, mimir(1) to 2.
+    const std::vector<EmuTTDevice::DieBinding> dies{
+        {smc_cores[0], 0},
+        {smc_cores[1], 1},
+        {smc_cores[2], 2},
+    };
+    const std::vector<uint32_t> values{
+        unique_test_value(1, 0),  // k0: keraunos, instance 0
+        unique_test_value(0, 0),  // m0: mimir, instance 0
+        unique_test_value(0, 1),  // m1: mimir, instance 1
+    };
+    const char* labels[] = {"k0", "m0", "m1"};
+
+    std::unique_ptr<EmuTTDevice> device = EmuTTDevice::create_multi_die(
+        soc_descriptor, dies, EmuTTDevice::Transport::Jtag2Axi, server->host, server->port);
+
+    // Write every die before reading any of them. Interleaving write and read per die would pass
+    // even if all three cores addressed one die, because each read would see the write that just
+    // preceded it.
+    std::vector<uint32_t> initial(dies.size(), 0);
+    for (size_t i = 0; i < dies.size(); ++i) {
+        device->read_from_device(&initial[i], smc_cores[i], kSmcScratch0CoreLocal, sizeof(uint32_t));
+        device->write_to_device(&values[i], smc_cores[i], kSmcScratch0CoreLocal, sizeof(uint32_t));
+    }
+
+    for (size_t i = 0; i < dies.size(); ++i) {
+        uint32_t readback = 0;
+        device->read_from_device(&readback, smc_cores[i], kSmcScratch0CoreLocal, sizeof(readback));
+        EXPECT_EQ(readback, values[i])
+            << labels[i] << " (chiplet " << dies[i].chiplet << ") returned 0x" << std::hex << readback
+            << ", expected 0x" << values[i] << ". A value belonging to another die means the access "
+            << "was routed to the wrong chiplet.";
+    }
+
+    for (size_t i = 0; i < dies.size(); ++i) {
+        device->write_to_device(&initial[i], smc_cores[i], kSmcScratch0CoreLocal, sizeof(uint32_t));
+    }
+}
+
+// A core the package has no binding for must fail loudly. Without this, an unbound core would take
+// whichever entry std::map happened to order first and silently address the wrong die.
+TEST(EmuTTDevice, UnboundCoreIsRejected) {
+    SKIP_WITHOUT_SERVER(server);
+    if (std::getenv("TT_UMD_EMU_MMK") == nullptr) {
+        GTEST_SKIP() << "Needs an MMK model serving three PTAPs; set TT_UMD_EMU_MMK=1.";
+    }
+
+    const SocDescriptor soc_descriptor = mmk_descriptor();
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC);
+
+    // Bind only the first die, then access the third.
+    std::unique_ptr<EmuTTDevice> device = EmuTTDevice::create_multi_die(
+        soc_descriptor,
+        {{smc_cores[0], 0}},
+        EmuTTDevice::Transport::Jtag2Axi,
+        server->host,
+        server->port);
+
+    uint32_t value = 0;
+    EXPECT_THROW(
+        device->read_from_device(&value, smc_cores[2], kSmcScratch0CoreLocal, sizeof(value)), std::runtime_error);
+}
+
 TEST(EmuTTDevice, DramCoresDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
     if (std::getenv("TT_UMD_EMU_DRAM") == nullptr) {

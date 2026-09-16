@@ -1,0 +1,62 @@
+# An MMK package -- one Keraunos and two Mimirs -- as a single UMD chip.
+#
+# The three dies are reached over three independent JTAG PTAPs, each its own single-TAP
+# chain, demultiplexed by chippy's OpenOCD router on a chiplet index. There is no NOC
+# between them and no shared address space: chippy addresses each die flat, with no
+# coordinate component at all.
+#
+# So these coordinates are invented. They exist because UMD's API routes on a core, and
+# three dies each carrying one SMC would otherwise collide at a single handle. One SMC
+# per die, spaced out so each has a distinct coordinate the device can key its routing
+# table on:
+#
+#   (0, 1)  k0   Keraunos   chiplet index 0   SMC based at 0x8000000
+#   (2, 1)  m0   Mimir      chiplet index 1   SMC based at 0x0
+#   (4, 1)  m1   Mimir      chiplet index 2   SMC based at 0x0
+#
+# The index order matches chippy's jtag_chiplet_order for mmk, which is also the order
+# its +jtag_chiplet / +jtag_extra_chiplets plusargs ask the model to open -- so host
+# wiring and model bringup cannot disagree about which index is which die.
+#
+# `dram` is empty even though the two Mimirs carry GDDR: nothing addresses it over JTAG
+# yet, and inventing coordinates for six DRAM cores whose bases this file cannot express
+# would be guessing. Add them when something needs them.
+
+grid:
+  x_size: 6
+  y_size: 2
+
+arc:
+  []
+
+pcie:
+  []
+
+dram:
+  []
+
+eth:
+  []
+
+functional_workers:
+  []
+
+router_only:
+  []
+
+dispatch:
+  []
+
+smc:
+  [0-1, 2-1, 4-1]
+
+worker_l1_size:
+  0
+
+dram_bank_size:
+  0
+
+eth_l1_size:
+  0
+
+arch_name: GRENDEL

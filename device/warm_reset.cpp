@@ -184,7 +184,7 @@ int wait_for_pci_bdf_to_reappear(
     return interface_id;
 }
 
-bool WarmReset::cold_reset(std::vector<int> pci_device_ids) {
+bool WarmReset::warm_reset_sysfs(std::vector<int> pci_device_ids) {
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
@@ -196,8 +196,8 @@ bool WarmReset::cold_reset(std::vector<int> pci_device_ids) {
     auto pci_devices_info = PCIDevice::enumerate_devices_info();
     std::vector<std::string> bdfs;
     for (auto id : pci_device_ids) {
-        if (pci_devices_info.count(id)) {
-            bdfs.push_back(pci_devices_info.at(id).pci_bdf);
+        if (auto it = pci_devices_info.find(id); it != pci_devices_info.end()) {
+            bdfs.push_back(it->second.pci_bdf);
         }
     }
     if (bdfs.empty()) {

@@ -406,8 +406,9 @@ public:
      *
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
+     * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -415,8 +416,10 @@ public:
      * @param core Core to deassert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to deassert reset for
      * @param staggered_start Whether to use staggered start
+     * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -513,6 +516,10 @@ protected:
 
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
+
+    // The model, for backends that finish wiring model components with state they own. Dies with
+    // the concrete simulation devices.
+    TTDeviceModel *get_model() { return model_.get(); }
 
 private:
     // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness

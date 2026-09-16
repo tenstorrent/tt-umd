@@ -10,6 +10,7 @@
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class RiscReset;
 class SimulationDeviceFirmware;
 
 // Model for a simulated device. A simulation backend is reached in-process rather than over a host
@@ -27,6 +28,12 @@ public:
 
     DeviceFirmware *get_device_firmware() override;
 
+    RiscReset *get_risc_reset() override;
+
+    // Installed by the backend device's constructor: the reset control drives state the backend
+    // owns, which does not exist yet when this model is built.
+    void set_risc_reset(std::unique_ptr<RiscReset> risc_reset);
+
     ArchitectureImplementation *get_architecture_impl() override;
 
     SocArchDescriptor *get_soc_arch_descriptor() override;
@@ -36,6 +43,7 @@ public:
 private:
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<SimulationDeviceFirmware> device_firmware_;
+    std::unique_ptr<RiscReset> risc_reset_;
 };
 
 }  // namespace tt::umd

@@ -76,9 +76,6 @@ public:
     void close_device();
     void start_device();
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
-
     void advance_device_execution() override;
 
     /**
@@ -122,6 +119,9 @@ private:
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();
 
+    // Hands the model its RiscReset, built over this backend's I/O; see TTSimRiscReset.
+    void install_risc_reset();
+
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process .so backend (communicator_), client mode
     // drives the remote host (attach_client()/detach_client()). Note client_ is owned by the
@@ -132,6 +132,6 @@ private:
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
     ChipId chip_id_;
-    uint32_t libttsim_pci_device_id;
+    uint32_t libttsim_pci_device_id = 0;
 };
 }  // namespace tt::umd

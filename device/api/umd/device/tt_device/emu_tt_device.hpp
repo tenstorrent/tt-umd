@@ -39,8 +39,8 @@ public:
     /**
      * Connect to an emu_axi command server.
      *
-     * @param soc_descriptor Full descriptor for the package (Grendel has no fixed floorplan, so it
-     *                       always comes from YAML). Must describe ARCH::GRENDEL.
+     * @param soc_descriptor Full descriptor for the package, always from YAML. Architecture is
+     *                       QUASAR; GRENDEL is accepted as the UMD package alias.
      * @param host Server host, as published by the orchestrator in silval_server_info.json.
      * @param port Server port.
      */

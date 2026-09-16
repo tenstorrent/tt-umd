@@ -72,6 +72,14 @@ struct GrendelAddressWindows {
     uint64_t dram_base = 0x1000000000000ULL;
     uint64_t dram_stride = 0x200000000ULL;
 
+    // Optional SRAM behind a DRAM endpoint, analogous to Blackhole DRISC L1. The caller uses
+    // dram_l1_noc_offset as a non-overlapping address-space tag; the resolver strips that tag and
+    // maps the access to dram_l1_base + channel * dram_l1_stride. A zero size disables this window.
+    uint64_t dram_l1_noc_offset = 0;
+    uint64_t dram_l1_base = 0;
+    uint64_t dram_l1_stride = 0;
+    uint64_t dram_l1_size = 0;
+
     // Package-frame coordinate of the Quasar mesh origin (topology.yaml placement.quasar_origin).
     uint32_t quasar_origin_x = 1;
     uint32_t quasar_origin_y = 1;
@@ -104,6 +112,12 @@ struct GrendelAddressWindows {
 
     /** Flat address within a DRAM channel's GDDR window. */
     uint64_t dram_address(uint32_t channel, uint64_t offset) const;
+
+    /** Whether an address on a DRAM coordinate selects its local RISC SRAM rather than GDDR. */
+    bool is_dram_l1_address(uint64_t address) const;
+
+    /** Flat address within the SRAM associated with a DRAM channel. */
+    uint64_t dram_l1_address(uint32_t channel, uint64_t address) const;
 
     /** Throw if the table is internally inconsistent (non power-of-two stride, empty grid). */
     void validate() const;

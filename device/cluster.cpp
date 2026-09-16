@@ -38,6 +38,9 @@
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#ifdef TT_UMD_BUILD_GRENDEL_JTAG
+#include "umd/device/tt_device/emu_tt_device.hpp"
+#endif
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
 // runs without that flag set so it can't see the use; mark the include to
@@ -289,6 +292,20 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             "configuration to enable simulation device.");
 #endif
     }
+    if (chip_type == ChipType::EMU_AXI) {
+#if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
+        UMD_ASSERT(
+            tt_device != nullptr,
+            error::RuntimeError,
+            "EMU_AXI chip construction requires a pre-created EmuTTDevice.");
+        return std::make_unique<SimulationChip>("", soc_desc, chip_id, std::move(tt_device));
+#else
+        UMD_THROW(
+            error::RuntimeError,
+            "EMU_AXI device is not supported in this build. Enable TT_UMD_BUILD_SIMULATION and "
+            "TT_UMD_BUILD_GRENDEL_JTAG.");
+#endif
+    }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         std::unique_ptr<LocalChip> chip;
@@ -391,7 +408,8 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         error::RuntimeError,
         fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
-    if (chip_type == ChipType::SWEMULE || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SWEMULE || chip_type == ChipType::EMU_AXI ||
+        cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -422,7 +440,20 @@ Cluster::Cluster(ClusterOptions options) {
         }
         case ChipType::MOCK:
         case ChipType::SWEMULE:
+        case ChipType::EMU_AXI:
         case ChipType::SIMULATION: {
+#if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
+            if (options.chip_type == ChipType::EMU_AXI) {
+                UMD_ASSERT(
+                    !options.sdesc_path.empty(),
+                    error::RuntimeError,
+                    "EMU_AXI requires ClusterOptions::sdesc_path.");
+                UMD_ASSERT(
+                    !options.emu_host.empty() && options.emu_port != 0,
+                    error::RuntimeError,
+                    "EMU_AXI requires a non-empty emu_host and non-zero emu_port.");
+            }
+#endif
 #ifdef TT_UMD_BUILD_SIMULATION
             // Client simulation Cluster: simulator_directory is a directory of live host sockets, not
             // a local build. Reconstruct the ClusterDescriptor from the host over the socket, then
@@ -556,7 +587,7 @@ Cluster::Cluster(ClusterOptions options) {
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
-                if (options.chip_type == ChipType::SIMULATION) {
+                if (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::EMU_AXI) {
                     if (options.sdesc_path.empty()) {
                         options.sdesc_path =
                             SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
@@ -610,6 +641,11 @@ Cluster::Cluster(ClusterOptions options) {
             tt_device = std::move(it->second);
             tt_devices.erase(it);
         }
+#if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
+        if (options.chip_type == ChipType::EMU_AXI) {
+            tt_device = EmuTTDevice::create(soc_desc, options.emu_host, options.emu_port);
+        }
+#endif
 
         add_chip(
             chip_id,
@@ -865,6 +901,15 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
+bool Cluster::has_tensix_cores() const {
+    for (const auto& [chip_id, chip] : chips_) {
+        if (!chip->get_soc_descriptor().get_cores(CoreType::TENSIX).empty()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Cluster::assert_risc_reset() {
     // SW-emule cores have no register backing, so the soft-reset register broadcast would
     // land out of L1; reset is a no-op for emule.
@@ -872,9 +917,15 @@ void Cluster::assert_risc_reset() {
         return;
     }
 
+    // Nothing to reset on a package with no compute. Grendel's soft-reset encoding rejects the
+    // Tensix risc types outright, so this must be checked before any reset value is built.
+    if (!has_tensix_cores()) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
-    if (arch_name == tt::ARCH::QUASAR) {
+    if (arch_name == tt::ARCH::QUASAR || arch_name == tt::ARCH::GRENDEL) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->assert_risc_reset(RiscType::ALL);
         }
@@ -893,9 +944,15 @@ void Cluster::deassert_risc_reset() {
         return;
     }
 
+    // Nothing to reset on a package with no compute. Grendel's soft-reset encoding rejects the
+    // Tensix risc types outright, so this must be checked before any reset value is built.
+    if (!has_tensix_cores()) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
-    if (arch_name == tt::ARCH::QUASAR) {
+    if (arch_name == tt::ARCH::QUASAR || arch_name == tt::ARCH::GRENDEL) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);
         }

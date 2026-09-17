@@ -222,6 +222,7 @@ static void send_reset_ioctl(int device_id, uint32_t flags) {
             fmt::format(
                 "Sending reset command failed on device {} with flags {:#x}: {}", device_id, flags, strerror(-err)));
     }
+    tt_device_close(dev);
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {

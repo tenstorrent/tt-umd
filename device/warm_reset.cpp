@@ -4,6 +4,7 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <glob.h>
@@ -179,6 +180,39 @@ int wait_for_pci_bdf_to_reappear(
     return interface_id;
 }
 
+bool wait_for_reset_marker(
+    const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
+    log_debug(tt::LogUMD, "Waiting for reset marker to clear for device {}.", bdf);
+
+    auto deadline = std::chrono::steady_clock::now() + timeout_ms;
+    bool reset_complete = false;
+
+    while (std::chrono::steady_clock::now() < deadline) {
+        // Check in-place reset marker
+        const std::string config_path = fmt::format("/sys/bus/pci/devices/{}/config", bdf);
+        int cfd = open(config_path.c_str(), O_RDONLY);
+        if (cfd >= 0) {
+            uint8_t cmd;
+            if (pread(cfd, &cmd, 1, 4) == 1 && ((cmd >> 6) & 1) == 0) {
+                reset_complete = true;
+            }
+            close(cfd);
+        }
+
+        if (reset_complete) {
+            break;
+        }
+
+        std::this_thread::sleep_for(timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL);
+    }
+
+    if (!reset_complete) {
+        log_warning(tt::LogUMD, "Timeout waiting for reset marker to clear for device {}.", bdf);
+    }
+
+    return reset_complete;
+}
+
 bool WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids,
     bool reset_m3,
@@ -229,6 +263,11 @@ bool WarmReset::warm_reset_arch_agnostic(
     for (auto& pci_bdf : pci_bdfs) {
         auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
         if (new_id == -1) {
+            log_error(tt::LogUMD, "Reset failed.");
+            return false;
+        }
+
+        if (!wait_for_reset_marker(pci_bdf.second)) {
             log_error(tt::LogUMD, "Reset failed.");
             return false;
         }

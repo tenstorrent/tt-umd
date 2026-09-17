@@ -4,12 +4,15 @@
 
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 
+#include <utility>
+
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/simulation_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
+#include "umd/device/tt_device/reset/risc_reset.hpp"
 
 namespace tt::umd {
 
@@ -86,6 +89,12 @@ void SimulationTTDeviceModel::use_arch_device_firmware() {
 }
 
 DeviceFirmware *SimulationTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
+
+RiscReset *SimulationTTDeviceModel::get_risc_reset() { return risc_reset_.get(); }
+
+void SimulationTTDeviceModel::set_risc_reset(std::unique_ptr<RiscReset> risc_reset) {
+    risc_reset_ = std::move(risc_reset);
+}
 
 FirmwareTelemetryReader *SimulationTTDeviceModel::get_firmware_telemetry_reader() {
     return telemetry_reader_lookup_ ? telemetry_reader_lookup_() : nullptr;

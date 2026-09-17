@@ -216,13 +216,13 @@ static void send_reset_ioctl(int device_id, uint32_t flags) {
     }
 
     err = tt_device_reset(dev, flags);
+    tt_device_close(dev);
     if (err != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Sending reset command failed on device {} with flags {:#x}: {}", device_id, flags, strerror(-err)));
+                "Sending reset command failed on device {} with flags {:#x}, KMD returned: {}", device_id, flags, err));
     }
-    tt_device_close(dev);
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {

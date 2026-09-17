@@ -74,6 +74,14 @@ public:
     bool dma_multicast_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
         override;
+    // Declared so the interface is complete; every one of these throws until the asynchronous
+    // transfer is implemented.
+    [[nodiscard]] DmaState dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] DmaState dma_read_zero_copy_check() override;
+    [[nodiscard]] DmaState dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] DmaState dma_write_zero_copy_check() override;
 
     // Not part of any Base API interface: internal PCIe plumbing reached by TTDevice via the
     // concrete PcieProtocol rather than through PcieInterface/DmaInterface.

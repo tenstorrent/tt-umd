@@ -282,6 +282,24 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
         DmaDirection::H2D);
 }
 
+DmaState PcieProtocol::dma_read_zero_copy_start(
+    uint64_t /*dst_iova*/, uint64_t /*src_addr*/, size_t /*size*/, tt_xy_pair /*core*/, NocId /*noc_id*/) {
+    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA read is not implemented yet.");
+}
+
+DmaState PcieProtocol::dma_read_zero_copy_check() {
+    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA read is not implemented yet.");
+}
+
+DmaState PcieProtocol::dma_write_zero_copy_start(
+    uint64_t /*src_iova*/, uint64_t /*dst_addr*/, size_t /*size*/, tt_xy_pair /*core*/, NocId /*noc_id*/) {
+    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA write is not implemented yet.");
+}
+
+DmaState PcieProtocol::dma_write_zero_copy_check() {
+    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA write is not implemented yet.");
+}
+
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
 // the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
 // (the target core). When core_start is provided, the transfer becomes a multicast to the

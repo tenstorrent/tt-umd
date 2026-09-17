@@ -502,7 +502,19 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
-    return reset_success;
+
+    if (!reset_success) {
+        return false;
+    }
+
+    for (const auto& pci_device_info : PCIDevice::enumerate_devices_info()) {
+        if (!wait_for_reset_marker(pci_device_info.second.pci_bdf)) {
+            log_error(tt::LogUMD, "Reset failed.");
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // Free helper function for extracting pid.

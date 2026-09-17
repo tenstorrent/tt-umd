@@ -395,10 +395,12 @@ public:
      *
      * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
      * other. The call returns once the writes are issued, not once they are acknowledged by the
-     * target — the underlying MMIO stores are posted. This costs write throughput; a caller that
-     * does not need the ordering guarantee can take an @ref IoWindow from @ref create_io_window
-     * with a weaker ordering mode and drive it directly, using @ref IoWindow::configure to advance
-     * across chunks larger than the window.
+     * target — the underlying MMIO stores are posted.
+     *
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap, and the ordering costs write throughput. A caller that wants either back can take an
+     * @ref IoWindow from @ref create_io_window, pick its own ordering mode and drive it directly,
+     * using @ref IoWindow::configure to advance across chunks larger than the window.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
@@ -415,6 +417,10 @@ public:
      *
      * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
      * respect to each other.
+     *
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap. A caller that needs them to overlap can take an @ref IoWindow from @ref
+     * create_io_window and drive it directly.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.

@@ -14,6 +14,18 @@
 namespace tt::umd {
 
 /**
+ * @brief State of a device's DMA channel, reported by both halves of an asynchronous transfer.
+ */
+enum class DmaState {
+    IDLE,         ///< No transfer in flight.
+    BUSY,         ///< Another thread or process holds the channel. Nothing was programmed.
+    IN_PROGRESS,  ///< Hardware is moving data. The channel stays held.
+    COMPLETE,     ///< The transfer finished and the channel was released.
+    UNAVAILABLE,  ///< DMA is not available on this device, because no DMA buffer was allocated.
+    FAILED,       ///< The transfer did not finish within the DMA timeout. The channel was released.
+};
+
+/**
  * @brief DMA transfer operations between host and device memory.
  *
  * Two transfer modes:
@@ -21,6 +33,9 @@ namespace tt::umd {
  *   unavailable, letting the caller fall back.
  * - Zero-copy: operates directly on caller-managed pinned memory identified by IOVA, bypassing
  *   the staging buffer.
+ *
+ * Zero-copy transfers also come as an asynchronous start/check pair. The hardware has one DMA
+ * channel, so only one transfer is in flight at a time either way.
  */
 class DmaInterface {
 public:
@@ -103,6 +118,40 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         NocId noc_id) = 0;
+
+    /**
+     * @brief Starts a zero-copy D2H DMA transfer and returns without waiting for it.
+     *
+     * On IN_PROGRESS the DMA channel is held until dma_read_zero_copy_check() reports COMPLETE or
+     * FAILED; BUSY and UNAVAILABLE mean nothing was programmed. The destination must stay pinned,
+     * and must not be read, until the transfer is done.
+     */
+    [[nodiscard]] virtual DmaState dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
+     * @brief Reports on the transfer started by dma_read_zero_copy_start(), without waiting.
+     *
+     * Must be called by the thread that started the transfer.
+     */
+    [[nodiscard]] virtual DmaState dma_read_zero_copy_check() = 0;
+
+    /**
+     * @brief Starts a zero-copy H2D DMA transfer and returns without waiting for it.
+     *
+     * On IN_PROGRESS the DMA channel is held until dma_write_zero_copy_check() reports COMPLETE or
+     * FAILED; BUSY and UNAVAILABLE mean nothing was programmed. The source must stay pinned, and
+     * must not be modified, until the transfer is done.
+     */
+    [[nodiscard]] virtual DmaState dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
+     * @brief Reports on the transfer started by dma_write_zero_copy_start(), without waiting.
+     *
+     * Must be called by the thread that started the transfer.
+     */
+    [[nodiscard]] virtual DmaState dma_write_zero_copy_check() = 0;
 };
 
 }  // namespace tt::umd

@@ -23,6 +23,48 @@ DeviceL1AddressParams GrendelImplementation::get_l1_address_params() const {
     return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
 }
 
+namespace grendel {
+
+uint64_t cce_hart_release_bits(RiscType risc_type) {
+    if ((risc_type & RiscType::ALL) != RiscType::NONE ||
+        (risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE ||
+        (risc_type & RiscType::ALL_NEO_DMS) != RiscType::NONE) {
+        return ((1ULL << CCE_NUM_HARTS) - 1) << 1;
+    }
+
+    uint64_t hart_bits = 0;
+    const bool hart0 = (risc_type & RiscType::BRISC) != RiscType::NONE || (risc_type & RiscType::DM0) != RiscType::NONE;
+    const bool hart1 =
+        (risc_type & RiscType::NCRISC) != RiscType::NONE || (risc_type & RiscType::DM1) != RiscType::NONE;
+    if (hart0) {
+        hart_bits |= 1ULL << 1;
+    }
+    if (hart1) {
+        hart_bits |= 1ULL << 2;
+    }
+    if ((risc_type & RiscType::DM2) != RiscType::NONE) {
+        hart_bits |= 1ULL << 3;
+    }
+    if ((risc_type & RiscType::DM3) != RiscType::NONE) {
+        hart_bits |= 1ULL << 4;
+    }
+    if ((risc_type & RiscType::DM4) != RiscType::NONE) {
+        hart_bits |= 1ULL << 5;
+    }
+    if ((risc_type & RiscType::DM5) != RiscType::NONE) {
+        hart_bits |= 1ULL << 6;
+    }
+    if ((risc_type & RiscType::DM6) != RiscType::NONE) {
+        hart_bits |= 1ULL << 7;
+    }
+    if ((risc_type & RiscType::DM7) != RiscType::NONE) {
+        hart_bits |= 1ULL << 8;
+    }
+    return hart_bits;
+}
+
+}  // namespace grendel
+
 uint32_t GrendelImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.

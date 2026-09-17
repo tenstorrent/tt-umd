@@ -6,9 +6,6 @@
 
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 
-#include <chrono>
-#include <string>
-
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -20,10 +17,16 @@ namespace tt::umd {
 // memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
 // the application will require IOMMU support.  One day...
 
-void WormholeDmaTransfer::d2h_transfer(
+namespace {
+
+// Written by the engine to the completion address once the transfer is done. Both directions use the
+// same value: only one transfer is ever in flight on this device.
+constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+
+}  // namespace
+
+void WormholeDmaTransfer::d2h_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size) {
-    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds.
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -60,28 +63,16 @@ void WormholeDmaTransfer::d2h_transfer(
     write_reg(DMA_DAR_LOW_OFF_WRCH_0, static_cast<uint32_t>(dst & 0xFFFFFFFF));
     write_reg(DMA_DAR_HIGH_OFF_WRCH_0, static_cast<uint32_t>((dst >> 32) & 0xFFFFFFFF));
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
-
-    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
-    // CPU and memory bus contention.
-    auto start = std::chrono::steady_clock::now();
-    for (;;) {
-        if (*completion == DMA_COMPLETION_VALUE) {
-            break;
-        }
-
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-        if (elapsed_ms > DMA_TIMEOUT_MS) {
-            UMD_THROW(error::RuntimeError, "DMA timeout.");
-        }
-    }
 }
 
-void WormholeDmaTransfer::h2d_transfer(
+bool WormholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
+    // The completion flag lives in host memory, so this is a coherent load rather than a read across
+    // PCIe: cheap enough to poll in a tight loop.
+    return *reinterpret_cast<const volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
+}
+
+void WormholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
-    static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds.
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -118,22 +109,10 @@ void WormholeDmaTransfer::h2d_transfer(
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_READ_DOORBELL_OFF, 0);
+}
 
-    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
-    // CPU and memory bus contention.
-    auto start = std::chrono::steady_clock::now();
-    for (;;) {
-        if (*completion == DMA_COMPLETION_VALUE) {
-            break;
-        }
-
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-        if (elapsed_ms > DMA_TIMEOUT_MS) {
-            UMD_THROW(error::RuntimeError, "DMA timeout.");
-        }
-    }
+bool WormholeDmaTransfer::h2d_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
+    return *reinterpret_cast<const volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
 }
 
 }  // namespace tt::umd

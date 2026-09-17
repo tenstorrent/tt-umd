@@ -29,6 +29,7 @@
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -255,6 +256,50 @@ public:
      */
     virtual void dma_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Starts a zero-copy D2H DMA transfer and returns without waiting for it.
+     *
+     * Asynchronous counterpart of dma_read_zero_copy. On IN_PROGRESS the device's DMA channel is held
+     * until dma_read_zero_copy_check() reports COMPLETE or FAILED; BUSY and UNAVAILABLE mean nothing
+     * was programmed. Both calls must be made from the same thread. Throws if size exceeds one DMA
+     * window (2 MB on Blackhole, 16 MB on Wormhole).
+     *
+     * @param dst_iova IOVA of the destination buffer, which must stay pinned and unread until done.
+     * @param src_addr Source address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     */
+    [[nodiscard]] virtual DmaState dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Reports on the transfer started by dma_read_zero_copy_start(), without waiting.
+     */
+    [[nodiscard]] virtual DmaState dma_read_zero_copy_check();
+
+    /**
+     * @brief Starts a zero-copy H2D DMA transfer and returns without waiting for it.
+     *
+     * Asynchronous counterpart of dma_write_zero_copy. On IN_PROGRESS the device's DMA channel is
+     * held until dma_write_zero_copy_check() reports COMPLETE or FAILED; BUSY and UNAVAILABLE mean
+     * nothing was programmed. Both calls must be made from the same thread. Throws if size exceeds
+     * one DMA window (2 MB on Blackhole, 16 MB on Wormhole).
+     *
+     * @param src_iova IOVA of the source buffer, which must stay pinned and unmodified until done.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     */
+    [[nodiscard]] virtual DmaState dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Reports on the transfer started by dma_write_zero_copy_start(), without waiting.
+     */
+    [[nodiscard]] virtual DmaState dma_write_zero_copy_check();
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid

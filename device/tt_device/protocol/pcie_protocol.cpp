@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -32,6 +33,14 @@
 #include "utils.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// How long a DMA transfer is given before it is called dead. The blocking transfers throw when it
+// runs out; the asynchronous ones report DmaState::FAILED and give the channel back.
+constexpr auto DMA_TIMEOUT = std::chrono::milliseconds(10000);
+
+}  // namespace
 
 DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
     switch (arch) {
@@ -283,22 +292,28 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
 }
 
 DmaState PcieProtocol::dma_read_zero_copy_start(
-    uint64_t /*dst_iova*/, uint64_t /*src_addr*/, size_t /*size*/, tt_xy_pair /*core*/, NocId /*noc_id*/) {
-    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA read is not implemented yet.");
+    uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_zero_copy_start(
+        dst_iova,
+        size,
+        src_addr,
+        create_dma_tlb_config(src_addr, core, noc_id, WindowFlags::UnicastRead),
+        DmaDirection::D2H);
 }
 
-DmaState PcieProtocol::dma_read_zero_copy_check() {
-    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA read is not implemented yet.");
-}
+DmaState PcieProtocol::dma_read_zero_copy_check() { return dma_zero_copy_check(DmaDirection::D2H); }
 
 DmaState PcieProtocol::dma_write_zero_copy_start(
-    uint64_t /*src_iova*/, uint64_t /*dst_addr*/, size_t /*size*/, tt_xy_pair /*core*/, NocId /*noc_id*/) {
-    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA write is not implemented yet.");
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_zero_copy_start(
+        src_iova,
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite),
+        DmaDirection::H2D);
 }
 
-DmaState PcieProtocol::dma_write_zero_copy_check() {
-    UMD_THROW(error::RuntimeError, "Asynchronous zero-copy DMA write is not implemented yet.");
-}
+DmaState PcieProtocol::dma_write_zero_copy_check() { return dma_zero_copy_check(DmaDirection::H2D); }
 
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
 // the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
@@ -323,6 +338,10 @@ tlb_data PcieProtocol::create_dma_tlb_config(
 
 bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
     std::scoped_lock lock(dma_mutex_);
+    UMD_ASSERT(
+        !in_flight_dma_.has_value(),
+        error::RuntimeError,
+        "A DMA transfer started asynchronously is still in flight on this device; check it before starting another.");
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -343,9 +362,9 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
         if (direction == DmaDirection::H2D) {
             std::memcpy(dma_buffer.buffer, buf, transfer_size);
-            dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
+            dma_transfer_and_wait(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size, direction);
         } else {
-            dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+            dma_transfer_and_wait(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size, direction);
             std::memcpy(buf, dma_buffer.buffer, transfer_size);
         }
 
@@ -360,6 +379,10 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 bool PcieProtocol::dma_transfer_zero_copy(
     uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
     std::scoped_lock lock(dma_mutex_);
+    UMD_ASSERT(
+        !in_flight_dma_.has_value(),
+        error::RuntimeError,
+        "A DMA transfer started asynchronously is still in flight on this device; check it before starting another.");
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -375,11 +398,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
         const uint64_t axi_address = target_dma_window(*tlb_window, config, addr);
         const size_t transfer_size = std::min(size, tlb_window->get_size());
 
-        if (direction == DmaDirection::H2D) {
-            dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
-        } else {
-            dma_d2h_transfer(iova, static_cast<uint32_t>(axi_address), transfer_size);
-        }
+        dma_transfer_and_wait(iova, static_cast<uint32_t>(axi_address), transfer_size, direction);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -415,50 +434,155 @@ uint64_t PcieProtocol::target_dma_window(TlbWindow& tlb_window, tlb_data& config
     return axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 }
 
-void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-    volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
+void PcieProtocol::validate_dma_transfer(
+    const uint64_t /*host_addr*/, const uint32_t axi_address, const size_t size, const DmaDirection direction) {
+    const DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (!dma_buffer.completion || !dma_buffer.buffer) {
         UMD_THROW(error::RuntimeError, "DMA buffer is not initialized.");
     }
 
-    if (src % 4 != 0) {
-        UMD_THROW(error::RuntimeError, "DMA source address must be aligned to 4 bytes.");
+    // Only the device side address is checked; the host side is an IOVA or a physical address the
+    // caller got from us.
+    if (axi_address % 4 != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            direction == DmaDirection::H2D ? "DMA destination address must be aligned to 4 bytes."
+                                           : "DMA source address must be aligned to 4 bytes.");
     }
 
     if (size % 4 != 0) {
         UMD_THROW(error::RuntimeError, "DMA size must be a multiple of 4.");
     }
 
-    if (!bar2) {
+    if (!pci_device_->bar2_uc) {
         UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
     }
-
-    std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
 }
 
-void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+void PcieProtocol::dma_start(
+    const uint64_t host_addr, const uint32_t axi_address, const size_t size, const DmaDirection direction) {
+    validate_dma_transfer(host_addr, axi_address, size, direction);
+
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
-    if (!dma_buffer.completion || !dma_buffer.buffer) {
-        UMD_THROW(error::RuntimeError, "DMA buffer is not initialized.");
+    std::visit(
+        [&](auto& strategy) {
+            if (direction == DmaDirection::H2D) {
+                strategy.h2d_start(bar2, dma_buffer, axi_address, host_addr, size);
+            } else {
+                strategy.d2h_start(bar2, dma_buffer, host_addr, axi_address, size);
+            }
+        },
+        dma_strategy_);
+}
+
+bool PcieProtocol::dma_is_complete(const DmaDirection direction) {
+    const DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+    const volatile uint8_t* bar2 = reinterpret_cast<const volatile uint8_t*>(pci_device_->bar2_uc);
+
+    return std::visit(
+        [&](auto& strategy) {
+            return direction == DmaDirection::H2D ? strategy.h2d_is_complete(bar2, dma_buffer)
+                                                  : strategy.d2h_is_complete(bar2, dma_buffer);
+        },
+        dma_strategy_);
+}
+
+void PcieProtocol::dma_transfer_and_wait(
+    const uint64_t host_addr, const uint32_t axi_address, const size_t size, const DmaDirection direction) {
+    dma_start(host_addr, axi_address, size, direction);
+
+    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
+    // CPU and memory bus contention.
+    const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;
+    while (!dma_is_complete(direction)) {
+        if (std::chrono::steady_clock::now() > deadline) {
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
+        }
+    }
+}
+
+std::unique_lock<MutexInterface> PcieProtocol::try_acquire_dma_channel() {
+    return LockManager::try_acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
+}
+
+DmaState PcieProtocol::dma_zero_copy_start(
+    uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
+    std::scoped_lock lock(dma_mutex_);
+
+    // Answered before the channel is asked for. This process already holds the channel when a
+    // transfer is in flight, and asking a non-recursive lock for it again would deadlock or fail
+    // rather than say what is actually going on.
+    if (in_flight_dma_.has_value()) {
+        return DmaState::BUSY;
     }
 
-    if (dst % 4 != 0) {
-        UMD_THROW(error::RuntimeError, "DMA destination address must be aligned to 4 bytes.");
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+    if (dma_buffer.buffer == nullptr) {
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return DmaState::UNAVAILABLE;
     }
 
-    if (size % 4 != 0) {
-        UMD_THROW(error::RuntimeError, "DMA size must be a multiple of 4.");
+    auto dma_channel = try_acquire_dma_channel();
+    if (!dma_channel.owns_lock()) {
+        return DmaState::BUSY;
     }
 
-    if (!bar2) {
-        UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
+    // Everything below runs with the channel held, so anything that throws releases it on the way out.
+    TlbWindow* tlb_window = get_dma_tlb_window(config);
+
+    // One start programs one descriptor, so a transfer that would not fit the window cannot be
+    // expressed. Splitting it would mean ringing the doorbell again from the check, and retargeting
+    // the window in between, which is a state machine this does not have yet.
+    const size_t tlb_size = tlb_window->get_size();
+    if (size > tlb_size) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Asynchronous DMA transfer of {} bytes exceeds the {} byte DMA window. Split it, or use the blocking "
+                "transfer, which chunks it.",
+                size,
+                tlb_size));
     }
 
-    std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+    dma_start(iova, static_cast<uint32_t>(target_dma_window(*tlb_window, config, addr)), size, direction);
+
+    in_flight_dma_ = InFlightDma{direction, std::chrono::steady_clock::now() + DMA_TIMEOUT};
+    dma_channel_lock_ = std::move(dma_channel);
+
+    return DmaState::IN_PROGRESS;
+}
+
+DmaState PcieProtocol::dma_zero_copy_check(DmaDirection direction) {
+    std::scoped_lock lock(dma_mutex_);
+
+    // Also what a second check after a COMPLETE one reports, rather than claiming a failure.
+    if (!in_flight_dma_.has_value() || in_flight_dma_->direction != direction) {
+        return DmaState::IDLE;
+    }
+
+    if (dma_is_complete(direction)) {
+        in_flight_dma_.reset();
+        dma_channel_lock_.unlock();
+        return DmaState::COMPLETE;
+    }
+
+    if (std::chrono::steady_clock::now() > in_flight_dma_->deadline) {
+        // The channel is given up rather than held forever. The engine may still be running, which is
+        // the same exposure the blocking transfer has when it throws on timeout.
+        log_error(
+            LogUMD,
+            "DMA transfer on PCI device {} did not complete within {} ms; giving up the DMA channel.",
+            pci_device_->get_device_num(),
+            std::chrono::duration_cast<std::chrono::milliseconds>(DMA_TIMEOUT).count());
+        in_flight_dma_.reset();
+        dma_channel_lock_.unlock();
+        return DmaState::FAILED;
+    }
+
+    return DmaState::IN_PROGRESS;
 }
 
 }  // namespace tt::umd

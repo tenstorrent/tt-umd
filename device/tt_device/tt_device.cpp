@@ -732,6 +732,44 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     }
 }
 
+// The DMA channel these hold between start and check is taken inside PcieProtocol, which owns the
+// engine and the in-flight state it guards. There is nothing to lock here.
+DmaState TTDevice::dma_read_zero_copy_start(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    return get_dma_interface()->dma_read_zero_copy_start(
+        dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+DmaState TTDevice::dma_read_zero_copy_check() {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    return get_dma_interface()->dma_read_zero_copy_check();
+}
+
+DmaState TTDevice::dma_write_zero_copy_start(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    return get_dma_interface()->dma_write_zero_copy_start(
+        src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+DmaState TTDevice::dma_write_zero_copy_check() {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    return get_dma_interface()->dma_write_zero_copy_check();
+}
+
 const SocDescriptor &TTDevice::get_soc_descriptor() const {
     if (!soc_descriptor_.has_value()) {
         UMD_THROW(error::UninitializedDeviceError, *this);

@@ -17,6 +17,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
@@ -319,6 +320,38 @@ inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 12;
 inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 // inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
+
+// CCE hart reset is an SMC register, not a per-core Tensix SOFT_RESET. Bit 0 is the uncore
+// (1 = released). Bits 1-8 are harts 0-7 (1 = released). That polarity is the inverse of Tensix.
+inline constexpr uint64_t CCE_RESET_VECTOR_BASE = 0x02000000;
+inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
+inline constexpr uint64_t CCE_HSIO_TILE_STRIDE = 0x04000000;
+inline constexpr uint64_t CCE_WITHIN_TILE_STRIDE = 0x01000000;
+inline constexpr uint32_t CCE_PER_HSIO_TILE = 2;
+inline constexpr uint32_t CCE_NUM_HARTS = 8;
+inline constexpr uint64_t CCE_UNCORE_RELEASED = 0x1;
+inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
+
+inline constexpr uint64_t cce_control_addr(uint64_t base, uint32_t cce_index) {
+    return base + (cce_index / CCE_PER_HSIO_TILE) * CCE_HSIO_TILE_STRIDE +
+           (cce_index % CCE_PER_HSIO_TILE) * CCE_WITHIN_TILE_STRIDE;
+}
+
+inline constexpr uint64_t cce_pf_ctrl_reset_addr(uint32_t cce_index) {
+    return cce_control_addr(CCE_PF_CTRL_RESET_BASE, cce_index);
+}
+
+inline constexpr uint64_t cce_reset_vector_addr(uint32_t cce_index) {
+    return cce_control_addr(CCE_RESET_VECTOR_BASE, cce_index);
+}
+
+inline constexpr bool is_cce_reset_vector_addr(uint64_t addr) {
+    return addr >= CCE_RESET_VECTOR_BASE &&
+           addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
+}
+
+// Bits 1-8 of PF_CTRL_RESET corresponding to the selected CCE harts. 0 if nothing maps.
+uint64_t cce_hart_release_bits(RiscType risc_type);
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.

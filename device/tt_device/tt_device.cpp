@@ -10,8 +10,10 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -25,6 +27,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -50,6 +53,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
@@ -60,7 +64,93 @@
 #include "utils.hpp"
 
 namespace tt::umd {
-enum class RiscType : std::uint64_t;
+namespace {
+
+struct CceSmcTarget {
+    CoreCoord smc;
+    uint32_t cce_index = 0;
+};
+
+std::optional<CceSmcTarget> cce_smc_target(TTDevice& device, CoreCoord core) {
+    const tt::ARCH arch = device.get_arch();
+    if (arch != tt::ARCH::QUASAR && arch != tt::ARCH::GRENDEL) {
+        return std::nullopt;
+    }
+
+    // Chips flatten the caller's CoreCoord to an xy_pair before reaching here, so the coordinate
+    // arrives LITERAL. Treat it as TRANSLATED explicitly rather than trusting coord_system.
+    const SocDescriptor& soc = device.get_soc_descriptor();
+    const tt_xy_pair core_xy(core.x, core.y);
+    if (!soc.is_core_of_type(core_xy, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+        return std::nullopt;
+    }
+
+    const auto smc_cores = soc.get_cores(CoreType::SMC, CoordSystem::TRANSLATED);
+    UMD_ASSERT(
+        smc_cores.size() == 1,
+        error::RuntimeError,
+        fmt::format("Quasar CCE control requires exactly one SMC core, found {}.", smc_cores.size()));
+
+    return CceSmcTarget{
+        smc_cores.front(),
+        static_cast<uint32_t>(soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x)};
+}
+
+// CCE hart reset lives in the SMC PF_CTRL_RESET register, not a per-core Tensix SOFT_RESET.
+// Polarity is inverted vs Tensix: 1 means the hart/uncore is released. Returns true when the
+// core is a Quasar/Grendel DRAM (CCE) core and the SMC write was issued.
+bool apply_cce_risc_reset(TTDevice& device, CoreCoord core, RiscType selected_riscs, bool release) {
+    const auto target = cce_smc_target(device, core);
+    if (!target.has_value()) {
+        return false;
+    }
+
+    const uint64_t addr = grendel::cce_pf_ctrl_reset_addr(target->cce_index);
+    const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+    if (hart_bits == 0) {
+        return true;
+    }
+
+    uint64_t current = 0;
+    device.read_from_device(&current, target->smc, addr, sizeof(current));
+    uint64_t next = current | grendel::CCE_UNCORE_RELEASED;
+    if (release) {
+        next |= hart_bits;
+    } else {
+        next &= ~hart_bits;
+    }
+    device.write_to_device(&next, target->smc, addr, sizeof(next));
+    tt_driver_atomics::sfence();
+    return true;
+}
+
+// A write_reg/write_to_device targeting a CCE DRAM core at CCE_RESET_VECTOR_BASE is an SMC
+// PF_CTRL reset-vector write, not a core-local register. Hart 0 (the boot vector) is broadcast
+// to all eight harts so they share the same entry point.
+bool apply_cce_reset_vector_write(TTDevice& device, const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    if (!grendel::is_cce_reset_vector_addr(addr)) {
+        return false;
+    }
+    const auto target = cce_smc_target(device, core);
+    if (!target.has_value()) {
+        return false;
+    }
+
+    uint64_t reset_vector = 0;
+    std::memcpy(&reset_vector, mem_ptr, std::min(size, sizeof(reset_vector)));
+    const uint64_t hart_offset = addr - grendel::CCE_RESET_VECTOR_BASE;
+    const uint64_t smc_base = grendel::cce_reset_vector_addr(target->cce_index);
+    const uint32_t first_hart = static_cast<uint32_t>(hart_offset / grendel::CCE_HART_RESET_VECTOR_STRIDE);
+    const uint32_t last_hart = (hart_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
+    for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
+        device.write_to_device(
+            &reset_vector, target->smc, smc_base + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE, sizeof(reset_vector));
+    }
+    tt_driver_atomics::sfence();
+    return true;
+}
+
+}  // namespace
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
@@ -437,6 +527,9 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
+    if (apply_cce_reset_vector_write(*this, mem_ptr, core, addr, size)) {
+        return;
+    }
     get_device_protocol()->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
@@ -447,6 +540,9 @@ void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
+    if (apply_cce_reset_vector_write(*this, mem_ptr, core, addr, size)) {
+        return;
+    }
     get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
@@ -600,6 +696,9 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    if (apply_cce_risc_reset(*this, core, selected_riscs, /*release=*/false)) {
+        return;
+    }
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
@@ -607,6 +706,9 @@ void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) 
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    if (apply_cce_risc_reset(*this, core, selected_riscs, /*release=*/true)) {
+        return;
+    }
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;

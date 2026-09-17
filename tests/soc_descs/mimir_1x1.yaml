@@ -25,23 +25,25 @@ dram:
 
 # Dram view parameters are used by tt-metal and are not recognized by UMD.
 # One view per GDDR instance; each bank is a single DRAM tile (subchannel 0).
-# There is no Ethernet, so eth_endpoint is empty. worker_endpoint names that tile
-# so Metal can address the bank without inventing Tensix endpoints.
+# Both endpoint lists are indexed by NOC id, so each names that one tile once per
+# NOC (the same convention quasar_simulation_9x4.yaml uses). Mimir has no Ethernet,
+# but eth_endpoint still has to name a tile: Metal reads it per NOC when it builds
+# the addressable-DRAM list, and the repeats collapse to the single tile.
 # programmable: true marks the channel as a Mimir CCE (Metal DRAM core). Omitted
 # defaults to false.
 dram_views:
   [
     {
       channel: 0,
-      eth_endpoint: [],
-      worker_endpoint: [0],
+      eth_endpoint: [0, 0],
+      worker_endpoint: [0, 0],
       address_offset: 0,
       programmable: true
     },
     {
       channel: 1,
-      eth_endpoint: [],
-      worker_endpoint: [0],
+      eth_endpoint: [0, 0],
+      worker_endpoint: [0, 0],
       address_offset: 0,
       programmable: true
     }

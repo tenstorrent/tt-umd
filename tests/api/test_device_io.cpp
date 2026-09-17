@@ -502,28 +502,6 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 // Touch the ends of a range rather than streaming it: on the emulator a single 4 MB transfer
 // already dominates a run, so covering 1 GB of DRAM by filling it is not viable. A wrong window
 // stride shows up at the top of a range, which is what these probe.
-namespace {
-
-// Write a distinct pattern at `offset`, read it back, and compare.
-void expect_round_trip(Cluster& cluster, ChipId chip_id, const CoreCoord& core, uint64_t offset, uint32_t seed) {
-    SCOPED_TRACE(fmt::format("core {} offset {:#x}", core.str(), offset));
-
-    constexpr size_t block_size = 256;
-    std::vector<uint8_t> data(block_size);
-    for (size_t i = 0; i < block_size; i++) {
-        data[i] = static_cast<uint8_t>((i + seed) % 256);
-    }
-    std::vector<uint8_t> readback(block_size, 0);
-
-    cluster.write_to_device(data.data(), block_size, chip_id, core, offset);
-    cluster.wait_for_non_mmio_flush(chip_id);
-    cluster.read_from_device(readback.data(), chip_id, core, offset, block_size);
-
-    EXPECT_EQ(data, readback);
-}
-
-}  // namespace
-
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1AcrossItsRange) {
     const ClusterOptions& options = GetParam();
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
@@ -536,11 +514,12 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1AcrossItsRange) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX)[0];
         const uint64_t l1_size = static_cast<uint64_t>(soc_desc.worker_l1_size);
-        ASSERT_GT(l1_size, SAFE_IO_L1_ADDRESS + 512);
+        // Room for the block at SAFE_IO_L1_ADDRESS and the one at the top without the two overlapping.
+        ASSERT_GT(l1_size, SAFE_IO_L1_ADDRESS + 2 * BLOCK_SIZE);
 
         expect_round_trip(*cluster, chip_id, tensix_core, SAFE_IO_L1_ADDRESS, 0x11);
         expect_round_trip(*cluster, chip_id, tensix_core, l1_size / 2, 0x22);
-        expect_round_trip(*cluster, chip_id, tensix_core, l1_size - 256, 0x33);
+        expect_round_trip(*cluster, chip_id, tensix_core, l1_size - BLOCK_SIZE, 0x33);
     }
 }
 
@@ -557,7 +536,8 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         ASSERT_FALSE(dram_cores.empty());
         const uint64_t bank_size = soc_desc.dram_bank_size;
-        ASSERT_GT(bank_size, 512u);
+        // Room for the block at the bottom of the bank and the one at the top without the two overlapping.
+        ASSERT_GT(bank_size, 2 * BLOCK_SIZE);
 
         expect_round_trip(*cluster, chip_id, dram_cores[0], 0x0, 0x44);
         expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size / 2, 0x55);
@@ -566,7 +546,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
         // core addresses. On Blackhole it is not: the probe at bank_size / 2 passes and this one
         // reads back zeros, and the descriptor does not say where a bank's addressable top is.
         if (options.chip_type == ChipType::SIMULATION) {
-            expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - 256, 0x66);
+            expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
         }
     }
 }
@@ -586,9 +566,13 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteEveryDramChannel) {
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         ASSERT_FALSE(dram_cores.empty());
 
-        constexpr size_t block_size = 256;
-        std::vector<std::vector<uint8_t>> written;
-        std::vector<CoreCoord> probed;
+        // What one channel was given, so its readback has something to be checked against.
+        struct ChannelProbe {
+            CoreCoord core;
+            std::array<uint8_t, BLOCK_SIZE> data;
+        };
+
+        std::vector<ChannelProbe> probes;
 
         // One core per channel: LOGICAL x is the channel, so take the first core of each.
         for (const CoreCoord& core : dram_cores) {
@@ -596,22 +580,18 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteEveryDramChannel) {
             if (logical.y != 0) {
                 continue;
             }
-            std::vector<uint8_t> data(block_size);
-            for (size_t i = 0; i < block_size; i++) {
-                data[i] = static_cast<uint8_t>((i + logical.x * 7 + 1) % 256);
-            }
-            cluster->write_to_device(data.data(), block_size, chip_id, core, 0x0);
-            written.push_back(std::move(data));
-            probed.push_back(core);
+            ChannelProbe& probe = probes.emplace_back(ChannelProbe{core, {}});
+            fill_block(probe.data, logical.x * 7 + 1);
+            cluster->write_to_device(probe.data.data(), BLOCK_SIZE, chip_id, core, 0x0);
         }
-        ASSERT_FALSE(probed.empty());
+        ASSERT_FALSE(probes.empty());
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        for (size_t i = 0; i < probed.size(); i++) {
-            SCOPED_TRACE(fmt::format("dram core {}", probed[i].str()));
-            std::vector<uint8_t> readback(block_size, 0);
-            cluster->read_from_device(readback.data(), chip_id, probed[i], 0x0, block_size);
-            EXPECT_EQ(written[i], readback);
+        for (const ChannelProbe& probe : probes) {
+            SCOPED_TRACE(fmt::format("dram core {}", probe.core.str()));
+            readback_.fill(0);
+            cluster->read_from_device(readback_.data(), chip_id, probe.core, 0x0, BLOCK_SIZE);
+            EXPECT_EQ(probe.data, readback_);
         }
     }
 }

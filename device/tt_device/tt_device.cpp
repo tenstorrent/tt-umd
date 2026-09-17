@@ -66,14 +66,7 @@ enum class RiscType : std::uint64_t;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {
-    if (model_->get_pcie_interface() != nullptr) {
-        // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
-        LockManager::initialize_mutex(
-            MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-    }
-    wire_hang_detector();
-}
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
 
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
@@ -672,9 +665,6 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
@@ -682,7 +672,6 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
     }
 
     // DMA unavailable, fall back to regular write.
-    pcie_dma_lock.unlock();
     write_to_device(src, core, dst_addr, size, noc_id);
 }
 
@@ -691,9 +680,6 @@ void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord cor
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
@@ -701,7 +687,6 @@ void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord cor
     }
 
     // DMA unavailable, fall back to regular read.
-    pcie_dma_lock.unlock();
     read_from_device(dst, core, src_addr, size, noc_id);
 }
 
@@ -711,9 +696,6 @@ void TTDevice::dma_write_to_core_range(
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
         src, dst_addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
@@ -723,7 +705,6 @@ void TTDevice::dma_write_to_core_range(
     }
 
     // DMA unavailable, fall back to regular multicast write.
-    pcie_dma_lock.unlock();
     noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
 }
 
@@ -732,9 +713,6 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     bool dma_success =
         get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
@@ -747,9 +725,6 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     bool dma_success =
         get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {

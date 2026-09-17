@@ -15,6 +15,7 @@
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
+#include "umd/device/tt_device/reset/risc_reset_implementation.hpp"
 
 namespace tt::umd {
 
@@ -50,6 +51,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
 
+    risc_reset_ = std::make_unique<RiscResetImplementation>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, architecture_impl_.get());
 }
@@ -66,6 +68,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     hang_detector_ = std::make_unique<BlackholeHangDetector>(
         protocol_.get(), read_noc_translation_enabled(/*pcie_interface=*/nullptr, jtag_interface_));
 
+    risc_reset_ = std::make_unique<RiscResetImplementation>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, architecture_impl_.get());
 }
@@ -77,6 +80,8 @@ BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 
 DeviceFirmware *BlackholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
+
+RiscReset *BlackholeTTDeviceModel::get_risc_reset() { return risc_reset_.get(); }
 
 FirmwareTelemetryReader *BlackholeTTDeviceModel::get_firmware_telemetry_reader() {
     return device_firmware_->get_firmware_telemetry_reader();

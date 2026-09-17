@@ -82,7 +82,14 @@ public:
 
 private:
     TlbWindow* get_cached_tlb_window();
-    TlbWindow* get_cached_dma_tlb_window(tlb_data config);
+    // Allocates the DMA window on first use and hands it back. Aiming it at an address is
+    // target_dma_window()'s job, so a caller that is about to do that does not configure twice.
+    TlbWindow* get_dma_tlb_window(const tlb_data& config);
+
+    // Points the DMA window at addr and returns the AXI address the engine reaches it through. The
+    // window covers a size-aligned span, so that address is the window's base plus addr's offset
+    // into the span.
+    uint64_t target_dma_window(TlbWindow& tlb_window, tlb_data& config, uint64_t addr);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);

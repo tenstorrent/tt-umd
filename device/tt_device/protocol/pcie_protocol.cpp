@@ -317,19 +317,11 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     auto dma_channel = acquire_dma_channel();
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
-    size_t dmabuf_size = dma_buffer.size;
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
-
-    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    TlbWindow* tlb_window = get_dma_tlb_window(config);
 
     while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        const uint64_t axi_address = target_dma_window(*tlb_window, config, addr);
+        const size_t transfer_size = std::min({size, tlb_window->get_size(), dma_buffer.size});
 
         if (direction == DmaDirection::H2D) {
             std::memcpy(dma_buffer.buffer, buf, transfer_size);
@@ -342,10 +334,6 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         size -= transfer_size;
         addr += transfer_size;
         buf += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 
     return true;
@@ -363,18 +351,11 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
     auto dma_channel = acquire_dma_channel();
 
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
-
-    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    TlbWindow* tlb_window = get_dma_tlb_window(config);
 
     while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min(size, tlb_size);
+        const uint64_t axi_address = target_dma_window(*tlb_window, config, addr);
+        const size_t transfer_size = std::min(size, tlb_window->get_size());
 
         if (direction == DmaDirection::H2D) {
             dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
@@ -385,10 +366,6 @@ bool PcieProtocol::dma_transfer_zero_copy(
         size -= transfer_size;
         addr += transfer_size;
         iova += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 
     return true;
@@ -398,18 +375,26 @@ std::unique_lock<MutexInterface> PcieProtocol::acquire_dma_channel() {
     return LockManager::acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
-TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
+TlbWindow* PcieProtocol::get_dma_tlb_window(const tlb_data& config) {
     if (cached_dma_tlb_window_ == nullptr) {
         // The DMA engine, not the host, reads through this window, so it is not ordered behind our
         // config write - pass verify_config so every configure() confirms it landed first.
         auto handle = pci_device_->allocate_tlb(
             get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC, /*verify_config=*/true);
         cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(std::move(handle), config);
-        return cached_dma_tlb_window_.get();
     }
-
-    cached_dma_tlb_window_->configure(config);
     return cached_dma_tlb_window_.get();
+}
+
+uint64_t PcieProtocol::target_dma_window(TlbWindow& tlb_window, tlb_data& config, uint64_t addr) {
+    config.local_offset = addr;
+    tlb_window.configure(config);
+
+    const uint64_t axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
+                                          .get_configuration(tlb_window.handle_ref().get_tlb_id())
+                                          .tlb_offset;
+    const size_t tlb_handle_size = tlb_window.handle_ref().get_size();
+    return axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 }
 
 void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {

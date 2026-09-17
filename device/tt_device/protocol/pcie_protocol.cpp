@@ -58,7 +58,11 @@ size_t PcieProtocol::get_dma_tlb_size(tt::ARCH arch) {
 PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     pci_device_(std::move(pci_device)),
     dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
-    use_safe_api_(use_safe_api) {}
+    use_safe_api_(use_safe_api) {
+    // The DMA engine is one per device and shared with every other process that has it open, so the
+    // lock guarding it is set up here, where it is taken.
+    LockManager::initialize_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
+}
 
 PcieProtocol::~PcieProtocol() = default;
 
@@ -308,6 +312,10 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         return false;
     }
 
+    // Taken after the availability check, so a caller that is about to fall back to MMIO does not
+    // queue up behind other processes for a channel it will not use. Released when this returns.
+    auto dma_channel = acquire_dma_channel();
+
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
@@ -353,6 +361,8 @@ bool PcieProtocol::dma_transfer_zero_copy(
         return false;
     }
 
+    auto dma_channel = acquire_dma_channel();
+
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
@@ -382,6 +392,10 @@ bool PcieProtocol::dma_transfer_zero_copy(
     }
 
     return true;
+}
+
+std::unique_lock<MutexInterface> PcieProtocol::acquire_dma_channel() {
+    return LockManager::acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {

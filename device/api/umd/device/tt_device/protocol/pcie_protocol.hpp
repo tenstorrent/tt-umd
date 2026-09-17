@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -74,8 +75,6 @@ public:
     bool dma_multicast_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
         override;
-    // Declared so the interface is complete; every one of these throws until the asynchronous
-    // transfer is implemented.
     [[nodiscard]] DmaState dma_read_zero_copy_start(
         uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
     [[nodiscard]] DmaState dma_read_zero_copy_check() override;
@@ -102,9 +101,6 @@ private:
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);
 
-    void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
-    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
-
     void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);
 
@@ -119,8 +115,35 @@ private:
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     // Takes the PCIE_DMA lock, which is what keeps other processes off this device's one DMA engine.
-    // Callers hold dma_mutex_, and always take the two in that order.
+    // acquire_dma_channel() waits for it; try_acquire_dma_channel() hands back a lock owning nothing
+    // when it is taken, which the caller checks with owns_lock().
+    // Callers hold dma_mutex_ and have already found in_flight_dma_ empty. Taking the two in that
+    // order everywhere is what keeps a blocking transfer from waiting on a channel this process
+    // holds for an asynchronous one.
     std::unique_lock<MutexInterface> acquire_dma_channel();
+    std::unique_lock<MutexInterface> try_acquire_dma_channel();
+
+    // Programs one descriptor and rings the doorbell. Callers hold dma_mutex_.
+    void dma_start(uint64_t host_addr, uint32_t axi_address, size_t size, DmaDirection direction);
+    // Reads back whether the transfer dma_start() programmed has finished. Callers hold dma_mutex_.
+    bool dma_is_complete(DmaDirection direction);
+    // dma_start() followed by polling dma_is_complete(), throwing on timeout. Callers hold dma_mutex_.
+    void dma_transfer_and_wait(uint64_t host_addr, uint32_t axi_address, size_t size, DmaDirection direction);
+
+    // Shared halves of the asynchronous transfers. Both take dma_mutex_ themselves.
+    DmaState dma_zero_copy_start(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
+    DmaState dma_zero_copy_check(DmaDirection direction);
+
+    // Validates the addresses and size a transfer is about to be programmed with, throwing on
+    // anything the DMA engine cannot do.
+    void validate_dma_transfer(uint64_t host_addr, uint32_t axi_address, size_t size, DmaDirection direction);
+
+    // The transfer an asynchronous start left running, until its check reports it done. Also what
+    // makes a second start, or a blocking transfer, refuse to touch the engine meanwhile.
+    struct InFlightDma {
+        DmaDirection direction;
+        std::chrono::steady_clock::time_point deadline;
+    };
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
@@ -132,6 +155,12 @@ private:
     // Guards the DMA engine registers and the DMA TLB window against threads of this process. Other
     // processes are kept out by the PCIE_DMA lock, which this is always taken before.
     std::mutex dma_mutex_;
+    std::optional<InFlightDma> in_flight_dma_;
+    // The PCIE_DMA lock while an asynchronous transfer is in flight, from its start until the check
+    // that reports it done. A blocking transfer takes and releases the same lock within one call and
+    // leaves this alone. Released on destruction if a caller never checked, which does not stop
+    // hardware: a transfer still running then keeps writing where it was told to.
+    std::unique_lock<MutexInterface> dma_channel_lock_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 

@@ -6,24 +6,32 @@
 
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 
-#include <chrono>
-#include <string>
-
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-void BlackholeDmaTransfer::d2h_transfer(
+namespace {
+
+// Transfer size register of read channel 0. The engine counts it down to zero as it moves data, so
+// reading it back is how a transfer is known to be done.
+constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
+
+}  // namespace
+
+void BlackholeDmaTransfer::d2h_start(
     volatile uint8_t* /*bar2*/, DmaBuffer& /*dma_buffer*/, uint64_t /*dst*/, uint32_t /*src*/, size_t /*size*/) {
     UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
-void BlackholeDmaTransfer::h2d_transfer(
+bool BlackholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& /*dma_buffer*/) {
+    UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
+}
+
+void BlackholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
     static constexpr uint32_t EN_OFF_RDCH_0 = 0x100;
     static constexpr uint32_t DOORBELL_OFF_RDCH_0 = 0x104;
-    static constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
     static constexpr uint32_t SAR_LOW_OFF_RDCH_0 = 0x120;
     static constexpr uint32_t SAR_HIGH_OFF_RDCH_0 = 0x124;
     static constexpr uint32_t DAR_LOW_OFF_RDCH_0 = 0x128;
@@ -34,13 +42,10 @@ void BlackholeDmaTransfer::h2d_transfer(
     static constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
     static constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
     static constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
-    static constexpr uint32_t DMA_TIMEOUT_MS = 10000;
 
     auto write_reg = [&](uint32_t offset, uint32_t value) {
         *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
     };
-
-    auto read_reg = [&](uint32_t offset) -> uint32_t { return *reinterpret_cast<volatile uint32_t*>(bar2 + offset); };
 
     // Configure interrupt setup: enable local interrupt (bit 3) and remote stop interrupt (bit 5).
     write_reg(INT_SETUP_OFF_RDCH_0, 0x28);
@@ -66,18 +71,10 @@ void BlackholeDmaTransfer::h2d_transfer(
     // Set transfer size and ring the doorbell to start the DMA.
     write_reg(XFERSIZE_OFF_RDCH_0, static_cast<uint32_t>(size));
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
+}
 
-    // WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
-    // CPU and memory bus contention.
-    auto start = std::chrono::steady_clock::now();
-    while (read_reg(XFERSIZE_OFF_RDCH_0) != 0) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-
-        if (elapsed_ms > DMA_TIMEOUT_MS) {
-            UMD_THROW(error::RuntimeError, "DMA timeout.");
-        }
-    }
+bool BlackholeDmaTransfer::h2d_is_complete(const volatile uint8_t* bar2, const DmaBuffer& /*dma_buffer*/) {
+    return *reinterpret_cast<const volatile uint32_t*>(bar2 + XFERSIZE_OFF_RDCH_0) == 0;
 }
 
 }  // namespace tt::umd

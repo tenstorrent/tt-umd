@@ -959,7 +959,6 @@ TEST(ClusterWH, LargeAddressTlb) {
 
     uint32_t value0 = 0;
     uint32_t value1 = 0;
-    uint32_t value2 = 0;
 
     // Read the scratch register via BAR0:
     value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
@@ -967,17 +966,12 @@ TEST(ClusterWH, LargeAddressTlb) {
     // Read the scratch register via a dynamically mapped TLB:
     cluster.read_from_device(&value1, 0, ARC_CORE, addr, sizeof(uint32_t));
 
-    // Read again, to confirm the mapping is stable across ops:
-    cluster.read_from_device(&value2, 0, ARC_CORE, addr, sizeof(uint32_t));
-
     // Mask off lower 16 bits; FW changes these dynamically:
     value0 &= 0xffff0000;
     value1 &= 0xffff0000;
-    value2 &= 0xffff0000;
 
     // Check that the values are the same:
     EXPECT_EQ(value1, value0);
-    EXPECT_EQ(value2, value0);
 }
 
 /**

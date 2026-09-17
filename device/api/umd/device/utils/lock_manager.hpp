@@ -82,6 +82,13 @@ public:
     static std::unique_lock<MutexInterface> acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
+    // Takes the lock if it is free and returns right away either way. The returned lock owns the
+    // mutex only if it was acquired, which the caller checks with owns_lock(). For callers that have
+    // something better to do than wait: a contended acquire_mutex() on a KMD backed lock polls once a
+    // millisecond, which is a long time to spend on a lock that was never going to be free.
+    static std::unique_lock<MutexInterface> try_acquire_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
+
     // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is
     // held, and std::nullopt if it is not - which covers both a mutex nobody had taken and one whose owner died holding
     // it, since probing a shared memory mutex recovers it from a dead owner rather than reporting it as held. Since a

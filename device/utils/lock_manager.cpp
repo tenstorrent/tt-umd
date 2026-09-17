@@ -208,6 +208,25 @@ std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     return acquire_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
 }
 
+std::unique_lock<MutexInterface> LockManager::try_acquire_mutex(
+    MutexType mutex_type, int device_id, IODeviceType device_type) {
+    // Both backends register a chip specific lock under the same name, so the lookup does not depend
+    // on which one backs it.
+    MutexInterface& mutex = get_initialized_mutex(get_mutex_name(mutex_type, device_id, device_type));
+
+    // probe_lock() with no timeout is already the non-blocking acquire every backend has: it takes
+    // the lock when it is free and reports the owner when it is not. Using it here keeps
+    // MutexInterface as it is - no backend has to grow a try_lock() for this.
+    if (mutex.probe_lock(std::chrono::seconds(0)).has_value()) {
+        // Held elsewhere. The lock is handed back not owning anything, so the caller's owns_lock()
+        // is false and its destructor releases nothing.
+        return std::unique_lock(mutex, std::defer_lock);
+    }
+
+    // probe_lock() acquired it, so adopt what is already held rather than locking a second time.
+    return std::unique_lock(mutex, std::adopt_lock);
+}
+
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(MutexType mutex_type) {
     return probe_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }

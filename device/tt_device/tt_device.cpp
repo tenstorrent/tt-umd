@@ -124,33 +124,36 @@ bool apply_cce_risc_reset(TTDevice& device, CoreCoord core, RiscType selected_ri
     return true;
 }
 
+}  // namespace
+
 // A write_reg/write_to_device targeting a CCE DRAM core at CCE_RESET_VECTOR_BASE is an SMC
 // PF_CTRL reset-vector write, not a core-local register. Hart 0 (the boot vector) is broadcast
 // to all eight harts so they share the same entry point.
-bool apply_cce_reset_vector_write(TTDevice& device, const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     if (!grendel::is_cce_reset_vector_addr(addr)) {
         return false;
     }
-    const auto target = cce_smc_target(device, core);
+    const auto target = cce_smc_target(*this, core);
     if (!target.has_value()) {
         return false;
     }
 
+    // The vector is a local CPU address, and every CCE sees its own SRAM at the same place, so the
+    // caller's single value applies unchanged to all of them. Only the register address is per-CCE.
     uint64_t reset_vector = 0;
     std::memcpy(&reset_vector, mem_ptr, std::min(size, sizeof(reset_vector)));
+
     const uint64_t hart_offset = addr - grendel::CCE_RESET_VECTOR_BASE;
     const uint64_t smc_base = grendel::cce_reset_vector_addr(target->cce_index);
     const uint32_t first_hart = static_cast<uint32_t>(hart_offset / grendel::CCE_HART_RESET_VECTOR_STRIDE);
     const uint32_t last_hart = (hart_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
-        device.write_to_device(
+        write_to_device(
             &reset_vector, target->smc, smc_base + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE, sizeof(reset_vector));
     }
     tt_driver_atomics::sfence();
     return true;
 }
-
-}  // namespace
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
@@ -527,7 +530,7 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    if (apply_cce_reset_vector_write(*this, mem_ptr, core, addr, size)) {
+    if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
         return;
     }
     get_device_protocol()->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
@@ -540,7 +543,7 @@ void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    if (apply_cce_reset_vector_write(*this, mem_ptr, core, addr, size)) {
+    if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
         return;
     }
     get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);

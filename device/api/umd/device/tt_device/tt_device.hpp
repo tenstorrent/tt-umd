@@ -499,6 +499,12 @@ protected:
     // architecture descriptor.
     explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
+    // A write aimed at a Quasar/Grendel CCE (DRAM) core inside the CCE_RESET_VECTOR_BASE range is an
+    // SMC reset-vector write rather than a core-local one, and is redirected to the SMC here.
+    // Returns true when the write was handled. Any subclass that overrides write_to_device has to
+    // call this itself, or its CCEs boot from whatever vector bring-up left behind.
+    bool apply_cce_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.

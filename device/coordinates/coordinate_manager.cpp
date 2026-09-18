@@ -42,7 +42,8 @@ CoordinateManager::CoordinateManager(
     const std::vector<tt_xy_pair>& l2cpu_cores,
     const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
-    const std::vector<uint32_t>& noc0_y_to_noc1_y) :
+    const std::vector<uint32_t>& noc0_y_to_noc1_y,
+    const std::vector<tt_xy_pair>& smc_cores) :
     noc_translation_enabled(noc_translation_enabled),
     harvesting_masks(harvesting_masks),
     tensix_grid_size(tensix_grid_size),
@@ -59,6 +60,7 @@ CoordinateManager::CoordinateManager(
     security_cores(security_cores),
     l2cpu_cores(l2cpu_cores),
     dispatch_cores(dispatch_cores),
+    smc_cores(smc_cores),
     noc0_x_to_noc1_x(noc0_x_to_noc1_x),
     noc0_y_to_noc1_y(noc0_y_to_noc1_y) {}
 
@@ -138,6 +140,11 @@ void CoordinateManager::identity_map_noc0_cores() {
 
     for (auto& core : dispatch_cores) {
         const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::DISPATCH, CoordSystem::NOC0);
+        add_core_translation(core_coord, core);
+    }
+
+    for (auto& core : smc_cores) {
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::SMC, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 }
@@ -482,6 +489,8 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType 
             return l2cpu_cores;
         case CoreType::DISPATCH:
             return dispatch_cores;
+        case CoreType::SMC:
+            return smc_cores;
         default:
             UMD_THROW(error::RuntimeError, "Core type is not supported for getting NOC0 pairs.");
     }
@@ -566,6 +575,7 @@ std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) co
         case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
+        case CoreType::SMC:
             return get_all_noc0_cores(core_type);
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_cores().");
@@ -589,6 +599,7 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
         case CoreType::SECURITY:
         case CoreType::L2CPU:
         case CoreType::DISPATCH:
+        case CoreType::SMC:
             // These cores are not arranged in a regular grid.
             return {0, 0};
         default:
@@ -611,6 +622,7 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType cor
         case CoreType::SECURITY:
         case CoreType::L2CPU:
         case CoreType::DISPATCH:
+        case CoreType::SMC:
             return {};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_harvested_cores().");
@@ -636,6 +648,7 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
         case CoreType::SECURITY:
         case CoreType::L2CPU:
         case CoreType::DISPATCH:
+        case CoreType::SMC:
             // These cores are not arranged in a regular grid.
             return {0, 0};
         default:
@@ -746,7 +759,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& l2cpu_cores,
     const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
-    const std::vector<uint32_t>& noc0_y_to_noc1_y) {
+    const std::vector<uint32_t>& noc0_y_to_noc1_y,
+    const std::vector<tt_xy_pair>& smc_cores) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_shared<WormholeCoordinateManager>(
@@ -766,7 +780,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 l2cpu_cores,
                 dispatch_cores,
                 noc0_x_to_noc1_x,
-                noc0_y_to_noc1_y);
+                noc0_y_to_noc1_y,
+                smc_cores);
+        case tt::ARCH::GRENDEL:
         case tt::ARCH::QUASAR:
             // TODO (#2494): QuasarCoordinateManager currently maps NOC0 -> TRANSLATED as identity.
             // Replace with real Quasar NOC translation tables once the hardware spec is finalized.
@@ -787,7 +803,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 l2cpu_cores,
                 dispatch_cores,
                 noc0_x_to_noc1_x,
-                noc0_y_to_noc1_y);
+                noc0_y_to_noc1_y,
+                smc_cores);
         case tt::ARCH::BLACKHOLE:
             return std::make_shared<BlackholeCoordinateManager>(
                 noc_translation_enabled,
@@ -806,7 +823,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 l2cpu_cores,
                 dispatch_cores,
                 noc0_x_to_noc1_x,
-                noc0_y_to_noc1_y);
+                noc0_y_to_noc1_y,
+                smc_cores);
         default:
             UMD_THROW(
                 error::RuntimeError, fmt::format("Unexpected architecture: {} ({})", arch_to_str(arch), (int)arch));

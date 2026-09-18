@@ -309,19 +309,21 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     }
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
-    size_t dmabuf_size = dma_buffer.size;
+    const size_t dmabuf_size = dma_buffer.size;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
+    const auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
+                                      .get_configuration(tlb_window->handle_ref().get_tlb_id())
+                                      .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 
     while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        config.local_offset = addr;
+        tlb_window->configure(config);
+
+        const auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+        const size_t transfer_size = std::min({size, tlb_window->get_size(), dmabuf_size});
 
         if (direction == DmaDirection::H2D) {
             std::memcpy(dma_buffer.buffer, buf, transfer_size);
@@ -334,14 +336,6 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         size -= transfer_size;
         addr += transfer_size;
         buf += transfer_size;
-
-        if (size == 0) {
-            break;
-        }
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 
     return true;
@@ -359,16 +353,18 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
+    const auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
+                                      .get_configuration(tlb_window->handle_ref().get_tlb_id())
+                                      .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 
     while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min(size, tlb_size);
+        config.local_offset = addr;
+        tlb_window->configure(config);
+
+        const auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+        const size_t transfer_size = std::min(size, tlb_window->get_size());
 
         if (direction == DmaDirection::H2D) {
             dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
@@ -379,30 +375,20 @@ bool PcieProtocol::dma_transfer_zero_copy(
         size -= transfer_size;
         addr += transfer_size;
         iova += transfer_size;
-
-        if (size == 0) {
-            break;
-        }
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 
     return true;
 }
 
-TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
+TlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {
     if (cached_dma_tlb_window_ == nullptr) {
         // The DMA engine, not the host, reads through this window, so it is not ordered behind our
         // config write - pass verify_config so every configure() confirms it landed first.
         auto handle = pci_device_->allocate_tlb(
             get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC, /*verify_config=*/true);
         cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(std::move(handle), config);
-        return cached_dma_tlb_window_.get();
     }
 
-    cached_dma_tlb_window_->configure(config);
     return cached_dma_tlb_window_.get();
 }
 

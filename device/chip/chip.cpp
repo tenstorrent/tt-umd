@@ -83,23 +83,21 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
-    return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
+    TTDevice* tt_device = get_tt_device();
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, "RISC reset query requires a TTDevice");
+    uint32_t soft_reset_current_state = tt_device->get_risc_reset_state(core);
+    return tt_device->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     TTDevice* tt_device = get_tt_device();
-    if (tt_device == nullptr) {
-        return;
-    }
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, "RISC reset requires a TTDevice");
     tt_device->assert_risc_reset(core, selected_riscs);
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     TTDevice* tt_device = get_tt_device();
-    if (tt_device == nullptr) {
-        return;
-    }
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, "RISC reset requires a TTDevice");
     tt_device->deassert_risc_reset(core, selected_riscs, staggered_start);
 }
 

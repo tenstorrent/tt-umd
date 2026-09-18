@@ -24,6 +24,11 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include "device/simulation/eth_ipc.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #endif
@@ -228,3 +233,86 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
 }
 
 #endif  // TT_UMD_BUILD_SIMULATION
+
+#ifdef TT_UMD_BUILD_SIMULATION
+TEST_F(TTSimCommunicatorTest, EthernetDescriptorsDetachBeforeOwnerClosesThem) {
+    auto first_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 0, 2);
+    first_comm->initialize();
+    first_comm->start_sim();
+    if (!first_comm->supports_eth_link_fd()) {
+        GTEST_SKIP() << "Simulator lacks checked Ethernet FD attach/detach capability";
+    }
+    auto second_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 1, 2);
+    second_comm->initialize();
+    second_comm->start_sim();
+    ASSERT_TRUE(second_comm->supports_eth_link_fd());
+
+    struct Session {
+        char path[32] = "/tmp/umd-eth-owner-XXXXXX";
+
+        ~Session() {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } session;
+
+    ASSERT_NE(mkdtemp(session.path), nullptr);
+    auto first = std::make_unique<EthIpcEndpoint>(session.path, "first", "second");
+    auto second = std::make_unique<EthIpcEndpoint>(session.path, "second", "first");
+    const auto deadline = EthIpcEndpoint::Clock::now() + std::chrono::seconds(2);
+    first->connect(deadline);
+    second->connect(deadline);
+    EthIpcEndpoint::handshake({first.get(), second.get()}, deadline);
+    const int read_fd = first->read_fd();
+    const int write_fd = first->write_fd();
+    void* device = first_comm->get_dev_handle();
+    first_comm->configure_eth_link_fd(0, std::move(first));
+    second_comm->configure_eth_link_fd(0, std::move(second));
+    EXPECT_GE(fcntl(read_fd, F_GETFD), 0);
+    EXPECT_GE(fcntl(write_fd, F_GETFD), 0);
+
+    auto rejected = std::make_unique<EthIpcEndpoint>(session.path, "rejected", "second");
+    const int rejected_fd = rejected->read_fd();
+    EXPECT_THROW(first_comm->configure_eth_link_fd(0, std::move(rejected)), std::exception);
+    EXPECT_EQ(fcntl(rejected_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/rejected"));
+
+    // A second communicator keeps the shared simulator and device registry alive.
+    first_comm.reset();
+    EXPECT_EQ(fcntl(read_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_EQ(fcntl(write_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/first"));
+
+    // Reattaching to that surviving device proves its old borrowed descriptors
+    // were detached, rather than merely closed while still stored in libttsim.
+    void* handle = dlopen(simulator_path_, RTLD_NOW | RTLD_NOLOAD);
+    ASSERT_NE(handle, nullptr);
+    auto close_library = [](void* value) { dlclose(value); };
+    std::unique_ptr<void, decltype(close_library)> library(handle, close_library);
+    auto attach = reinterpret_cast<int (*)(void*, uint32_t, int, int)>(dlsym(handle, "libttsim_attach_eth_link_fd"));
+    auto detach = reinterpret_cast<int (*)(void*, uint32_t)>(dlsym(handle, "libttsim_detach_eth_link_fd"));
+    ASSERT_NE(attach, nullptr);
+    ASSERT_NE(detach, nullptr);
+
+    struct Pipe {
+        int fd[2] = {-1, -1};
+
+        ~Pipe() {
+            if (fd[0] >= 0) {
+                close(fd[0]);
+            }
+            if (fd[1] >= 0) {
+                close(fd[1]);
+            }
+        }
+    } pipe;
+
+    ASSERT_EQ(pipe2(pipe.fd, O_NONBLOCK | O_CLOEXEC), 0);
+    ASSERT_EQ(attach(device, 0, pipe.fd[1], pipe.fd[0]), 0);
+    ASSERT_EQ(detach(device, 0), 0);
+    second_comm.reset();
+}
+#endif

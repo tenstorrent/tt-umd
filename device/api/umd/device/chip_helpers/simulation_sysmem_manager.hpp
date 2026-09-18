@@ -42,7 +42,7 @@ public:
 
     uint64_t get_mapped_arena_offset() const { return system_memory_size_; }
 
-    uint64_t get_mapped_arena_size() const { return DEVICE_IO_WINDOW_SIZE - system_memory_size_; }
+    uint64_t get_mapped_arena_size() const;
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -89,6 +89,11 @@ protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
+    // Caller holds registry_->mutex for capacity checks and registration.
+    void check_arena_capacity(uint64_t extent) const;
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer_locked(
+        void* buffer, size_t size, bool map_to_noc, DeviceBufferAccess device_access);
+
     struct MappedBuffer {
         // Device IO address (pcie_base_ + arena offset) of the first byte.
         uint64_t device_io_addr = 0;

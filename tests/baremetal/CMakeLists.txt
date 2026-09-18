@@ -16,6 +16,7 @@ set(BAREMETAL_TESTS_SRCS
     # their tests need no card and no simulation build -- they run in the no-card baremetal CI lane.
     test_simulation_server_socket.cpp
     test_simulation_client.cpp
+    test_eth_ipc.cpp
     test_simulation_server_transport.cpp
 )
 
@@ -23,6 +24,7 @@ add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
 target_link_libraries(baremetal_tests PRIVATE test_common)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
+    target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(baremetal_tests PRIVATE test_simulation_tlb_allocator.cpp)

@@ -183,7 +183,10 @@ void TTSimTTDevice::initialize_backend() {
         const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
         const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
         if (arena_size > 0) {
-            configure_iatu_region_at(nch, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+            // Keep the arena above channels 0..3 and WH's silicon channel-3 slot 4.
+            constexpr size_t MAPPED_ARENA_REGION = 5;
+            configure_iatu_region_at(
+                MAPPED_ARENA_REGION, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
         }
     }
 }
@@ -350,6 +353,9 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
 }
 
 void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size) {
+    // CRAQ models 16 outbound regions, interleaved with 16 inbound regions in BAR2.
+    constexpr size_t OUTBOUND_IATU_REGION_COUNT = 16;
+    UMD_ASSERT(region < OUTBOUND_IATU_REGION_COUNT, error::RuntimeError, "Invalid simulator iATU region index.");
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
     // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the

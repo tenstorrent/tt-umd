@@ -6,10 +6,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <exception>
 #include <memory>
 #include <set>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tt_emule/l1_pool.hpp>
+#include <type_traits>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -48,6 +52,61 @@ TEST(ApiEmuleClusterTest, CreateEmuleSingleChipClusters) {
             emule_cluster->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
         }
     }
+}
+
+TEST(ApiEmuleClusterTest, UnsupportedSharedPoolRequestFailsExplicitly) {
+    if constexpr (std::is_constructible_v<tt_emule::L1Pool, size_t, uint64_t, uint64_t>) {
+        GTEST_SKIP() << "The supplied tt-emule dependency supports shared pools";
+    }
+
+    struct RestoreEnvironment {
+        const char* original = std::getenv("TT_EMULE_CHIP_SHM");
+        std::string saved = original ? original : "";
+
+        ~RestoreEnvironment() {
+            if (original) {
+                ::setenv("TT_EMULE_CHIP_SHM", saved.c_str(), 1);
+            } else {
+                ::unsetenv("TT_EMULE_CHIP_SHM");
+            }
+        }
+    } restore;
+
+    ASSERT_EQ(::setenv("TT_EMULE_CHIP_SHM", "1", 1), 0);
+    const SocDescriptor soc(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml")));
+    try {
+        SWEmuleChip chip(soc, 123);
+        FAIL() << "Unsupported shared backing was accepted";
+    } catch (const std::exception& error) {
+        EXPECT_NE(std::string(error.what()).find("does not support TT_EMULE_CHIP_SHM"), std::string::npos);
+    }
+}
+
+TEST(ApiEmuleClusterTest, ResetCallsThroughChipInterfaceAreNoOps) {
+    auto descriptor = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+    Cluster cluster{ClusterOptions{.chip_type = ChipType::SWEMULE, .cluster_descriptor = descriptor.get()}};
+    ASSERT_FALSE(cluster.get_target_device_ids().empty());
+    Chip* chip = cluster.get_chip(*cluster.get_target_device_ids().begin());
+    ASSERT_NE(chip, nullptr);
+    ASSERT_EQ(chip->get_tt_device(), nullptr);
+    const auto cores = chip->get_soc_descriptor().get_cores(CoreType::TENSIX);
+    ASSERT_FALSE(cores.empty());
+    const CoreCoord core = cores.front();
+
+    EXPECT_NO_THROW(chip->assert_risc_reset(core, RiscType::ALL));
+    EXPECT_EQ(chip->get_risc_reset_state(core), RiscType::NONE);
+    EXPECT_NO_THROW(chip->deassert_risc_reset(core, RiscType::ALL, true));
+    EXPECT_NO_THROW(chip->assert_risc_reset(RiscType::ALL));
+    EXPECT_NO_THROW(chip->deassert_risc_reset(RiscType::ALL, false));
+    EXPECT_NO_THROW(chip->deassert_risc_resets());
+    EXPECT_EQ(chip->get_risc_reset_state(core), RiscType::NONE);
+
+    // A backend without overrides must fail explicitly, not silently skip reset
+    // or dereference a missing TTDevice. Bypass virtual dispatch to check the base contract.
+    EXPECT_THROW(chip->Chip::get_risc_reset_state(core), std::exception);
+    EXPECT_THROW(chip->Chip::assert_risc_reset(core, RiscType::ALL), std::exception);
+    EXPECT_THROW(chip->Chip::deassert_risc_reset(core, RiscType::ALL, false), std::exception);
 }
 
 TEST(ApiEmuleClusterTest, EmuleRoundtripIO) {

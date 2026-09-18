@@ -98,8 +98,10 @@ TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
 
     // Independently confirm the address, not just the round trip: a resolver bug that flattened
     // consistently but wrongly would pass the read-back above on its own.
+    // No initialize(): the constructor already connects, and INIT is not a handshake. On a real
+    // model the server maps it to a DUT reset (the mimir test server's reinitialize() calls
+    // tb.reset()), which would re-run SMC boot and repopulate this SRAM before the read below.
     chippy::transport::emu_axi::EmuAxiTransport raw(server->host, server->port);
-    raw.initialize();
     const uint64_t expected =
         GrendelNocAddressResolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor))
             .to_flat_address(smc_core, kSmcSramOffset, NocId::NOC0);
@@ -154,7 +156,6 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
     EXPECT_EQ(read_second, second);
 
     auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
-    raw->initialize();
     chippy::grendel::Mimir mimir(
         raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
     EXPECT_EQ(static_cast<uint32_t>(mimir.cce(0).sram[kOffset / sizeof(uint64_t)].read_raw()), first);
@@ -174,7 +175,6 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
     device->deassert_risc_reset(cce0, RiscType::ALL, false);
 
     auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
-    raw->initialize();
     chippy::grendel::Mimir mimir(
         raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
     for (auto& reset_vector : mimir.cce(0).registers.tt_cluster_ctrl.reset_vector) {
@@ -227,7 +227,6 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
     EXPECT_EQ(read_second, second);
 
     chippy::transport::emu_axi::EmuAxiTransport raw(server->host, server->port);
-    raw.initialize();
     const GrendelNocAddressResolver resolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor));
     EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[0], kOffset, NocId::NOC0)), first);
     EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[1], kOffset, NocId::NOC0)), second);

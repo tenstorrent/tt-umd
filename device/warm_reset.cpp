@@ -208,8 +208,8 @@ bool wait_for_reset_marker(
     const bool reset_complete = utils::poll_until(
         [&]() { return is_reset_marker_cleared(bdf); },
         timeout_ms,
-        std::chrono::microseconds(0),
-        timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL);
+        timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL,
+        timeout::WARM_RESET_MARKER_TIMEOUT);
 
     if (!reset_complete) {
         log_warning(tt::LogUMD, "Timeout waiting for reset marker to clear for device {}.", bdf);

@@ -39,10 +39,10 @@ public:
 
     void unpin_or_unmap_sysmem() override;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+    std::unique_ptr<SystemMemoryBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+    std::unique_ptr<SystemMemoryBuffer> map_sysmem_buffer(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
@@ -103,12 +103,12 @@ private:
     // Assigns an arena address, registers the buffer and wraps it. Shared by the allocate and map
     // paths, which differ only in who owns the memory: allocate passes a release callable that frees
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
-    std::unique_ptr<SysmemBuffer> register_and_wrap(
+    std::unique_ptr<SystemMemoryBuffer> register_and_wrap(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc,
         DeviceBufferAccess device_access,
-        SysmemBuffer::Deleter release_backing_memory);
+        SystemMemoryBuffer::Deleter release_backing_memory);
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;

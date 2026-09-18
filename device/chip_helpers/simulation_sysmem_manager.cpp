@@ -9,10 +9,12 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "hugepage.hpp"
@@ -113,10 +115,6 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
-    for (const auto& [allocation, allocation_size] : owned_allocations_) {
-        munmap(allocation, allocation_size);
-    }
-    owned_allocations_.clear();
     hugepage_mapping_per_channel.clear();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);
@@ -179,18 +177,35 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
-    try {
-        owned_allocations_.push_back({mapping, sysmem_buffer_size});
-        try {
-            return map_sysmem_buffer_locked(mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE);
-        } catch (...) {
-            owned_allocations_.pop_back();
-            throw;
+    // This mapping belongs to the buffer, so it is released along with the registry entry. mmap returns
+    // a page-aligned address, so the pointer the deleter receives is the one to munmap.
+    const size_t mapping_size = sysmem_buffer_size;
+    const auto release_mapping = [mapping_size](void* aligned_va) {
+        if (munmap(aligned_va, mapping_size) != 0) {
+            log_warning(
+                LogUMD,
+                "Failed to munmap simulation sysmem buffer of size {:#x} at {:p}: {}.",
+                mapping_size,
+                aligned_va,
+                strerror(errno));
         }
+    };
+
+    try {
+        return register_and_wrap(
+            mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
     } catch (...) {
-        munmap(mapping, sysmem_buffer_size);
+        // Nothing owns the mmap yet, so free it here rather than leaking it.
+        release_mapping(mapping);
         throw;
     }
+}
+
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
+    std::lock_guard<std::mutex> lock(registry_->mutex);
+    // The caller owns this memory, so the buffer only drops the registry entry.
+    return register_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
 }
 
 void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
@@ -201,17 +216,16 @@ void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
         "Simulation mapped-buffer arena exhausted.");
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
-    std::lock_guard<std::mutex> lock(registry_->mutex);
-    return map_sysmem_buffer_locked(buffer, sysmem_buffer_size, map_to_noc, device_access);
-}
-
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer_locked(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
+    void* buffer,
+    size_t sysmem_buffer_size,
+    const bool map_to_noc,
+    DeviceBufferAccess device_access,
+    SysmemBuffer::Deleter release_backing_memory) {
     UMD_ASSERT(buffer != nullptr, error::RuntimeError, "Cannot map a null simulation buffer.");
     const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
     check_arena_capacity(extent);
+
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t host_offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
     const uint64_t page_io_addr = pcie_base_ + registry_->next_arena_offset;
@@ -223,13 +237,10 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer_locked(
     // The registry covers only the requested bytes, not the padding on either side of the mapping.
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     try {
-        auto result = std::make_unique<SysmemBuffer>(
-            buffer,
-            sysmem_buffer_size,
-            page_io_addr,
-            communication_id_,
-            noc_addr,
-            [weak_reg, device_io_addr](void*) {
+        // Drop the registry entry before releasing backing memory. Only allocated
+        // buffers carry a release callable; external mappings remain caller-owned.
+        SysmemBuffer::Deleter deleter =
+            [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* aligned_va) {
                 if (auto reg = weak_reg.lock()) {
                     std::lock_guard<std::mutex> lock(reg->mutex);
                     reg->buffers.erase(
@@ -241,7 +252,18 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer_locked(
                             }),
                         reg->buffers.end());
                 }
-            },
+                if (release) {
+                    release(aligned_va);
+                }
+            };
+        auto result = create_buffer(
+            /*tt_device=*/nullptr,
+            buffer,
+            sysmem_buffer_size,
+            page_io_addr,
+            communication_id_,
+            std::move(deleter),
+            noc_addr,
             device_access);
         registry_->next_arena_offset += extent;
         return result;

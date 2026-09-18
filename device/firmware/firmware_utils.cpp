@@ -34,7 +34,7 @@
 
 namespace tt::umd {
 
-FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch) { return FirmwareBundleVersion(19, 7, 1); }
+FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch) { return FirmwareBundleVersion(19, 14); }
 
 FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch) {
     switch (arch) {

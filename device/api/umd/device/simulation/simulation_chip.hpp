@@ -10,12 +10,12 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -47,7 +47,8 @@ public:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
-        int num_host_mem_channels = 0);
+        int num_host_mem_channels = 0,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     SimulationChip(
         const std::filesystem::path& simulator_directory,
@@ -67,7 +68,6 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
-    TLBManager* get_tlb_manager() override;
 
     bool is_mmio_capable() const override { return false; }
 
@@ -122,6 +122,5 @@ protected:
     std::filesystem::path simulator_directory_;
 
     std::unique_ptr<TTDevice> tt_device_;
-    std::unique_ptr<TLBManager> tlb_manager_;
 };
 }  // namespace tt::umd

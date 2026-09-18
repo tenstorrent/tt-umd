@@ -9,6 +9,8 @@
 #include <memory>
 #include <vector>
 
+#include "umd/device/simulation/simulation_server_protocol.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
@@ -59,7 +61,36 @@ public:
     enum class Role { Host, Client };
     static Role role_for(const std::filesystem::path& simulator_directory);
 
-    static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);
+    // What a discover() call actually opened: which side of the connection this process ended up
+    // on, and what simulator sits behind it. Reported alongside the devices because none of it is
+    // recoverable afterwards -- re-classifying the path answers only the role, and races a host
+    // that has since exited, while a server directory discover() allocated itself is otherwise
+    // never told to the caller at all.
+    struct Connection {
+        Role role = Role::Host;
+        // The simulator behind the devices: a libttsim .so path or an RTL build directory. As a
+        // host, the build this process opened; as a client, the build the host reports it runs --
+        // empty when talking to a host that predates serving that field.
+        std::filesystem::path simulator;
+        // Which kind of simulator that is, and the architecture it simulates.
+        SimulationBackendType backend = SimulationBackendType::TTSIM;
+        tt::ARCH arch = tt::ARCH::Invalid;
+        // As a host, the directory this process serves its sockets in: empty when serving is off,
+        // and the freshly allocated directory when the caller left server_directory empty. As a
+        // client, the directory it attached to.
+        std::filesystem::path server_directory;
+        // The per-chip sockets in that directory ({chip_id -> socket path}). Empty for a host that
+        // is not serving.
+        std::map<ChipId, std::filesystem::path> sockets;
+    };
+
+    // The devices discover() opened, and the connection it opened them over.
+    struct Result {
+        Connection connection;
+        std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    };
+
+    static Result discover(const SimulationConnectorOptions& options);
 
     // Claims a fresh directory for one simulation server (the lowest free index) and returns it, so
     // a caller can report the location before it starts serving there (pass it back as

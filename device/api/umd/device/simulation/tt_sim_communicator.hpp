@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
 namespace tt::umd {
@@ -33,12 +34,17 @@ public:
      * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
      *   in multichip mode. Default 0
      *   for legacy single-chip consumers.
+     * @param image_endpoint_count How many host-visible PCI endpoints the .so exposes, as reported
+     *   by enumerate_mmio_device_bdfs(). Distinguishes an image hosting several PCIe chips from a
+     *   single-chip image replicated per chip, which selects shared-BDF addressing. Unset falls back
+     *   to the older signal, a cluster_descriptor.yaml beside the .so.
      */
     TTSimCommunicator(
         const std::filesystem::path &simulator_directory,
         bool copy_sim_binary = false,
         uint32_t chip_id = 0,
-        uint32_t num_chips = 1);
+        uint32_t num_chips = 1,
+        std::optional<uint32_t> image_endpoint_count = std::nullopt);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -113,6 +119,22 @@ public:
      * @return 32-bit value read from configuration space
      */
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
+
+    /**
+     * Enumerate the host-visible PCI endpoints a simulator image exposes: the counterpart of
+     * PCIDevice::enumerate_devices(), answering how many chips are present before any device object
+     * exists, so a caller can size the cluster from the image itself.
+     *
+     * MUST be called before any simulator is brought up in this process. Config space only reports
+     * endpoints while the image is running, so this starts and stops it around the walk, and
+     * starting an already-running image is fatal inside the simulator. Only bus 0 is enumerable.
+     *
+     * @param simulator_path Path to the libttsim .so to enumerate.
+     * @return Bus/device/function identifiers of the present endpoints, in ascending order.
+     * @throws error::RuntimeError if a simulator is already initialized in this process, rather than
+     *         re-initializing it fatally and stopping it under the communicators using it.
+     */
+    static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 
     /**
      * Advance the simulator clock.
@@ -214,6 +236,7 @@ private:
 
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
+    std::optional<uint32_t> image_endpoint_count_;
 
     // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
     // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter

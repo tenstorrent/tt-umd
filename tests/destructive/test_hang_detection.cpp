@@ -26,6 +26,7 @@
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -57,6 +58,14 @@ protected:
             GTEST_SKIP() << "No PCI devices found.";
         }
         init_device(pci_device_ids.at(0));
+
+        // Galaxy (UBB) boards are reset over IPMI, not by the PCIe-level warm_reset() that
+        // recover_device() drives on TearDown. On these boards that reset doesn't clear the hang, so
+        // the board stays wedged for the rest of the test binary.
+        const BoardType board_type = tt_device_->get_board_type();
+        if (board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE) {
+            GTEST_SKIP() << "Skipping test that hangs the NOC on Galaxy configurations.";
+        }
     }
 
     void TearDown() override {

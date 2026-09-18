@@ -107,6 +107,7 @@ TEST(SimulationServerProtocol, DeviceInfoSerializationRoundTrip) {
     info.eth_harvesting_mask = 0x120;
     info.l2cpu_harvesting_mask = 0x0;
     info.pcie_harvesting_mask = 0x3;
+    info.simulator_path = "/opt/sim_wh/libttsim.so";
 
     const SimulationServerDeviceInfo decoded = decode_device_info(encode(info));
 
@@ -120,6 +121,22 @@ TEST(SimulationServerProtocol, DeviceInfoSerializationRoundTrip) {
     EXPECT_EQ(decoded.eth_harvesting_mask, info.eth_harvesting_mask);
     EXPECT_EQ(decoded.l2cpu_harvesting_mask, info.l2cpu_harvesting_mask);
     EXPECT_EQ(decoded.pcie_harvesting_mask, info.pcie_harvesting_mask);
+    EXPECT_EQ(decoded.simulator_path, info.simulator_path);
+}
+
+// simulator_path was appended to the schema after the first hosts shipped. encode() omits it when
+// empty, so this message is on the wire exactly as an older host's would be -- which is what makes
+// this a backward-compatibility case and not just an empty-string one. Decoding it must yield an
+// empty path rather than dereferencing the absent field.
+TEST(SimulationServerProtocol, DeviceInfoWithAnAbsentSimulatorPathRoundTrip) {
+    SimulationServerDeviceInfo info;
+    info.arch = 2;
+    info.soc_descriptor_yaml = "arch: wormhole_b0\n";  // simulator_path left unset
+
+    const SimulationServerDeviceInfo decoded = decode_device_info(encode(info));
+
+    EXPECT_EQ(decoded.arch, info.arch);
+    EXPECT_TRUE(decoded.simulator_path.empty());
 }
 
 // The GetDeviceInfo command survives a request round-trip.

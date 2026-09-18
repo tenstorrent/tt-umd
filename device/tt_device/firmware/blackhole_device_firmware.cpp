@@ -42,7 +42,8 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     DeviceProtocol* device_protocol,
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
-    ArchitectureImplementation* architecture_impl) :
+    ArchitectureImplementation* architecture_impl,
+    bool kmd_lock_available) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
@@ -64,7 +65,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     // PCIe device this is the same key BlackholeArcMessenger uses (its device-number argument
     // defaults the type to PCIe), so this path and the messenger - still alive for tests - exclude
     // each other; the messenger never worked over JTAG, where this adds the missing key.
-    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type(), kmd_lock_available);
 
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the
     // device's lifetime and is read over BAR/JTAG, so this does not need the firmware to be up.
@@ -451,8 +452,46 @@ void BlackholeDeviceFirmware::retrain_dram_core(uint32_t dram_channel, NocId noc
     }
 }
 
+uint64_t BlackholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
+    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
+    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
+    uint32_t high1_addr = 0;
+    uint32_t high2_addr = 0;
+    uint32_t low_addr = 0;
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    if (high2_addr > high1_addr) {
+        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 void BlackholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_apb_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
+void BlackholeDeviceFirmware::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
+    arc_apb_.write(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
+std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 12, 0)) {
+        return std::nullopt;
+    }
+    uint32_t address = 0;
+    arc_apb_.read(&address, blackhole::SCRATCH_RAM_22, sizeof address, get_firmware_noc_coord(noc_id), noc_id);
+    return address;
+}
+
+std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 12, 0)) {
+        return std::nullopt;
+    }
+    uint32_t size = 0;
+    arc_apb_.read(&size, blackhole::SCRATCH_RAM_23, sizeof size, get_firmware_noc_coord(noc_id), noc_id);
+    return size;
 }
 
 }  // namespace tt::umd

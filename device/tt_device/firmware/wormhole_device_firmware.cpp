@@ -11,6 +11,7 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -21,6 +22,8 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
@@ -43,7 +46,8 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
-    ArchitectureImplementation* architecture_impl) :
+    ArchitectureImplementation* architecture_impl,
+    bool kmd_lock_available) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
@@ -67,11 +71,29 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     // protocol faulted there before the assert could report it.
     device_id_ = device_protocol_->get_mmio_id();
 
-    // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one:
-    // several topology discovery instances can reach the same remote chip through different local
-    // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors
-    // WormholeArcMessenger::send_message and the TODO recorded there.
+    // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one. The case that would
+    // break a per-device lock is two local chips reaching the same remote chip at once - concurrent messages could
+    // then interleave on that remote chip's ARC, since each would be holding a different device's lock. As the code
+    // is written that does not arise: a remote chip is only ever reached through its own local counterpart, so the
+    // local chip's lock does serialize everything that reaches it. UMD assumes that stays true.
+    // Keeping the lock system-wide therefore costs more than it buys, and it is the one ARC path that cannot move to
+    // a KMD resource lock, which exists per local device and has no system-wide form.
     LockManager::initialize_mutex(MutexType::ARC_MSG);
+
+    // The per device lock this path is moving to. For a remote device, device_id_ is the local chip used to reach the
+    // remote ARC, so REMOTE_ARC_MSG serializes all remote ARC traffic flowing through that same local chip.
+    // Both are claimed up front because acquire_mutex() throws unless the lock was initialized first, and which of the
+    // two is taken is decided per message.
+    // The type has to describe the same device as device_id_, which for a remote device is the local one the messages
+    // travel through. get_io_device_type() answers for this device instead, and calls anything that is not JTAG PCIe,
+    // which over a simulated gateway would name the lock after PCIe device -1.
+    LockManager::initialize_mutex(
+        remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
+        device_id_,
+        remote_interface_ != nullptr
+            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
+            : get_io_device_type(),
+        kmd_lock_available);
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.
@@ -101,13 +123,24 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
 
     wait_firmware_ready(timeout_ms, noc_id);
 
+    // Where the legacy telemetry block lives is the firmware's to choose and to report, so ask
+    // rather than assume. Both components below read that block -- the reader to establish the
+    // firmware version, the info provider for the features that have no newer equivalent -- so both
+    // are built from the same answer.
+    const uint64_t legacy_telemetry_noc_addr = get_legacy_telemetry_noc_addr(noc_id);
+
     // The telemetry reader and info provider read state the firmware publishes, so this is the
     // earliest point they can exist.
     firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
-        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
+        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_, legacy_telemetry_noc_addr);
 
     firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
+        tt::ARCH::WORMHOLE_B0,
+        device_protocol_,
+        arc_core_noc0_,
+        arc_core_noc1_,
+        firmware_telemetry_reader_.get(),
+        legacy_telemetry_noc_addr);
 }
 
 FirmwareTelemetryReader* WormholeDeviceFirmware::get_firmware_telemetry_reader() const {
@@ -248,13 +281,6 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
-    // No commands before the firmware is up. Wormhole messages go through scratch registers that are
-    // readable either way, so nothing stops the access -- it would just be talking to firmware that
-    // has not reported ready.
-    if (firmware_info_provider_ == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
-    }
-
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }
@@ -289,9 +315,18 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
-    // Serializes against other processes messaging any device's ARC; see the constructor for why the
-    // lock is system-wide on Wormhole.
-    auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG);
+    // Serializes against everything else reaching this device's ARC, on the local chip the messages travel through.
+    auto lock = LockManager::acquire_mutex(
+        remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
+        device_id_,
+        remote_interface_ != nullptr
+            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
+            : get_io_device_type());
+
+    // TODO: This lock is deprecated, and will be removed once all clients update the code and start locking using the
+    // lock above. It prevents two clients running on different UMD versions from not synchronizing on the same lock.
+    // See the constructor for why it is system-wide, and why that is wider than what the code actually needs.
+    auto lock_global = LockManager::acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), noc_id);
@@ -353,6 +388,23 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     }
 
     return DeviceCommandResult{exit_code, std::move(return_values)};
+}
+
+uint64_t WormholeDeviceFirmware::get_legacy_telemetry_noc_addr(NocId noc_id) {
+    const DeviceCommandResult result = send_device_command(
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR),
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        noc_id);
+
+    // Firmware that does not recognize the message leaves no answer behind, so there is nothing to
+    // believe; the default is where such a firmware would have put the block anyway. Zero is a
+    // legitimate answer, not a missing one.
+    if (result.exit_code == HANG_READ_VALUE) {
+        return SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR;
+    }
+
+    return wormhole::ARC_CSM_OFFSET_NOC + result.return_values[0];
 }
 
 void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
@@ -607,6 +659,21 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
     }
 }
 
+uint64_t WormholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
+    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
+    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
+    uint32_t high1_addr = 0;
+    uint32_t high2_addr = 0;
+    uint32_t low_addr = 0;
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
+    if (high2_addr > high1_addr) {
+        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 void WormholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_apb_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
@@ -618,6 +685,24 @@ void WormholeDeviceFirmware::write_to_arc_apb(
 
 void WormholeDeviceFirmware::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
     arc_csm_.read(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t address = 0;
+    read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address), noc_id);
+    return address;
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
+        return std::nullopt;
+    }
+    uint32_t size = 0;
+    read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size), noc_id);
+    return size;
 }
 
 }  // namespace tt::umd

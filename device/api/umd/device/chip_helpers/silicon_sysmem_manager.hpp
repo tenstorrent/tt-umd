@@ -41,6 +41,19 @@ protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
+    /**
+     * Pins buffer_va for the device and wraps it in a SysmemBuffer.
+     *
+     * release_backing_memory is what distinguishes the two allocation paths: it frees the pages for a buffer
+     * this manager allocated, and is empty for one mapped from a caller's pointer.
+     */
+    std::unique_ptr<SysmemBuffer> pin_and_wrap(
+        void* buffer_va,
+        size_t buffer_size,
+        const bool map_to_noc,
+        DeviceBufferAccess device_access,
+        SysmemBuffer::Deleter release_backing_memory);
+
     bool init_hugepages(uint32_t num_host_mem_channels);
 
     bool init_iommu(uint32_t num_fake_mem_channels);

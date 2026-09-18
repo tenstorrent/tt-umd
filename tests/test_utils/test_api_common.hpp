@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -105,11 +107,15 @@ private:
     }
 };
 
+inline bool is_galaxy_board_type(tt::BoardType board_type) {
+    return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
+           board_type == tt::BoardType::UBB_BLACKHOLE_BIN6;
+}
+
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     return !cluster->get_target_device_ids().empty() &&
-           (cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_WORMHOLE ||
-            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE);
+           is_galaxy_board_type(cluster->get_cluster_description()->get_board_type(0));
 }
 
 // Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores
@@ -132,7 +138,37 @@ inline std::vector<CoreCoord> get_tensix_corners(const SocDescriptor& soc_desc) 
     return {top_left, bottom_right};
 }
 
-class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {
+public:
+    // Size of one probe block, in bytes.
+    static constexpr size_t BLOCK_SIZE = 256;
+
+    // Fill `block` with a pattern that no other `seed` produces.
+    static void fill_block(std::array<uint8_t, BLOCK_SIZE>& block, uint32_t seed) {
+        for (size_t i = 0; i < BLOCK_SIZE; i++) {
+            block[i] = static_cast<uint8_t>((i + seed) % 256);
+        }
+    }
+
+    // Write a distinct pattern at `offset`, read it back, and compare.
+    void expect_round_trip(
+        Cluster& cluster, tt::ChipId chip_id, const CoreCoord& core, uint64_t offset, uint32_t seed) {
+        SCOPED_TRACE(fmt::format("core {} offset {:#x}", core.str(), offset));
+
+        fill_block(data_, seed);
+        readback_.fill(0);
+
+        cluster.write_to_device(data_.data(), BLOCK_SIZE, chip_id, core, offset);
+        cluster.wait_for_non_mmio_flush(chip_id);
+        cluster.read_from_device(readback_.data(), chip_id, core, offset, BLOCK_SIZE);
+
+        EXPECT_EQ(data_, readback_);
+    }
+
+protected:
+    std::array<uint8_t, BLOCK_SIZE> data_{};
+    std::array<uint8_t, BLOCK_SIZE> readback_{};
+};
 
 // Safe L1 address for use in API tests. Low addresses (e.g. 0x10) are reserved on Blackhole
 // by ARC firmware (doppler throttle state), so tests must start at or above this address.

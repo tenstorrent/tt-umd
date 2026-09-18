@@ -58,7 +58,10 @@ ScopedTempFile write_temp_file(const std::string& contents, const char* suffix) 
 
 }  // namespace
 
-SimulationServerDeviceInfo describe_device(const SocDescriptor& soc_descriptor, SimulationBackendType backend_type) {
+SimulationServerDeviceInfo describe_device(
+    const SocDescriptor& soc_descriptor,
+    SimulationBackendType backend_type,
+    const std::filesystem::path& simulator_path) {
     const std::string& yaml_path = soc_descriptor.get_arch_descriptor().get_device_descriptor_file_path();
     UMD_ASSERT(
         !yaml_path.empty(),
@@ -81,6 +84,7 @@ SimulationServerDeviceInfo describe_device(const SocDescriptor& soc_descriptor, 
     info.eth_harvesting_mask = soc_descriptor.harvesting_masks.eth_harvesting_mask;
     info.l2cpu_harvesting_mask = soc_descriptor.harvesting_masks.l2cpu_harvesting_mask;
     info.pcie_harvesting_mask = soc_descriptor.harvesting_masks.pcie_harvesting_mask;
+    info.simulator_path = simulator_path.string();
     return info;
 }
 

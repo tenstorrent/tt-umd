@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -26,28 +27,33 @@ namespace tt::umd {
 
 namespace {
 
-// The role a UMD process takes for a given simulator_path -- decided purely from what the path is,
-// with no socket bind-race:
-//   - a ".so" file                 -> host running the TTSim backend for that library;
+// What a given simulator_path means, decided purely from what the path is, with no socket
+// bind-race:
+//   - a ".so" file                 -> host, running the TTSim backend for that library;
 //   - a directory holding per-chip  -> client: a host already serves there, so attach to each
 //     simulation sockets               socket in it (one device per socket), sourcing device
 //                                      identity from the host over the wire;
-//   - any other directory          -> host running the RTL backend from that build directory.
-enum class PathKind { HOST_TTSIM, HOST_RTL, CLIENT };
-
-// The path kind and, for CLIENT, the sockets found in the directory -- returned together so
-// discover() doesn't scan the directory a second time. The second scan would also be a TOCTOU race:
-// if the host exited between the two scans, the kind would still be CLIENT but discover() would
-// build zero devices from a now-empty listing and return silently.
+//   - any other directory          -> host, running the RTL backend from that build directory.
+//
+// Role and backend are orthogonal -- a client can attach to either backend -- so they are kept as
+// separate fields rather than collapsed into one enum. The sockets are carried alongside so
+// discover() doesn't scan the directory a second time; a second scan would also be a TOCTOU race,
+// since a host that exited in between would leave the role at Client while discover() built zero
+// devices from a now-empty listing and returned silently.
 struct Classification {
-    PathKind kind;
+    SimulationConnector::Role role = SimulationConnector::Role::Host;
+    // Which backend this process would host. Empty for a client: a client runs no local backend,
+    // and takes the host's backend_type from the device info it fetches over the wire (see
+    // make_client_device).
+    std::optional<SimulationBackendType> backend;
+    // Client only: the per-chip sockets found in the directory.
     std::map<ChipId, std::filesystem::path> sockets;
 };
 
 Classification classify(const std::filesystem::path& simulator_path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
-        return {PathKind::HOST_TTSIM, {}};
+        return {SimulationConnector::Role::Host, SimulationBackendType::TTSIM, {}};
     }
     UMD_ASSERT(
         std::filesystem::is_directory(simulator_path, ec),
@@ -55,22 +61,49 @@ Classification classify(const std::filesystem::path& simulator_path) {
         fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
     // A directory that holds per-chip simulation sockets means a host is already serving there, so
     // attach as a client; any other directory is an RTL build we host.
-    auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
+    const auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
     if (sockets.empty()) {
-        return {PathKind::HOST_RTL, {}};
+        return {SimulationConnector::Role::Host, SimulationBackendType::RTL, {}};
     }
-    return {PathKind::CLIENT, std::move(sockets)};
+    // A socket file on disk only proves someone bound the path once, not that anyone is still
+    // serving it: a crashed host leaves one behind that is indistinguishable by stat(). Count only
+    // the sockets with a live listener, so a stale one neither drags a healthy directory's chip
+    // list out of shape nor sends discover() off to connect to nothing.
+    std::map<ChipId, std::filesystem::path> live_sockets;
+    for (const auto& [chip_id, socket_path] : sockets) {
+        if (SimulationServerSocket::is_live(socket_path)) {
+            live_sockets.emplace(chip_id, socket_path);
+        } else {
+            log_warning(
+                LogUMD,
+                "Ignoring simulation socket {} (chip {}): no host is serving it.",
+                socket_path.string(),
+                chip_id);
+        }
+    }
+    // Every socket is stale: the directory belonged to a host that is gone. Say so, rather than
+    // falling through to hosting an RTL build out of a server directory -- which would fail later
+    // with an unrelated message. `sim_server.sh prune` clears these out.
+    UMD_ASSERT(
+        !live_sockets.empty(),
+        error::RuntimeError,
+        fmt::format(
+            "The {} simulation socket(s) in {} are stale -- the host that served them is gone. Run `sim_server.sh "
+            "prune` to clear them, or point at a simulator to host one.",
+            sockets.size(),
+            simulator_path.string()));
+    return {SimulationConnector::Role::Client, std::nullopt, std::move(live_sockets)};
 }
 
 // Host path: bring up the in-process backend (the direct hot path). A null socket means serving is
 // off, so the device stays a private in-process host; a non-null socket is adopted so clients can
 // attach.
 std::unique_ptr<TTDevice> make_host_device(
-    PathKind role,
+    SimulationBackendType backend,
     const std::filesystem::path& simulator_directory,
     int num_host_mem_channels,
     std::unique_ptr<SimulationServerSocket> socket) {
-    if (role == PathKind::HOST_TTSIM) {
+    if (backend == SimulationBackendType::TTSIM) {
         auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
         if (socket) {
             device->adopt_socket(std::move(socket));
@@ -105,8 +138,7 @@ std::unique_ptr<TTDevice> make_client_device(
 }  // namespace
 
 SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
-    // The two host backends collapse to Host for callers that only care host-vs-client.
-    return classify(simulator_directory).kind == PathKind::CLIENT ? Role::Client : Role::Host;
+    return classify(simulator_directory).role;
 }
 
 std::filesystem::path SimulationConnector::allocate_server_directory() {
@@ -124,13 +156,14 @@ std::vector<SimulationServerInfo> SimulationConnector::list_servers() {
     return servers;
 }
 
-std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
-    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+SimulationConnector::Result SimulationConnector::discover(const SimulationConnectorOptions& options) {
+    Result result;
+    std::map<ChipId, std::unique_ptr<TTDevice>>& devices = result.devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;
 
     const Classification classification = classify(simulator_path);
 
-    if (classification.kind == PathKind::CLIENT) {
+    if (classification.role == Role::Client) {
         // Multi-chip: one client device per per-chip socket in the directory (enumerated by
         // classify()). Chip ids come from the socket names, so they match the host's. A failure on
         // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
@@ -142,7 +175,40 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
                 // pick the device class, and passes the fetched identity into create_client so it is
                 // not fetched again.
                 const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
+                // A server directory is claimed atomically by one host (see
+                // allocate_server_directory), so every socket in it is served by one process
+                // running one simulator: the first socket that answers describes the whole
+                // directory. Warn rather than silently describing only the first if that ever
+                // fails to hold -- a hand-assembled directory mixing two servers' sockets is the
+                // only way it can, and it should not pass unnoticed.
+                if (result.devices.empty()) {
+                    result.connection.simulator = info.simulator_path;
+                    result.connection.backend = info.backend_type;
+                    result.connection.arch = static_cast<tt::ARCH>(info.arch);
+                } else if (
+                    info.simulator_path != result.connection.simulator.string() ||
+                    info.backend_type != result.connection.backend ||
+                    static_cast<tt::ARCH>(info.arch) != result.connection.arch) {
+                    log_warning(
+                        LogUMD,
+                        "Simulation socket {} (chip {}) reports a different simulation than the rest of {}: "
+                        "{} ({}/{}) instead of {} ({}/{}). Reporting the first; the directory is serving more "
+                        "than one host.",
+                        socket_file.string(),
+                        chip_id,
+                        simulator_path.string(),
+                        info.simulator_path,
+                        arch_to_str(static_cast<tt::ARCH>(info.arch)),
+                        info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl",
+                        result.connection.simulator.string(),
+                        arch_to_str(result.connection.arch),
+                        result.connection.backend == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
+                }
                 devices.emplace(chip_id, make_client_device(chip_id, std::move(client), info));
+                // Only once the device is in: make_client_device() throws on a backend kind this
+                // build doesn't know, and the catch below skips the chip. Recording the socket
+                // first would leave connection.sockets naming a chip that has no device.
+                result.connection.sockets.emplace(chip_id, socket_file);
             } catch (const std::exception& e) {
                 log_warning(
                     LogUMD, "Skipping simulation socket {} (chip {}): {}", socket_file.string(), chip_id, e.what());
@@ -154,7 +220,9 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
             !devices.empty(),
             error::RuntimeError,
             fmt::format("No reachable simulation hosts among the sockets in {}", simulator_path.string()));
-        return devices;
+        result.connection.role = Role::Client;
+        result.connection.server_directory = simulator_path;
+        return result;
     }
 
     // Host: single chip for now. Serving over sockets is opt-in: by default the host device stays
@@ -167,12 +235,25 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
         const std::filesystem::path server_directory = options.server_directory.empty()
                                                            ? SimulationServerSocket::allocate_server_directory()
                                                            : options.server_directory;
-        socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id));
+        const std::filesystem::path socket_path =
+            SimulationServerSocket::default_socket_path(server_directory, chip_id);
+        socket = SimulationServerSocket::create(socket_path);
+        // Report where this host ended up serving -- the allocated directory is otherwise known
+        // only in here, so a caller that did not pre-allocate one could never name it.
+        result.connection.server_directory = server_directory;
+        result.connection.sockets.emplace(chip_id, socket_path);
     }
+    // value() rather than operator*: classify() always sets a backend for the host role, and this
+    // makes that invariant explicit instead of reading an empty optional if it ever stops holding.
+    const SimulationBackendType backend = classification.backend.value();
     devices.emplace(
-        chip_id,
-        make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));
-    return devices;
+        chip_id, make_host_device(backend, simulator_path, options.num_host_mem_channels, std::move(socket)));
+
+    result.connection.role = Role::Host;
+    result.connection.simulator = simulator_path;
+    result.connection.backend = backend;
+    result.connection.arch = devices.at(chip_id)->get_soc_descriptor().arch;
+    return result;
 }
 
 }  // namespace tt::umd

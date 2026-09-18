@@ -23,7 +23,6 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/io_window_config.hpp"
@@ -624,7 +623,7 @@ TEST_F(TestTlb, CreateIoWindow) {
 
     EXPECT_GE(window->get_size(), requested_size);
     EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
-    // create_io_window() configures through the single-argument configure(), which applies Strict.
+    // Ordering defaults to Strict when the caller does not ask for one.
     EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
 
     const TargetIoWindowConfig readback = window->get_target_config();
@@ -638,13 +637,23 @@ TEST_F(TestTlb, CreateIoWindow) {
     // No architecture has a window this large, so the request cannot be served.
     EXPECT_ANY_THROW(tt_device->create_io_window(target, {.size = std::numeric_limits<size_t>::max()}));
 
+    // A caller that needs another ordering mode gets it applied to the mapping it is handed, rather
+    // than having to reconfigure the window itself once it has one.
+    for (const IoOrdering ordering : {IoOrdering::Relaxed, IoOrdering::Posted}) {
+        std::unique_ptr<IoWindow> ordered_window =
+            tt_device->create_io_window(target, {.size = requested_size}, ordering);
+        EXPECT_EQ(ordered_window->get_io_ordering(), ordering);
+        EXPECT_EQ(ordered_window->get_target_config().addr, l1_addr) << "Ordering should not disturb the target";
+    }
+
     // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
     // TTDevice nor translated coordinates ask for a window.
     std::unique_ptr<IoWindow> chip_window =
-        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size});
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
     ASSERT_NE(chip_window, nullptr);
     EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
     EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
+    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::Relaxed);
 
     chip_window->write32(0, 0xa5a5a5a5);
     EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
@@ -689,7 +698,13 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     }
 
     std::unique_ptr<IoWindow> window = cluster->create_io_window(
-        chip, grid_start, l1_addr, {.size = sizeof(pattern)}, grid_end, WindowFlags::MulticastWrite);
+        chip,
+        grid_start,
+        l1_addr,
+        {.size = sizeof(pattern)},
+        IoOrdering::Strict,
+        grid_end,
+        WindowFlags::MulticastWrite);
     ASSERT_NE(window, nullptr);
 
     window->write32(0, pattern);
@@ -701,27 +716,27 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     }
 }
 
-TEST_F(TestTlb, TLBStaticTensix) {
+TEST_F(TestTlb, IoWindowTensixRoundTrip) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
-
     const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-    std::vector<uint32_t> zero_out(1024, 0);
-    std::vector<uint32_t> readback_zeros(1024, 0xFFFFFFFF);
+    const int num_writes = 1024;
+    std::vector<uint32_t> zero_out(num_writes, 0);
+    std::vector<uint32_t> readback_zeros(num_writes, 0xFFFFFFFF);
     cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
     cluster->read_from_device(readback_zeros.data(), 0, tensix_core_0, 0, readback_zeros.size() * sizeof(uint32_t));
 
     EXPECT_EQ(readback_zeros, zero_out);
 
-    for (const CoreCoord tensix_core :
-         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-        cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
-    }
+    // Owned window, released at scope exit -- unlike the old static-TLB lookup, which was borrowed
+    // from a manager that outlived the call and mapped every Tensix at once.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(0, tensix_core_0, 0, {.size = num_writes * sizeof(uint32_t)});
+    ASSERT_NE(window, nullptr);
 
-    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
-
-    const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {
         window->write32(4 * i, i);
     }

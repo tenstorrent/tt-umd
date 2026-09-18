@@ -27,7 +27,6 @@ namespace tt::umd {
 
 class TTDevice;
 class SysmemManager;
-class TLBManager;
 struct CoreCoord;
 
 // An abstract class that represents a chip.
@@ -52,7 +51,6 @@ public:
 
     virtual TTDevice* get_tt_device() = 0;
     virtual SysmemManager* get_sysmem_manager() = 0;
-    virtual TLBManager* get_tlb_manager() = 0;
 
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;

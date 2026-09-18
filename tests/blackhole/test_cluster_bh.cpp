@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <initializer_list>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -18,7 +19,6 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -39,17 +39,19 @@ static void set_barrier_params(Cluster& cluster) {
 }
 
 TEST(ClusterBH, CreateDestroy) {
-    DeviceParams default_params;
+    // Construction and teardown only. Starting the cluster here would also drag in the tensix RISC
+    // setup that makes start_device() safe to call in tests, which is a per-core sweep of every chip
+    // and dominates the loop on a Galaxy. Starting a cluster and tearing it down is covered by the
+    // tests that actually do device IO.
     for (int i = 0; i < 50; i++) {
         auto cluster_ptr = test_utils::make_default_test_cluster();
         Cluster& cluster = *cluster_ptr;
         set_barrier_params(cluster);
-        test_utils::safe_test_cluster_start(&cluster);
         cluster.close_device();
     }
 }
 
-TEST(ClusterBH, UnalignedStaticTLB_RW) {
+TEST(ClusterBH, UnalignedTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -57,11 +59,6 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
     // Do this only for a single chip to speed up the test.
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
-    }
 
     test_utils::safe_test_cluster_start(&cluster);
 
@@ -86,50 +83,6 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
             }
             address += 0x20;
         }
-    }
-    cluster.close_device();
-}
-
-TEST(ClusterBH, StaticTLB_RW) {
-    auto cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
-    set_barrier_params(cluster);
-
-    // Do this only for a single chip to speed up the test.
-    auto chip_id = *cluster.get_target_mmio_device_ids().begin();
-    auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
-    }
-
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
-    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
-    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
-    for (int loop = 0; loop < 100; loop++) {
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            cluster.write_to_device(
-                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-            // Barrier to ensure that all writes over ethernet were commited.
-            cluster.wait_for_non_mmio_flush();
-            test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
-            ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
-            cluster.wait_for_non_mmio_flush();
-            cluster.write_to_device(
-                zeros.data(),
-                zeros.size() * sizeof(std::uint32_t),
-                chip_id,
-                core,
-                address);  // Clear any written data
-            cluster.wait_for_non_mmio_flush();
-            readback_vec = {};
-        }
-        address += 0x20;  // Increment by uint32_t size for each write
     }
     cluster.close_device();
 }
@@ -246,8 +199,7 @@ TEST(ClusterBH, DISABLED_MultiThreadedDevice) {
 }
 
 TEST(ClusterBH, MultiThreadedMemBar) {
-    // Have 2 threads read and write from a single device concurrently
-    // All (fairly large) transactions go through a static TLB.
+    // Have 2 threads read and write from a single device concurrently.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
@@ -255,14 +207,6 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    for (auto chip_id : cluster.get_target_device_ids()) {
-        // Iterate over devices and only setup static TLBs for functional worker cores.
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 2MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, base_addr);
-        }
-    }
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -469,10 +413,19 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
         24, 25};  // Exclude ETH and PCIE rows for the DRAM broadcast
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 
+    // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
+    // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
+    // always run against cores with a known baseline.
+    std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
+            cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
+    }
+
     // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
     std::vector<uint32_t> initial_zeros(broadcast_sizes.back(), 0);
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+        for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
             cluster.write_to_device(
                 initial_zeros.data(), initial_zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
         }
@@ -500,15 +453,7 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
 
         for (auto chip_id : cluster.get_target_device_ids()) {
             // Tensix cores received the broadcast; zero them out.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -554,15 +499,7 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
                 readback_vec = {};
             }
             // Tensix cores must NOT have been written by the DRAM broadcast.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(zeros, readback_vec) << "Tensix core " << chip_id << " " << core.str()

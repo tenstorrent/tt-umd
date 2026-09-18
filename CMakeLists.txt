@@ -114,6 +114,13 @@ endif()
 
 add_subdirectory(third_party)
 
+option(TT_UMD_ENABLE_UNITY_BUILD "Batch UMD sources into unity translation units" OFF)
+set(TT_UMD_UNITY_BUILD_BATCH_SIZE "16" CACHE STRING "Number of sources per unity translation unit")
+if(TT_UMD_ENABLE_UNITY_BUILD)
+    set(CMAKE_UNITY_BUILD ON)
+    set(CMAKE_UNITY_BUILD_BATCH_SIZE "${TT_UMD_UNITY_BUILD_BATCH_SIZE}")
+endif()
+
 # Create a target that aggregates all generated files needed for code analysis.
 # Subdirectories can add dependencies to this target as needed.
 add_custom_target(umd_all_generated_files)
@@ -211,6 +218,8 @@ set(_umd_summary_vars
     TT_UMD_ENABLE_CLANG_TIDY
     TT_UMD_ENABLE_LOGGING
     TT_UMD_ENABLE_TRACY
+    TT_UMD_ENABLE_UNITY_BUILD
+    TT_UMD_UNITY_BUILD_BATCH_SIZE
 )
 message(STATUS "")
 message(STATUS "==================== UMD configuration summary ====================")

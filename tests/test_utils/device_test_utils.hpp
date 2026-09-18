@@ -5,19 +5,25 @@
 #pragma once
 #include <fmt/ranges.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -127,6 +133,53 @@ inline bool is_virtual_machine() {
         }
     }
     return false;
+}
+
+// The tensix cores to read back after a broadcast on one chip. Reading back every targeted core
+// multiplies out with the number of broadcast sizes and the number of chips, which on an all-MMIO
+// Galaxy leaves the broadcast tests among the slowest in the suite while re-checking the same
+// rectangle on all 32 chips. Instead walk a staircase through the target rectangle: pair the i-th
+// target row with the i-th target column, cycling the shorter axis. That reads back every row and
+// every column the broadcast should reach, so a row or column strip wrongly dropped or added by the
+// exclusion masks still fails, at max(rows, columns) readbacks rather than rows x columns. Taking a
+// contiguous run of cores instead would not do: get_cores() is row major, so a short run collapses
+// onto a couple of rows and leaves whole columns unread - including the ones flanking an excluded
+// column, which is where an off-by-one in the masks shows up.
+//
+// `rows_to_exclude` and `cols_to_exclude` are the masks handed to the broadcast, expressed in
+// `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
+inline std::vector<CoreCoord> broadcast_readback_cores(
+    const SocDescriptor& soc_desc,
+    const std::set<uint32_t>& rows_to_exclude,
+    const std::set<uint32_t>& cols_to_exclude,
+    const CoordSystem exclusion_coord_system) {
+    std::set<uint32_t> target_rows;
+    std::set<uint32_t> target_cols;
+    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
+    for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
+        const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
+        if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {
+            continue;
+        }
+        target_rows.insert(excluded_coord.y);
+        target_cols.insert(excluded_coord.x);
+        targets_by_row_and_col.emplace(std::make_pair(excluded_coord.y, excluded_coord.x), core);
+    }
+    if (target_rows.empty() || target_cols.empty()) {
+        return {};
+    }
+
+    const std::vector<uint32_t> rows(target_rows.begin(), target_rows.end());
+    const std::vector<uint32_t> cols(target_cols.begin(), target_cols.end());
+    std::vector<CoreCoord> sampled;
+    for (size_t step = 0; step < std::max(rows.size(), cols.size()); step++) {
+        // Harvesting can leave the target set non-rectangular, so a row/column pair may not exist.
+        const auto target = targets_by_row_and_col.find({rows[step % rows.size()], cols[step % cols.size()]});
+        if (target != targets_by_row_and_col.end()) {
+            sampled.push_back(target->second);
+        }
+    }
+    return sampled;
 }
 
 }  // namespace tt::umd::test_utils

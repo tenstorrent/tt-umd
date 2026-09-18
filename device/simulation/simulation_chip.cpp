@@ -26,9 +26,10 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels) {
-    auto tt_device =
-        create_simulation_tt_device(simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels);
+    int num_host_mem_channels,
+    std::optional<uint32_t> image_endpoint_count) {
+    auto tt_device = create_simulation_tt_device(
+        simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels, image_endpoint_count);
     return std::make_unique<SimulationChip>(simulator_directory, soc_descriptor, chip_id, std::move(tt_device));
 }
 
@@ -52,8 +53,7 @@ SimulationChip::SimulationChip(
     arch_name(soc_descriptor.arch),
     chip_id_(chip_id),
     simulator_directory_(simulator_directory),
-    tt_device_(std::move(tt_device)),
-    tlb_manager_(tt_device_ ? std::make_unique<TLBManager>(tt_device_.get()) : nullptr) {
+    tt_device_(std::move(tt_device)) {
     UMD_ASSERT(tt_device_ != nullptr, error::RuntimeError, "SimulationChip requires a non-null TTDevice.");
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
@@ -194,8 +194,6 @@ int SimulationChip::get_numa_node() {
 TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
-
-TLBManager* SimulationChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

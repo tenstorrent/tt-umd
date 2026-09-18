@@ -46,7 +46,6 @@
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "umd/device/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/io_window/io_window.hpp"
@@ -65,13 +64,11 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-class TlbWindow;
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -435,13 +432,20 @@ Cluster::Cluster(ClusterOptions options) {
             // chip loop wraps in SimulationChips).
             if (options.chip_type == ChipType::SIMULATION &&
                 SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
-                const std::map<ChipId, std::filesystem::path> sockets =
-                    SimulationServerSocket::sockets_in_directory(options.simulator_directory);
+                std::map<ChipId, std::filesystem::path> sockets;
+                for (const auto& [chip_id, socket_path] :
+                     SimulationServerSocket::sockets_in_directory(options.simulator_directory)) {
+                    // Skip sockets a crashed host left behind: role_for() above only guarantees
+                    // that *some* socket here is live, and the probe below has to reach one.
+                    if (SimulationServerSocket::is_live(socket_path)) {
+                        sockets.emplace(chip_id, socket_path);
+                    }
+                }
                 UMD_ASSERT(
                     !sockets.empty(),
                     error::RuntimeError,
                     fmt::format(
-                        "No simulation sockets found in {}; nothing to attach to.",
+                        "No live simulation sockets found in {}; nothing to attach to.",
                         options.simulator_directory.string()));
 
                 // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,
@@ -467,7 +471,9 @@ Cluster::Cluster(ClusterOptions options) {
                 connector_options.simulator_directory = options.simulator_directory;
                 connector_options.num_host_mem_channels =
                     static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
-                tt_devices = SimulationConnector::discover(connector_options);
+                auto discovered = SimulationConnector::discover(connector_options);
+                simulation_connection_ = std::move(discovered.connection);
+                tt_devices = std::move(discovered.devices);
 
                 // Every chip the topology names must have a socket-backed device (single-chip today;
                 // a multichip host will publish one socket per chip). Fail clearly rather than later
@@ -755,9 +761,16 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
-        serve_simulation_devices_over_sockets(
-            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+    if (options.chip_type == ChipType::SIMULATION) {
+        // The client path recorded its connection during discovery, so reaching here without one
+        // means this process runs the simulation itself.
+        if (!simulation_connection_.has_value()) {
+            simulation_connection_ = describe_simulation_host(options.simulator_directory);
+        }
+        if (options.serve_simulation_devices_over_sockets) {
+            serve_simulation_devices_over_sockets(
+                options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+        }
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -769,6 +782,42 @@ Cluster::Cluster(ClusterOptions options) {
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+std::optional<SimulationConnector::Connection> Cluster::get_simulation_connection() const {
+    return simulation_connection_;
+}
+
+SimulationConnector::Connection Cluster::describe_simulation_host(
+    const std::filesystem::path& simulator_directory) const {
+    SimulationConnector::Connection connection;
+    connection.role = SimulationConnector::Role::Host;
+    connection.simulator = simulator_directory;
+    // Take the backend and arch from a device rather than re-deriving them from the path, so this
+    // reports what was actually built. server_directory and sockets stay empty until (and unless)
+    // serve_simulation_devices_over_sockets() fills them.
+    bool described = false;
+    for (const auto& [chip_id, chip] : chips_) {
+        if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
+            connection.backend = sim_device->backend_type();
+            connection.arch = sim_device->get_soc_descriptor().arch;
+            described = true;
+            break;
+        }
+    }
+    // A simulation Cluster with no simulation device is degenerate but legal -- an empty
+    // target_devices with no cluster_descriptor.yaml beside the simulator yields zero chips -- so
+    // warn instead of asserting. Say so rather than reporting the defaults (TTSim/Invalid) as if
+    // they had been read off a device, which is also how a future regression that describes the
+    // host before the chips exist would surface.
+    if (!described) {
+        log_warning(
+            LogUMD,
+            "Simulation host {} has no simulation device to describe; reporting an unknown backend and "
+            "architecture.",
+            simulator_directory.string());
+    }
+    return connection;
+}
+
 void Cluster::serve_simulation_devices_over_sockets(
     const std::filesystem::path& simulator_directory,
     const std::filesystem::path& simulator_server_directory,
@@ -783,17 +832,30 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // The constructor describes the host connection before it starts serving, so there is always
+    // one to record into here. Asserted rather than guarded, so a future reordering fails loudly
+    // instead of quietly serving sockets it never reports.
+    UMD_ASSERT(
+        simulation_connection_.has_value(),
+        error::RuntimeError,
+        "Simulation host started serving sockets before its connection was described.");
     // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
     // machine never collide even when they serve the same chip id.
     const std::filesystem::path server_directory = simulator_server_directory.empty()
                                                        ? SimulationServerSocket::allocate_server_directory()
                                                        : simulator_server_directory;
     log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
+    // Report where this host serves. When the caller left simulator_server_directory empty the
+    // directory was allocated just above, so this is the only way it learns of it -- recorded here
+    // rather than per chip, so a host that turns out to have no simulation devices still reports
+    // the directory it claimed instead of reading as "not serving".
+    simulation_connection_->server_directory = server_directory;
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
-            sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
-                shutdown_handler);
+            const std::filesystem::path socket_path =
+                SimulationServerSocket::default_socket_path(server_directory, chip_id);
+            sim_device->adopt_socket(SimulationServerSocket::create(socket_path), shutdown_handler);
+            simulation_connection_->sockets.emplace(chip_id, socket_path);
         }
     }
 }
@@ -1019,6 +1081,7 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
     CoreCoord core_start,
     uint64_t addr,
     HostIoWindowConfig host,
+    IoOrdering ordering,
     std::optional<CoreCoord> core_end,
     WindowFlags flags,
     std::optional<NocId> noc) {
@@ -1028,13 +1091,9 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
         return nullptr;
     }
     return tt_device->create_io_window(
-        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags), host);
-}
-
-TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core =
-        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    return get_tlb_manager(chip)->get_tlb_window(translated_core);
+        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags),
+        host,
+        ordering);
 }
 
 int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
@@ -1052,35 +1111,18 @@ std::map<int, int> Cluster::get_clocks() {
 Cluster::~Cluster() {
     log_info(LogUMD, "Cluster destructor started.");
 
+    if (needs_close_) {
+        try {
+            close_device();
+        } catch (const std::exception& e) {
+            log_error(LogUMD, "Exception while closing devices in Cluster destructor: {}", e.what());
+        } catch (...) {
+            log_error(LogUMD, "Unknown exception while closing devices in Cluster destructor.");
+        }
+    }
+
     cluster_desc.reset();
     log_info(LogUMD, "Cluster destructor completed.");
-}
-
-tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core =
-        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
-}
-
-// TODO: These configure_tlb APIs are soon going away.
-void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    ZoneScopedC(tracy::Color::Cyan);
-    configure_tlb(
-        logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_size,
-        address,
-        ordering);
-}
-
-void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    ZoneScopedC(tracy::Color::Cyan);
-    tt_xy_pair translated_core = get_chip(logical_device_id)
-                                     ->get_soc_descriptor()
-                                     .translate_chip_coord_to_translated(core, get_selected_noc_id());
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
@@ -1097,8 +1139,6 @@ TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("TTDevice not found for device: {}", device_id));
     return tt_device;
 }
-
-TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(device_id)->get_tlb_manager(); }
 
 Chip* Cluster::get_chip(ChipId device_id) const {
     auto chip_it = chips_.find(device_id);
@@ -1324,6 +1364,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
+        needs_close_ = true;
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
@@ -1344,6 +1385,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
+    needs_close_ = false;
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 

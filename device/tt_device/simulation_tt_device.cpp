@@ -69,7 +69,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     // read/write skeleton below (SimulationServerResponse), so it is handled up front.
     if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
         try {
-            return encode(describe_device(get_soc_descriptor(), backend_type()));
+            return encode(describe_device(get_soc_descriptor(), backend_type(), simulator_directory_));
         } catch (const std::exception& e) {
             log_warning(tt::LogUMD, "Simulation host failed to serve device info: {}", e.what());
             SimulationServerDeviceInfo info;
@@ -160,37 +160,45 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
-void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
+void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    if (handle_special_write(mem_ptr, translated_core, addr, size)) {
+    if (handle_special_write(mem_ptr, core, addr, size)) {
         return;
     }
     if (should_use_cached_tlb_window()) {
-        write_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        tile_write_bytes(translated_core, addr, mem_ptr, size);
+        tile_write_bytes(core, addr, mem_ptr, size);
     }
 }
 
-void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
+void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    if (handle_special_read(mem_ptr, translated_core, addr, size)) {
+    if (handle_special_read(mem_ptr, core, addr, size)) {
         return;
     }
     if (should_use_cached_tlb_window()) {
-        read_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        tile_read_bytes(translated_core, addr, mem_ptr, size);
+        tile_read_bytes(core, addr, mem_ptr, size);
     }
     after_read();
+}
+
+void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
+    noc_write_translated(
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()), addr, mem_ptr, size);
+}
+
+void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
+    noc_read_translated(
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()), addr, mem_ptr, size);
 }
 
 void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
@@ -314,22 +322,6 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
 void SimulationTTDevice::dma_write_to_core_range(
     const void* src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
-}
-
-void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
-}
-
-void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
-}
-
-uint32_t SimulationTTDevice::get_clock() {
-    UMD_THROW(error::RuntimeError, "Getting clock is not supported for simulation devices.");
-}
-
-uint32_t SimulationTTDevice::get_min_clock_freq() {
-    UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported for simulation devices.");
 }
 
 }  // namespace tt::umd

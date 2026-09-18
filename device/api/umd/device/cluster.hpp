@@ -26,6 +26,9 @@
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/simulation/simulation_connector.hpp"
+#endif  // TT_UMD_BUILD_SIMULATION
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
@@ -54,8 +57,6 @@ class IoWindow;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
-class TLBManager;
-class TlbWindow;
 
 /**
  * Chip type to create under the Cluster class.
@@ -247,41 +248,6 @@ public:
     void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        tt_xy_pair core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        CoreCoord core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
      * Maps a core into host address space, anchored at an address on that core. Reads and writes
      * through the returned window address it as offsets from that anchor. The window is created
      * large enough to cover the requested size, rounded up to a size the architecture provides.
@@ -297,6 +263,7 @@ public:
      * @param core_start Core to map, or upper-left corner of a multicast grid.
      * @param addr Address on the core(s) the window is anchored at.
      * @param host Host-side window properties (caching strategy and requested size).
+     * @param ordering Transaction ordering mode to apply to the mapping.
      * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
      * @param flags Transaction attributes.
      * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
@@ -306,6 +273,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
+        IoOrdering ordering = IoOrdering::Strict,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -329,6 +297,15 @@ public:
     // the library is built with TT_UMD_BUILD_SIMULATION=ON.
     void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
     void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
+
+    /**
+     * What simulation this cluster is connected to: whether this process hosts the simulation or
+     * attached to one another process hosts, which simulator sits behind it, and -- for a host that
+     * serves -- the directory and sockets it serves on, including one UMD allocated itself.
+     *
+     * std::nullopt for a cluster that is not a simulation cluster.
+     */
+    std::optional<SimulationConnector::Connection> get_simulation_connection() const;
 #endif  // TT_UMD_BUILD_SIMULATION
 
     //---------- Start and stop the device and tensix cores.
@@ -416,6 +393,15 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
+     * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
+     * other. The call returns once the writes are issued, not once they are acknowledged by the
+     * target — the underlying MMIO stores are posted.
+     *
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap, and the ordering costs write throughput. A caller that wants either back can take an
+     * @ref IoWindow from @ref create_io_window, pick its own ordering mode and drive it directly,
+     * using @ref IoWindow::configure to advance across chunks larger than the window.
+     *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
      * @param chip Chip to target.
@@ -428,6 +414,13 @@ public:
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
+     *
+     * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
+     * respect to each other.
+     *
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap. A caller that needs them to overlap can take an @ref IoWindow from @ref
+     * create_io_window and drive it directly.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.
@@ -531,19 +524,6 @@ public:
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude,
         bool use_translated_coords);
-
-    /**
-     * Provide fast read/write access to a statically-mapped TLB.
-     * It is the caller's responsibility to ensure that
-     * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned pointer.
-     * - the Cluster instance outlives the returned pointer.
-     * - use of the returned pointer is congruent with the target's TLB setup.
-     *
-     * @param chip The chip to access.
-     * @param core The core to access.
-     */
-    TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
@@ -770,18 +750,6 @@ public:
      */
     TTDevice* get_tt_device(ChipId device_id) const;
 
-    /**
-     * Get TLBManager for specified logical device id.
-     *
-     * @param device_id Device to target.
-     */
-    TLBManager* get_tlb_manager(ChipId device_id) const;
-
-    /**
-     * Exposes how TLBs are configured for a specific device.
-     */
-    tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
-
 private:
     // Helper functions
     // Broadcast.
@@ -808,6 +776,11 @@ private:
     std::unique_ptr<RemoteChip> create_simulation_remote_chip(
         ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc);
 
+    // Host simulation Cluster only: describes the simulation this process runs, for
+    // get_simulation_connection(). Called once the chips exist, so the arch is known. The serving
+    // directory and sockets are filled in afterwards by serve_simulation_devices_over_sockets().
+    SimulationConnector::Connection describe_simulation_host(const std::filesystem::path& simulator_directory) const;
+
     // Host simulation Cluster only: exposes each simulation chip's device on its per-chip socket so a
     // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
     // no-op for a client Cluster. Called once from the constructor after the chips are built.
@@ -822,6 +795,9 @@ private:
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
+    // Set when start_device() initialized the chips, cleared by close_device()
+    bool needs_close_ = false;
+
     // State variables.
     std::set<ChipId> all_chip_ids_;
     std::set<ChipId> remote_chip_ids_;
@@ -832,6 +808,11 @@ private:
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Filled during construction for a simulation cluster: by discovery on the client path, by
+    // describe_simulation_host() plus serve_simulation_devices_over_sockets() on the host path.
+    std::optional<SimulationConnector::Connection> simulation_connection_;
+#endif  // TT_UMD_BUILD_SIMULATION
 
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;

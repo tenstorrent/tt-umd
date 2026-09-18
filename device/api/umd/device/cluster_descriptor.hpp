@@ -84,6 +84,27 @@ public:
     static std::unique_ptr<ClusterDescriptor> create_constrained_cluster_descriptor(
         const ClusterDescriptor *full_cluster_desc, const std::unordered_set<ChipId> &target_chip_ids = {});
 
+    /* Cluster id of the accelerator group this descriptor describes. */
+
+    /**
+     * Returns the cluster id: a unique string identifying the group of Tenstorrent accelerators
+     * connected to a common host / controller / root complex. One cluster descriptor describes one
+     * such group.
+     *
+     * The value is currently that group's bare metal hostname, because that is what the factory
+     * system descriptor and the fabric topology solver join on. Semantically this identifies the
+     * accelerator group and not a machine, so the value scheme can change without the field
+     * changing meaning.
+     *
+     * Set when parsing a YAML that carries the key, and by discovery from
+     * TopologyDiscoveryOptions::cluster_id or the OS hostname. It does not change over a
+     * descriptor's lifetime, so there is no setter.
+     *
+     * Empty when the YAML omitted the key and discovery did not stamp one. That is the case for
+     * every descriptor written before this field existed, and is not an error.
+     */
+    const std::optional<std::string> &get_cluster_id() const;
+
     /* Getters for various chip related information. */
 
     /**
@@ -337,6 +358,10 @@ private:
 
     std::vector<ChipId> unhealthy_devices;
     std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
+
+    // Unset on descriptors written before this field existed, and on mock descriptors that were
+    // never given one. Consumers fall back to whatever they used before in that case.
+    std::optional<std::string> cluster_id;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

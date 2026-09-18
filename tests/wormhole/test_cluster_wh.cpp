@@ -4,7 +4,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -17,7 +16,6 @@
 #include <string>
 #include <thread>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -75,53 +73,6 @@ static void set_barrier_params(Cluster& cluster) {
         {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-// The tensix cores to read back after a broadcast on one chip. Reading back every targeted core
-// multiplies out with the number of broadcast sizes and the number of chips, which on an all-MMIO
-// Galaxy leaves these tests among the slowest in the suite while re-checking the same rectangle on
-// all 32 chips. Instead walk a staircase through the target rectangle: pair the i-th target row with
-// the i-th target column, cycling the shorter axis. That reads back every row and every column the
-// broadcast should reach, so a row or column strip wrongly dropped or added by the exclusion masks
-// still fails, at max(rows, columns) readbacks rather than rows x columns. Taking a contiguous run of
-// cores instead would not do: get_cores() is row major, so a short run collapses onto a couple of
-// rows and leaves whole columns unread - including the ones flanking an excluded column, which is
-// where an off-by-one in the masks shows up.
-//
-// `rows_to_exclude` and `cols_to_exclude` are the masks handed to the broadcast, expressed in
-// `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
-static std::vector<CoreCoord> broadcast_readback_cores(
-    const SocDescriptor& soc_desc,
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& cols_to_exclude,
-    const CoordSystem exclusion_coord_system) {
-    std::set<uint32_t> target_rows;
-    std::set<uint32_t> target_cols;
-    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
-    for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
-        const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
-        if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {
-            continue;
-        }
-        target_rows.insert(excluded_coord.y);
-        target_cols.insert(excluded_coord.x);
-        targets_by_row_and_col.emplace(std::make_pair(excluded_coord.y, excluded_coord.x), core);
-    }
-    if (target_rows.empty() || target_cols.empty()) {
-        return {};
-    }
-
-    const std::vector<uint32_t> rows(target_rows.begin(), target_rows.end());
-    const std::vector<uint32_t> cols(target_cols.begin(), target_cols.end());
-    std::vector<CoreCoord> sampled;
-    for (size_t step = 0; step < std::max(rows.size(), cols.size()); step++) {
-        // Harvesting can leave the target set non-rectangular, so a row/column pair may not exist.
-        const auto target = targets_by_row_and_col.find({rows[step % rows.size()], cols[step % cols.size()]});
-        if (target != targets_by_row_and_col.end()) {
-            sampled.push_back(target->second);
-        }
-    }
-    return sampled;
-}
-
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_one_dram_one_tensix_no_eth.yaml"),
@@ -161,17 +112,6 @@ TEST(ClusterWH, HarvestingRuntime) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    // Iterate over MMIO devices and only setup static TLBs for worker cores.
-    for (auto chip_id : mmio_devices) {
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-        }
-    }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_readback_vec = {};
@@ -226,7 +166,7 @@ TEST(ClusterWH, HarvestingRuntime) {
     cluster.close_device();
 }
 
-TEST(ClusterWH, UnalignedStaticTLB_RW) {
+TEST(ClusterWH, UnalignedTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -234,11 +174,6 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
     // Do this only for a single chip to speed up the test.
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
     auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-    }
 
     test_utils::safe_test_cluster_start(&cluster);
 
@@ -263,50 +198,6 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
             }
             address += 0x20;
         }
-    }
-    cluster.close_device();
-}
-
-TEST(ClusterWH, StaticTLB_RW) {
-    auto cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
-    set_barrier_params(cluster);
-
-    // Do this only for a single chip to speed up the test.
-    auto chip_id = *cluster.get_target_mmio_device_ids().begin();
-    auto& sdesc = cluster.get_soc_descriptor(chip_id);
-    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-        cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
-    }
-
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
-    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
-    // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
-    for (int loop = 0; loop < 100; loop++) {
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            cluster.write_to_device(
-                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip_id, core, address);
-            // Barrier to ensure that all writes over ethernet were commited.
-            cluster.wait_for_non_mmio_flush();
-            test_utils::read_data_from_device(cluster, readback_vec, chip_id, core, address, 40);
-            ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
-            cluster.wait_for_non_mmio_flush();
-            cluster.write_to_device(
-                zeros.data(),
-                zeros.size() * sizeof(std::uint32_t),
-                chip_id,
-                core,
-                address);  // Clear any written data
-            cluster.wait_for_non_mmio_flush();
-            readback_vec = {};
-        }
-        address += 0x20;  // Increment by uint32_t size for each write
     }
     cluster.close_device();
 }
@@ -397,8 +288,7 @@ TEST(ClusterWH, DISABLED_MultiThreadedDevice) {
 }
 
 TEST(ClusterWH, MultiThreadedMemBar) {
-    // Have 2 threads read and write from a single device concurrently
-    // All (fairly large) transactions go through a static TLB.
+    // Have 2 threads read and write from a single device concurrently.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
@@ -407,16 +297,6 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    // Iterate over MMIO devices and only setup static TLBs for worker cores.
-    for (auto chip_id : mmio_devices) {
-        auto& sdesc = cluster.get_soc_descriptor(chip_id);
-        for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, base_addr);
-        }
-    }
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -527,7 +407,7 @@ TEST(ClusterWH, BroadcastWrite) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::NOC0);
     }
 
@@ -651,7 +531,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
     }
 
@@ -775,7 +655,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     // always run against cores with a known baseline.
     std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+        tensix_cores_to_check[chip_id] = test_utils::broadcast_readback_cores(
             cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
     }
 
@@ -1074,33 +954,24 @@ TEST(ClusterWH, LargeAddressTlb) {
     // Offset to the scratch registers in the reset unit:
     uint64_t scratch_offset = 0x60;
 
-    // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, tt::umd::wormhole::STATIC_TLB_SIZE, arc_reset_noc);
-
     // Address of the scratch register in the reset unit:
     uint64_t addr = arc_reset_noc + scratch_offset;
 
     uint32_t value0 = 0;
     uint32_t value1 = 0;
-    uint32_t value2 = 0;
 
     // Read the scratch register via BAR0:
     value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
 
-    // Read the scratch register via the TLB:
+    // Read the scratch register via a dynamically mapped TLB:
     cluster.read_from_device(&value1, 0, ARC_CORE, addr, sizeof(uint32_t));
-
-    // Read the scratch register via a different TLB, different code path:
-    cluster.read_from_device(&value2, 0, ARC_CORE, addr, sizeof(uint32_t));
 
     // Mask off lower 16 bits; FW changes these dynamically:
     value0 &= 0xffff0000;
     value1 &= 0xffff0000;
-    value2 &= 0xffff0000;
 
     // Check that the values are the same:
     EXPECT_EQ(value1, value0);
-    EXPECT_EQ(value2, value0);
 }
 
 /**

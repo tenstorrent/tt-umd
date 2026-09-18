@@ -57,10 +57,6 @@ public:
     void write_to_device(
         const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    uint32_t get_clock() override;
-    uint32_t get_min_clock_freq() override;
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,
@@ -83,6 +79,19 @@ public:
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
+    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
+    // remote client can build the matching device class, and reported by Cluster so a caller can
+    // tell what its simulation is backed by.
+    virtual SimulationBackendType backend_type() const = 0;
+
+    // NOC access at an already-translated coordinate: the special-case fast paths, the
+    // TLB-window-or-tile choice, and the post-read clocking, without the coordinate translation
+    // host_read/host_write do first. Exposed so a DeviceProtocol serving this backend can reach the
+    // same path the device uses rather than reimplementing it -- the arch decision between the
+    // cached TLB window and direct tile access lives here and is shared.
+    void noc_read_translated(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
+    void noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
 
 protected:
     SimulationTTDevice(
@@ -116,10 +125,6 @@ protected:
     // read_from_device/write_to_device translate the CoreCoord once (via
     // translate_chip_coord_to_translated) before dispatching, so the `core` handed to every hook
     // below is already a TRANSLATED coordinate -- do not translate it again.
-
-    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
-    // remote client can build the matching device class.
-    virtual SimulationBackendType backend_type() const = 0;
 
     // Direct tile (NOC unicast) access through the backend communicator.
     virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;

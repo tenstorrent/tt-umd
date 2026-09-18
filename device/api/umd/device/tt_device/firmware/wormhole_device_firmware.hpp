@@ -37,12 +37,17 @@ class RemoteInterface;
  */
 class WormholeDeviceFirmware : public DeviceFirmware {
 public:
+    // kmd_lock_available is whether the ARC message lock this device shares with other processes can
+    // be taken through its KMD lock table. On silicon it can, which is the default. A simulated device
+    // models the PCIe surface in-process with no /dev/tenstorrent node behind it, so it passes false
+    // and the lock falls back to shared memory alone.
     WormholeDeviceFirmware(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface,
-        ArchitectureImplementation* architecture_impl);
+        ArchitectureImplementation* architecture_impl,
+        bool kmd_lock_available = true);
 
     // Defined in the .cpp, where the owned components' types are complete.
     ~WormholeDeviceFirmware() override;
@@ -73,6 +78,8 @@ public:
     bool wait_dram_channel_training(
         uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    uint64_t get_refclk_counter(NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -93,6 +100,23 @@ public:
      */
     FirmwareInfoProvider* get_firmware_info_provider() const;
 
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    /**
+     * @brief Raw access to the ARC APB register window.
+     *
+     * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_.
+     * Deliberately concrete-class methods rather than part of DeviceFirmware: the window is an
+     * implementation detail of this component, exposed only for the SPI device, which is
+     * architecture-committed and so holds this concrete type. They go away when SPI moves onto
+     * components of its own.
+     */
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
 private:
     /**
      * @brief Blocks until the management firmware reports it has booted.
@@ -110,6 +134,11 @@ private:
 
     IODeviceType get_io_device_type() const;
 
+    // Asks the firmware where it published the legacy SMBus telemetry block. Firmware that does not
+    // answer gets SmBusArcTelemetryReader::DEFAULT_TELEMETRY_NOC_ADDR, which is where the firmwares
+    // that do answer have always put it.
+    uint64_t get_legacy_telemetry_noc_addr(NocId noc_id);
+
     // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
     // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint
     // when the timeout is within the telemetry update interval.
@@ -121,11 +150,7 @@ private:
     void wait_for_aiclk_value(
         uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
-    // Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_/arc_csm_.
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
-    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
-
+    // Thin wrapper that resolves the ARC core for noc_id and hands the access to arc_csm_.
     void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     // All non-owning; they belong to the object that owns this one and must outlive it.

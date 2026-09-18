@@ -80,6 +80,9 @@ struct SimulationServerDeviceInfo {
     uint32_t eth_harvesting_mask = 0;
     uint32_t l2cpu_harvesting_mask = 0;
     uint32_t pcie_harvesting_mask = 0;
+    // The simulator the host runs (its .so path or RTL build directory), so a client can report
+    // what it is attached to. Empty from a host that predates the field.
+    std::string simulator_path;
 };
 
 // Cluster topology a host serves in reply to a GetClusterDescriptor request; mirrors

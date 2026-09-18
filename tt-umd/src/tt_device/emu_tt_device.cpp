@@ -99,8 +99,12 @@ struct EmuTTDevice::Impl {
     struct MemoryRegion {
         std::unique_ptr<ChippyMemory> memory;
 
-        bool contains(uint64_t address) const {
-            return address >= memory->get_address() && address - memory->get_address() < memory->size_bytes();
+        bool contains(uint64_t address, std::size_t size) const {
+            if (address < memory->get_address()) {
+                return false;
+            }
+            const uint64_t region_offset = address - memory->get_address();
+            return region_offset < memory->size_bytes() && size <= memory->size_bytes() - region_offset;
         }
 
         std::size_t offset(uint64_t address) const {
@@ -151,14 +155,20 @@ struct EmuTTDevice::Impl {
         }
     }
 
-    MemoryRegion* find_memory(uint64_t address) {
+    // Only the word-aligned, word-multiple part of an access can go through the Memory views: their
+    // bulk helpers reject anything finer than their 32-bit word. Sub-word accesses (the uint8_t
+    // mailbox fields, for one) fall back to the transport, which decomposes them itself.
+    MemoryRegion* find_memory(uint64_t address, std::size_t size) {
+        if (address % kMinWordSizeBytes != 0 || size % kMinWordSizeBytes != 0) {
+            return nullptr;
+        }
         for (auto& region : cce_sram) {
-            if (region.contains(address)) {
+            if (region.contains(address, size)) {
                 return &region;
             }
         }
         for (auto& region : gddr_dram) {
-            if (region.contains(address)) {
+            if (region.contains(address, size)) {
                 return &region;
             }
         }
@@ -224,7 +234,7 @@ uint64_t EmuTTDevice::flat_address(tt_xy_pair core, uint64_t addr) const {
 
 void EmuTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
     const uint64_t flat = flat_address(core, addr);
-    if (auto* region = impl_->find_memory(flat)) {
+    if (auto* region = impl_->find_memory(flat, size)) {
         const auto bytes = region->memory->bulk_read_bytes(region->offset(flat), size);
         std::memcpy(mem_ptr, bytes.data(), bytes.size());
         return;
@@ -234,7 +244,7 @@ void EmuTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr,
 
 void EmuTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
     const uint64_t flat = flat_address(core, addr);
-    if (auto* region = impl_->find_memory(flat)) {
+    if (auto* region = impl_->find_memory(flat, size)) {
         std::vector<uint8_t> bytes(size);
         std::memcpy(bytes.data(), mem_ptr, size);
         region->memory->bulk_write_bytes(region->offset(flat), bytes);

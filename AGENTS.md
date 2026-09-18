@@ -21,6 +21,15 @@
 - Once you finish the PR stack of changes go through each of the created PRs, and add a new section in the PR description at the end "### Full stack diff" and add a compare link between last branch and main, so full diff can be easily accessed from any PR.
 
 ## PR split
+- PRs should be as small as possible to help reviewers keep the focus while reviewing scoped-down changes. Small doesn't necessarily mean low number of lines of code. Contextually small PRs can have a huge diff but with the same change (for example renaming a class). Do not combine multiple functional changes into a single PR, even if the total line count is small, as it is harder for a reviewer to take a grasp on the full combination of functional changes.
+- But be careful not to overdo the PR split. Making 10 PRs for 10 related function changes with 5 lines each is making things less readable rather than just keeping the context per PR small. Use your judgement, and if unsure ask the user.
+- To help with a meaningful PR split, PRs should match only one of these categories instead of mixing them: Feature, Performance, Bug fix, Cleanup, Test Only. Tests can be mixed with other categories if they are explicitly used to prove the changes in the same PR
+- For changes which have a large scope, try to separate into multiple changes where each of those has a smaller scope
+- The point of splitting changes into multiple PRs is to make them easier to review, if you estimate splitting will make overall review harder, don't split.
+- Don't implement first then integrate into existing code. Rather, try to do integration first with empty implementation, then follow with implementation. That way we don't have intermediate dead code.
+- If a cleanup is moving some implementation, make sure to remove old and add new implementation in same PR. That way it's clear from the diff implementation shouldn't change.
+- When each of the PRs is prepared for the user to review, re-review your own diff and evaluate whether it makes sense to split the current diff in multiple PRs, and how would the split look like. Inform the user of your opinion when giving the control to them for review.
+- If, when working on a PR change, there is some or several minor cleanup/rename to do in the same context, try to separate those in a different PR which would land right before or right after the current PR.
 
 ## PR description
 

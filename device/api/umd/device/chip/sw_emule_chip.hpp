@@ -84,6 +84,12 @@ public:
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
     void deassert_risc_resets() override;
+    // SWEmule does not execute RISCs or model their reset state.
+    RiscType get_risc_reset_state(CoreCoord core) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(const RiscType selected_riscs) override;
+    void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) override;
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,

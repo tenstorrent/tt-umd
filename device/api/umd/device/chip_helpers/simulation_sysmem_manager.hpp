@@ -30,10 +30,18 @@ public:
     // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
     // routes by which chip's [host_base, host_base + PER_CHIP_HOST_STRIDE) window contains the address.
     static constexpr uint64_t PER_CHIP_HOST_STRIDE = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+    // The modeled outbound iATU uses 32-bit base/limit registers. Mapped-buffer IOVAs share this
+    // device-visible window with the fixed-stride host-memory channels. WH's modeled PCIe DMA
+    // aperture ends at offset 0xFFFE0000, so use that conservative limit for every architecture.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
 
     uint64_t get_host_base() const { return host_base_; }
 
     uint64_t get_host_region_size() const { return PER_CHIP_HOST_STRIDE; }
+
+    uint64_t get_mapped_arena_offset() const { return system_memory_size_; }
+
+    uint64_t get_mapped_arena_size() const;
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -80,6 +88,9 @@ protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
+    // Caller holds registry_->mutex for capacity checks and registration.
+    void check_arena_capacity(uint64_t extent) const;
+
     struct MappedBuffer {
         // Device IO address (pcie_base_ + arena offset) of the first byte.
         uint64_t device_io_addr = 0;
@@ -100,7 +111,8 @@ private:
     // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);
 
-    // Assigns an arena address, registers the buffer and wraps it. Shared by the allocate and map
+    // Caller holds registry_->mutex. Assigns an arena address, registers the buffer and wraps it.
+    // Shared by the allocate and map
     // paths, which differ only in who owns the memory: allocate passes a release callable that frees
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
     std::unique_ptr<SysmemBuffer> register_and_wrap(

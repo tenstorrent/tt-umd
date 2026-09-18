@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <initializer_list>
 #include <map>
@@ -36,6 +37,7 @@
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
+#include "simulation/eth_ipc.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
@@ -589,8 +591,8 @@ Cluster::Cluster(ClusterOptions options) {
     // -------------------------------------------------------------------
     // Multichip eth-MAC wiring pre-pass.
     // For SIMULATION ChipType with multichip-aware libttsim, populate the virtual
-    // switch routing table and pre-write peer DEST_MAC into each eth tile so
-    // that firmware sees correctly wired neighbours at boot time.
+    // switch routing table. Cross-rank links use a separate, explicitly owned
+    // FD transport after the peers complete their startup handshake.
     // -------------------------------------------------------------------
     if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so") {
         // Walk chips_ and return the TTSimCommunicator for a given chip.
@@ -622,6 +624,7 @@ Cluster::Cluster(ClusterOptions options) {
                 first_chip_comm->switch_reset();
             }
         }
+
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
         // register MACs and peer handles.  Process each undirected edge once
         // (chip_a < chip_b) to avoid double-registration.
@@ -654,6 +657,104 @@ Cluster::Cluster(ClusterOptions options) {
                     chip_b,
                     chan_b,
                     mac_b);
+            }
+        }
+
+        const auto& remote_conns = cluster_desc->get_ethernet_connections_to_remote_devices();
+        const bool has_remote_links = std::any_of(
+            remote_conns.begin(), remote_conns.end(), [](const auto& entry) { return !entry.second.empty(); });
+        if (has_remote_links) {
+            const auto& chip_uids = cluster_desc->get_chip_unique_ids();
+            UMD_ASSERT(
+                cluster_desc->has_authentic_chip_unique_ids(),
+                error::RuntimeError,
+                "Cross-rank Ethernet requires authentic, globally consistent chip_unique_ids");
+            const char* session = std::getenv("TT_SIM_ETH_IPC_DIR");
+            UMD_ASSERT(
+                session && session[0] != '\0',
+                error::RuntimeError,
+                "Cross-rank Ethernet requires TT_SIM_ETH_IPC_DIR: a launcher-created private directory shared by this "
+                "job");
+
+            struct PendingFdLink {
+                TTSimCommunicator* comm;
+                uint32_t channel;
+                uint64_t uid;
+                uint64_t peer_uid;
+                uint32_t peer_channel;
+                std::unique_ptr<EthIpcEndpoint> endpoint;
+            };
+
+            std::vector<PendingFdLink> links;
+            std::set<uint64_t> unique_ids;
+            for (const auto& [chip, uid] : chip_uids) {
+                UMD_ASSERT(unique_ids.insert(uid).second, error::RuntimeError, "Duplicate chip_unique_id in topology");
+            }
+            // Validate the whole topology and ABI before opening any resources.
+            std::set<std::pair<uint64_t, uint32_t>> peers;
+            for (const auto& [local_chip, channel_map] : remote_conns) {
+                auto uid = chip_uids.find(local_chip);
+                auto* comm = get_comm(local_chip);
+                UMD_ASSERT(
+                    uid != chip_uids.end() && comm,
+                    error::RuntimeError,
+                    "Missing local cross-rank chip identity/device");
+                UMD_ASSERT(
+                    comm->supports_eth_link_fd(),
+                    error::RuntimeError,
+                    "Simulator architecture/mode lacks checked Ethernet FD attach/detach support");
+                for (const auto& [channel, remote] : channel_map) {
+                    const auto [peer_uid, peer_channel] = remote;
+                    UMD_ASSERT(
+                        channel < get_soc_descriptor(local_chip).get_num_eth_channels() && peer_channel >= 0 &&
+                            static_cast<uint32_t>(peer_channel) < get_soc_descriptor(local_chip).get_num_eth_channels(),
+                        error::RuntimeError,
+                        "Invalid cross-rank Ethernet channel");
+                    UMD_ASSERT(
+                        unique_ids.count(peer_uid) == 0,
+                        error::RuntimeError,
+                        "Cross-rank endpoint refers to a locally described chip");
+                    UMD_ASSERT(
+                        peers.emplace(peer_uid, static_cast<uint32_t>(peer_channel)).second,
+                        error::RuntimeError,
+                        "Duplicate remote Ethernet endpoint");
+                    const auto local_connections = eth_conns.find(local_chip);
+                    UMD_ASSERT(
+                        local_connections == eth_conns.end() || local_connections->second.count(channel) == 0,
+                        error::RuntimeError,
+                        "Ethernet channel has both local and remote peers");
+                    links.push_back(
+                        {comm,
+                         static_cast<uint32_t>(channel),
+                         uid->second,
+                         peer_uid,
+                         static_cast<uint32_t>(peer_channel),
+                         nullptr});
+                }
+            }
+            auto fifo_name = [](uint64_t source, uint32_t source_channel, uint64_t dest, uint32_t dest_channel) {
+                return "eth_" + std::to_string(source) + "_" + std::to_string(source_channel) + "__" +
+                       std::to_string(dest) + "_" + std::to_string(dest_channel) + ".fifo";
+            };
+            const auto deadline = EthIpcEndpoint::Clock::now() + std::chrono::seconds(120);
+            std::vector<EthIpcEndpoint*> endpoints;
+            for (auto& link : links) {
+                link.endpoint = std::make_unique<EthIpcEndpoint>(
+                    session,
+                    fifo_name(link.peer_uid, link.peer_channel, link.uid, link.channel),
+                    fifo_name(link.uid, link.channel, link.peer_uid, link.peer_channel));
+                endpoints.push_back(link.endpoint.get());
+            }
+            // All receives exist before any rank waits for its peer's receive.
+            for (auto& link : links) {
+                log_info(tt::LogEmulationDriver, "TTSim Ethernet waiting for {}", link.endpoint->peer_name());
+                link.endpoint->connect(deadline);
+            }
+            EthIpcEndpoint::handshake(endpoints, deadline);
+            for (auto& link : links) {
+                const uint64_t mac = link.endpoint->reserve_mac(link.uid, link.channel, deadline);
+                link.comm->register_eth_endpoint(link.channel, mac);
+                link.comm->configure_eth_link_fd(link.channel, std::move(link.endpoint));
             }
         }
     }

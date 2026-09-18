@@ -28,12 +28,15 @@
 #include <string>
 
 #include "emu_axi_transport.h"  // chippy
+#include "mimir.h"              // chippy
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/emu_tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 
 namespace tt::umd::test {
 
@@ -127,6 +130,66 @@ TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
     EXPECT_EQ(read_second, second);
 }
 
+TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    const auto windows = EmuTTDevice::mimir_address_windows(soc_descriptor);
+    const CoreCoord cce0 = soc_descriptor.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
+    const CoreCoord cce1 = soc_descriptor.get_dram_core_for_channel(1, 0, CoordSystem::NOC0);
+    constexpr uint64_t kOffset = 0x800;
+    const uint64_t address = windows.dram_l1_noc_offset + kOffset;
+
+    const uint32_t first = 0xC0FFEE10;
+    const uint32_t second = 0xC0FFEE11;
+    device->write_to_device(&first, cce0, address, sizeof(first));
+    device->write_to_device(&second, cce1, address, sizeof(second));
+
+    uint32_t read_first = 0;
+    uint32_t read_second = 0;
+    device->read_from_device(&read_first, cce0, address, sizeof(read_first));
+    device->read_from_device(&read_second, cce1, address, sizeof(read_second));
+    EXPECT_EQ(read_first, first);
+    EXPECT_EQ(read_second, second);
+
+    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    raw->initialize();
+    chippy::grendel::Mimir mimir(
+        raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
+    EXPECT_EQ(static_cast<uint32_t>(mimir.cce(0).sram[kOffset / sizeof(uint64_t)].read_raw()), first);
+    EXPECT_EQ(static_cast<uint32_t>(mimir.cce(1).sram[kOffset / sizeof(uint64_t)].read_raw()), second);
+}
+
+TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    const CoreCoord cce0 = soc_descriptor.get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
+    constexpr uint32_t kResetVector = 0x123400;
+
+    device->write_to_device_reg(
+        &kResetVector, cce0, grendel::CCE_RESET_VECTOR_BASE, sizeof(kResetVector), NocId::NOC0);
+    device->deassert_risc_reset(cce0, RiscType::ALL, false);
+
+    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    raw->initialize();
+    chippy::grendel::Mimir mimir(
+        raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
+    for (auto& reset_vector : mimir.cce(0).registers.tt_cluster_ctrl.reset_vector) {
+        EXPECT_EQ(reset_vector.read().get_data(), kResetVector);
+    }
+    auto reset = mimir.cce(0).registers.pf_ctrl.reset.read();
+    EXPECT_EQ(reset.fields.uncore_reset, 1);
+    EXPECT_EQ(reset.fields.core_reset, 0xFF);
+
+    device->assert_risc_reset(cce0, RiscType::ALL);
+    reset = mimir.cce(0).registers.pf_ctrl.reset.read();
+    EXPECT_EQ(reset.fields.uncore_reset, 1);
+    EXPECT_EQ(reset.fields.core_reset, 0);
+}
+
 // DRAM is opt-in, and deliberately so.
 //
 // The SiVal server runs preload and reset only -- test_sival_server.py skips tb.configure() -- so
@@ -162,6 +225,12 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
 
     EXPECT_EQ(read_first, first);
     EXPECT_EQ(read_second, second);
+
+    chippy::transport::emu_axi::EmuAxiTransport raw(server->host, server->port);
+    raw.initialize();
+    const GrendelNocAddressResolver resolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor));
+    EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[0], kOffset, NocId::NOC0)), first);
+    EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[1], kOffset, NocId::NOC0)), second);
 }
 
 }  // namespace tt::umd::test

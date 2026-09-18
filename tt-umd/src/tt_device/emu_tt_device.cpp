@@ -6,6 +6,10 @@
 
 #include <fmt/format.h>
 
+#include <cstring>
+#include <vector>
+
+#include "address_translation.h"  // chippy
 #include "emu_axi_transport.h"  // chippy
 #include "mimir.h"              // chippy
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
@@ -90,18 +94,76 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
 // access) take a shared inner transport, so a multi-chiplet package will wrap this rather than
 // replace it.
 struct EmuTTDevice::Impl {
+    using ChippyMemory = chippy::address_translation::Memory<std::uint32_t>;
+
+    struct MemoryRegion {
+        std::unique_ptr<ChippyMemory> memory;
+
+        bool contains(uint64_t address) const {
+            return address >= memory->get_address() && address - memory->get_address() < memory->size_bytes();
+        }
+
+        std::size_t offset(uint64_t address) const {
+            return static_cast<std::size_t>(address - memory->get_address());
+        }
+    };
+
     std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> transport;
     // Mimir's windows are not one of the package ATT maps the RTL backend selects with
     // TT_UMD_NOC_ATT, so this device flattens addresses itself instead of through the base resolver.
     std::unique_ptr<GrendelNocAddressResolver> address_resolver;
     chippy::grendel::Mimir mimir;
+    bool use_global_addressing = false;
+    std::vector<MemoryRegion> cce_sram;
+    std::vector<MemoryRegion> gddr_dram;
 
-    Impl(const std::string& host, uint32_t port) :
+    Impl(const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) :
         transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)),
         mimir(
             transport,
             chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0),
-            /*use_spa_addressing=*/false) {}
+            /*use_spa_addressing=*/false) {
+        const auto windows = EmuTTDevice::mimir_address_windows(soc_descriptor);
+
+        cce_sram.reserve(mimir.cce_count());
+        for (std::size_t cce_index = 0; cce_index < mimir.cce_count(); ++cce_index) {
+            const auto& chippy_sram = mimir.cce(cce_index).sram;
+            const uint64_t address = chippy_sram.get_address();
+            cce_sram.push_back(
+                {.memory = std::make_unique<ChippyMemory>(
+                     transport.get(),
+                     address,
+                     address,
+                     use_global_addressing,
+                     chippy_sram.size_bytes())});
+        }
+
+        gddr_dram.reserve(soc_descriptor.get_num_dram_channels());
+        for (uint32_t channel = 0; channel < soc_descriptor.get_num_dram_channels(); ++channel) {
+            const uint64_t address = windows.dram_base + static_cast<uint64_t>(channel) * windows.dram_stride;
+            gddr_dram.push_back(
+                {.memory = std::make_unique<ChippyMemory>(
+                     transport.get(),
+                     address,
+                     address,
+                     use_global_addressing,
+                     windows.dram_stride)});
+        }
+    }
+
+    MemoryRegion* find_memory(uint64_t address) {
+        for (auto& region : cce_sram) {
+            if (region.contains(address)) {
+                return &region;
+            }
+        }
+        for (auto& region : gddr_dram) {
+            if (region.contains(address)) {
+                return &region;
+            }
+        }
+        return nullptr;
+    }
 };
 
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
@@ -112,7 +174,8 @@ struct EmuTTDevice::Impl {
         fmt::format(
             "EmuTTDevice requires a QUASAR (or GRENDEL package) descriptor, got {}.",
             arch_to_str(soc_descriptor.arch)));
-    return std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(host, port)));
+    return std::unique_ptr<EmuTTDevice>(
+        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(soc_descriptor, host, port)));
 }
 
 EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
@@ -152,21 +215,34 @@ std::unique_ptr<TlbWindow> EmuTTDevice::create_tlb_window(
 }
 
 // `core` arrives already translated and `addr` is still core-local. The base does not flatten it:
-// Mimir's windows are not the package ATT map. Fold the coordinate in here, then the destination
-// travels inside the address.
+// Mimir's windows are not the package ATT map. Fold the coordinate in here, then route CCE SRAM
+// and DDR through chippy's memory objects when the flat address lands in one.
 uint64_t EmuTTDevice::flat_address(tt_xy_pair core, uint64_t addr) const {
     const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
     return impl_->address_resolver->to_flat_address(core_coord, addr, get_selected_noc_id());
 }
 
 void EmuTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    impl_->transport->read(size, kMinWordSizeBytes, flat_address(core, addr), mem_ptr);
+    const uint64_t flat = flat_address(core, addr);
+    if (auto* region = impl_->find_memory(flat)) {
+        const auto bytes = region->memory->bulk_read_bytes(region->offset(flat), size);
+        std::memcpy(mem_ptr, bytes.data(), bytes.size());
+        return;
+    }
+    impl_->transport->read(size, kMinWordSizeBytes, flat, mem_ptr);
 }
 
 void EmuTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    const uint64_t flat = flat_address(core, addr);
+    if (auto* region = impl_->find_memory(flat)) {
+        std::vector<uint8_t> bytes(size);
+        std::memcpy(bytes.data(), mem_ptr, size);
+        region->memory->bulk_write_bytes(region->offset(flat), bytes);
+        return;
+    }
     // chippy's write() takes a non-const void* even though it only reads the buffer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    impl_->transport->write(size, kMinWordSizeBytes, flat_address(core, addr), const_cast<void*>(mem_ptr));
+    impl_->transport->write(size, kMinWordSizeBytes, flat, const_cast<void*>(mem_ptr));
 }
 
 void EmuTTDevice::write_cce_reset_vector_register(

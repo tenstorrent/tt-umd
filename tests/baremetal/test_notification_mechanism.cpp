@@ -20,6 +20,7 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "test_utils/pipe_communication.hpp"
+#include "utils/local_socket.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -93,6 +94,33 @@ protected:
 };
 
 class WarmResetTimingTest : public WarmResetNotificationTest, public testing::WithParamInterface<int> {};
+
+TEST_F(WarmResetNotificationTest, AcceptsNotificationFromAlreadyClosedSender) {
+    std::filesystem::create_directories(WarmResetCommunication::LISTENER_DIR);
+    asio::io_context io;
+    const asio::local::stream_protocol::endpoint endpoint(
+        std::string(WarmResetCommunication::LISTENER_DIR) + "/queued.sock");
+    asio::local::stream_protocol::acceptor acceptor(io, endpoint);
+    asio::local::stream_protocol::socket sender(io);
+    sender.connect(endpoint);
+    const auto expected = WarmResetCommunication::POST_RESET;
+    asio::write(sender, asio::buffer(&expected, sizeof(expected)));
+    // Force the sender to close before accept, without relying on scheduling.
+    sender.close();
+
+    asio::local::stream_protocol::socket receiver(io);
+    bool completed = false;
+    async_accept_local(acceptor, receiver, [&](std::error_code ec) {
+        completed = true;
+        ASSERT_FALSE(ec) << ec.message();
+        WarmResetCommunication::MessageType actual{};
+        asio::read(receiver, asio::buffer(&actual, sizeof(actual)), ec);
+        ASSERT_FALSE(ec) << ec.message();
+        EXPECT_EQ(actual, expected);
+    });
+    io.run();
+    EXPECT_TRUE(completed);
+}
 
 INSTANTIATE_TEST_SUITE_P(
     TimeoutScenarios,

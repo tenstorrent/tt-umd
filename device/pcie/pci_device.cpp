@@ -41,6 +41,7 @@
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
+#include "utils/mmap.hpp"
 
 namespace tt::umd {
 
@@ -930,7 +931,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
     const size_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
     void *dma_buf_mapping =
-        mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | mmap_populate, -1, 0);
 
     try {
         uint64_t iova = map_for_dma(dma_buf_mapping, dma_buf_alloc_size);

@@ -1,0 +1,54 @@
+name: Notify Slack of external contributions
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+jobs:
+  notify-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack unless author is a code owner
+        env:
+          AUTHOR: ${{ github.event.issue.user.login }}
+          TITLE: ${{ github.event.issue.title }}
+          NUMBER: ${{ github.event.issue.number }}
+          URL: ${{ github.event.issue.html_url }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_EXTERNAL_CONTRIB }}
+        run: |
+          CODEOWNERS_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/.github/CODEOWNERS"
+          OWNERS=$(curl -sf "$CODEOWNERS_URL" | grep -oE '@[A-Za-z0-9_-]+' | sed 's/@//')
+          if grep -qxF "$AUTHOR" <<< "$OWNERS"; then
+            echo "Author $AUTHOR is a code owner, skipping notification."
+            exit 0
+          fi
+          MESSAGE="New issue: <${URL}|#${NUMBER} ${TITLE}> by ${AUTHOR}"
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "$(jq -n --arg message "$MESSAGE" '{message: $message}')" \
+            "$SLACK_WEBHOOK_URL"
+
+  notify-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack unless author is a code owner
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          TITLE: ${{ github.event.pull_request.title }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          URL: ${{ github.event.pull_request.html_url }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL_EXTERNAL_CONTRIB }}
+        run: |
+          CODEOWNERS_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/.github/CODEOWNERS"
+          OWNERS=$(curl -sf "$CODEOWNERS_URL" | grep -oE '@[A-Za-z0-9_-]+' | sed 's/@//')
+          if grep -qxF "$AUTHOR" <<< "$OWNERS"; then
+            echo "Author $AUTHOR is a code owner, skipping notification."
+            exit 0
+          fi
+          MESSAGE="PR ready for review: <${URL}|#${NUMBER} ${TITLE}> by ${AUTHOR}"
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "$(jq -n --arg message "$MESSAGE" '{message: $message}')" \
+            "$SLACK_WEBHOOK_URL"

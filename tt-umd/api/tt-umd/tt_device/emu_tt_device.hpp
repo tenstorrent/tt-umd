@@ -62,6 +62,9 @@ protected:
 
     void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) override;
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
+    void write_cce_reset_vector_register(
+        CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector) override;
+    void apply_cce_pf_ctrl_reset(CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release) override;
 
     // Grendel has no TLBs: the destination is encoded in the flat address by the resolver, so the
     // tile path is used directly and no window is ever allocated. Mirrors what the RTL backend

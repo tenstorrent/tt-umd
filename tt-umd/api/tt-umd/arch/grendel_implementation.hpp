@@ -321,8 +321,9 @@ inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 // inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
-// CCE hart reset is an SMC register, not a per-core Tensix SOFT_RESET. Bit 0 is the uncore
-// (1 = released). Bits 1-8 are harts 0-7 (1 = released). That polarity is the inverse of Tensix.
+// CCE reset vectors live in each CCE's tt_cluster_ctrl register plane. Hart reset control lives
+// in that CCE's PF_CTRL_RESET: bit 0 is the uncore and bits 1-8 are harts 0-7 (1 = released).
+// That polarity is the inverse of Tensix.
 inline constexpr uint64_t CCE_RESET_VECTOR_BASE = 0x02000000;
 inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
 inline constexpr uint64_t CCE_HSIO_TILE_STRIDE = 0x04000000;

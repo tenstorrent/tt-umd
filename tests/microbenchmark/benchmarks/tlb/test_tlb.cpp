@@ -14,16 +14,82 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/io_window_config.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
 constexpr ChipId CHIP_ID = 0;
+
+namespace {
+
+const char* ordering_name(IoOrdering ordering) {
+    switch (ordering) {
+        case IoOrdering::Relaxed:
+            return "Relaxed";
+        case IoOrdering::Strict:
+            return "Strict";
+        case IoOrdering::Posted:
+            return "Posted";
+    }
+    return "Unknown";
+}
+
+// Rows for the Cluster path: reconfigure per chunk, chip-wide window lock, coordinate translation,
+// and IoOrdering::Strict -- what a caller gets without managing a window itself.
+void benchmark_cluster(
+    ankerl::nanobench::Bench& bench,
+    Cluster& cluster,
+    const CoreCoord core,
+    const uint64_t address,
+    const std::vector<size_t>& batch_sizes) {
+    for (size_t batch_size : batch_sizes) {
+        std::vector<uint8_t> pattern(batch_size);
+        bench.batch(batch_size).name(fmt::format("Cluster Strict, write, {} bytes", batch_size)).run([&]() {
+            cluster.write_to_device(pattern.data(), pattern.size(), CHIP_ID, core, address);
+        });
+    }
+    for (size_t batch_size : batch_sizes) {
+        std::vector<uint8_t> pattern(batch_size);
+        bench.batch(batch_size).name(fmt::format("Cluster Strict, read, {} bytes", batch_size)).run([&]() {
+            cluster.read_from_device(pattern.data(), CHIP_ID, core, address, batch_size);
+        });
+    }
+}
+
+// Rows for a caller-owned window: mapped once and driven directly, with no lock and no reconfigure
+// between transfers. Called once per ordering to isolate its cost from the Cluster path above.
+void benchmark_io_window(
+    ankerl::nanobench::Bench& bench,
+    Cluster& cluster,
+    const CoreCoord core,
+    const uint64_t address,
+    const IoOrdering ordering,
+    const std::vector<size_t>& batch_sizes) {
+    std::unique_ptr<IoWindow> window =
+        cluster.create_io_window(CHIP_ID, core, address, {.size = batch_sizes.back()}, ordering);
+    ASSERT_NE(window, nullptr) << "Chip " << CHIP_ID << " has no device to map a window on.";
+
+    for (size_t batch_size : batch_sizes) {
+        std::vector<uint8_t> pattern(batch_size);
+        bench.batch(batch_size)
+            .name(fmt::format("IoWindow {}, write, {} bytes", ordering_name(ordering), batch_size))
+            .run([&]() { window->write_block(0, pattern.data(), pattern.size()); });
+    }
+    for (size_t batch_size : batch_sizes) {
+        std::vector<uint8_t> pattern(batch_size);
+        bench.batch(batch_size)
+            .name(fmt::format("IoWindow {}, read, {} bytes", ordering_name(ordering), batch_size))
+            .run([&]() { window->read_block(0, pattern.data(), pattern.size()); });
+    }
+}
+
+}  // namespace
 
 // Measure bandwidth of IO to DRAM core.
 TEST(MicrobenchmarkTLB, DRAM) {
@@ -44,34 +110,17 @@ TEST(MicrobenchmarkTLB, DRAM) {
         8 * ONE_MIB,
         16 * ONE_MIB,
         32 * ONE_MIB};
+    // A single window cannot carry the largest batches: at this address Wormhole tops out at its
+    // 16 MB size class, and Blackhole's only class above 2 MiB is the 4 GiB one in BAR4, which is
+    // too scarce to take for a benchmark. The owned-window rows stop where one window still
+    // suffices, which keeps the row set identical on both architectures.
+    const std::vector<size_t> WINDOW_BATCH_SIZES = {
+        1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB, 2 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, dram_core, ADDRESS, batch_size);
-        });
-    }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, dram_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, dram_core, ADDRESS, batch_size);
-        });
-    }
+    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, WINDOW_BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, WINDOW_BATCH_SIZES);
     test::utils::export_results(bench);
 }
 
@@ -83,32 +132,9 @@ TEST(MicrobenchmarkTLB, Tensix) {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, tensix_core, ADDRESS, batch_size);
-        });
-    }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, tensix_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, tensix_core, ADDRESS, batch_size);
-        });
-    }
+    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     test::utils::export_results(bench);
 }
 
@@ -123,32 +149,9 @@ TEST(MicrobenchmarkTLB, Ethernet) {
         GTEST_SKIP() << "No ETH cores found on system.";
     }
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH).at(0);
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Dynamic TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, eth_core, ADDRESS, batch_size);
-        });
-    }
-    // Static TLB configuration.
-    cluster->configure_tlb(CHIP_ID, eth_core, 2 * ONE_MIB, ADDRESS, tlb_data::Relaxed);
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, write, {} bytes", batch_size)).run([&]() {
-            cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, eth_core, ADDRESS);
-        });
-    }
-    for (size_t batch_size : BATCH_SIZES) {
-        std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Static TLB, read, {} bytes", batch_size)).run([&]() {
-            cluster->read_from_device(pattern.data(), CHIP_ID, eth_core, ADDRESS, batch_size);
-        });
-    }
+    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     test::utils::export_results(bench);
 }
 
@@ -185,7 +188,7 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
             .name(fmt::format("Unicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .relative(true)
             .run([&]() {
-                for (auto &tensix_core : tensix_cores) {
+                for (auto& tensix_core : tensix_cores) {
                     cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
                 }
             });

@@ -4,16 +4,19 @@
 
 // Tests for the simulation multichip core infrastructure:
 // - SocDescriptor::is_core_of_type (moved from a local helper in tt_sim_tt_device.cpp)
+// - TTSimProtocol's process-qualified MMIO id
 // - TTSimCommunicator shared dlopen / select_chip_if_needed patterns
 //
-// The SocDescriptor tests run on any CI host (no hardware required).
+// The SocDescriptor and MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
 
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
@@ -24,8 +27,14 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
+#include <unistd.h>
+
+#include <exception>
+
 #include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 #endif
 
 using namespace tt;
@@ -130,6 +139,39 @@ INSTANTIATE_TEST_SUITE_P(
 
 #ifdef TT_UMD_BUILD_SIMULATION
 
+// ---------------------------------------------------------------------------
+// TTSimProtocol's MMIO id
+// ---------------------------------------------------------------------------
+
+// A simulated endpoint exists only inside the process that brought its image up, so the id UMD
+// addresses and locks it by carries the process as well as the endpoint. These are the properties
+// the lock names depend on: the endpoint is still in there, two chips of one image stay apart, and
+// two processes never agree.
+TEST(TTSimProtocolMmioId, CarriesTheEndpointAndTheProcess) {
+    const int chip0 = TTSimProtocol::process_local_mmio_id(0);
+    const int chip1 = TTSimProtocol::process_local_mmio_id(1);
+
+    // The endpoint survives in the low bits, and the process in the rest.
+    EXPECT_EQ(chip0 & 31, 0);
+    EXPECT_EQ(chip1 & 31, 1);
+    EXPECT_EQ(chip0 >> 5, static_cast<int>(getpid()));
+
+    // Each chip of a multi-endpoint image keeps its own lock, and nothing claims a PCI device number
+    // silicon could also be using.
+    EXPECT_NE(chip0, chip1);
+    EXPECT_GT(chip0, 31);
+
+    // Stable for the process, so a lock initialized under this name is found again when acquired.
+    EXPECT_EQ(chip0, TTSimProtocol::process_local_mmio_id(0));
+}
+
+// The 5 bits reserved for the endpoint are the same 5 bits the BDF device field has, so a chip id
+// that does not fit would silently land in the process part instead of overflowing visibly.
+TEST(TTSimProtocolMmioId, RefusesAChipIdThatDoesNotFitTheBdfField) {
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(32), std::exception);
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(-1), std::exception);
+}
+
 class TTSimCommunicatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -149,6 +191,29 @@ TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     // The device should have a valid soc descriptor.
     const auto& soc = device->get_soc_descriptor();
     EXPECT_NE(soc.arch, ARCH::Invalid);
+}
+
+// The endpoint count must come from the image itself: it is what tells UMD how many chips a
+// multichip build models without a cluster descriptor to declare it.
+TEST_F(TTSimCommunicatorTest, EnumerateMmioDeviceBdfs) {
+    // Enumeration stands on its own: no device is constructed first, as on silicon.
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+
+    // Every image exposes at least one endpoint, at bus 0 device 0. The count is a property of the
+    // image, so it is reported rather than asserted.
+    ASSERT_FALSE(bdfs.empty());
+    EXPECT_EQ(bdfs.front(), 0u);
+    EXPECT_LE(bdfs.size(), 32u);
+    std::cout << "simulator exposes " << bdfs.size() << " host-visible PCI endpoint(s)" << std::endl;
+
+    // Endpoints live on bus 0, device field in bits [7:3], function 0, ascending and unique.
+    for (size_t i = 0; i < bdfs.size(); ++i) {
+        EXPECT_EQ(bdfs[i] & 0xFF00u, 0u) << "endpoint " << i << " is not on bus 0";
+        EXPECT_EQ(bdfs[i] & 0x7u, 0u) << "endpoint " << i << " is not function 0";
+        if (i > 0) {
+            EXPECT_GT(bdfs[i], bdfs[i - 1]) << "endpoints are not ascending";
+        }
+    }
 }
 
 // Verify that write_to_device after close_device() is a no-op (closed_ guard).

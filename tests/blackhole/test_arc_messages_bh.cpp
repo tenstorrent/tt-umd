@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -88,32 +89,38 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
     const uint32_t ms_sleep = 2000;
 
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<std::unique_ptr<TTDevice>> tt_devices;
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
+        tt_devices.push_back(std::move(tt_device));
+    }
 
+    // The AICLK wait is what dominates this test, so drive every device through a clock state
+    // together and wait once per state instead of once per device.
+    for (const std::unique_ptr<TTDevice>& tt_device : tt_devices) {
         [[maybe_unused]] DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
             (uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY, {}, timeout::ARC_MESSAGE_TIMEOUT);
+    }
 
-        // Wait for telemetry to update AICLK.
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+    // Wait for telemetry to update AICLK.
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        uint32_t aiclk = tt_device->get_clock();
-
+    for (const std::unique_ptr<TTDevice>& tt_device : tt_devices) {
         // TODO #781: For now expect only that busy val is something larger than idle val.
-        EXPECT_GT(aiclk, blackhole::AICLK_IDLE_VAL);
+        EXPECT_GT(tt_device->get_clock(), blackhole::AICLK_IDLE_VAL);
 
-        result = tt_device->get_device_firmware()->send_device_command(
+        [[maybe_unused]] DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
             (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE, {}, timeout::ARC_MESSAGE_TIMEOUT);
+    }
 
-        // Wait for telemetry to update AICLK.
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+    // Wait for telemetry to update AICLK.
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        aiclk = tt_device->get_clock();
-
-        EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
+    for (const std::unique_ptr<TTDevice>& tt_device : tt_devices) {
+        EXPECT_EQ(tt_device->get_clock(), blackhole::AICLK_IDLE_VAL);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }

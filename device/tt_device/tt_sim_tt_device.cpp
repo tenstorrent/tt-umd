@@ -26,6 +26,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -96,11 +97,12 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels,
-    size_t num_chips) :
+    size_t num_chips,
+    std::optional<uint32_t> image_endpoint_count) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
@@ -110,7 +112,11 @@ TTSimTTDevice::TTSimTTDevice(
     // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
     // image addressed per-chip by PCI device. Single-chip keeps the legacy path.
     communicator_(std::make_unique<TTSimCommunicator>(
-        simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
+        simulator_directory,
+        copy_sim_binary,
+        static_cast<uint32_t>(chip_id),
+        static_cast<uint32_t>(num_chips),
+        image_endpoint_count)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
@@ -160,6 +166,13 @@ void TTSimTTDevice::initialize_backend() {
     init_tlb_allocator(bar0_base);
     setup_cached_tlb_window();
 
+    // The protocol is now usable: the backend is up, BAR bases are known, and the TLB window the
+    // NOC path reads through exists. Attaching it here rather than at construction is what lets the
+    // architecture firmware read this device through the same accesses silicon uses.
+    if (auto* protocol = dynamic_cast<TTSimProtocol*>(get_device_protocol())) {
+        protocol->attach(this, communicator_.get(), static_cast<int>(chip_id_));
+    }
+
     // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):
     // one region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host
     // base. The simulator honors the iATU at DMA egress, so each chip's DMA lands in its own host
@@ -183,7 +196,7 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
 

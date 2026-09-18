@@ -4,6 +4,7 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <glob.h>
@@ -179,6 +180,44 @@ int wait_for_pci_bdf_to_reappear(
     return interface_id;
 }
 
+// Offset of the PCI Command register within a device's config space.
+constexpr off_t PCI_CONFIG_COMMAND_OFFSET = 4;
+// Bit within the PCI Command register's low byte that firmware repurposes as the
+// in-progress reset marker: set while a warm reset is ongoing, cleared once it completes.
+constexpr uint8_t PCI_COMMAND_RESET_MARKER_BIT = 6;
+
+bool is_reset_marker_cleared(const std::string& bdf) {
+    const std::string config_path = fmt::format("/sys/bus/pci/devices/{}/config", bdf);
+
+    bool marker_cleared = false;
+    int cfd = open(config_path.c_str(), O_RDONLY);
+    if (cfd >= 0) {
+        uint8_t cmd;
+        if (pread(cfd, &cmd, 1, PCI_CONFIG_COMMAND_OFFSET) == 1 && ((cmd >> PCI_COMMAND_RESET_MARKER_BIT) & 1) == 0) {
+            marker_cleared = true;
+        }
+        close(cfd);
+    }
+    return marker_cleared;
+}
+
+bool wait_for_reset_marker(
+    const std::string& bdf, const std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT) {
+    log_debug(tt::LogUMD, "Waiting for reset marker to clear for device {}.", bdf);
+
+    const bool reset_complete = utils::poll_until(
+        [&]() { return is_reset_marker_cleared(bdf); },
+        timeout_ms,
+        timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL,
+        timeout::WARM_RESET_MARKER_TIMEOUT);
+
+    if (!reset_complete) {
+        log_warning(tt::LogUMD, "Timeout waiting for reset marker to clear for device {}.", bdf);
+    }
+
+    return reset_complete;
+}
+
 bool WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids,
     bool reset_m3,
@@ -229,6 +268,11 @@ bool WarmReset::warm_reset_arch_agnostic(
     for (auto& pci_bdf : pci_bdfs) {
         auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
         if (new_id == -1) {
+            log_error(tt::LogUMD, "Reset failed.");
+            return false;
+        }
+
+        if (!wait_for_reset_marker(pci_bdf.second)) {
             log_error(tt::LogUMD, "Reset failed.");
             return false;
         }
@@ -381,7 +425,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     return reset_ok;
 }
 
-bool WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
+bool WarmReset::galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
     log_info(
         tt::LogUMD,
@@ -458,11 +502,12 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr OP_MODE = 0x0;
     static int constexpr RESET_TIME = 0xF;
 
-    const bool reset_success = wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+    const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_debug(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
+
     return reset_success;
 }
 

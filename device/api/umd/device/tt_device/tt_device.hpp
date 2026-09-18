@@ -499,11 +499,21 @@ protected:
     // architecture descriptor.
     explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
-    // A write aimed at a Quasar/Grendel CCE (DRAM) core inside the CCE_RESET_VECTOR_BASE range is an
-    // SMC reset-vector write rather than a core-local one, and is redirected to the SMC here.
+    // A write aimed at a Quasar/Grendel CCE (DRAM) core inside the CCE_RESET_VECTOR_BASE range
+    // programs the CCE's own tt_cluster_ctrl reset-vector register plane.
     // Returns true when the write was handled. Any subclass that overrides write_to_device has to
     // call this itself, or its CCEs boot from whatever vector bring-up left behind.
     bool apply_cce_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+
+    // Backend seam for the direct CCE register-plane write. The default routes through the device
+    // protocol; chippy-backed devices override it to use the generated CCE register accessor.
+    virtual void write_cce_reset_vector_register(
+        CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector);
+
+    // Backend seam for CCE PF_CTRL_RESET assert/release. hart_bits is the PF_CTRL bit mask
+    // (bit 0 unused here; bits 1-8 are harts 0-7). The default writes the CCE register plane
+    // through the device protocol; chippy-backed devices override it to use pf_ctrl.reset.
+    virtual void apply_cce_pf_ctrl_reset(CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release);
 
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate

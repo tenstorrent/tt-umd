@@ -144,11 +144,9 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
 void SimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    // This override replaces TTDevice::write_to_device wholesale, so the CCE reset-vector redirect
+    // This override replaces TTDevice::write_to_device wholesale, so the CCE reset-vector handling
     // that lives there has to be repeated. Without it a vector write reaches the CCE's SRAM as
-    // ordinary data and the harts keep booting from whatever the simulator's own bring-up left in
-    // the SMC. The redirected write below targets the SMC core, which is not a DRAM core, so it
-    // falls through here rather than recursing.
+    // ordinary data and the harts keep booting from whatever vector bring-up left behind.
     if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
         return;
     }

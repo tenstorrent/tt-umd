@@ -66,12 +66,7 @@
 namespace tt::umd {
 namespace {
 
-struct CceSmcTarget {
-    CoreCoord smc;
-    uint32_t cce_index = 0;
-};
-
-std::optional<CceSmcTarget> cce_smc_target(TTDevice& device, CoreCoord core) {
+std::optional<uint32_t> cce_index(TTDevice& device, CoreCoord core) {
     const tt::ARCH arch = device.get_arch();
     if (arch != tt::ARCH::QUASAR && arch != tt::ARCH::GRENDEL) {
         return std::nullopt;
@@ -85,56 +80,21 @@ std::optional<CceSmcTarget> cce_smc_target(TTDevice& device, CoreCoord core) {
         return std::nullopt;
     }
 
-    const auto smc_cores = soc.get_cores(CoreType::SMC, CoordSystem::TRANSLATED);
-    UMD_ASSERT(
-        smc_cores.size() == 1,
-        error::RuntimeError,
-        fmt::format("Quasar CCE control requires exactly one SMC core, found {}.", smc_cores.size()));
-
-    return CceSmcTarget{
-        smc_cores.front(),
-        static_cast<uint32_t>(soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x)};
-}
-
-// CCE hart reset lives in the SMC PF_CTRL_RESET register, not a per-core Tensix SOFT_RESET.
-// Polarity is inverted vs Tensix: 1 means the hart/uncore is released. Returns true when the
-// core is a Quasar/Grendel DRAM (CCE) core and the SMC write was issued.
-bool apply_cce_risc_reset(TTDevice& device, CoreCoord core, RiscType selected_riscs, bool release) {
-    const auto target = cce_smc_target(device, core);
-    if (!target.has_value()) {
-        return false;
-    }
-
-    const uint64_t addr = grendel::cce_pf_ctrl_reset_addr(target->cce_index);
-    const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
-    if (hart_bits == 0) {
-        return true;
-    }
-
-    uint64_t current = 0;
-    device.read_from_device(&current, target->smc, addr, sizeof(current));
-    uint64_t next = current | grendel::CCE_UNCORE_RELEASED;
-    if (release) {
-        next |= hart_bits;
-    } else {
-        next &= ~hart_bits;
-    }
-    device.write_to_device(&next, target->smc, addr, sizeof(next));
-    tt_driver_atomics::sfence();
-    return true;
+    return static_cast<uint32_t>(
+        soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x);
 }
 
 }  // namespace
 
-// A write_reg/write_to_device targeting a CCE DRAM core at CCE_RESET_VECTOR_BASE is an SMC
-// PF_CTRL reset-vector write, not a core-local register. Hart 0 (the boot vector) is broadcast
-// to all eight harts so they share the same entry point.
+// A write_reg/write_to_device targeting a CCE DRAM core at CCE_RESET_VECTOR_BASE programs the
+// CCE's own tt_cluster_ctrl reset-vector plane. Hart 0 (the boot vector) is broadcast to all eight
+// harts so they share the same entry point.
 bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     if (!grendel::is_cce_reset_vector_addr(addr)) {
         return false;
     }
-    const auto target = cce_smc_target(*this, core);
-    if (!target.has_value()) {
+    const auto index = cce_index(*this, core);
+    if (!index.has_value()) {
         return false;
     }
 
@@ -144,15 +104,35 @@ bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core,
     std::memcpy(&reset_vector, mem_ptr, std::min(size, sizeof(reset_vector)));
 
     const uint64_t hart_offset = addr - grendel::CCE_RESET_VECTOR_BASE;
-    const uint64_t smc_base = grendel::cce_reset_vector_addr(target->cce_index);
     const uint32_t first_hart = static_cast<uint32_t>(hart_offset / grendel::CCE_HART_RESET_VECTOR_STRIDE);
     const uint32_t last_hart = (hart_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
-        write_to_device(
-            &reset_vector, target->smc, smc_base + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE, sizeof(reset_vector));
+        write_cce_reset_vector_register(core, *index, hart, reset_vector);
     }
     tt_driver_atomics::sfence();
     return true;
+}
+
+void TTDevice::write_cce_reset_vector_register(
+    CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector) {
+    const uint64_t register_addr =
+        grendel::cce_reset_vector_addr(cce_index) + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
+    get_device_protocol()->write_ctrl(
+        &reset_vector, resolve_coordinate(core, NocId::NOC0), register_addr, sizeof(reset_vector), NocId::NOC0);
+}
+
+void TTDevice::apply_cce_pf_ctrl_reset(CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release) {
+    const uint64_t addr = grendel::cce_pf_ctrl_reset_addr(cce_index);
+    const xy_pair xy = resolve_coordinate(core, NocId::NOC0);
+    uint64_t current = 0;
+    get_device_protocol()->read_ctrl(&current, xy, addr, sizeof(current), NocId::NOC0);
+    uint64_t next = current | grendel::CCE_UNCORE_RELEASED;
+    if (release) {
+        next |= hart_bits;
+    } else {
+        next &= ~hart_bits;
+    }
+    get_device_protocol()->write_ctrl(&next, xy, addr, sizeof(next), NocId::NOC0);
 }
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
@@ -699,7 +679,12 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    if (apply_cce_risc_reset(*this, core, selected_riscs, /*release=*/false)) {
+    if (const auto index = cce_index(*this, core)) {
+        const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        if (hart_bits != 0) {
+            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/false);
+        }
+        tt_driver_atomics::sfence();
         return;
     }
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
@@ -709,7 +694,12 @@ void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) 
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    if (apply_cce_risc_reset(*this, core, selected_riscs, /*release=*/true)) {
+    if (const auto index = cce_index(*this, core)) {
+        const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        if (hart_bits != 0) {
+            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/true);
+        }
+        tt_driver_atomics::sfence();
         return;
     }
     uint32_t soft_reset_current_state = get_risc_reset_state(core);

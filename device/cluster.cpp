@@ -1019,6 +1019,16 @@ std::map<int, int> Cluster::get_clocks() {
 Cluster::~Cluster() {
     log_info(LogUMD, "Cluster destructor started.");
 
+    if (needs_close_) {
+        try {
+            close_device();
+        } catch (const std::exception& e) {
+            log_error(LogUMD, "Exception while closing devices in Cluster destructor: {}", e.what());
+        } catch (...) {
+            log_error(LogUMD, "Unknown exception while closing devices in Cluster destructor.");
+        }
+    }
+
     cluster_desc.reset();
     log_info(LogUMD, "Cluster destructor completed.");
 }
@@ -1291,6 +1301,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
+        needs_close_ = true;
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
@@ -1311,6 +1322,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
+    needs_close_ = false;
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 

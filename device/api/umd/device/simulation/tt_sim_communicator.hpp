@@ -172,7 +172,7 @@ public:
     bool supports_eth_link_fd() const;
     // Transfers endpoint ownership only once attachment succeeds. Teardown
     // detaches simulator references before closing the borrowed descriptors.
-    void configure_eth_link_fd(uint32_t eth_tile_id, std::unique_ptr<EthIpcEndpoint> endpoint);
+    void configure_eth_link_fd(uint32_t channel, std::unique_ptr<EthIpcEndpoint> endpoint);
     void register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id);
     void register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction);
 

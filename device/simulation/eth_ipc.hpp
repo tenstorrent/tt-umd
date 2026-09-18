@@ -205,7 +205,9 @@ private:
     }
 
     void send_ready(const char* data, size_t size) {
-        sigset_t mask, old_mask, pending;
+        sigset_t mask;
+        sigset_t old_mask;
+        sigset_t pending;
         ::sigemptyset(&mask);
         ::sigaddset(&mask, SIGPIPE);
         const int error = ::pthread_sigmask(SIG_BLOCK, &mask, &old_mask);

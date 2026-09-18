@@ -86,8 +86,13 @@ TTSimCommunicator::~TTSimCommunicator() {
             // broken simulator violates that contract, do not close/recycle FDs
             // it might still reference. Leak only this endpoint, with an error.
             if (result != 0) {
-                log_error(tt::LogEmulationDriver, "Simulator failed Ethernet FD detach: {}", result);
-                (void)link.endpoint.release();
+                auto *retained_endpoint = link.endpoint.release();
+                log_error(
+                    tt::LogEmulationDriver,
+                    "Retaining Ethernet descriptors {} and {} after simulator detach failed: {}",
+                    retained_endpoint->read_fd(),
+                    retained_endpoint->write_fd(),
+                    result);
             }
         }
         owned_eth_links_.clear();

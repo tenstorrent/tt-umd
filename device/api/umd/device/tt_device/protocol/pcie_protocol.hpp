@@ -81,7 +81,7 @@ public:
 
 private:
     TlbWindow* get_cached_tlb_window();
-    TlbWindow* get_cached_dma_tlb_window(tlb_data config);
+    TlbWindow* get_cached_dma_tlb_window(const tlb_data& config);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);

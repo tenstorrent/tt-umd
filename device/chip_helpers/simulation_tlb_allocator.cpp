@@ -6,27 +6,25 @@
 
 #include <fmt/format.h>
 
-#include <tt-logger/tt-logger.hpp>
-
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base) :
+SimulationTlbAllocator::SimulationTlbAllocator(
+    uint64_t bar0_base, tt::ARCH arch, const ArchitectureTlbs* tlbs, uint64_t bar4_base) :
     bar0_base_(bar0_base), bar4_base_(bar4_base), architecture_(arch) {
-    initialize_architecture_config();
+    initialize_pools(tlbs);
 }
 
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
     ZoneScopedC(tracy::Color::Cyan);
 
-    // QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
-    // handles all I/O underneath). Hand back an auto-incrementing dummy index so
-    // TLBManager bookkeeping (keyed by tlb id) does not collide across allocations.
-    if (architecture_ == tt::ARCH::QUASAR) {
-        return next_bypass_tlb_id_++;
+    // Built without a layout: there are no pools to allocate from, so hand back an
+    // auto-incrementing bookkeeping index instead. See allocate_tlb_index()'s docstring.
+    if (pools_.empty()) {
+        return next_bookkeeping_tlb_id_++;
     }
 
     std::lock_guard<std::mutex> lock(allocation_mutex_);
@@ -100,10 +98,10 @@ uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
     if (!find_pool_for_index(tlb_index)) {
         UMD_THROW(error::RuntimeError, fmt::format("Invalid simulation TLB index {}.", tlb_index));
     }
-    // TLB configuration registers start at this offset from BAR0 base.
-    static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
-    return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
+    return bar0_base_ + cfg_reg_base_offset_ + tlb_index * tlb_reg_size_bytes_;
 }
+
+bool SimulationTlbAllocator::uses_window_addressing() const { return !pools_.empty(); }
 
 tt::ARCH SimulationTlbAllocator::get_architecture() const { return architecture_; }
 
@@ -122,26 +120,17 @@ SimulationTlbAllocator::TlbPool* SimulationTlbAllocator::find_pool_for_index(int
     return nullptr;
 }
 
-void SimulationTlbAllocator::initialize_architecture_config() {
-    if (architecture_ != tt::ARCH::WORMHOLE_B0 && architecture_ != tt::ARCH::BLACKHOLE) {
-        // Intentional: architectures like QUASAR construct a SimulationTlbAllocator
-        // but the sim TTDevice's constructor bypasses it entirely (builds the
-        // cached TLB window with a fixed index, never calling allocate_tlb_index).
-        // Leaving every pool empty is the signal that allocator-driven addressing
-        // is not in use.
-        log_debug(
-            LogUMD,
-            fmt::format(
-                "Architecture {} does not yet have support for TLB management in simulation. UMD will use legacy "
-                "tile_wr_bytes and tile_rd_bytes path.",
-                tt::arch_to_str(architecture_)));
+void SimulationTlbAllocator::initialize_pools(const ArchitectureTlbs* tlbs) {
+    if (tlbs == nullptr) {
+        // Intentional: the simulator models no TLB windows for this device, so there is nothing to
+        // lay out. Leaving every pool empty is what puts the allocator in bookkeeping-only mode.
         return;
     }
 
-    const ArchitectureTlbs& tlbs = get_architecture_tlbs(architecture_);
-    tlb_reg_size_bytes_ = tlbs.cfg_reg_size_bytes;
+    cfg_reg_base_offset_ = tlbs->static_cfg_addr;
+    tlb_reg_size_bytes_ = tlbs->cfg_reg_size_bytes;
 
-    for (const TlbSizeClass& size_class : tlbs.size_classes) {
+    for (const TlbSizeClass& size_class : tlbs->size_classes) {
         TlbPool pool;
         pool.layout = size_class;
         pool.allocated.resize(size_class.count, false);

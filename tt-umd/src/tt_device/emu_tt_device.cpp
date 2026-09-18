@@ -94,9 +94,14 @@ struct EmuTTDevice::Impl {
     // Mimir's windows are not one of the package ATT maps the RTL backend selects with
     // TT_UMD_NOC_ATT, so this device flattens addresses itself instead of through the base resolver.
     std::unique_ptr<GrendelNocAddressResolver> address_resolver;
+    chippy::grendel::Mimir mimir;
 
     Impl(const std::string& host, uint32_t port) :
-        transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {}
+        transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)),
+        mimir(
+            transport,
+            chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0),
+            /*use_spa_addressing=*/false) {}
 };
 
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
@@ -162,6 +167,42 @@ void EmuTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* m
     // chippy's write() takes a non-const void* even though it only reads the buffer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     impl_->transport->write(size, kMinWordSizeBytes, flat_address(core, addr), const_cast<void*>(mem_ptr));
+}
+
+void EmuTTDevice::write_cce_reset_vector_register(
+    CoreCoord /*core*/, uint32_t cce_index, uint32_t hart, uint64_t reset_vector) {
+    UMD_ASSERT(
+        cce_index < impl_->mimir.cce_count(),
+        error::RuntimeError,
+        fmt::format("Mimir CCE index {} is out of range.", cce_index));
+    UMD_ASSERT(
+        hart < chippy::grendel::registers::mimir::mimir_cce::TtClusterCtrlAddrMapAccessor{}.reset_vector.size(),
+        error::RuntimeError,
+        fmt::format("Mimir CCE hart index {} is out of range.", hart));
+
+    chippy::grendel::registers::mimir::mimir_cce::ResetVectorRegAccessor value{};
+    value.set_data(reset_vector);
+    impl_->mimir.cce(cce_index).registers.tt_cluster_ctrl.reset_vector[hart].write(value);
+}
+
+void EmuTTDevice::apply_cce_pf_ctrl_reset(
+    CoreCoord /*core*/, uint32_t cce_index, uint64_t hart_bits, bool release) {
+    UMD_ASSERT(
+        cce_index < impl_->mimir.cce_count(),
+        error::RuntimeError,
+        fmt::format("Mimir CCE index {} is out of range.", cce_index));
+
+    auto& cce = impl_->mimir.cce(cce_index);
+    auto reset = cce.registers.pf_ctrl.reset.read();
+    reset.fields.uncore_reset = 1;
+    // hart_bits is the PF_CTRL word (bit N+1 = hart N). core_reset is that field unshifted.
+    const uint64_t hart_mask = hart_bits >> 1;
+    if (release) {
+        reset.fields.core_reset |= hart_mask;
+    } else {
+        reset.fields.core_reset &= ~hart_mask;
+    }
+    cce.registers.pf_ctrl.reset.write(reset);
 }
 
 }  // namespace tt::umd

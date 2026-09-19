@@ -160,7 +160,14 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
         tt_xy_pair core = {x, y};
 
         // Send read request.
-        send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+        // The transport carries payloads as uint32_t words, so the device answers in whole
+        // words: a request that is not a multiple of 4 bytes comes back short and trips the
+        // assert below -- a 98-byte read returns 96. Ask for the rounded-up word count and
+        // still copy only the bytes the caller asked for. Aligned sizes are unaffected.
+        const uint32_t request_size =
+            ((size + sizeof(uint32_t) - 1) / sizeof(uint32_t)) * sizeof(uint32_t);
+        send_command_to_simulation_host(
+            host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, request_size));
     }
 
     // Get read response from the command queue (populated by notification thread).
@@ -188,9 +195,14 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
 
     tt_xy_pair core = {x, y};
-    const uint32_t num_elements = size / sizeof(uint32_t);
-    const auto *data_ptr = static_cast<const uint32_t *>(data);
-    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
+    // Integer division here used to DROP the trailing partial word: a 98-byte write sent 24
+    // words (96 bytes) and the last 2 bytes vanished silently -- no error, just corrupt data
+    // on the device. Round the word count up and zero-pad the tail. Copying through the
+    // vector rather than constructing it from the raw pointer also avoids reading past the
+    // caller's buffer. smn_tile_write_bytes below refuses unaligned sizes for the same reason.
+    const uint32_t num_elements = (size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
+    std::vector<uint32_t> data_vec(num_elements, 0);
+    std::memcpy(data_vec.data(), data, size);
 
     send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
 }

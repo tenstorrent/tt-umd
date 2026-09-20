@@ -105,3 +105,31 @@ TEST(TestSocDescriptor, SmcCoresSurviveSerializationRoundTrip) {
     EXPECT_EQ(reloaded.get_cores(tt::CoreType::SMC).size(), soc_descriptor.get_cores(tt::CoreType::SMC).size());
     EXPECT_EQ(reloaded.get_cores(tt::CoreType::SMC).front(), soc_descriptor.get_cores(tt::CoreType::SMC).front());
 }
+
+TEST(TestSocDescriptor, DualMimirPackageEnumeratesOnlyManagementCores) {
+    SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));
+
+    EXPECT_EQ(soc_descriptor.get_arch_descriptor().get_arch(), tt::ARCH::QUASAR);
+    EXPECT_EQ(soc_descriptor.get_num_dram_channels(), 2);
+    EXPECT_EQ(soc_descriptor.get_cores(tt::CoreType::DRAM).size(), 4);
+
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(tt::CoreType::SMC, tt::CoordSystem::NOC0);
+    ASSERT_EQ(smc_cores.size(), 2);
+    EXPECT_EQ(smc_cores[0], CoreCoord(0, 1, tt::CoreType::SMC, tt::CoordSystem::NOC0));
+    EXPECT_EQ(smc_cores[1], CoreCoord(1, 1, tt::CoreType::SMC, tt::CoordSystem::NOC0));
+
+    for (uint32_t channel = 0; channel < 2; ++channel) {
+        for (uint32_t location = 0; location < 2; ++location) {
+            const CoreCoord logical =
+                soc_descriptor.get_dram_core_for_channel(channel, location, tt::CoordSystem::LOGICAL);
+            EXPECT_EQ(logical.x, channel);
+            EXPECT_EQ(logical.y, location);
+        }
+    }
+
+    EXPECT_TRUE(soc_descriptor.get_cores(tt::CoreType::TENSIX).empty());
+    EXPECT_TRUE(soc_descriptor.get_cores(tt::CoreType::ETH).empty());
+    EXPECT_TRUE(soc_descriptor.get_cores(tt::CoreType::ARC).empty());
+    EXPECT_EQ(soc_descriptor.get_all_cores().size(), 6);
+}

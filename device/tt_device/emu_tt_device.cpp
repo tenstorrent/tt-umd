@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "address_translation.h"  // chippy
-#include "emu_axi_transport.h"  // chippy
-#include "mimir.h"              // chippy
+#include "emu_axi_transport.h"    // chippy
+#include "mimir.h"                // chippy
 #include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -47,26 +47,30 @@ const uint64_t kMimirCceSramStride = chippy::grendel::kMimirCceSramSize;
 // CCE SRAM window before it reaches chippy.
 constexpr uint64_t kMimirCceL1NocOffset = 0x2000000000ULL;
 
-// A windows table for a single-Mimir package. The config window is indexed by chiplet instance
-// rather than by mesh position, so the mesh is collapsed to 1x1 anchored on the SMC core: the one
-// SMC resolves to instance 0. The NEO grid is parked outside the descriptor's grid because Mimir
-// carries no compute and nothing may land in an L1 window -- validate() rejects a zero extent, so
-// it cannot simply be emptied.
+constexpr std::size_t kCcesPerMimir = 2;
 }  // namespace
 
 GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& soc_descriptor) {
     const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC, CoordSystem::NOC0);
     UMD_ASSERT(
-        smc_cores.size() == 1,
+        smc_cores.size() == 1 || smc_cores.size() == 2,
         error::RuntimeError,
-        fmt::format("A Mimir descriptor must carry exactly one SMC core, found {}.", smc_cores.size()));
+        fmt::format("A Mimir package descriptor must carry one or two SMC cores, found {}.", smc_cores.size()));
+    UMD_ASSERT(
+        soc_descriptor.get_num_dram_channels() == smc_cores.size(),
+        error::RuntimeError,
+        fmt::format(
+            "A {}-Mimir package must expose {} DRAM channels (one per Mimir), found {}.",
+            smc_cores.size(),
+            smc_cores.size(),
+            soc_descriptor.get_num_dram_channels()));
 
     GrendelAddressWindows windows{};
     windows.config_base = kMimirConfigLocalBase;
     windows.config_stride = kMimirConfigStride;
     windows.quasar_origin_x = smc_cores.front().x;
     windows.quasar_origin_y = smc_cores.front().y;
-    windows.mesh_x_size = 1;
+    windows.mesh_x_size = smc_cores.size();
     windows.mesh_y_size = 1;
 
     windows.dram_base = kMimirGddrDramLocalBase;
@@ -89,82 +93,128 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
     return windows;
 }
 
-// Owns the chippy transport. Held by shared_ptr because chippy's decorator transports
-// (MultiChipletEmuAxiTransport for a multi-chiplet model, SmcRemapTransport for SMC register
-// access) take a shared inner transport, so a multi-chiplet package will wrap this rather than
-// replace it.
+// Owns one socket and one local-address chippy view per Mimir. In MMK the server exposes each
+// Mimir's identical local AXI map behind SELECT_CHIPLET, so the synthetic non-overlapping windows
+// emitted by the resolver are translated back to a selected chiplet's local address here.
 struct EmuTTDevice::Impl {
     using ChippyMemory = chippy::address_translation::Memory<std::uint32_t>;
+    using Transport = chippy::transport::TransportInterface;
 
     struct MemoryRegion {
+        uint64_t flat_base;
+        uint64_t local_base;
+        std::shared_ptr<Transport> transport;
         std::unique_ptr<ChippyMemory> memory;
 
         bool contains(uint64_t address, std::size_t size) const {
-            if (address < memory->get_address()) {
+            if (address < flat_base) {
                 return false;
             }
-            const uint64_t region_offset = address - memory->get_address();
+            const uint64_t region_offset = address - flat_base;
             return region_offset < memory->size_bytes() && size <= memory->size_bytes() - region_offset;
         }
 
-        std::size_t offset(uint64_t address) const {
-            return static_cast<std::size_t>(address - memory->get_address());
+        std::size_t offset(uint64_t address) const { return static_cast<std::size_t>(address - flat_base); }
+
+        uint64_t local_address(uint64_t address) const { return local_base + offset(address); }
+
+        void read(uint64_t address, void* dst, std::size_t size) const {
+            const std::size_t byte_offset = offset(address);
+            if (address % kMinWordSizeBytes == 0 && size % kMinWordSizeBytes == 0) {
+                const auto bytes = memory->bulk_read_bytes(byte_offset, size);
+                std::memcpy(dst, bytes.data(), bytes.size());
+                return;
+            }
+            transport->read(size, kMinWordSizeBytes, local_address(address), dst);
+        }
+
+        void write(uint64_t address, const void* src, std::size_t size) {
+            const std::size_t byte_offset = offset(address);
+            if (address % kMinWordSizeBytes == 0 && size % kMinWordSizeBytes == 0) {
+                std::vector<uint8_t> bytes(size);
+                std::memcpy(bytes.data(), src, size);
+                memory->bulk_write_bytes(byte_offset, bytes);
+                return;
+            }
+            // chippy's write() takes a non-const void* even though it only reads the buffer.
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+            transport->write(size, kMinWordSizeBytes, local_address(address), const_cast<void*>(src));
         }
     };
 
-    std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> transport;
-    chippy::grendel::Mimir mimir;
+    struct MimirContext {
+        std::shared_ptr<Transport> transport;
+        std::unique_ptr<chippy::grendel::Mimir> mimir;
+    };
+
+    std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> root_transport;
+    std::vector<MimirContext> mimirs;
     bool use_global_addressing = false;
-    std::vector<MemoryRegion> cce_sram;
-    std::vector<MemoryRegion> gddr_dram;
+    std::vector<MemoryRegion> memory_regions;
 
     Impl(const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) :
-        transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)),
-        mimir(
-            transport,
-            chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0),
-            /*use_spa_addressing=*/false) {
+        root_transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {
         const auto windows = EmuTTDevice::mimir_address_windows(soc_descriptor);
+        const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
 
-        cce_sram.reserve(mimir.cce_count());
-        for (std::size_t cce_index = 0; cce_index < mimir.cce_count(); ++cce_index) {
-            const auto& chippy_sram = mimir.cce(cce_index).sram;
-            const uint64_t address = chippy_sram.get_address();
-            cce_sram.push_back(
-                {.memory = std::make_unique<ChippyMemory>(
-                     transport.get(),
-                     address,
-                     address,
-                     use_global_addressing,
-                     chippy_sram.size_bytes())});
+        mimirs.reserve(mimir_count);
+        for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
+            std::shared_ptr<Transport> chiplet_transport = root_transport;
+            if (mimir_count > 1) {
+                chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+                    root_transport, fmt::format("m{}", mimir_index));
+            }
+            mimirs.push_back(
+                {.transport = chiplet_transport,
+                 .mimir = std::make_unique<chippy::grendel::Mimir>(
+                     chiplet_transport,
+                     chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, mimir_index, mimir_index),
+                     /*use_spa_addressing=*/false)});
+
+            const uint64_t flat_config_base = windows.config_base + mimir_index * windows.config_stride;
+            memory_regions.push_back(
+                make_region(flat_config_base, kMimirConfigLocalBase, windows.config_stride, chiplet_transport));
         }
 
-        gddr_dram.reserve(soc_descriptor.get_num_dram_channels());
+        const uint32_t locations_per_channel =
+            static_cast<uint32_t>(soc_descriptor.get_grid_size(CoreType::DRAM).y);
+        UMD_ASSERT(
+            locations_per_channel == kCcesPerMimir,
+            error::RuntimeError,
+            fmt::format(
+                "Each Mimir DRAM channel must expose {} locations, found {}.",
+                kCcesPerMimir,
+                locations_per_channel));
         for (uint32_t channel = 0; channel < soc_descriptor.get_num_dram_channels(); ++channel) {
-            const uint64_t address = windows.dram_base + static_cast<uint64_t>(channel) * windows.dram_stride;
-            gddr_dram.push_back(
-                {.memory = std::make_unique<ChippyMemory>(
-                     transport.get(),
-                     address,
-                     address,
-                     use_global_addressing,
-                     windows.dram_stride)});
+            const auto& chiplet_transport = mimirs.at(channel).transport;
+            memory_regions.push_back(make_region(
+                windows.dram_base + static_cast<uint64_t>(channel) * windows.dram_stride,
+                kMimirGddrDramLocalBase,
+                windows.dram_stride,
+                chiplet_transport));
+            for (uint32_t location = 0; location < locations_per_channel; ++location) {
+                const uint32_t l1_index = channel * locations_per_channel + location;
+                memory_regions.push_back(make_region(
+                    windows.dram_l1_base + static_cast<uint64_t>(l1_index) * windows.dram_l1_stride,
+                    kMimirCceSramLocalBase + location * kMimirCceSramStride,
+                    windows.dram_l1_size,
+                    chiplet_transport));
+            }
         }
     }
 
-    // Only the word-aligned, word-multiple part of an access can go through the Memory views: their
-    // bulk helpers reject anything finer than their 32-bit word. Sub-word accesses (the uint8_t
-    // mailbox fields, for one) fall back to the transport, which decomposes them itself.
+    MemoryRegion make_region(
+        uint64_t flat_base, uint64_t local_base, std::size_t size, const std::shared_ptr<Transport>& transport) {
+        return {
+            .flat_base = flat_base,
+            .local_base = local_base,
+            .transport = transport,
+            .memory =
+                std::make_unique<ChippyMemory>(transport.get(), local_base, local_base, use_global_addressing, size)};
+    }
+
     MemoryRegion* find_memory(uint64_t address, std::size_t size) {
-        if (address % kMinWordSizeBytes != 0 || size % kMinWordSizeBytes != 0) {
-            return nullptr;
-        }
-        for (auto& region : cce_sram) {
-            if (region.contains(address, size)) {
-                return &region;
-            }
-        }
-        for (auto& region : gddr_dram) {
+        for (auto& region : memory_regions) {
             if (region.contains(address, size)) {
                 return &region;
             }
@@ -196,8 +246,8 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     noc_address_resolver_ =
         std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
 
-    // INIT opens the session with the command server.
-    impl_->transport->initialize();
+    // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.
+    impl_->root_transport->initialize();
 }
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the
@@ -225,29 +275,29 @@ std::unique_ptr<TlbWindow> EmuTTDevice::create_tlb_window(
 // deliberately unused: on Grendel the destination travels inside the address, not beside it.
 void EmuTTDevice::tile_read_bytes(tt_xy_pair /*core*/, uint64_t addr, void* mem_ptr, size_t size) {
     if (auto* region = impl_->find_memory(addr, size)) {
-        const auto bytes = region->memory->bulk_read_bytes(region->offset(addr), size);
-        std::memcpy(mem_ptr, bytes.data(), bytes.size());
+        region->read(addr, mem_ptr, size);
         return;
     }
-    impl_->transport->read(size, kMinWordSizeBytes, addr, mem_ptr);
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("EmuTTDevice read at flat address 0x{:x} ({} bytes) is outside exposed Mimir memory.", addr, size));
 }
 
 void EmuTTDevice::tile_write_bytes(tt_xy_pair /*core*/, uint64_t addr, const void* mem_ptr, size_t size) {
     if (auto* region = impl_->find_memory(addr, size)) {
-        std::vector<uint8_t> bytes(size);
-        std::memcpy(bytes.data(), mem_ptr, size);
-        region->memory->bulk_write_bytes(region->offset(addr), bytes);
+        region->write(addr, mem_ptr, size);
         return;
     }
-    // chippy's write() takes a non-const void* even though it only reads the buffer.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    impl_->transport->write(size, kMinWordSizeBytes, addr, const_cast<void*>(mem_ptr));
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format(
+            "EmuTTDevice write at flat address 0x{:x} ({} bytes) is outside exposed Mimir memory.", addr, size));
 }
 
 void EmuTTDevice::write_cce_reset_vector_register(
     CoreCoord /*core*/, uint32_t cce_index, uint32_t hart, uint64_t reset_vector) {
     UMD_ASSERT(
-        cce_index < impl_->mimir.cce_count(),
+        cce_index < impl_->mimirs.size() * kCcesPerMimir,
         error::RuntimeError,
         fmt::format("Mimir CCE index {} is out of range.", cce_index));
     UMD_ASSERT(
@@ -257,17 +307,19 @@ void EmuTTDevice::write_cce_reset_vector_register(
 
     chippy::grendel::registers::mimir::mimir_cce::ResetVectorRegAccessor value{};
     value.set_data(reset_vector);
-    impl_->mimir.cce(cce_index).registers.tt_cluster_ctrl.reset_vector[hart].write(value);
+    impl_->mimirs.at(cce_index / kCcesPerMimir)
+        .mimir->cce(cce_index % kCcesPerMimir)
+        .registers.tt_cluster_ctrl.reset_vector[hart]
+        .write(value);
 }
 
-void EmuTTDevice::apply_cce_pf_ctrl_reset(
-    CoreCoord /*core*/, uint32_t cce_index, uint64_t hart_bits, bool release) {
+void EmuTTDevice::apply_cce_pf_ctrl_reset(CoreCoord /*core*/, uint32_t cce_index, uint64_t hart_bits, bool release) {
     UMD_ASSERT(
-        cce_index < impl_->mimir.cce_count(),
+        cce_index < impl_->mimirs.size() * kCcesPerMimir,
         error::RuntimeError,
         fmt::format("Mimir CCE index {} is out of range.", cce_index));
 
-    auto& cce = impl_->mimir.cce(cce_index);
+    auto& cce = impl_->mimirs.at(cce_index / kCcesPerMimir).mimir->cce(cce_index % kCcesPerMimir);
     auto reset = cce.registers.pf_ctrl.reset.read();
     reset.fields.uncore_reset = 1;
     // hart_bits is the PF_CTRL word (bit N+1 = hart N). core_reset is that field unshifted.

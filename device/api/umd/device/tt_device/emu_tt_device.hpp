@@ -50,10 +50,10 @@ public:
     ~EmuTTDevice() override;
 
     /**
-     * Address windows for a single-Mimir package, in the local addressing the emu path uses.
+     * Synthetic non-overlapping address windows for a one- or two-Mimir package.
      *
-     * Exposed so the mapping has one definition: tests assert against it directly rather than
-     * restating the bases, and a caller building its own resolver cannot drift from the device.
+     * The backend maps each window back to the selected Mimir's local AXI address. Exposed so tests
+     * assert against the same mapping rather than restating its bases.
      */
     static GrendelAddressWindows mimir_address_windows(const SocDescriptor& soc_descriptor);
 

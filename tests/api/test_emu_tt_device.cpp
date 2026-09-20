@@ -61,15 +61,29 @@ std::optional<ServerEndpoint> endpoint_from_env() {
 }
 
 SocDescriptor mimir_descriptor() {
+    if (const char* path = std::getenv("TT_UMD_EMU_SOC_DESC")) {
+        return SocDescriptor(std::make_shared<SocArchDescriptor>(path));
+    }
     return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
+}
+
+std::shared_ptr<chippy::transport::TransportInterface> select_mimir(
+    const std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport>& root,
+    std::size_t mimir_index,
+    std::size_t mimir_count) {
+    if (mimir_count == 1) {
+        return root;
+    }
+    return std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+        root, "m" + std::to_string(mimir_index));
 }
 
 }  // namespace
 
-#define SKIP_WITHOUT_SERVER(endpoint)                                                  \
-    auto endpoint = endpoint_from_env();                                               \
-    if (!endpoint.has_value()) {                                                       \
-        GTEST_SKIP() << "Set TT_UMD_EMU_SERVER=host:port to run this test.";   \
+#define SKIP_WITHOUT_SERVER(endpoint)                                        \
+    auto endpoint = endpoint_from_env();                                     \
+    if (!endpoint.has_value()) {                                             \
+        GTEST_SKIP() << "Set TT_UMD_EMU_SERVER=host:port to run this test."; \
     }
 
 // Mimir's SMC is the only thing reachable on a freshly reset DUT, so it is what the default tests
@@ -138,28 +152,58 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
     const auto windows = EmuTTDevice::mimir_address_windows(soc_descriptor);
-    const CoreCoord cce0 = soc_descriptor.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
-    const CoreCoord cce1 = soc_descriptor.get_dram_core_for_channel(1, 0, CoordSystem::NOC0);
     constexpr uint64_t kOffset = 0x800;
     const uint64_t address = windows.dram_l1_noc_offset + kOffset;
 
-    const uint32_t first = 0xC0FFEE10;
-    const uint32_t second = 0xC0FFEE11;
-    device->write_to_device(&first, cce0, address, sizeof(first));
-    device->write_to_device(&second, cce1, address, sizeof(second));
-
-    uint32_t read_first = 0;
-    uint32_t read_second = 0;
-    device->read_from_device(&read_first, cce0, address, sizeof(read_first));
-    device->read_from_device(&read_second, cce1, address, sizeof(read_second));
-    EXPECT_EQ(read_first, first);
-    EXPECT_EQ(read_second, second);
+    const uint32_t channel_count = soc_descriptor.get_num_dram_channels();
+    const uint32_t locations_per_channel = static_cast<uint32_t>(soc_descriptor.get_grid_size(CoreType::DRAM).y);
+    for (uint32_t channel = 0; channel < channel_count; ++channel) {
+        for (uint32_t location = 0; location < locations_per_channel; ++location) {
+            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
+            const uint32_t value = 0xC0FFEE10 + channel * locations_per_channel + location;
+            device->write_to_device(&value, cce, address, sizeof(value));
+        }
+    }
 
     auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
-    chippy::grendel::Mimir mimir(
-        raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
-    EXPECT_EQ(static_cast<uint32_t>(mimir.cce(0).sram[kOffset / sizeof(uint64_t)].read_raw()), first);
-    EXPECT_EQ(static_cast<uint32_t>(mimir.cce(1).sram[kOffset / sizeof(uint64_t)].read_raw()), second);
+    const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+    for (uint32_t channel = 0; channel < channel_count; ++channel) {
+        for (uint32_t location = 0; location < locations_per_channel; ++location) {
+            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
+            const uint32_t expected = 0xC0FFEE10 + channel * locations_per_channel + location;
+            uint32_t read_back = 0;
+            device->read_from_device(&read_back, cce, address, sizeof(read_back));
+            EXPECT_EQ(read_back, expected);
+
+            chippy::grendel::Mimir mimir(
+                select_mimir(raw, channel, mimir_count),
+                chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, channel, channel),
+                false);
+            EXPECT_EQ(static_cast<uint32_t>(mimir.cce(location).sram[kOffset / sizeof(uint64_t)].read_raw()), expected);
+        }
+    }
+}
+
+TEST(EmuTTDevice, SmcSramDoesNotAliasAcrossMimirs) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    const auto smc_cores = soc_descriptor.get_cores(CoreType::SMC, CoordSystem::NOC0);
+    if (smc_cores.size() < 2) {
+        GTEST_SKIP() << "Requires the dual-Mimir package descriptor.";
+    }
+    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    constexpr uint64_t kOffset = kSmcSramOffset + 0x100;
+    const uint32_t first = 0x51AC0000;
+    const uint32_t second = 0x51AC0001;
+    device->write_to_device(&first, smc_cores[0], kOffset, sizeof(first));
+    device->write_to_device(&second, smc_cores[1], kOffset, sizeof(second));
+
+    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    for (std::size_t mimir_index = 0; mimir_index < smc_cores.size(); ++mimir_index) {
+        const auto selected = select_mimir(raw, mimir_index, smc_cores.size());
+        EXPECT_EQ(selected->read32(kOffset), mimir_index == 0 ? first : second);
+    }
 }
 
 TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
@@ -167,27 +211,37 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
-    const CoreCoord cce0 = soc_descriptor.get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
     constexpr uint32_t kResetVector = 0x123400;
 
-    device->write_to_device_reg(
-        &kResetVector, cce0, grendel::CCE_RESET_VECTOR_BASE, sizeof(kResetVector), NocId::NOC0);
-    device->deassert_risc_reset(cce0, RiscType::ALL, false);
-
     auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
-    chippy::grendel::Mimir mimir(
-        raw, chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, 0, 0), false);
-    for (auto& reset_vector : mimir.cce(0).registers.tt_cluster_ctrl.reset_vector) {
-        EXPECT_EQ(reset_vector.read().get_data(), kResetVector);
-    }
-    auto reset = mimir.cce(0).registers.pf_ctrl.reset.read();
-    EXPECT_EQ(reset.fields.uncore_reset, 1);
-    EXPECT_EQ(reset.fields.core_reset, 0xFF);
+    const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+    const uint32_t locations_per_channel = static_cast<uint32_t>(soc_descriptor.get_grid_size(CoreType::DRAM).y);
+    for (uint32_t channel = 0; channel < soc_descriptor.get_num_dram_channels(); ++channel) {
+        for (uint32_t location = 0; location < locations_per_channel; ++location) {
+            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::TRANSLATED);
+            const uint32_t expected_vector = kResetVector + (channel * locations_per_channel + location) * 0x100;
+            device->write_to_device_reg(
+                &expected_vector, cce, grendel::CCE_RESET_VECTOR_BASE, sizeof(expected_vector), NocId::NOC0);
+            device->deassert_risc_reset(cce, RiscType::ALL, false);
 
-    device->assert_risc_reset(cce0, RiscType::ALL);
-    reset = mimir.cce(0).registers.pf_ctrl.reset.read();
-    EXPECT_EQ(reset.fields.uncore_reset, 1);
-    EXPECT_EQ(reset.fields.core_reset, 0);
+            chippy::grendel::Mimir mimir(
+                select_mimir(raw, channel, mimir_count),
+                chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, channel, channel),
+                false);
+            auto& chippy_cce = mimir.cce(location);
+            for (auto& reset_vector : chippy_cce.registers.tt_cluster_ctrl.reset_vector) {
+                EXPECT_EQ(reset_vector.read().get_data(), expected_vector);
+            }
+            auto reset = chippy_cce.registers.pf_ctrl.reset.read();
+            EXPECT_EQ(reset.fields.uncore_reset, 1);
+            EXPECT_EQ(reset.fields.core_reset, 0xFF);
+
+            device->assert_risc_reset(cce, RiscType::ALL);
+            reset = chippy_cce.registers.pf_ctrl.reset.read();
+            EXPECT_EQ(reset.fields.uncore_reset, 1);
+            EXPECT_EQ(reset.fields.core_reset, 0);
+        }
+    }
 }
 
 // DRAM is opt-in, and deliberately so.
@@ -209,27 +263,26 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
 
-    const std::vector<CoreCoord> dram_cores = soc_descriptor.get_cores(CoreType::DRAM);
-    ASSERT_EQ(dram_cores.size(), 2);
+    const uint32_t channel_count = soc_descriptor.get_num_dram_channels();
     constexpr uint64_t kOffset = 0x800;
 
-    const uint32_t first = 0xAAAA1111;
-    const uint32_t second = 0xBBBB2222;
-    device->write_to_device(&first, dram_cores[0], kOffset, sizeof(first));
-    device->write_to_device(&second, dram_cores[1], kOffset, sizeof(second));
+    for (uint32_t channel = 0; channel < channel_count; ++channel) {
+        const uint32_t value = 0xAAAA1111 + channel;
+        const CoreCoord dram = soc_descriptor.get_dram_core_for_channel(channel, 0, CoordSystem::NOC0);
+        device->write_to_device(&value, dram, kOffset, sizeof(value));
+    }
 
-    uint32_t read_first = 0;
-    uint32_t read_second = 0;
-    device->read_from_device(&read_first, dram_cores[0], kOffset, sizeof(read_first));
-    device->read_from_device(&read_second, dram_cores[1], kOffset, sizeof(read_second));
-
-    EXPECT_EQ(read_first, first);
-    EXPECT_EQ(read_second, second);
-
-    chippy::transport::emu_axi::EmuAxiTransport raw(server->host, server->port);
-    const GrendelNocAddressResolver resolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor));
-    EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[0], kOffset, NocId::NOC0)), first);
-    EXPECT_EQ(raw.read32(resolver.to_flat_address(dram_cores[1], kOffset, NocId::NOC0)), second);
+    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+    for (uint32_t channel = 0; channel < channel_count; ++channel) {
+        const uint32_t expected = 0xAAAA1111 + channel;
+        const CoreCoord dram = soc_descriptor.get_dram_core_for_channel(channel, 0, CoordSystem::NOC0);
+        uint32_t read_back = 0;
+        device->read_from_device(&read_back, dram, kOffset, sizeof(read_back));
+        EXPECT_EQ(read_back, expected);
+        const auto selected = select_mimir(raw, channel, mimir_count);
+        EXPECT_EQ(selected->read32(chippy::grendel::kMimirGddrDramLocalAddr + kOffset), expected);
+    }
 }
 
 }  // namespace tt::umd::test

@@ -1,13 +1,12 @@
 # One Mimir chiplet reached over JTAG, as a single UMD chip.
 #
 # Mimir carries no compute: it is DRAM plus the SMC (System Management Complex), the on-die
-# management CPU that a JTAG bring-up client reaches first. The two DRAM cores mirror chippy's two
-# GDDR instances per Mimir (kMimirGddrDramTile0SpaBaseAddr / Tile1SpaBaseAddr).
+# management CPU that a JTAG bring-up client reaches first. The two halves of the Mimir are two
+# locations on one DRAM channel.
 #
 # The (x, y) coordinates are UMD-side handles, not hardware NOC coordinates: chippy addresses a
 # Mimir chiplet flat, with no coordinate component, so the routing protocol maps a core to a
-# transport and an address base rather than to a NOC endpoint. They are provisional pending the
-# product/chippy answer on the DRAM instance and tile layout.
+# transport and an address base rather than to a NOC endpoint.
 
 grid:
   x_size: 2
@@ -20,17 +19,13 @@ pcie:
   []
 
 dram:
-  [[0-0],
-  [1-0]]
+  [[0-0, 1-0]]
 
 # Dram view parameters are used by tt-metal and are not recognized by UMD.
-# One view per GDDR instance; each bank is a single DRAM tile (subchannel 0).
-# Both endpoint lists are indexed by NOC id, so each names that one tile once per
-# NOC (the same convention quasar_simulation_9x4.yaml uses). Mimir has no Ethernet,
-# but eth_endpoint still has to name a tile: Metal reads it per NOC when it builds
-# the addressable-DRAM list, and the repeats collapse to the single tile.
-# programmable: true marks the channel as a Mimir CCE (Metal DRAM core). Omitted
-# defaults to false.
+# One view for the single Mimir channel; worker/eth endpoints name location 0 for both NOCs.
+# Mimir has no Ethernet, but eth_endpoint still has to name a location: Metal reads it per NOC
+# when it builds the addressable-DRAM list, and the repeats collapse to that one location.
+# programmable: true marks the channel as a Mimir CCE (Metal DRAM core). Omitted defaults to false.
 dram_views:
   [
     {
@@ -39,18 +34,11 @@ dram_views:
       worker_endpoint: [0, 0],
       address_offset: 0,
       programmable: true
-    },
-    {
-      channel: 1,
-      eth_endpoint: [0, 0],
-      worker_endpoint: [0, 0],
-      address_offset: 0,
-      programmable: true
     }
   ]
 
 dram_view_size:
-  268435456
+  8589934592
 
 eth:
   []

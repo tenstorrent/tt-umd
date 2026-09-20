@@ -80,8 +80,11 @@ std::optional<uint32_t> cce_index(TTDevice& device, CoreCoord core) {
         return std::nullopt;
     }
 
-    return static_cast<uint32_t>(
-        soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x);
+    // Logical DRAM is (channel, location): a Mimir is one channel carrying both its CCEs, so the
+    // two coordinates have to be folded back into the flat CCE index cce_control_addr expects.
+    const CoreCoord logical = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
+    const uint32_t locations_per_channel = std::max<uint32_t>(soc.get_grid_size(CoreType::DRAM).y, 1);
+    return static_cast<uint32_t>(logical.x * locations_per_channel + logical.y);
 }
 
 }  // namespace

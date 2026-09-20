@@ -5,6 +5,7 @@ set(UMD_MISC_TESTS_SRCS
     test_kmd_mutex.cpp
     test_lock_manager.cpp
     test_op_timeout_guard.cpp
+    test_enum_array.cpp
 )
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})

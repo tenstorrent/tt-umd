@@ -173,6 +173,50 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
 
     d = reinterpret_cast<volatile std::uint8_t*>(d_simd);
 
+#elif defined(__riscv) && (__riscv_xlen == 64)
+    // riscv64 (RVA20-class hosts: rv64gc, no vector extension): the generic GNUC path below
+    // copies through 1-byte-aligned vector types, and under RISC-V's strict-alignment code
+    // generation GCC expands the 16-byte chunk into individual byte stores. Sub-word posted
+    // writes are not safe for every device target reachable through the BAR (the ARC CSM
+    // mangles them), so use explicit 8-byte volatile stores — the widest scalar access the
+    // base ISA guarantees; d is 4-byte aligned after Phase 0.
+    //
+    // RVA23-class hosts mandate RVV 1.0, but no RVA23 hardware with PCIe exists yet, so a
+    // wider vector path (e.g. unit-stride stores of 64-bit elements) cannot be validated
+    // against a device today and is left for when such hosts appear. This branch is
+    // intentionally taken for all riscv64 hosts until then, as it is correct on both.
+    while (size >= 8 && (reinterpret_cast<std::uintptr_t>(d) % 8) != 0) {
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
+        *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        check(t, 4);
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+    while (size >= 64) {
+        auto t = std::chrono::steady_clock::now();
+        for (int j = 0; j < 8; ++j) {
+            std::uint64_t tmp;
+            std::memcpy(&tmp, s, sizeof(tmp));
+            *reinterpret_cast<volatile std::uint64_t*>(d) = tmp;
+            d += 8;
+            s += 8;
+        }
+        check(t, 64);
+        size -= 64;
+    }
+    while (size >= 8) {
+        std::uint64_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
+        *reinterpret_cast<volatile std::uint64_t*>(d) = tmp;
+        check(t, 8);
+        d += 8;
+        s += 8;
+        size -= 8;
+    }
 #elif defined(__GNUC__)
     // Like the x86 path, these wide stores are not volatile — compiler reordering is
     // bounded by the Phase 0/4/5 volatile loops. On Clang, __builtin_nontemporal_store
@@ -366,6 +410,39 @@ void memcpy_from_device(
 
     s = reinterpret_cast<const volatile std::uint8_t*>(s_simd);
 
+#elif defined(__riscv) && (__riscv_xlen == 64)
+    // riscv64 (RVA20-class, no vector extension): mirror of the store path above — explicit
+    // 8-byte volatile loads rather than the 1-byte-aligned vector copies, which GCC turns
+    // into byte loads here. See the note above regarding a future RVV 1.0 path.
+    while (size >= 8 && (reinterpret_cast<std::uintptr_t>(s) % 8) != 0) {
+        auto t = std::chrono::steady_clock::now();
+        std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        check(t, 4);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+    while (size >= 64) {
+        auto t = std::chrono::steady_clock::now();
+        for (int j = 0; j < 8; ++j) {
+            std::uint64_t tmp = *reinterpret_cast<const volatile std::uint64_t*>(s);
+            std::memcpy(d, &tmp, sizeof(tmp));
+            d += 8;
+            s += 8;
+        }
+        check(t, 64);
+        size -= 64;
+    }
+    while (size >= 8) {
+        auto t = std::chrono::steady_clock::now();
+        std::uint64_t tmp = *reinterpret_cast<const volatile std::uint64_t*>(s);
+        check(t, 8);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 8;
+        s += 8;
+        size -= 8;
+    }
 #elif defined(__GNUC__)
     // GCC/Clang non-x86: vector extensions + __builtin_memcpy (LDP/STP on AArch64).
 

@@ -1,0 +1,70 @@
+# Two Mimir chiplets in one package, exposed as one UMD device.
+#
+# Each Mimir is one DRAM channel. The two halves of that Mimir are two locations
+# on the same channel. Coordinates are package-local UMD handles, not hardware
+# NOC endpoints. The two SMC handles are M0 then M1.
+
+grid:
+  x_size: 4
+  y_size: 2
+
+arc:
+  []
+
+pcie:
+  []
+
+dram:
+  [[0-0, 1-0],
+  [2-0, 3-0]]
+
+# Dram view parameters are used by tt-metal and are not recognized by UMD.
+# One view per Mimir channel; worker/eth endpoints name location 0 for both NOCs.
+# programmable: true marks the channel as a Mimir CCE (Metal DRAM core).
+dram_views:
+  [
+    {
+      channel: 0,
+      eth_endpoint: [0, 0],
+      worker_endpoint: [0, 0],
+      address_offset: 0,
+      programmable: true
+    },
+    {
+      channel: 1,
+      eth_endpoint: [0, 0],
+      worker_endpoint: [0, 0],
+      address_offset: 0,
+      programmable: true
+    }
+  ]
+
+dram_view_size:
+  8589934592
+
+eth:
+  []
+
+functional_workers:
+  []
+
+router_only:
+  []
+
+dispatch:
+  []
+
+smc:
+  [0-1,
+  1-1]
+
+worker_l1_size:
+  0
+
+dram_bank_size:
+  8589934592
+
+eth_l1_size:
+  0
+
+arch_name: QUASAR

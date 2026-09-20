@@ -180,8 +180,11 @@ uint64_t GrendelNocAddressResolver::to_flat_address(const CoreCoord& core, uint6
         const CoreCoord logical = soc_descriptor_->translate_coord_to(
             CoreCoord(noc0_xy, CoreType::DRAM, CoordSystem::NOC0), CoordSystem::LOGICAL);
         const auto channel = static_cast<uint32_t>(logical.x);
+        const auto location = static_cast<uint32_t>(logical.y);
+        const auto locations_per_channel = static_cast<uint32_t>(soc_descriptor_->get_grid_size(CoreType::DRAM).y);
         if (windows_.is_dram_l1_address(offset)) {
-            const uint64_t address = windows_.dram_l1_address(channel, offset);
+            const uint32_t l1_index = channel * locations_per_channel + location;
+            const uint64_t address = windows_.dram_l1_address(l1_index, offset);
             log_debug(
                 tt::LogUMD,
                 "Grendel ATT: core ({}, {}) type {} -> DRAM-core L1 window, channel {} (subchannel {}), "

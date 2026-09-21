@@ -40,25 +40,27 @@ const char* ordering_name(IoOrdering ordering) {
     return "Unknown";
 }
 
-// Rows for the Cluster path: reconfigure per chunk, chip-wide window lock, coordinate translation,
-// and IoOrdering::Strict -- what a caller gets without managing a window itself.
+// Rows for the Cluster path: reconfigure per chunk, chip-wide window lock, and coordinate
+// translation -- what a caller gets without managing a window itself. Called once per ordering the
+// path accepts, so the pair isolates what the ordering mode costs with everything else held equal.
 void benchmark_cluster(
     ankerl::nanobench::Bench& bench,
     Cluster& cluster,
     const CoreCoord core,
     const uint64_t address,
+    const IoOrdering ordering,
     const std::vector<size_t>& batch_sizes) {
     for (size_t batch_size : batch_sizes) {
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Cluster Strict, write, {} bytes", batch_size)).run([&]() {
-            cluster.write_to_device(pattern.data(), pattern.size(), CHIP_ID, core, address);
-        });
+        bench.batch(batch_size)
+            .name(fmt::format("Cluster {}, write, {} bytes", ordering_name(ordering), batch_size))
+            .run([&]() { cluster.write_to_device(pattern.data(), pattern.size(), CHIP_ID, core, address, ordering); });
     }
     for (size_t batch_size : batch_sizes) {
         std::vector<uint8_t> pattern(batch_size);
-        bench.batch(batch_size).name(fmt::format("Cluster Strict, read, {} bytes", batch_size)).run([&]() {
-            cluster.read_from_device(pattern.data(), CHIP_ID, core, address, batch_size);
-        });
+        bench.batch(batch_size)
+            .name(fmt::format("Cluster {}, read, {} bytes", ordering_name(ordering), batch_size))
+            .run([&]() { cluster.read_from_device(pattern.data(), CHIP_ID, core, address, batch_size, ordering); });
     }
 }
 
@@ -118,7 +120,8 @@ TEST(MicrobenchmarkTLB, DRAM) {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB, 2 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
-    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, WINDOW_BATCH_SIZES);
     benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, WINDOW_BATCH_SIZES);
     test::utils::export_results(bench);
@@ -132,7 +135,8 @@ TEST(MicrobenchmarkTLB, Tensix) {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
-    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
     benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     test::utils::export_results(bench);
@@ -149,7 +153,8 @@ TEST(MicrobenchmarkTLB, Ethernet) {
         GTEST_SKIP() << "No ETH cores found on system.";
     }
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH).at(0);
-    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
     benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
     test::utils::export_results(bench);

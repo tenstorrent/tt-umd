@@ -1141,9 +1141,10 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
     get_chip(chip)->dram_membar(channels, subchannel);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+void Cluster::write_to_device(
+    const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
+    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes, ordering);
 }
 
 void Cluster::write_to_device_reg(
@@ -1167,9 +1168,10 @@ void Cluster::dma_multicast_write(
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size) {
+void Cluster::read_from_device(
+    void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
+    get_chip(chip)->read_from_device(core, mem_ptr, addr, size, ordering);
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {

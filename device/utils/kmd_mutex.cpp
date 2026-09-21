@@ -6,6 +6,7 @@
 
 #include <fcntl.h>  // O_APPEND
 #include <fmt/format.h>
+#include <unistd.h>  // getpid
 
 #include <cerrno>
 #include <chrono>
@@ -145,25 +146,46 @@ void KmdMutex::lock() {
 }
 
 std::optional<std::pair<pid_t, pid_t>> KmdMutex::probe_lock(std::chrono::seconds timeout) {
-    // KMD only offers non-blocking acquire and blocking acquire (no native timed acquire), so a
-    // bounded wait is implemented by polling the non-blocking acquire. On success we hold the lock and
-    // return nullopt.
-    if (try_lock()) {
-        return std::nullopt;
-    }
-    if (timeout.count() == 0) {
-        // Owner is unknown - KMD does not expose which handle/process holds the lock.
+    UMD_ASSERT(device_ != nullptr, error::RuntimeError, "KmdMutex::probe_lock() called before initialize()");
+
+    // KMD can report a lock's state without taking it, so probing here costs the lock nothing: a free lock stays free
+    // and whoever holds one keeps it.
+    auto read_state = [this]() {
+        uint32_t state = 0;
+        int result = tt_lock_test(device_, lock_index_, &state);
+        UMD_ASSERT(
+            result == 0,
+            error::RuntimeError,
+            fmt::format("tt_lock_test() failed for lock {} on {} errno: {}", lock_index_, device_path_, -result));
+        return state;
+    };
+
+    // Held by this handle means held by this process, which is as precise as KMD gets: it tracks which handle holds a
+    // lock, not which thread, so there is no tid to report. Any other holder is behind a handle we know nothing about.
+    auto owner_of = [](uint32_t state) -> std::optional<std::pair<pid_t, pid_t>> {
+        if ((state & TT_LOCK_STATE_HELD_BY_ANY) == 0) {
+            return std::nullopt;
+        }
+        if ((state & TT_LOCK_STATE_HELD_BY_SELF) != 0) {
+            return std::make_pair(getpid(), static_cast<pid_t>(0));
+        }
         return std::make_pair(static_cast<pid_t>(0), static_cast<pid_t>(0));
+    };
+
+    std::optional<std::pair<pid_t, pid_t>> owner = owner_of(read_state());
+    if (!owner.has_value() || timeout.count() == 0) {
+        return owner;
     }
 
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        if (try_lock()) {
-            return std::nullopt;
+        owner = owner_of(read_state());
+        if (!owner.has_value()) {
+            break;
         }
     }
-    return std::make_pair(static_cast<pid_t>(0), static_cast<pid_t>(0));
+    return owner;
 }
 
 void KmdMutex::unlock() {

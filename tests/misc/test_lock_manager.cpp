@@ -54,5 +54,4 @@ TEST(TestLockManager, ChipSpecificPcieLockIsHeldInBothBackends) {
     EXPECT_FALSE(kmd_lock.is_locked_by_anyone()) << "KMD resource lock should have been released";
     EXPECT_FALSE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value())
         << "Shared memory lock should have been released";
-    shm_lock.unlock();
 }

@@ -36,18 +36,11 @@ def mutex_name():
 
 
 def probe_from_contender(mutex, timeout_s=0):
-    """Probe the lock from a thread that does not hold it, which is what a contender looks like.
-
-    A probe that succeeds leaves the caller holding the lock, so it is released again in the same
-    thread that took it.
-    """
+    """Probe the lock from a thread that does not hold it, which is what a contender looks like."""
     result = []
 
     def probe():
-        owner = mutex.probe_lock(timeout_s)
-        if owner is None:
-            mutex.unlock()
-        result.append(owner)
+        result.append(mutex.probe_lock(timeout_s))
 
     thread = threading.Thread(target=probe)
     thread.start()

@@ -43,8 +43,10 @@ public:
 
     virtual void unlock() = 0;
 
-    // Tries to acquire the lock, waiting up to timeout. Returns std::nullopt if the lock was acquired,
-    // otherwise the owning {pid, tid} if the backend can identify the owner, {0, 0} if it cannot.
+    // Reports whether the lock is held, waiting up to timeout for it to become free. Returns std::nullopt if it is
+    // not held, otherwise the owning {pid, tid}, or {0, 0} where the backend cannot identify the owner. Probing never
+    // leaves the lock held, whether or not the backend has to acquire it to find out, so the answer is only ever a
+    // snapshot: it can be stale by the time it is returned.
     virtual std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) = 0;
 };
 

@@ -10,6 +10,8 @@
 #include <exception>
 
 #include "grendel_jtag_protocol_impl.hpp"
+#include "jtag2axi_v1_transport.h"  // chippy
+#include "jtag2axi_v2_transport.h"  // chippy
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
@@ -19,6 +21,31 @@ namespace tt::umd {
 // cost bulk throughput: Jtag2AxiV2Transport::read/write choose their batched series path from the
 // transfer size and address alignment alone and ignore the minimum word size.
 static constexpr size_t kMinWordSizeBytes = 4;
+
+std::unique_ptr<GrendelJtagProtocol> GrendelJtagProtocol::create(
+    const std::string& host,
+    uint16_t port,
+    uint32_t chiplet_number,
+    GrendelJtagTransportVersion version) {
+    UMD_ASSERT(!host.empty(), error::RuntimeError, "Grendel JTAG requires a non-empty OpenOCD host.");
+    UMD_ASSERT(port != 0, error::RuntimeError, "Grendel JTAG requires a non-zero OpenOCD TCL port.");
+
+    std::shared_ptr<chippy::transport::TransportInterface> transport;
+    switch (version) {
+        case GrendelJtagTransportVersion::V1:
+            transport = std::make_shared<chippy::transport::jtag2axi::v1::Jtag2AxiV1Transport>(
+                host, port, chiplet_number);
+            break;
+        case GrendelJtagTransportVersion::V2:
+            transport = std::make_shared<chippy::transport::jtag2axi::v2::Jtag2AxiV2Transport>(
+                host, port, chiplet_number);
+            break;
+    }
+
+    SmnTransportProvider provider = [transport](tt_xy_pair) { return transport; };
+    return std::unique_ptr<GrendelJtagProtocol>(
+        new GrendelJtagProtocol(std::make_unique<Impl>(std::move(provider), static_cast<int>(chiplet_number))));
+}
 
 // What the catch blocks below can and cannot see.
 //

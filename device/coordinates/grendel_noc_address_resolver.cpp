@@ -6,7 +6,9 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/utils/error.hpp"
@@ -14,6 +16,13 @@
 namespace tt::umd {
 
 namespace {
+
+constexpr uint64_t kMimirConfigLocalBase = 0x0;
+constexpr uint64_t kMimirConfigSize = 0x8000000;
+constexpr uint64_t kMimirGddrDramLocalBase = 0x800000000;
+constexpr uint64_t kMimirCceSramLocalBase = 0x40000000;
+constexpr uint64_t kMimirCceSramStride = 0x400000;
+constexpr uint64_t kMimirCceL1NocOffset = 0x2000000000ULL;
 
 bool is_power_of_two(uint64_t value) { return value != 0 && (value & (value - 1)) == 0; }
 
@@ -41,6 +50,43 @@ void check_offset(uint64_t offset, uint64_t stride, const char* name) {
 }
 
 }  // namespace
+
+GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descriptor) {
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC, CoordSystem::NOC0);
+    UMD_ASSERT(
+        smc_cores.size() == 1 || smc_cores.size() == 2,
+        error::RuntimeError,
+        fmt::format("A Mimir package descriptor must carry one or two SMC cores, found {}.", smc_cores.size()));
+    UMD_ASSERT(
+        soc_descriptor.get_num_dram_channels() == smc_cores.size(),
+        error::RuntimeError,
+        fmt::format(
+            "A {}-Mimir package must expose {} DRAM channels (one per Mimir), found {}.",
+            smc_cores.size(),
+            smc_cores.size(),
+            soc_descriptor.get_num_dram_channels()));
+
+    GrendelAddressWindows windows{};
+    windows.config_base = kMimirConfigLocalBase;
+    windows.config_stride = kMimirConfigSize;
+    windows.quasar_origin_x = smc_cores.front().x;
+    windows.quasar_origin_y = smc_cores.front().y;
+    windows.mesh_x_size = smc_cores.size();
+    windows.mesh_y_size = 1;
+    windows.dram_base = kMimirGddrDramLocalBase;
+    windows.dram_stride = soc_descriptor.get_arch_descriptor().get_dram_bank_size();
+    windows.dram_l1_noc_offset = kMimirCceL1NocOffset;
+    windows.dram_l1_base = kMimirCceSramLocalBase;
+    windows.dram_l1_stride = kMimirCceSramStride;
+    windows.dram_l1_size = kMimirCceSramStride;
+
+    const tt_xy_pair grid = soc_descriptor.get_grid_size(CoreType::SMC);
+    windows.neo_x_start = std::max<uint32_t>(grid.x, 1) + 1;
+    windows.neo_y_start = std::max<uint32_t>(grid.y, 1) + 1;
+    windows.neo_x_count = 1;
+    windows.neo_y_count = 1;
+    return windows;
+}
 
 bool GrendelAddressWindows::is_in_neo_grid(uint32_t noc0_x, uint32_t noc0_y) const {
     return noc0_x >= neo_x_start && noc0_x < neo_x_start + neo_x_count && noc0_y >= neo_y_start &&

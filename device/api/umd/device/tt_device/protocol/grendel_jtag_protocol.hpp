@@ -8,12 +8,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+
+enum class GrendelJtagTransportVersion {
+    V1,
+    V2,
+};
 
 /**
  * GrendelJtagProtocol implements DeviceProtocol for a Grendel package reached over JTAG, backed by
@@ -41,6 +47,12 @@ namespace tt::umd {
  */
 class GrendelJtagProtocol : public DeviceProtocol {
 public:
+    static std::unique_ptr<GrendelJtagProtocol> create(
+        const std::string& host,
+        uint16_t port = 6666,
+        uint32_t chiplet_number = 0,
+        GrendelJtagTransportVersion version = GrendelJtagTransportVersion::V2);
+
     ~GrendelJtagProtocol() override;
 
     // DeviceProtocol interface. chippy exposes one transport per chiplet with no separate data and

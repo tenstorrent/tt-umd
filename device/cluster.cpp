@@ -40,6 +40,7 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #ifdef TT_UMD_BUILD_GRENDEL_JTAG
 #include "umd/device/tt_device/emu_tt_device.hpp"
+#include "umd/device/tt_device/grendel_jtag_tt_device.hpp"
 #endif
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -306,6 +307,22 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             "TT_UMD_BUILD_GRENDEL_JTAG.");
 #endif
     }
+    if (chip_type == ChipType::GRENDEL_JTAG) {
+#if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
+        UMD_ASSERT(
+            tt_device != nullptr,
+            error::RuntimeError,
+            "GRENDEL_JTAG chip construction requires a pre-created GrendelJtagTTDevice.");
+        // Reuse SimulationChip's no-firmware-management shell: SysEng owns board and fabric
+        // initialization, and this attach path only loads CCE firmware and runs kernels.
+        return std::make_unique<SimulationChip>("", soc_desc, chip_id, std::move(tt_device));
+#else
+        UMD_THROW(
+            error::RuntimeError,
+            "GRENDEL_JTAG device is not supported in this build. Enable TT_UMD_BUILD_SIMULATION and "
+            "TT_UMD_BUILD_GRENDEL_JTAG.");
+#endif
+    }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         std::unique_ptr<LocalChip> chip;
@@ -408,7 +425,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         error::RuntimeError,
         fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
-    if (chip_type == ChipType::SWEMULE || chip_type == ChipType::EMU_AXI ||
+    if (chip_type == ChipType::SWEMULE || chip_type == ChipType::EMU_AXI || chip_type == ChipType::GRENDEL_JTAG ||
         cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
@@ -441,6 +458,7 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::MOCK:
         case ChipType::SWEMULE:
         case ChipType::EMU_AXI:
+        case ChipType::GRENDEL_JTAG:
         case ChipType::SIMULATION: {
 #if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
             if (options.chip_type == ChipType::EMU_AXI) {
@@ -452,6 +470,16 @@ Cluster::Cluster(ClusterOptions options) {
                     !options.emu_host.empty() && options.emu_port != 0,
                     error::RuntimeError,
                     "EMU_AXI requires a non-empty emu_host and non-zero emu_port.");
+            }
+            if (options.chip_type == ChipType::GRENDEL_JTAG) {
+                UMD_ASSERT(
+                    !options.sdesc_path.empty(),
+                    error::RuntimeError,
+                    "GRENDEL_JTAG requires ClusterOptions::sdesc_path.");
+                UMD_ASSERT(
+                    !options.grendel_jtag_host.empty() && options.grendel_jtag_port != 0,
+                    error::RuntimeError,
+                    "GRENDEL_JTAG requires a non-empty OpenOCD host and non-zero TCL port.");
             }
 #endif
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -587,7 +615,8 @@ Cluster::Cluster(ClusterOptions options) {
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
-                if (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::EMU_AXI) {
+                if (options.chip_type == ChipType::SIMULATION || options.chip_type == ChipType::EMU_AXI ||
+                    options.chip_type == ChipType::GRENDEL_JTAG) {
                     if (options.sdesc_path.empty()) {
                         options.sdesc_path =
                             SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
@@ -644,6 +673,14 @@ Cluster::Cluster(ClusterOptions options) {
 #if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
         if (options.chip_type == ChipType::EMU_AXI) {
             tt_device = EmuTTDevice::create(soc_desc, options.emu_host, options.emu_port, !options.emu_skip_init);
+        }
+        if (options.chip_type == ChipType::GRENDEL_JTAG) {
+            tt_device = GrendelJtagTTDevice::create(
+                soc_desc,
+                options.grendel_jtag_host,
+                options.grendel_jtag_port,
+                options.grendel_jtag_chiplet,
+                options.grendel_jtag_use_v1 ? GrendelJtagTransportVersion::V1 : GrendelJtagTransportVersion::V2);
         }
 #endif
 

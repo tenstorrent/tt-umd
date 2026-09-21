@@ -72,6 +72,7 @@ enum ChipType {
     MOCK,
     SWEMULE,
     EMU_AXI,
+    GRENDEL_JTAG,
 };
 
 /**
@@ -127,6 +128,15 @@ struct ClusterOptions {
      * so a client that attaches after another client has brought the model up must not send it.
      */
     bool emu_skip_init = false;
+
+    /**
+     * OpenOCD TCL RPC endpoint for a pre-initialized Grendel package. Used only for
+     * GRENDEL_JTAG. OpenOCD/probe setup and fabric initialization are owned by the caller.
+     */
+    std::string grendel_jtag_host;
+    uint32_t grendel_jtag_port = 6666;
+    uint32_t grendel_jtag_chiplet = 0;
+    bool grendel_jtag_use_v1 = false;
 
     /**
      * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other

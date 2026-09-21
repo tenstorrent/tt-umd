@@ -57,8 +57,6 @@ class IoWindow;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
-class TLBManager;
-class TlbWindow;
 
 /**
  * Chip type to create under the Cluster class.
@@ -250,41 +248,6 @@ public:
     void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        tt_xy_pair core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        CoreCoord core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
      * Maps a core into host address space, anchored at an address on that core. Reads and writes
      * through the returned window address it as offsets from that anchor. The window is created
      * large enough to cover the requested size, rounded up to a size the architecture provides.
@@ -430,36 +393,53 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
-     * other. The call returns once the writes are issued, not once they are acknowledged by the
-     * target — the underlying MMIO stores are posted. This costs write throughput; a caller that
-     * does not need the ordering guarantee can take an @ref IoWindow from @ref create_io_window
-     * with a weaker ordering mode and drive it directly, using @ref IoWindow::configure to advance
-     * across chunks larger than the window.
+     * The call returns once the writes are issued, not once they are acknowledged by the target —
+     * the underlying MMIO stores are posted regardless of the ordering mode.
+     *
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap. A caller that wants them to overlap can take an @ref IoWindow from @ref
+     * create_io_window and drive it directly, using @ref IoWindow::configure to advance across
+     * chunks larger than the window.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param ordering Ordering for the transfers this call issues. Strict, the default, costs write
+     * throughput.
      */
-    void write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(
+        const void* mem_ptr,
+        size_t size_in_bytes,
+        ChipId chip,
+        CoreCoord core,
+        uint64_t addr,
+        IoOrdering ordering = IoOrdering::Strict);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
-     * respect to each other.
+     * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
+     * overlap. A caller that needs them to overlap can take an @ref IoWindow from @ref
+     * create_io_window and drive it directly.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
+     * @param ordering Ordering for the transfers this call issues.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size);
+    void read_from_device(
+        void* mem_ptr,
+        ChipId chip,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        IoOrdering ordering = IoOrdering::Strict);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -555,19 +535,6 @@ public:
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude,
         bool use_translated_coords);
-
-    /**
-     * Provide fast read/write access to a statically-mapped TLB.
-     * It is the caller's responsibility to ensure that
-     * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned pointer.
-     * - the Cluster instance outlives the returned pointer.
-     * - use of the returned pointer is congruent with the target's TLB setup.
-     *
-     * @param chip The chip to access.
-     * @param core The core to access.
-     */
-    TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
@@ -794,18 +761,6 @@ public:
      */
     TTDevice* get_tt_device(ChipId device_id) const;
 
-    /**
-     * Get TLBManager for specified logical device id.
-     *
-     * @param device_id Device to target.
-     */
-    TLBManager* get_tlb_manager(ChipId device_id) const;
-
-    /**
-     * Exposes how TLBs are configured for a specific device.
-     */
-    tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
-
 private:
     // Helper functions
     // Broadcast.
@@ -850,6 +805,9 @@ private:
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+
+    // Set when start_device() initialized the chips, cleared by close_device()
+    bool needs_close_ = false;
 
     // State variables.
     std::set<ChipId> all_chip_ids_;

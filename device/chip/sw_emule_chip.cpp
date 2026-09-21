@@ -207,7 +207,7 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 // caller's CoreCoord untranslated, so a raw {x,y} would otherwise be looked up in whichever naming
 // the caller happened to pick, and only TRANSLATED has a pool slot. A LITERAL coord passes through
 // unchanged, which is the pre-existing behaviour for callers that already resolved the coordinate.
-void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
+void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
@@ -216,7 +216,7 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
-void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
+void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
@@ -254,8 +254,6 @@ void SWEmuleChip::close_device() {}
 TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
 
 SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
-
-TLBManager* SWEmuleChip::get_tlb_manager() { return nullptr; }
 
 // --- Host memory (no-ops) ---
 

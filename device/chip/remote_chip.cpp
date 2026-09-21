@@ -89,11 +89,11 @@ void RemoteChip::close_device() {
     }
 }
 
-void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
+void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
     tt_device_->write_to_device(src, core, l1_dest, size, get_selected_noc_id());
 }
 
-void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
+void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
     tt_device_->read_from_device(dest, core, l1_src, size, get_selected_noc_id());
 }
 
@@ -168,10 +168,6 @@ TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* RemoteChip::get_sysmem_manager() {
     UMD_THROW(error::RuntimeError, "RemoteChip::get_sysmem_manager is not available for this chip.");
-}
-
-TLBManager* RemoteChip::get_tlb_manager() {
-    UMD_THROW(error::RuntimeError, "RemoteChip::get_tlb_manager is not available for this chip.");
 }
 
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }

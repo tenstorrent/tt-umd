@@ -11,10 +11,10 @@
 #include <tuple>
 
 #include "firmware/erisc_firmware.hpp"
-#include "types/wormhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_l1.hpp"
 #include "umd/device/utils/error.hpp"
 

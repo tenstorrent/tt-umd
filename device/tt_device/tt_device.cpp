@@ -17,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include "driver_atomics.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
@@ -33,6 +32,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"

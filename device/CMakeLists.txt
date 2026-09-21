@@ -214,6 +214,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
+                api/umd/device/driver_atomics.hpp
                 api/umd/device/utils/mutex_interface.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
@@ -275,6 +276,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
+                api/umd/device/types/blackhole_eth.hpp
                 api/umd/device/types/blackhole_l1.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
@@ -285,6 +287,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/io_window_config.hpp
+                api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_l1.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp

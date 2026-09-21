@@ -83,12 +83,12 @@ Classification classify(const std::filesystem::path& simulator_path) {
     }
     // Every socket is stale: the directory belonged to a host that is gone. Say so, rather than
     // falling through to hosting an RTL build out of a server directory -- which would fail later
-    // with an unrelated message. `sim_server.sh prune` clears these out.
+    // with an unrelated message. `sim_server prune` clears these out.
     UMD_ASSERT(
         !live_sockets.empty(),
         error::RuntimeError,
         fmt::format(
-            "The {} simulation socket(s) in {} are stale -- the host that served them is gone. Run `sim_server.sh "
+            "The {} simulation socket(s) in {} are stale -- the host that served them is gone. Run `sim_server "
             "prune` to clear them, or point at a simulator to host one.",
             sockets.size(),
             simulator_path.string()));

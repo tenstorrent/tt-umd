@@ -25,6 +25,9 @@ public:
         firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
         architecture_impl_(ArchitectureImplementation::create(arch)) {}
 
+    // TTDevice answers get_arch() and get_communication_device_id() from these two, so the model
+    // stores neither: the architecture comes from the implementation, the device id from the
+    // protocol's mmio id.
     DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
     DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
     ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }

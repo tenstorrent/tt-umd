@@ -99,9 +99,17 @@ public:
     static std::filesystem::path allocate_server_directory();
 
     // The simulation servers currently open on this machine, ordered by index, discovered by
-    // scanning the well-known server directories (the same directories a client attaches to). Does
-    // not connect to them. Exposed for management tooling (list / kill) without opening devices.
+    // scanning the well-known server directories (the same directories a client attaches to). A
+    // server whose host is gone is left out, and what it left on disk is cleared up: every
+    // enumeration of all servers clears up, so no caller has to ask. Opens no devices. Exposed for
+    // management tooling (list / kill).
     static std::vector<SimulationServerInfo> list_servers();
+
+    // That same sweep, reporting the other half: the servers whose host was gone, now removed. For
+    // a caller that wants to clear up without listing, or to report what was cleared up. A
+    // directory that has published no socket yet is never swept -- it cannot be told apart from a
+    // host still coming up.
+    static std::vector<SimulationServerInfo> prune_dead_servers();
 };
 
 }  // namespace tt::umd

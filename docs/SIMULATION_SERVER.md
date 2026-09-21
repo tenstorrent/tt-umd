@@ -125,7 +125,8 @@ flowchart TB
    clients.
 
    A host that shuts down this way removes its own directory. One that was killed or crashed cannot,
-   so it leaves a directory behind — `list` shows it as `unreachable`. Clear those out with:
+   so it leaves a directory behind — `list` stops reporting it, and clears it away as it goes, since
+   nothing can attach to it any more. To run that sweep without listing, and be told what it took:
 
    ```
    sim_server prune

@@ -64,7 +64,8 @@ void SimulationChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void SimulationChip::close_device() {}
 
-void SimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
+void SimulationChip::write_to_device(
+    CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->write_to_device(
         src,
@@ -74,7 +75,7 @@ void SimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l
         get_selected_noc_id());
 }
 
-void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
+void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->read_from_device(
         dest,

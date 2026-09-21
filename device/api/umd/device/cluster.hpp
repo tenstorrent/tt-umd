@@ -393,30 +393,34 @@ public:
      * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
      *
-     * Transfers use @ref IoOrdering::Strict, so successive calls are ordered with respect to each
-     * other. The call returns once the writes are issued, not once they are acknowledged by the
-     * target — the underlying MMIO stores are posted.
+     * The call returns once the writes are issued, not once they are acknowledged by the target —
+     * the underlying MMIO stores are posted regardless of the ordering mode.
      *
      * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
-     * overlap, and the ordering costs write throughput. A caller that wants either back can take an
-     * @ref IoWindow from @ref create_io_window, pick its own ordering mode and drive it directly,
-     * using @ref IoWindow::configure to advance across chunks larger than the window.
+     * overlap. A caller that wants them to overlap can take an @ref IoWindow from @ref
+     * create_io_window and drive it directly, using @ref IoWindow::configure to advance across
+     * chunks larger than the window.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param ordering Ordering for the transfers this call issues. Strict, the default, costs write
+     * throughput.
      */
-    void write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(
+        const void* mem_ptr,
+        size_t size_in_bytes,
+        ChipId chip,
+        CoreCoord core,
+        uint64_t addr,
+        IoOrdering ordering = IoOrdering::Strict);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
      * which type of the core is being targeted.
-     *
-     * Uses @ref IoOrdering::Strict, so successive calls through this function are ordered with
-     * respect to each other.
      *
      * Every call on a chip shares one mapping and serializes on it, so concurrent callers do not
      * overlap. A caller that needs them to overlap can take an @ref IoWindow from @ref
@@ -427,8 +431,15 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
+     * @param ordering Ordering for the transfers this call issues.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size);
+    void read_from_device(
+        void* mem_ptr,
+        ChipId chip,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        IoOrdering ordering = IoOrdering::Strict);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).

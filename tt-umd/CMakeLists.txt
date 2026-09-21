@@ -251,6 +251,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
                 api/tt-umd/tt_device/emu_tt_device.hpp
+                api/tt-umd/tt_device/grendel_jtag_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
                 api/tt-umd/simulation/simulation_host.hpp
@@ -383,6 +384,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/jtag_interface.hpp
                 api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/umd/device/tt_device/emu_tt_device.hpp
+                api/umd/device/tt_device/grendel_jtag_tt_device.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
@@ -470,7 +472,11 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
     # These translation units include chippy headers and must compile as C++20.
     # Confine the bump to them (the -std override comes after the target's
     # -std=c++17, so it wins); UMD's public standard stays C++17.
-    set(GRENDEL_CHIPPY_SRCS src/tt_device/protocol/grendel_jtag_protocol.cpp)
+    set(
+        GRENDEL_CHIPPY_SRCS
+        src/tt_device/protocol/grendel_jtag_protocol.cpp
+        src/tt_device/grendel_jtag_tt_device.cpp
+    )
     if(TT_UMD_BUILD_SIMULATION)
         # The emu backend derives from SimulationTTDevice, which only exists in a simulation
         # build -- it is a pre-silicon backend, so it belongs to that layer rather than beside
@@ -478,11 +484,26 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         list(APPEND GRENDEL_CHIPPY_SRCS src/tt_device/emu_tt_device.cpp)
     endif()
     target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
+
+    set(GRENDEL_CHIPPY_COMPILE_OPTIONS "-std=c++20")
+    # Chippy's JTAG2AXI headers use C++20 std::format and require GCC/libstdc++ >= 13. Metal's
+    # Clang toolchain may otherwise select the GCC 12 installation even when g++-13 is present.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(GRENDEL_GCC13_ROOT "/usr/lib/gcc/${CMAKE_LIBRARY_ARCHITECTURE}/13")
+        if(NOT EXISTS "${GRENDEL_GCC13_ROOT}")
+            message(
+                FATAL_ERROR
+                "TT_UMD_BUILD_GRENDEL_JTAG with Clang requires libstdc++ 13 at ${GRENDEL_GCC13_ROOT}"
+            )
+        endif()
+        list(APPEND GRENDEL_CHIPPY_COMPILE_OPTIONS "--gcc-install-dir=${GRENDEL_GCC13_ROOT}")
+        target_link_directories(tt-umd BEFORE PRIVATE "${GRENDEL_GCC13_ROOT}")
+    endif()
     set_source_files_properties(
         ${GRENDEL_CHIPPY_SRCS}
         PROPERTIES
             COMPILE_OPTIONS
-                "-std=c++20"
+                "${GRENDEL_CHIPPY_COMPILE_OPTIONS}"
     )
 endif()
 

@@ -37,60 +37,15 @@ constexpr size_t kMinWordSizeBytes = 4;
 // (kMimir_0_SpaBaseAddr and friends) apply when a Mimir is reached through the fabric of a larger
 // package, which is not this path.
 const uint64_t kMimirConfigLocalBase = chippy::grendel::kMimirSmcLocalAddr;
-const uint64_t kMimirConfigStride = chippy::grendel::kMimirConfigSize;
 const uint64_t kMimirGddrDramLocalBase = chippy::grendel::kMimirGddrDramLocalAddr;
 const uint64_t kMimirCceSramLocalBase = chippy::grendel::kMimirCce0SramLocalAddr;
 const uint64_t kMimirCceSramStride = chippy::grendel::kMimirCceSramSize;
-
-// Match Blackhole's DRISC convention: an address above the bank-relative GDDR range selects SRAM
-// at the same DRAM coordinate. This is a UMD-side tag and is translated to Mimir's local 0x40000000
-// CCE SRAM window before it reaches chippy.
-constexpr uint64_t kMimirCceL1NocOffset = 0x2000000000ULL;
 
 constexpr std::size_t kCcesPerMimir = 2;
 }  // namespace
 
 GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& soc_descriptor) {
-    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC, CoordSystem::NOC0);
-    UMD_ASSERT(
-        smc_cores.size() == 1 || smc_cores.size() == 2,
-        error::RuntimeError,
-        fmt::format("A Mimir package descriptor must carry one or two SMC cores, found {}.", smc_cores.size()));
-    UMD_ASSERT(
-        soc_descriptor.get_num_dram_channels() == smc_cores.size(),
-        error::RuntimeError,
-        fmt::format(
-            "A {}-Mimir package must expose {} DRAM channels (one per Mimir), found {}.",
-            smc_cores.size(),
-            smc_cores.size(),
-            soc_descriptor.get_num_dram_channels()));
-
-    GrendelAddressWindows windows{};
-    windows.config_base = kMimirConfigLocalBase;
-    windows.config_stride = kMimirConfigStride;
-    windows.quasar_origin_x = smc_cores.front().x;
-    windows.quasar_origin_y = smc_cores.front().y;
-    windows.mesh_x_size = smc_cores.size();
-    windows.mesh_y_size = 1;
-
-    windows.dram_base = kMimirGddrDramLocalBase;
-    // In local addressing chippy names one DRAM base, not a base per GDDR tile (only the SPA view
-    // has Tile0/Tile1), so the channel spacing comes from the descriptor's own bank size. The
-    // DramCoresDoNotAlias test is what proves this against a real model: too small a stride would
-    // land channel 1 inside channel 0.
-    windows.dram_stride = soc_descriptor.get_arch_descriptor().get_dram_bank_size();
-    windows.dram_l1_noc_offset = kMimirCceL1NocOffset;
-    windows.dram_l1_base = kMimirCceSramLocalBase;
-    windows.dram_l1_stride = kMimirCceSramStride;
-    windows.dram_l1_size = kMimirCceSramStride;
-
-    const tt_xy_pair grid = soc_descriptor.get_grid_size(CoreType::SMC);
-    windows.neo_x_start = std::max<uint32_t>(grid.x, 1) + 1;
-    windows.neo_y_start = std::max<uint32_t>(grid.y, 1) + 1;
-    windows.neo_x_count = 1;
-    windows.neo_y_count = 1;
-
-    return windows;
+    return mimir_local_address_windows(soc_descriptor);
 }
 
 // Owns one socket and one local-address chippy view per Mimir. In MMK the server exposes each

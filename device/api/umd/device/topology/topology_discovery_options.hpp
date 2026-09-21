@@ -9,6 +9,24 @@
 
 namespace tt::umd {
 /**
+ * @brief Settings for discovering the chips a simulator models, rather than the host's own.
+ *
+ * A simulation backend has no OS device enumeration, so the image is asked which endpoints it
+ * exposes and a device is created for each. io_device_type stays PCIe: a simulator models PCIe.
+ */
+struct SimulationDiscoveryOptions {
+    /**
+     * @brief Path to the simulator (a libttsim .so) whose chips discovery should walk.
+     */
+    std::string simulator_path;
+
+    /**
+     * @brief Number of host memory channels to give each simulated device.
+     */
+    int num_host_mem_channels = 0;
+};
+
+/**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
  *
  * This struct allows customization of how the UMD handles various scenarios
@@ -111,9 +129,12 @@ struct TopologyDiscoveryOptions {
      */
     std::optional<std::string> cluster_id;
 
-    // Path to a simulator (a libttsim .so) whose chips discovery should walk instead of the host's.
-    // A simulation backend has no OS device enumeration, so the image is asked which endpoints it
-    // exposes and a device is created for each. io_device_type stays PCIe: a simulator models PCIe.
-    std::string simulator_path;
+    /**
+     * @brief Set to discover a simulator's chips instead of the host's; leave unset for silicon.
+     *
+     * The option's presence is the choice of backend, so a simulator can never be selected without
+     * the settings it needs, nor those settings supplied for a host that will not read them.
+     */
+    std::optional<SimulationDiscoveryOptions> simulation;
 };
 }  // namespace tt::umd

@@ -132,6 +132,17 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("target_chip_ids") = std::unordered_set<ChipId>{},
             "Create a constrained cluster descriptor filtered to the given chip IDs");
 
+    nb::class_<SimulationDiscoveryOptions>(m, "SimulationDiscoveryOptions")
+        .def(nb::init<>(), release_gil())
+        .def_rw(
+            "simulator_path",
+            &SimulationDiscoveryOptions::simulator_path,
+            "Path to the simulator (a libttsim .so) whose chips are discovered.")
+        .def_rw(
+            "num_host_mem_channels",
+            &SimulationDiscoveryOptions::num_host_mem_channels,
+            "Number of host memory channels to give each simulated device.");
+
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 
     nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
@@ -158,10 +169,10 @@ void bind_topology_discovery(nb::module_& m) {
             "only correct on bare metal; supply one when running in a container or a VM. Discovery raises if it "
             "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].")
         .def_rw(
-            "simulator_path",
-            &TopologyDiscoveryOptions::simulator_path,
-            "Path to a simulator (a libttsim .so) whose chips are discovered instead of the host's. Empty "
-            "means discover the host's own devices.");
+            "simulation",
+            &TopologyDiscoveryOptions::simulation,
+            "SimulationDiscoveryOptions selecting a simulator whose chips are discovered instead of the "
+            "host's. None means discover the host's own devices.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

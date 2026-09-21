@@ -92,7 +92,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     // supplied descriptor that disagrees with the image now selects no topology at all instead of
     // the subclass of an architecture the devices are not.
     tt::ARCH current_arch = ARCH::Invalid;
-    if (options.simulator_path.empty()) {
+    if (!options.simulation.has_value()) {
         current_arch = probe_bus_architecture(io_device_type);
     } else {
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -102,7 +102,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             "Discovering a simulator needs a SoC descriptor path: a simulator's architecture is "
             "declared by its descriptor rather than probed from a bus.");
         current_arch = SocDescriptor::get_arch_from_soc_descriptor_path(
-            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_path));
+            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulation->simulator_path));
 #else
         UMD_THROW(
             error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");
@@ -248,7 +248,7 @@ void TopologyDiscovery::get_connected_devices() {
     // Checked before the io_device_type switch below, and deliberately so: a simulator reports PCIe
     // as its transport, but TTDevice::create(device_id, ...) would try to open /dev/tenstorrent for
     // it. A simulator image enumerates its own endpoints instead.
-    if (!options.simulator_path.empty()) {
+    if (options.simulation.has_value()) {
 #ifdef TT_UMD_BUILD_SIMULATION
         // A simulator models PCIe and nothing else, so the devices created below are PCIe-modelled
         // whatever the caller asked for. Accepting JTAG here would label the cluster descriptor with
@@ -259,7 +259,8 @@ void TopologyDiscovery::get_connected_devices() {
             fmt::format(
                 "Simulation topology discovery models PCIe, but {} was requested.",
                 DeviceTypeToString.at(io_device_type)));
-        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(options.simulator_path)) {
+        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(
+                 options.simulation->simulator_path, options.simulation->num_host_mem_channels)) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());

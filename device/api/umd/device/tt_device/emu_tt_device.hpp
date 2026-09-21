@@ -43,9 +43,11 @@ public:
      *                       QUASAR; GRENDEL is accepted as the UMD package alias.
      * @param host Server host, as published by the orchestrator in silval_server_info.json.
      * @param port Server port.
+     * @param send_init Send INIT on connect. INIT is a full model reset on the SiVal servers, so it
+     *                  must be suppressed when bring-up was already performed by another client.
      */
     static std::unique_ptr<EmuTTDevice> create(
-        const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port);
+        const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port, bool send_init = true);
 
     ~EmuTTDevice() override;
 
@@ -76,7 +78,7 @@ protected:
 private:
     struct Impl;
 
-    EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl);
+    EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl, bool send_init);
 
     std::unique_ptr<Impl> impl_;
 };

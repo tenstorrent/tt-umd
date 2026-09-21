@@ -643,7 +643,7 @@ Cluster::Cluster(ClusterOptions options) {
         }
 #if defined(TT_UMD_BUILD_SIMULATION) && defined(TT_UMD_BUILD_GRENDEL_JTAG)
         if (options.chip_type == ChipType::EMU_AXI) {
-            tt_device = EmuTTDevice::create(soc_desc, options.emu_host, options.emu_port);
+            tt_device = EmuTTDevice::create(soc_desc, options.emu_host, options.emu_port, !options.emu_skip_init);
         }
 #endif
 

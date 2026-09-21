@@ -123,6 +123,12 @@ struct ClusterOptions {
     uint32_t emu_port = 0;
 
     /**
+     * EMU_AXI only: attach without sending INIT. The SiVal servers implement INIT as a full reset,
+     * so a client that attaches after another client has brought the model up must not send it.
+     */
+    bool emu_skip_init = false;
+
+    /**
      * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
      * processes can attach as clients. Disabled by default so ordinary in-process simulator runs
      * remain private and can run independently in parallel.

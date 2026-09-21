@@ -224,7 +224,7 @@ struct EmuTTDevice::Impl {
 };
 
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
-    const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) {
+    const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port, bool send_init) {
     UMD_ASSERT(
         soc_descriptor.arch == tt::ARCH::QUASAR || soc_descriptor.arch == tt::ARCH::GRENDEL,
         error::RuntimeError,
@@ -232,10 +232,10 @@ struct EmuTTDevice::Impl {
             "EmuTTDevice requires a QUASAR (or GRENDEL package) descriptor, got {}.",
             arch_to_str(soc_descriptor.arch)));
     return std::unique_ptr<EmuTTDevice>(
-        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(soc_descriptor, host, port)));
+        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(soc_descriptor, host, port), send_init));
 }
 
-EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl) :
+EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl, bool send_init) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch)), impl_(std::move(impl)) {
     set_soc_descriptor(soc_descriptor);
 
@@ -247,7 +247,11 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
         std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
 
     // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.
-    impl_->root_transport->initialize();
+    // On the SiVal servers INIT re-runs the reset phase, which drops any bring-up an earlier client
+    // performed, so it is suppressed when the caller attaches to an already-brought-up model.
+    if (send_init) {
+        impl_->root_transport->initialize();
+    }
 }
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the

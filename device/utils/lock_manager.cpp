@@ -96,22 +96,12 @@ public:
     }
 
     std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) override {
+        // Either half being held means the pair is held.
         std::optional<std::pair<pid_t, pid_t>> owner = first_->probe_lock(timeout);
         if (owner.has_value()) {
             return owner;
         }
-
-        // Probing acquired the first one.
-        try {
-            owner = second_->probe_lock(timeout);
-        } catch (...) {
-            first_->unlock();
-            throw;
-        }
-        if (owner.has_value()) {
-            first_->unlock();
-        }
-        return owner;
+        return second_->probe_lock(timeout);
     }
 
 private:
@@ -156,15 +146,6 @@ void add_mutex(const std::string& mutex_name, std::unique_ptr<MutexInterface> mu
     // Another thread may have set the same lock up in the meantime, in which case theirs is the one in the registry and
     // ours is dropped here. Setting the same one up twice is harmless: both backends make that safe.
     registry.mutexes.try_emplace(mutex_name, std::move(mutex));
-}
-
-// Probing has to acquire a free mutex to find out it was free, so release it again to keep probing a query.
-std::optional<std::pair<pid_t, pid_t>> probe_and_release(MutexInterface& mutex) {
-    std::optional<std::pair<pid_t, pid_t>> owner = mutex.probe_lock(std::chrono::seconds(0));
-    if (!owner.has_value()) {
-        mutex.unlock();
-    }
-    return owner;
 }
 
 // Looking a mutex up hands out a reference into the registry, which stays valid because entries are only ever added.
@@ -229,7 +210,7 @@ std::unique_lock<MutexInterface> LockManager::acquire_robust_mutex(const std::st
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_robust_mutex(const std::string& mutex_name) {
-    return probe_and_release(get_initialized_mutex(mutex_name));
+    return get_initialized_mutex(mutex_name).probe_lock(std::chrono::seconds(0));
 }
 
 void LockManager::initialize_kmd_mutex(MutexType mutex_type, int pci_device_num) {
@@ -248,7 +229,8 @@ std::unique_lock<MutexInterface> LockManager::acquire_kmd_mutex(MutexType mutex_
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_kmd_mutex(MutexType mutex_type, int pci_device_num) {
-    return probe_and_release(get_initialized_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe)));
+    return get_initialized_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe))
+        .probe_lock(std::chrono::seconds(0));
 }
 
 }  // namespace tt::umd

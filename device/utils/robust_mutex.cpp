@@ -423,7 +423,7 @@ void RobustMutex::unlock() {
     }
 }
 
-std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seconds timeout) {
+std::optional<std::pair<pid_t, pid_t>> RobustMutex::try_acquire(std::chrono::seconds timeout) {
     int lock_res;
 
     if (timeout.count() == 0) {
@@ -465,9 +465,19 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seco
     }
 }
 
+std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seconds timeout) {
+    // A pthread mutex cannot be tested without taking it, so the only way to find out it was free is to take it and
+    // give it straight back.
+    std::optional<std::pair<pid_t, pid_t>> owner = try_acquire(timeout);
+    if (!owner.has_value()) {
+        unlock();
+    }
+    return owner;
+}
+
 void RobustMutex::lock() {
     // Use a 1-second timed attempt first so we can emit a warning when the lock is contended.
-    if (auto owner = probe_lock(std::chrono::seconds(1))) {
+    if (auto owner = try_acquire(std::chrono::seconds(1))) {
         log_warning(
             LogUMD,
             "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",

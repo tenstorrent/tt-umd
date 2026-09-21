@@ -75,13 +75,8 @@ TEST(RobustMutex, LockReleasedWhenHolderThrows) {
         // get here, the unique_lock destructor has already run and the lock is released.
     }
 
-    // A non-blocking probe must acquire the lock, proving it is free (probe_lock returns nullopt on
-    // success and leaves us holding it).
     std::optional<std::pair<pid_t, pid_t>> owner = mutex.probe_lock(0s);
     EXPECT_FALSE(owner.has_value()) << "Lock was still held after the holder threw; RAII did not release it.";
-    if (!owner.has_value()) {
-        mutex.unlock();
-    }
 }
 
 // If a thread acquires the lock and then neither returns nor throws (modeling an unbounded poll loop
@@ -122,9 +117,6 @@ TEST(RobustMutex, LockStaysHeldWhenHolderNeverReturns) {
 
     std::optional<std::pair<pid_t, pid_t>> owner_after = mutex.probe_lock(0s);
     EXPECT_FALSE(owner_after.has_value()) << "Lock should be free once the holder returns.";
-    if (!owner_after.has_value()) {
-        mutex.unlock();
-    }
 }
 
 // CONTROL: a process that crashes (abort) while holding the lock, WITHOUT destroying the RobustMutex

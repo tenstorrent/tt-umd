@@ -82,10 +82,9 @@ public:
     // handle.
     bool try_lock();
 
-    // Tries to acquire the lock (immediately if timeout is zero, otherwise polling until timeout).
-    // Returns std::nullopt if the lock was acquired (the caller now holds it). On contention returns a
-    // {pid, tid} pair, but KMD does not expose the owner, so it is always {0, 0} here - the pair's
-    // presence signals "held by someone else", nothing more.
+    // Reports whether the lock is held, without taking it (immediately if timeout is zero, otherwise polling until it
+    // reads free or the timeout expires). Returns std::nullopt when it is not held, {pid, 0} when this process holds
+    // it, and {0, 0} when another handle does - KMD names neither the thread nor another handle's process.
     std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) override;
 
     // Releases the lock. It is also released automatically when this object (and thus its handle) is

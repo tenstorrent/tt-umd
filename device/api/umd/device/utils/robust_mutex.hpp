@@ -57,11 +57,11 @@ public:
     // Unlocks the mutex.
     void unlock() override;
 
-    // Attempts to acquire the lock and returns immediately if timeout is zero (default), or waits
-    // up to `timeout` seconds before giving up.
-    // Returns std::nullopt if the lock was acquired successfully.
-    // Returns {owner_pid, owner_tid} if the lock is held by another thread/process (EBUSY/ETIMEDOUT).
-    // On EOWNERDEAD the dead owner's lock is recovered, the mutex is acquired, and nullopt is returned.
+    // Reports whether the lock is held, returning immediately if timeout is zero or waiting up to `timeout` seconds
+    // for it to become free. Returns {owner_pid, owner_tid} while it is held by another thread or process, and
+    // std::nullopt once it is not, having taken and released it to find that out.
+    // A lock whose owner died is recovered here and reported as free, since a robust mutex is made consistent by its
+    // next acquirer.
     // Note: the returned PID/TID pair is a snapshot that may already be stale, since there is a race condition inherent
     // in trying to inspect a lock without acquiring it. So consider the information best-effort and for debugging
     // purposes only.
@@ -107,6 +107,10 @@ private:
 
     // Sets owner TID/PID to the calling thread and annotates for TSAN.
     void record_acquisition();
+
+    // Tries to take the lock, keeping it on success. Shared by lock() and probe_lock(), which differ only in what
+    // they do with a lock they managed to take.
+    std::optional<std::pair<pid_t, pid_t>> try_acquire(std::chrono::seconds timeout);
 
     // Used for critical section needed during initialization.
     static pthread_mutex_t multithread_mutex_;

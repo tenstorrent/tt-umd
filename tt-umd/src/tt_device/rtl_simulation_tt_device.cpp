@@ -269,6 +269,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
+    // Deliberately no flat-address resolver in client mode: the client sends the translated
+    // coordinate plus the core-local address, and the host resolves it in host_write/host_read.
+    // Installing one here would flatten an address the host then flattens again.
     // A client-mode device drives no backend of its own, so it has no communicator to reset through.
     get_simulation_model()->set_risc_reset(
         std::make_unique<RtlSimRiscReset>(/*communicator=*/nullptr, soc_descriptor.arch, device_lock));

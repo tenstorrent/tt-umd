@@ -95,6 +95,8 @@ function(umd_import_chippy_grendel chippy_lib_src chippy_build)
         ${chippy_lib_src}/arch/asic
         ${chippy_lib_src}/arch/grendel
         ${chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_transport_interface
+        ${chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_v1_transport
+        ${chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_v2_transport
         ${chippy_lib_src}/transport/emu_axi_transport
         ${chippy_lib_src}/transport/sim_axi_transport
         ${chippy_lib_src}/transport/distsim_axi_transport

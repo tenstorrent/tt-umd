@@ -124,6 +124,12 @@ struct GrendelAddressWindows {
 };
 
 /**
+ * Local-address windows used when a one- or two-Mimir package is reached directly through
+ * chippy (emu_axi or JTAG2AXI), rather than through a Quasar ATT.
+ */
+GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descriptor);
+
+/**
  * Grendel/Quasar NocAddressResolver: selects an ATT global window from the core's CoreType and
  * flattens its coordinate into that window's index.
  *

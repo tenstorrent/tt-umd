@@ -56,8 +56,6 @@ private:
         bool secondary_bus_reset = true);
 
     static bool galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
-
-    static void ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms);
 };
 
 /**

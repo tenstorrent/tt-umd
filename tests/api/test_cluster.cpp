@@ -21,6 +21,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -87,18 +88,19 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     }
 }
 
+static uint32_t get_expected_idle_clock_val(const ClusterDescriptor* cluster_desc, ChipId chip_id) {
+    tt::ARCH arch = cluster_desc->get_arch(chip_id);
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        return wormhole::AICLK_IDLE_VAL;
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        return blackhole::AICLK_IDLE_VAL;
+    }
+    return 0u;
+}
+
 TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-
-    auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
-        tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
-        if (arch == tt::ARCH::WORMHOLE_B0) {
-            return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
-        } else if (arch == tt::ARCH::BLACKHOLE) {
-            return busy ? blackhole::AICLK_BUSY_VAL : blackhole::AICLK_IDLE_VAL;
-        }
-        return 0u;
-    };
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     cluster->set_clock_state(DevicePowerState::BUSY);
 
@@ -106,14 +108,41 @@ TEST(TestCluster, TestClusterAICLKControl) {
     for (auto& clock : clocks_busy) {
         // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
         // larger than Idle value.
-        EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
+        EXPECT_GT(clock.second, get_expected_idle_clock_val(cluster_desc, clock.first));
     }
 
     cluster->set_clock_state(DevicePowerState::LONG_IDLE);
 
     auto clocks_idle = cluster->get_clocks();
     for (auto& clock : clocks_idle) {
-        EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
+        EXPECT_EQ(clock.second, get_expected_idle_clock_val(cluster_desc, clock.first));
+    }
+}
+
+// Regression test for #845/#846: verify that set_clock_state/get_clock are correctly routed to a RemoteChip,
+// not just the local (MMIO-capable) chips that Cluster::get_clocks() reports on.
+TEST(TestCluster, TestClusterAICLKControlRemote) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    std::vector<ChipId> remote_chip_ids;
+    for (ChipId chip_id : cluster->get_target_device_ids()) {
+        if (cluster_desc->is_chip_remote(chip_id)) {
+            remote_chip_ids.push_back(chip_id);
+        }
+    }
+    if (remote_chip_ids.empty()) {
+        GTEST_SKIP() << "No remote chips found in this cluster topology.";
+    }
+
+    cluster->set_clock_state(DevicePowerState::BUSY);
+    for (ChipId chip_id : remote_chip_ids) {
+        EXPECT_GT(cluster->get_remote_chip(chip_id)->get_clock(), get_expected_idle_clock_val(cluster_desc, chip_id));
+    }
+
+    cluster->set_clock_state(DevicePowerState::LONG_IDLE);
+    for (ChipId chip_id : remote_chip_ids) {
+        EXPECT_EQ(cluster->get_remote_chip(chip_id)->get_clock(), get_expected_idle_clock_val(cluster_desc, chip_id));
     }
 }
 

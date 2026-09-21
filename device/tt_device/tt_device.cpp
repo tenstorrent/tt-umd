@@ -38,6 +38,7 @@
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
+#include "umd/device/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -45,6 +46,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device_model/blackhole_tt_device_model.hpp"
+#include "umd/device/tt_device_model/quasar_tt_device_model.hpp"
 #include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -133,6 +135,13 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         case ARCH::BLACKHOLE:
             return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
+        case ARCH::QUASAR: {
+            // Quasar has no window for userspace to map, so the driver performs each access and
+            // there is no safe/unsafe pair of paths to choose between.
+            auto access = std::make_unique<KmdScalarNocAccess>(pci_device->get_tt_device_handle());
+            return std::unique_ptr<TTDevice>(new TTDevice(
+                std::make_unique<QuasarTTDeviceModel>(std::move(access), device_number, soc_arch_descriptor)));
+        }
         default:
             UMD_THROW(
                 error::RuntimeError,

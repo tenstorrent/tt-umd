@@ -53,7 +53,17 @@ typedef struct tt_noc_addr_config_t {
 /**
  * @brief Supported Tenstorrent device architectures.
  */
-enum tt_device_arch { TT_DEVICE_ARCH_UNKNOWN = 0, TT_DEVICE_ARCH_WORMHOLE, TT_DEVICE_ARCH_BLACKHOLE };
+enum tt_device_arch {
+    TT_DEVICE_ARCH_UNKNOWN = 0,
+    TT_DEVICE_ARCH_WORMHOLE,
+    TT_DEVICE_ARCH_BLACKHOLE,
+    /**
+     * Quasar, whichever chiplet combination the package is built from. One architecture ships as
+     * several combinations and they all present the same PCI device id, so there is no per-package
+     * value here.
+     */
+    TT_DEVICE_ARCH_QUASAR,
+};
 
 /**
  * @brief Queryable attributes of a Tenstorrent device.
@@ -265,6 +275,46 @@ int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_
  * @return int 0 on success, error code on failure
  */
 int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_t value);
+
+/**
+ * @brief Interpret the address as device-local rather than as a system physical address.
+ *
+ * Only the device-local path reaches the translation and firewall configuration blocks, which sit
+ * behind a different inbound aperture than ordinary targets. Architectures that do not have a
+ * second aperture reject this flag.
+ */
+#define TT_NOC_FLAG_KLA (1u << 0)
+
+/**
+ * @brief Read one naturally aligned location through a kernel-owned window.
+ *
+ * On Quasar there is no TLB window for userspace to map: the kernel owns the only usable inbound
+ * apertures and performs the access itself, so this is the access primitive rather than a
+ * convenience over `tt_tlb_map()`. The address is flat -- the target core is folded into it by the
+ * caller -- so no coordinate is passed.
+ *
+ * @param dev Device handle
+ * @param addr Address to read; must be naturally aligned to @p width
+ * @param value Receives the value, zero-extended to 64 bits
+ * @param width Access width in bytes; must be 1, 2, 4 or 8
+ * @param flags Zero or `TT_NOC_FLAG_KLA`
+ * @return int 0 on success, negative error code on failure
+ */
+int tt_noc_read_scalar(tt_device_t* dev, uint64_t addr, uint64_t* value, uint32_t width, uint32_t flags);
+
+/**
+ * @brief Write one naturally aligned location through a kernel-owned window.
+ *
+ * The counterpart of `tt_noc_read_scalar()`; see it for why this path exists.
+ *
+ * @param dev Device handle
+ * @param addr Address to write; must be naturally aligned to @p width
+ * @param value Value to write; only the low @p width bytes are used
+ * @param width Access width in bytes; must be 1, 2, 4 or 8
+ * @param flags Zero or `TT_NOC_FLAG_KLA`
+ * @return int 0 on success, negative error code on failure
+ */
+int tt_noc_write_scalar(tt_device_t* dev, uint64_t addr, uint64_t value, uint32_t width, uint32_t flags);
 
 /**
  * @brief Convenience function for reading from the device NOC.

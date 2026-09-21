@@ -229,6 +229,8 @@ tt::ARCH PciDeviceInfo::get_arch() const {
         return tt::ARCH::WORMHOLE_B0;
     } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
+    } else if (this->device_id == TT_QUASAR_PCI_DEVICE_ID) {
+        return tt::ARCH::QUASAR;
     }
     return tt::ARCH::Invalid;
 }

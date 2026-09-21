@@ -191,7 +191,7 @@ struct EmuTTDevice::Impl {
 }
 
 EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl, bool send_init) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch)), impl_(std::move(impl)) {
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), impl_(std::move(impl)) {
     set_soc_descriptor(soc_descriptor);
 
     // Grendel's NOC ATT resolves a flat 64-bit address into a destination (x, y) plus a local

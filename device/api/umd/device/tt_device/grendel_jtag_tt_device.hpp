@@ -44,11 +44,6 @@ public:
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-    uint32_t get_clock() override;
-    uint32_t get_min_clock_freq() override;
-
 private:
     GrendelJtagTTDevice(
         const SocDescriptor& soc_descriptor, std::unique_ptr<GrendelJtagProtocol> protocol);

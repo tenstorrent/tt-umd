@@ -21,14 +21,13 @@ namespace {
 class GrendelJtagTTDeviceModel : public TTDeviceModel {
 public:
     GrendelJtagTTDeviceModel(tt::ARCH arch, std::unique_ptr<GrendelJtagProtocol> protocol) :
-        arch_(arch),
-        communication_device_id_(protocol->get_mmio_id()),
         protocol_(std::move(protocol)),
         firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
         architecture_impl_(ArchitectureImplementation::create(arch)) {}
 
-    tt::ARCH get_arch() const override { return arch_; }
-    int get_communication_device_id() const override { return communication_device_id_; }
+    // TTDevice answers get_arch() and get_communication_device_id() from these two, so the model
+    // stores neither: the architecture comes from the implementation, the device id from the
+    // protocol's mmio id.
     DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
     DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
     ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
@@ -36,8 +35,6 @@ public:
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return nullptr; }
 
 private:
-    tt::ARCH arch_;
-    int communication_device_id_;
     std::unique_ptr<GrendelJtagProtocol> protocol_;
     std::unique_ptr<SimulationDeviceFirmware> firmware_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
@@ -95,17 +92,5 @@ void GrendelJtagTTDevice::read_from_device(
     const CoreCoord translated = get_soc_descriptor().translate_chip_coord_to_translated(core, noc_id);
     get_device_protocol()->read_data(mem_ptr, translated, flat_addr, size, noc_id);
 }
-
-void GrendelJtagTTDevice::read_from_arc_apb(void*, uint64_t, size_t) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported by the Grendel JTAG attach path.");
-}
-
-void GrendelJtagTTDevice::write_to_arc_apb(const void*, uint64_t, size_t) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported by the Grendel JTAG attach path.");
-}
-
-uint32_t GrendelJtagTTDevice::get_clock() { return 0; }
-
-uint32_t GrendelJtagTTDevice::get_min_clock_freq() { return 0; }
 
 }  // namespace tt::umd

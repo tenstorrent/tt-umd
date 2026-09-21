@@ -99,8 +99,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
-    architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
-    arch = get_soc_descriptor().arch;
     setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
@@ -113,8 +111,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
-    arch = soc_descriptor.arch;
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     // Deliberately no flat-address resolver in client mode: the client sends the translated
     // coordinate plus the core-local address, and the host resolves it in host_write/host_read.
     // Installing one here would flatten an address the host then flattens again.

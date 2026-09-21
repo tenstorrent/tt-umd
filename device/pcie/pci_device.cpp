@@ -776,7 +776,7 @@ SemVer PCIDevice::read_kmd_version() {
 }
 
 SemVer PCIDevice::read_kernel_version() {
-    struct utsname uts {};
+    struct utsname uts{};
 
     if (uname(&uts) != 0) {
         log_warning(LogUMD, "uname() failed: {}", strerror(errno));

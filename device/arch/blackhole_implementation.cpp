@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "umd/device/types/blackhole_eth.hpp"
+#include "types/blackhole_eth.hpp"
 #include "umd/device/types/blackhole_l1.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/risc_type.hpp"

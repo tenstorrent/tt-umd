@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
+#include "tt_device/firmware/blackhole_device_firmware.hpp"
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "types/blackhole_eth.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -22,7 +23,6 @@
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"

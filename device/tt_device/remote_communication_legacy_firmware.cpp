@@ -12,11 +12,11 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "driver_atomics.hpp"
 #include "noc_access.hpp"
+#include "topology/topology_utils.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"

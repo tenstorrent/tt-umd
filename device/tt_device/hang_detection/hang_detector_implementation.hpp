@@ -9,7 +9,7 @@
 #include <functional>
 #include <optional>
 
-#include "hang_detector.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {

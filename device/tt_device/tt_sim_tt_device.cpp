@@ -14,20 +14,20 @@
 #include <utility>
 #include <vector>
 
+#include "pcie/tt_sim_tlb_handle.hpp"
+#include "pcie/tt_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-kmd-lib/pci_ids.h"
+#include "tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
-#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
-#include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
-#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"

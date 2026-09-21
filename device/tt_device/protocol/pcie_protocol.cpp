@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_device/protocol/pcie_protocol.hpp"
+#include "tt_device/protocol/pcie_protocol.hpp"
 
 #include <fmt/format.h>
 #include <unistd.h>
@@ -19,13 +19,13 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
+#include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
+#include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
-#include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/power_state.hpp"
 #include "umd/device/types/tlb.hpp"

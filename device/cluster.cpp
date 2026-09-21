@@ -27,11 +27,11 @@
 #include <utility>
 #include <vector>
 
+#include "chip/mock_chip.hpp"
 #include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
@@ -42,12 +42,12 @@
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
+#include "io_window/io_window_target.hpp"
 #include "umd/device/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/io_window/io_window.hpp"
-#include "umd/device/io_window/io_window_target.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/coordinates/quasar_coordinate_manager.hpp"
+#include "coordinates/quasar_coordinate_manager.hpp"
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 

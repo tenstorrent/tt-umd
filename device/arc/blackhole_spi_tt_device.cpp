@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/arc/blackhole_spi_tt_device.hpp"
+#include "arc/blackhole_spi_tt_device.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "spi_arc_command.hpp"
+#include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"

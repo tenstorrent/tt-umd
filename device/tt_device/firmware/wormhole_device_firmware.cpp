@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
 
 #include <fmt/format.h>
 
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "types/wormhole_eth.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -26,7 +27,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"

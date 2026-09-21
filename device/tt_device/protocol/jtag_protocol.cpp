@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_device/protocol/jtag_protocol.hpp"
+#include "tt_device/protocol/jtag_protocol.hpp"
 
 #include <fmt/format.h>
 

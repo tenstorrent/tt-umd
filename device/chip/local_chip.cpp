@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "driver_atomics.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
@@ -26,7 +27,6 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"

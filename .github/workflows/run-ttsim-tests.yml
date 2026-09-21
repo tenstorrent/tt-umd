@@ -277,7 +277,7 @@ jobs:
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
           ./sim_server start --detach "$simulator"
           ./sim_server list | tee /tmp/sim_server_list.txt
-          grep -q "live" /tmp/sim_server_list.txt
+          grep -q "blackhole/ttsim" /tmp/sim_server_list.txt
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
 

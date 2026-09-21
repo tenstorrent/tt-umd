@@ -29,6 +29,7 @@
 #include <cxxopts.hpp>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -49,8 +50,10 @@ using namespace tt::umd;
 
 namespace {
 
-// Row layout shared by the `list` header and its rows.
-constexpr const char* LIST_ROW = "{:<8} {:<6} {:<12} {:<16} {}\n";
+// Row layout shared by the `list` header and its rows. Exactly one column is left unbounded, and
+// it is the last: a simulator path has no useful upper length, and padding the socket path to a
+// width that fits one would wrap every row.
+constexpr const char* LIST_ROW = "{:<8} {:<6} {:<18} {:<48} {}\n";
 
 // Raised by a SHUTDOWN request (on a serving thread) or by SIGINT/SIGTERM; polled by cmd_start.
 // volatile sig_atomic_t is the only thing a signal handler may touch.
@@ -78,17 +81,13 @@ SimulationConnector::ServerScan scan_and_clear_up_logs() {
     return scan;
 }
 
-// Asks the host on this socket who it is. Returns "<arch>/<backend>", or "" if nothing answers.
-std::string probe_socket(const std::filesystem::path& socket_path) {
+// Asks the host on this socket who it is, or nothing if it does not answer.
+std::optional<SimulationServerDeviceInfo> probe_socket(const std::filesystem::path& socket_path) {
     try {
         SimulationClient client(socket_path);
-        const SimulationServerDeviceInfo info = fetch_device_info_from_host(client);  // attaches + GET_DEVICE_INFO
-        return fmt::format(
-            "{}/{}",
-            tt::arch_to_str(static_cast<tt::ARCH>(info.arch)),
-            info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
+        return fetch_device_info_from_host(client);  // attaches + GET_DEVICE_INFO
     } catch (const std::exception&) {
-        return "";  // socket file present, but no live host answering
+        return std::nullopt;  // socket file present, but no live host answering
     }
 }
 
@@ -205,25 +204,30 @@ int cmd_list() {
         std::cout << "No simulation servers running.\n";
         return 0;
     }
-    std::cout << fmt::format(LIST_ROW, "SERVER", "CHIP", "STATE", "ARCH", "SOCKET");
+    std::cout << fmt::format(LIST_ROW, "SERVER", "CHIP", "ARCH", "SOCKET", "SIMULATOR");
     for (const SimulationServerInfo& server : servers) {
         // A server that is gone is already left out of the listing, so a directory with no sockets
-        // here is a host still coming up.
+        // here is a host still coming up. Its directory stands in for the socket it has yet to bind.
         if (server.sockets.empty()) {
-            std::cout << fmt::format(LIST_ROW, server.index, "-", "empty", "-", server.directory.string());
+            std::cout << fmt::format(LIST_ROW, server.index, "-", "-", server.directory.string(), "-");
             continue;
         }
         for (const auto& [chip_id, socket_path] : server.sockets) {
-            // Reachable only if the host died between the listing and this probe.
-            const std::string arch = probe_socket(socket_path);
-            const bool live = !arch.empty();
+            // Empty only if the host died between the listing and this probe.
+            const std::optional<SimulationServerDeviceInfo> info = probe_socket(socket_path);
             std::cout << fmt::format(
                 LIST_ROW,
                 server.index,
                 chip_id,
-                live ? "live" : "unreachable",
-                live ? arch : "-",
-                socket_path.string());
+                info ? fmt::format(
+                           "{}/{}",
+                           tt::arch_to_str(static_cast<tt::ARCH>(info->arch)),
+                           info->backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl")
+                     : "-",
+                socket_path.string(),
+                // A host from before the simulator was served reports none; say so rather than
+                // printing an empty column.
+                info && !info->simulator_path.empty() ? info->simulator_path : "-");
         }
     }
     return 0;

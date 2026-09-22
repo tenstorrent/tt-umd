@@ -50,7 +50,7 @@ protected:
 
     NiceMock<MockDeviceProtocol> protocol_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
-    RiscResetImplementation risc_reset_;
+    ClassicTileRiscReset risc_reset_;
 };
 
 TEST_P(RiscResetImplementationTest, AssertAddsTheSelectedBitsToTheRegister) {

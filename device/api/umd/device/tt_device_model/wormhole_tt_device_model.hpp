@@ -10,7 +10,7 @@
 
 namespace tt::umd {
 class WormholeDeviceFirmware;
-class RiscResetImplementation;
+class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
@@ -85,7 +85,7 @@ private:
     std::unique_ptr<WormholeDeviceFirmware> device_firmware_;
 
     // Borrows the protocol and the architecture implementation, so it is declared after them.
-    std::unique_ptr<RiscResetImplementation> risc_reset_;
+    std::unique_ptr<ClassicTileRiscReset> risc_reset_;
 };
 
 }  // namespace tt::umd

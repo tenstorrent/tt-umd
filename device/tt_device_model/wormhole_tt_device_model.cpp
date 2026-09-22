@@ -17,7 +17,7 @@
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/reset/risc_reset_implementation.hpp"
+#include "umd/device/tt_device/reset/classic_tile_risc_reset.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {

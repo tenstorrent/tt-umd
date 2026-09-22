@@ -15,7 +15,7 @@
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
-#include "umd/device/tt_device/reset/risc_reset_implementation.hpp"
+#include "umd/device/tt_device/reset/classic_tile_risc_reset.hpp"
 
 namespace tt::umd {
 

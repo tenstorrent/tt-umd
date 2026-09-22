@@ -77,7 +77,7 @@ protected:
     bool should_use_cached_tlb_window() override;
 
 private:
-    // Install the flat-address resolver for architectures whose NOC needs one. Host mode only: a
+    // Install the flat-address resolver when TT_UMD_RTL_SIM_ATT_MAP selects a map. Host mode only: a
     // client hands the host a translated coordinate and a core-local address, and the host resolves
     // it, so resolving here as well would fold the coordinate in twice.
     void setup_noc_address_resolver();

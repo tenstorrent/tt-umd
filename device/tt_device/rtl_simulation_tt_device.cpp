@@ -5,8 +5,10 @@
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
@@ -125,6 +127,22 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     if (get_soc_descriptor().arch != tt::ARCH::QUASAR) {
         return;
     }
+    // The Grendel (qsr.s1) model routes host traffic through its boot-programmed address-translation
+    // tables, so its host coordinates are resolved through that map. Other Quasar RTL models (the
+    // aether 2x3 images) take raw coordinates, so the resolver stays off unless TT_UMD_RTL_SIM_ATT_MAP
+    // selects a map.
+    const char* map = std::getenv("TT_UMD_RTL_SIM_ATT_MAP");
+    if (map == nullptr || *map == '\0') {
+        return;
+    }
+    const std::string_view name(map);
+    if (name == "none" || name == "off" || name == "0") {
+        return;
+    }
+    UMD_ASSERT(
+        name == "grendel_qsr1",
+        error::RuntimeError,
+        fmt::format("Unknown TT_UMD_RTL_SIM_ATT_MAP '{}' (expected grendel_qsr1 or none).", name));
     noc_address_resolver_ = std::make_unique<att::Resolver>(att::GRENDEL_QSR1_MAP);
 }
 

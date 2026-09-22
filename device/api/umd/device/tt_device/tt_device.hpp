@@ -399,7 +399,8 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
+    [[deprecated("The risc reset state is being set through the APIs (de)assert_risc_reset")]] void
+    set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
      * Assert risc reset for a specific core.

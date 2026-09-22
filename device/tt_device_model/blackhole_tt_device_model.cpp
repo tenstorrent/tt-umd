@@ -10,7 +10,7 @@
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "tt_device/protocol/jtag_protocol.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
-#include "tt_device/reset/risc_reset_implementation.hpp"
+#include "tt_device/reset/classic_tile_risc_reset.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"

@@ -12,9 +12,10 @@
 namespace tt::umd::utils {
 
 // Periodically logs that a wait loop is still in progress, so a long poll (measured in seconds to
-// minutes, not milliseconds) is visible instead of looking like a hang. Construct it once before
-// the loop, with what it is waiting on and that wait's timeout, and call tick() once per
-// iteration; tick() is a no-op except at most once per log_interval.
+// minutes, not milliseconds) is visible instead of looking like a hang. Construct it once
+// immediately before the loop, with what it is waiting on and that wait's timeout, and call tick()
+// once per iteration; it logs at most once per log_interval. A wait that finishes well within
+// log_interval never logs, since tick() is first called right after construction.
 class WaitProgressLogger {
 public:
     WaitProgressLogger(
@@ -27,14 +28,18 @@ public:
           start_(std::chrono::steady_clock::now()),
           last_logged_(start_) {}
 
-    void tick() {
-        const auto now = std::chrono::steady_clock::now();
+    // `now` defaults to the real clock for production call sites; tests pass an explicit time
+    // point so the throttling can be exercised deterministically, without sleeping, matching the
+    // convention OpTimeoutGuard::record_and_check uses for the same reason. Returns whether it
+    // logged, so tests can assert on the decision without capturing log output.
+    bool tick(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now()) {
         if (now - last_logged_ < log_interval_) {
-            return;
+            return false;
         }
         last_logged_ = now;
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_);
         log_debug(LogUMD, "Still waiting on {} ({}/{} ms elapsed).", what_, elapsed.count(), timeout_.count());
+        return true;
     }
 
 private:

@@ -11,12 +11,15 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
@@ -142,6 +145,25 @@ std::unique_ptr<TTDevice> make_host_device(
     return device;
 }
 
+// The topology the opened devices sit in. A simulator build, or a host serving one, may ship a
+// cluster descriptor; when it does not, the chips that were actually opened are the whole topology,
+// so a mock over exactly those says the same thing the rest of UMD says about a descriptor-less
+// simulator.
+std::shared_ptr<ClusterDescriptor> build_topology(
+    const std::string& yaml,
+    const std::map<ChipId, std::unique_ptr<TTDevice>>& devices,
+    tt::ARCH arch,
+    bool noc_translation_enabled) {
+    if (!yaml.empty()) {
+        return ClusterDescriptor::create_from_yaml_content(yaml);
+    }
+    std::unordered_set<ChipId> chip_ids;
+    for (const auto& [chip_id, device] : devices) {
+        chip_ids.insert(chip_id);
+    }
+    return ClusterDescriptor::create_mock_cluster(chip_ids, arch, noc_translation_enabled);
+}
+
 // Client path: build the device class the host reports over the wire. A client runs no local
 // backend, so the class mostly just names the device; the backend kind still comes from the host so
 // the right class is instantiated (and so this stays correct if the classes diverge).
@@ -207,6 +229,10 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
     const Classification classification = classify(simulator_path);
 
     if (classification.role == Role::Client) {
+        // Taken from the first socket that answers, alongside the identity already fetched there:
+        // one host serves the whole directory, so its topology describes every chip in it.
+        std::string served_topology_yaml;
+        bool noc_translation_enabled = false;
         // Multi-chip: one client device per per-chip socket in the directory (enumerated by
         // classify()). Chip ids come from the socket names, so they match the host's. A failure on
         // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
@@ -228,6 +254,10 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
                     result.connection.simulator = info.simulator_path;
                     result.connection.backend = info.backend_type;
                     result.connection.arch = static_cast<tt::ARCH>(info.arch);
+                    noc_translation_enabled = info.noc_translation_enabled;
+                    // Fetched here, while this client is still ours to send on: it is moved into
+                    // the device below.
+                    served_topology_yaml = fetch_cluster_descriptor_yaml(*client);
                 } else if (
                     info.simulator_path != result.connection.simulator.string() ||
                     info.backend_type != result.connection.backend ||
@@ -265,6 +295,8 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
             fmt::format("No reachable simulation hosts among the sockets in {}", simulator_path.string()));
         result.connection.role = Role::Client;
         result.connection.server_directory = simulator_path;
+        result.cluster_descriptor =
+            build_topology(served_topology_yaml, devices, result.connection.arch, noc_translation_enabled);
         return result;
     }
 
@@ -295,7 +327,16 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
     result.connection.role = Role::Host;
     result.connection.simulator = simulator_path;
     result.connection.backend = backend;
-    result.connection.arch = devices.at(chip_id)->get_soc_descriptor().arch;
+    const SocDescriptor& soc_descriptor = devices.at(chip_id)->get_soc_descriptor();
+    result.connection.arch = soc_descriptor.arch;
+    // A caller that supplied the topology gets it back: that is the cluster these devices were
+    // configured for, whatever the build ships beside itself.
+    result.cluster_descriptor = options.cluster_descriptor != nullptr ? options.cluster_descriptor
+                                                                      : build_topology(
+                                                                            describe_cluster(simulator_path).yaml,
+                                                                            devices,
+                                                                            result.connection.arch,
+                                                                            soc_descriptor.noc_translation_enabled);
     return result;
 }
 

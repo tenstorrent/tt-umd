@@ -154,8 +154,8 @@ class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
                 tt_umd.SimulationConnector.Role.HOST,
             )
 
-            host_connection, host_devices = tt_umd.SimulationConnector.discover(
-                host_options
+            host_connection, host_devices, host_cluster = (
+                tt_umd.SimulationConnector.discover(host_options)
             )
             self.assertEqual(len(host_devices), 1)
             self.assertTrue((server_directory / SOCKET_NAME).exists())
@@ -181,10 +181,18 @@ class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
 
             client_options = tt_umd.SimulationConnectorOptions()
             client_options.simulator_directory = server_directory
-            client_connection, client_devices = tt_umd.SimulationConnector.discover(
-                client_options
+            client_connection, client_devices, client_cluster = (
+                tt_umd.SimulationConnector.discover(client_options)
             )
             self.assertEqual(sorted(client_devices), sorted(host_devices))
+
+            # The point of reporting the topology: a client learns how the cluster looks without a
+            # local simulator build, and sees the same chips the host does.
+            self.assertIsNotNone(client_cluster)
+            self.assertEqual(
+                client_cluster.get_all_chips(), host_cluster.get_all_chips()
+            )
+            self.assertEqual(client_cluster.get_all_chips(), set(client_devices))
 
             # The client builds the device class matching the backend the host reports, so the
             # concrete type is visible from Python and not just the TTDevice base.
@@ -225,7 +233,7 @@ class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
         options.serve_over_sockets = True
         # server_directory left empty: UMD allocates one and must report it back.
 
-        connection, _devices = tt_umd.SimulationConnector.discover(options)
+        connection, _devices, _cluster = tt_umd.SimulationConnector.discover(options)
         try:
             self.assertNotEqual(connection.server_directory, Path(""))
             self.assertTrue(connection.server_directory.is_dir())

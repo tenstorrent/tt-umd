@@ -84,10 +84,15 @@ public:
         std::map<ChipId, std::filesystem::path> sockets;
     };
 
-    // The devices discover() opened, and the connection it opened them over.
+    // The devices discover() opened, the connection it opened them over, and the topology they
+    // sit in.
     struct Result {
         Connection connection;
         std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+        // The cluster the opened devices belong to: the simulator build's own topology, or the one
+        // the host serves to a client, or -- when the build ships none -- a mock over exactly the
+        // chips that were opened. Never null.
+        std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     };
 
     static Result discover(const SimulationConnectorOptions& options);

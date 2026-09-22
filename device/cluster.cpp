@@ -50,9 +50,7 @@
 #include "umd/device/io_window/io_window_target.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -430,48 +428,17 @@ Cluster::Cluster(ClusterOptions options) {
             // chip loop wraps in SimulationChips).
             if (options.chip_type == ChipType::SIMULATION &&
                 SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
-                std::map<ChipId, std::filesystem::path> sockets;
-                for (const auto& [chip_id, socket_path] :
-                     SimulationServerSocket::sockets_in_directory(options.simulator_directory)) {
-                    // Skip sockets a crashed host left behind: role_for() above only guarantees
-                    // that *some* socket here is live, and the probe below has to reach one.
-                    if (SimulationServerSocket::is_live(socket_path)) {
-                        sockets.emplace(chip_id, socket_path);
-                    }
-                }
-                UMD_ASSERT(
-                    !sockets.empty(),
-                    error::RuntimeError,
-                    fmt::format(
-                        "No live simulation sockets found in {}; nothing to attach to.",
-                        options.simulator_directory.string()));
-
-                // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,
-                // so build a mock from the served device info (mirrors the host's own mock fallback).
-                SimulationClient probe(sockets.begin()->second);
-                const std::string yaml = fetch_cluster_descriptor_yaml(probe);
-                std::unique_ptr<ClusterDescriptor> served;
-                if (!yaml.empty()) {
-                    served = ClusterDescriptor::create_from_yaml_content(yaml);
-                } else {
-                    const SimulationServerDeviceInfo info = fetch_device_info_from_host(probe);
-                    std::unordered_set<ChipId> chip_ids;
-                    for (const auto& [id, socket_path] : sockets) {
-                        chip_ids.insert(id);
-                    }
-                    served = ClusterDescriptor::create_mock_cluster(
-                        chip_ids, static_cast<tt::ARCH>(info.arch), info.noc_translation_enabled);
-                }
-                cluster_desc =
-                    ClusterDescriptor::create_constrained_cluster_descriptor(served.get(), options.target_devices);
-
                 SimulationConnectorOptions connector_options;
                 connector_options.simulator_directory = options.simulator_directory;
                 connector_options.num_host_mem_channels =
                     static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
+                // The connector attaches one device per live socket and reports the topology the
+                // host serves, so the only thing left to do with it here is apply target_devices.
                 auto discovered = SimulationConnector::discover(connector_options);
                 simulation_connection_ = std::move(discovered.connection);
                 tt_devices = std::move(discovered.devices);
+                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                    discovered.cluster_descriptor.get(), options.target_devices);
 
                 // Every chip the topology names must have a socket-backed device (single-chip today;
                 // a multichip host will publish one socket per chip). Fail clearly rather than later

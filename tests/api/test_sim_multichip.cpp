@@ -13,12 +13,16 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -31,6 +35,9 @@
 
 #include <exception>
 
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
@@ -305,6 +312,170 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
 
     dev_0->close_device();
     dev_1->close_device();
+}
+
+// ---------------------------------------------------------------------------
+// Topology discovery against a simulator image
+// ---------------------------------------------------------------------------
+
+// A simulator with no cluster_descriptor.yaml beside it has its topology discovered rather than
+// declared, so what the descriptor says is a property of the image. These are the invariants.
+class TTSimDiscoveryTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+        if (simulator_path == nullptr) {
+            GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping discovery tests.";
+        }
+        simulator_path_ = simulator_path;
+
+        if (std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path_))) {
+            GTEST_SKIP() << "A cluster_descriptor.yaml sits beside this simulator, so its topology is declared "
+                            "rather than discovered.";
+        }
+
+        arch_ = SocDescriptor::get_arch_from_soc_descriptor_path(
+            SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path_));
+        if (arch_ == ARCH::QUASAR) {
+            GTEST_SKIP() << "TTSim models neither ARC nor Ethernet for Quasar, so there is no firmware to discover "
+                            "a topology from.";
+        }
+
+        // How many chips this image models, which only whoever staged it knows -- the assertions
+        // below are otherwise satisfied by a topology that lost a chip, since a discovery that
+        // returns the MMIO chip alone has nothing for the remote half of the test to look at. CI
+        // names it per image; a developer running against an image by hand need not.
+        if (const char* expected_chips = std::getenv("TT_UMD_SIM_EXPECTED_CHIPS"); expected_chips != nullptr) {
+            expected_chips_ = static_cast<size_t>(std::stoul(expected_chips));
+        }
+    }
+
+    std::string simulator_path_;
+    ARCH arch_ = ARCH::Invalid;
+    std::optional<size_t> expected_chips_;
+};
+
+TEST_F(TTSimDiscoveryTest, ChipCountMatchesEnumeratedEndpoints) {
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    ASSERT_FALSE(bdfs.empty());
+
+    // target_devices is deliberately left unset, so every chip discovery finds stays visible.
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    // One MMIO chip per host-visible endpoint: every chip an image exposes to the host is reached
+    // over its own BDF, so a different count means discovery either missed one or invented one.
+    EXPECT_EQ(cluster_desc->get_chips_with_mmio().size(), bdfs.size());
+
+    // Chips beyond those are reached over ethernet -- wh_x2's second chip has no endpoint of its
+    // own -- so the totals coincide only where every chip is MMIO. Where the image's chip count is
+    // known, that is what the total has to be: >= bdfs.size() alone passes at 1 == 1 for wh_x2,
+    // which is the image whose remote chip this exists to notice.
+    EXPECT_GE(cluster_desc->get_number_of_chips(), bdfs.size());
+    if (expected_chips_.has_value()) {
+        EXPECT_EQ(cluster_desc->get_number_of_chips(), *expected_chips_)
+            << "discovery found " << cluster_desc->get_number_of_chips() << " chip(s) in an image modelling "
+            << *expected_chips_;
+    }
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        const bool is_mmio = cluster_desc->get_chips_with_mmio().count(chip) != 0;
+        EXPECT_EQ(cluster_desc->is_chip_mmio_capable(chip), is_mmio)
+            << "chip " << chip << " disagrees with the MMIO set it is or is not in";
+    }
+}
+
+// A chip with no PCI endpoint of its own is reached over ethernet, so discovery finding it at all
+// means it walked the links. wh_x2 models exactly that: one endpoint, two chips.
+TEST_F(TTSimDiscoveryTest, RemoteChipsAreReachedOverEthernet) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    const auto& mmio_chips = cluster_desc->get_chips_with_mmio();
+    const auto& eth_connections = cluster_desc->get_ethernet_connections();
+
+    // Every chip the image models beyond its endpoints was reached over ethernet. Asserting that
+    // count before walking the links is what makes the walk mean something: a discovery that missed
+    // the remote chip entirely leaves nothing to iterate over, and every expectation inside the
+    // loop below then holds vacuously.
+    if (expected_chips_.has_value()) {
+        ASSERT_GE(*expected_chips_, mmio_chips.size());
+        const size_t expected_remote = *expected_chips_ - mmio_chips.size();
+        ASSERT_EQ(cluster_desc->get_number_of_chips() - mmio_chips.size(), expected_remote)
+            << "discovery reached " << cluster_desc->get_number_of_chips() - mmio_chips.size()
+            << " chip(s) over ethernet in an image modelling " << expected_remote;
+    }
+
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        if (mmio_chips.count(chip) != 0) {
+            continue;
+        }
+
+        // Every link this chip reports has to land on a chip in the same cluster, and at least one
+        // of them is what discovery arrived over.
+        const auto links = eth_connections.find(chip);
+        ASSERT_NE(links, eth_connections.end()) << "remote chip " << chip << " reports no ethernet links";
+        EXPECT_FALSE(links->second.empty()) << "remote chip " << chip << " reports no ethernet links";
+        for (const auto& [channel, remote] : links->second) {
+            const ChipId peer = std::get<0>(remote);
+            EXPECT_NE(cluster_desc->get_all_chips().count(peer), 0u)
+                << "chip " << chip << " channel " << channel << " links to unknown chip " << peer;
+        }
+    }
+}
+
+TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
+    if (arch_ != ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Harvesting expectations below are Blackhole's.";
+    }
+
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_FALSE(cluster_desc->get_all_chips().empty());
+
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        // TTSim models ETH tiles 12 and 13 as harvested, so its ENABLED_ETH telemetry reads 0x0FFF
+        // and the mask UMD derives from it is 0x3000. Asserting the derived value is what keeps
+        // discovery honest about reading harvesting from the device instead of assuming it.
+        EXPECT_EQ(cluster_desc->get_harvesting_masks(chip).eth_harvesting_mask, 0x3000u)
+            << "chip " << chip << " ETH harvesting did not come from telemetry";
+
+        // Whatever the image harvests, the descriptor and the SoC descriptor built from it have to
+        // tell the same story about how many Tensix columns survived. The mask is what discovery
+        // read off the device; the harvested grid is what the SoC descriptor built from it actually
+        // took out, one column per set bit on Blackhole. A regression that reads the mask and then
+        // drops it leaves a full grid behind a nonzero mask, which a nonempty core set cannot see.
+        const SocDescriptor& soc_desc = cluster.get_soc_descriptor(chip);
+        const size_t harvested_columns =
+            CoordinateManager::get_num_harvested(cluster_desc->get_harvesting_masks(chip).tensix_harvesting_mask);
+        const tt_xy_pair harvested_grid = soc_desc.get_harvested_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(harvested_grid.x, harvested_columns)
+            << "chip " << chip << ": SoC descriptor harvested " << harvested_grid.x
+            << " Tensix column(s), discovered mask names " << harvested_columns;
+
+        // And the cores that survived are exactly the grid that survived.
+        const tt_xy_pair live_grid = soc_desc.get_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(soc_desc.get_cores(CoreType::TENSIX).size(), live_grid.x * live_grid.y)
+            << "chip " << chip << " Tensix core count disagrees with its " << live_grid.x << "x" << live_grid.y
+            << " grid";
+    }
 }
 
 #endif  // TT_UMD_BUILD_SIMULATION

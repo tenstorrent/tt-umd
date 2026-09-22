@@ -21,12 +21,12 @@ public:
     WaitProgressLogger(
         std::string what,
         std::chrono::milliseconds timeout,
-        std::chrono::milliseconds log_interval = std::chrono::milliseconds(5'000))
-        : what_(std::move(what)),
-          timeout_(timeout),
-          log_interval_(log_interval),
-          start_(std::chrono::steady_clock::now()),
-          last_logged_(start_) {}
+        std::chrono::milliseconds log_interval = std::chrono::milliseconds(5'000)) :
+        what_(std::move(what)),
+        timeout_(timeout),
+        log_interval_(log_interval),
+        start_(std::chrono::steady_clock::now()),
+        last_logged_(start_) {}
 
     // `now` defaults to the real clock for production call sites; tests pass an explicit time
     // point so the throttling can be exercised deterministically, without sleeping, matching the

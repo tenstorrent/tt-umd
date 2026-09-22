@@ -17,9 +17,9 @@ class DeviceProtocol;
  *
  * The interfaces are non-owning and must outlive this object.
  */
-class RiscResetImplementation : public RiscReset {
+class ClassicTileRiscReset : public RiscReset {
 public:
-    RiscResetImplementation(DeviceProtocol* device_protocol, ArchitectureImplementation* architecture_impl);
+    ClassicTileRiscReset(DeviceProtocol* device_protocol, ArchitectureImplementation* architecture_impl);
 
     void assert_risc_reset(tt_xy_pair core, RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
 

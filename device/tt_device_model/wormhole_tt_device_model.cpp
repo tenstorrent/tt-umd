@@ -38,7 +38,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
 
-    risc_reset_ = std::make_unique<RiscResetImplementation>(protocol_.get(), architecture_impl_.get());
+    risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
@@ -54,7 +54,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     protocol_ = std::move(jtag_protocol);
     hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
 
-    risc_reset_ = std::make_unique<RiscResetImplementation>(protocol_.get(), architecture_impl_.get());
+    risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }
@@ -70,7 +70,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     hang_detector_ = std::make_unique<WormholeHangDetector>(
         remote_interface_->get_remote_communication()->get_local_device()->get_device_protocol());
 
-    risc_reset_ = std::make_unique<RiscResetImplementation>(protocol_.get(), architecture_impl_.get());
+    risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
 }

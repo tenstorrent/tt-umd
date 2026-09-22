@@ -394,7 +394,7 @@ public:
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
-     * Set the soft reset signal for the given riscs.
+     * Set the soft reset signal for the given riscs. Should be deprecated.
      *
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for

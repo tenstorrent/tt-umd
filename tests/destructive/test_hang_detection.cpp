@@ -90,9 +90,7 @@ protected:
         noc_hung_ = true;
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-            tt_device_->set_risc_reset_state(
-                tensix_core,
-                tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX));
+            tt_device_->assert_risc_reset(tensix_core, RiscType::ALL_TENSIX, noc);
         }
         NocIdSwitcher switcher(noc);
         try {

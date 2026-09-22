@@ -28,6 +28,7 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
+#include "wait_progress_logger.hpp"
 
 namespace tt::umd {
 
@@ -318,8 +319,10 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
 
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
+    utils::WaitProgressLogger progress_logger("ARC firmware to become ready", timeout_ms);
     const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode, &noc_id]() {
+        [this, &arc_boot_status, &arc_postcode, &noc_id, &progress_logger]() {
+            progress_logger.tick();
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status, noc_id);
             read_from_arc_apb(&arc_postcode, blackhole::ARC_RESET_SCRATCH_OFFSET, sizeof arc_postcode, noc_id);
             return (arc_boot_status & 0x7) == 0x5;
@@ -364,7 +367,10 @@ bool BlackholeDeviceFirmware::wait_eth_core_training(
     // Port status is the last state to settle during the eth training sequence; IN_PROGRESS means
     // training has not finished yet.
     auto start = std::chrono::steady_clock::now();
+    utils::WaitProgressLogger progress_logger(
+        fmt::format("ETH training for core {}, {}", eth_core.x, eth_core.y), timeout_ms);
     while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
+        progress_logger.tick();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
         if (duration > timeout_ms) {
             // TODO: This should throw. ETH connections are very flaky on Blackhole right now, so
@@ -399,7 +405,9 @@ bool BlackholeDeviceFirmware::wait_dram_channel_training(
     constexpr uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = 3;
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
+    utils::WaitProgressLogger progress_logger(fmt::format("DRAM training for channel {}", dram_channel), timeout_ms);
     while (true) {
+        progress_logger.tick();
         std::vector<DramTrainingStatus> dram_training_status =
             firmware_info_provider_->get_dram_training_status(dram_banks_number);
 

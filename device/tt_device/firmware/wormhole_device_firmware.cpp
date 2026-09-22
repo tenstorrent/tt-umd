@@ -32,6 +32,7 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
+#include "wait_progress_logger.hpp"
 
 namespace tt::umd {
 
@@ -191,8 +192,10 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
 
+    utils::WaitProgressLogger progress_logger("ARC firmware to become ready", timeout_ms);
     const bool arc_core_started = utils::poll_until(
-        [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id]() {
+        [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id, &progress_logger]() {
+            progress_logger.tick();
             read_from_arc_apb(
                 &arc_reset_scratch_status,
                 wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
@@ -564,7 +567,10 @@ tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
 bool WormholeDeviceFirmware::wait_eth_core_training(
     tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
     auto start = std::chrono::steady_clock::now();
+    utils::WaitProgressLogger progress_logger(
+        fmt::format("ETH training for core {}, {}", eth_core.x, eth_core.y), timeout_ms);
     while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
+        progress_logger.tick();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
         if (duration > timeout_ms) {
             // UBB (6U) systems are known to leave links in training, so the timeout is only logged
@@ -632,7 +638,9 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
     }
 
     auto start = std::chrono::steady_clock::now();
+    utils::WaitProgressLogger progress_logger(fmt::format("DRAM training for channel {}", dram_channel), timeout_ms);
     while (true) {
+        progress_logger.tick();
         std::vector<DramTrainingStatus> dram_training_status =
             firmware_info_provider_->get_dram_training_status(dram_banks_number);
 

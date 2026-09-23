@@ -405,6 +405,17 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
+bool TTSimCommunicator::has_dynamic_chip_api(const std::filesystem::path &simulator_path) {
+    std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+    void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
+    if (handle == nullptr) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+    }
+    std::unique_ptr<void, int (*)(void *)> handle_guard(handle, &dlclose);
+    return dlsym(handle, "libttsim_create_device_by_id") != nullptr &&
+           dlsym(handle, "libttsim_select_device_by_id") != nullptr;
+}
+
 std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
 

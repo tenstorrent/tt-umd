@@ -493,8 +493,8 @@ Cluster::Cluster(ClusterOptions options) {
             if (options.cluster_descriptor == nullptr) {
 #ifdef TT_UMD_BUILD_SIMULATION
                 // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
-                // topology, mirroring the soc_descriptor.yaml convention. When present, use it; otherwise fall
-                // through to the mock single-chip descriptor below (unchanged behaviour).
+                // topology, mirroring the soc_descriptor.yaml convention. Use it before considering either
+                // simulator endpoint enumeration or firmware discovery.
                 const bool is_ttsim_build =
                     (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
                 const std::string cluster_desc_path =
@@ -520,12 +520,24 @@ Cluster::Cluster(ClusterOptions options) {
                         SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
                 }
 
+                const bool dynamic_chip_api =
+                    is_ttsim_build && TTSimCommunicator::has_dynamic_chip_api(options.simulator_directory);
+                if (dynamic_chip_api && options.target_devices.empty()) {
+                    // This image exposes its host-visible chips through PCI config. It does not
+                    // promise the ARC firmware reads needed by physical topology discovery.
+                    const auto bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(options.simulator_directory);
+                    UMD_ASSERT(!bdfs.empty(), error::RuntimeError, "Simulator exposes no host-visible chips.");
+                    for (uint32_t bdf : bdfs) {
+                        options.target_devices.insert(static_cast<ChipId>((bdf >> 3) & 0x1F));
+                    }
+                }
+
                 // Nothing declared this simulator's topology, so ask the simulator: enumerate its chips and
-                // walk them the way silicon is walked. Quasar is excluded because TTSim models no ARC or
-                // Ethernet for it, so there is no firmware to discover a topology from -- it falls through to
-                // the mock descriptor below, as does RTL simulation. Lifting the exclusion is #3404.
-                const bool discoverable = is_ttsim_build && SocDescriptor::get_arch_from_soc_descriptor_path(
-                                                                options.sdesc_path) != tt::ARCH::QUASAR;
+                // walk them the way silicon is walked. Dynamic-chip images and Quasar do not supply
+                // the firmware discovery contract; both use the descriptor/mock path below.
+                const bool discoverable =
+                    is_ttsim_build && !dynamic_chip_api &&
+                    SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about

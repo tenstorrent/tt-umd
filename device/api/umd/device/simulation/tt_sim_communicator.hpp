@@ -136,6 +136,10 @@ public:
      */
     static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 
+    // Dynamic chip images manage logical chips through these two ABI entry points. They do not
+    // necessarily provide the ARC firmware state needed for physical topology discovery.
+    static bool has_dynamic_chip_api(const std::filesystem::path &simulator_path);
+
     /**
      * Advance the simulator clock.
      *

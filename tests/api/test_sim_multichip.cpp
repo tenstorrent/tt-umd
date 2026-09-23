@@ -317,6 +317,29 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
     dev_1->close_device();
 }
 
+TEST_F(TTSimCommunicatorTest, DynamicChipImageUsesPciEndpointsWithoutFirmwareDiscovery) {
+    if (!TTSimCommunicator::has_dynamic_chip_api(simulator_path_)) {
+        GTEST_SKIP() << "Simulator has no dynamic chip API.";
+    }
+    if (std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path_))) {
+        GTEST_SKIP() << "A cluster descriptor already declares this image's topology.";
+    }
+
+    const auto bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    ASSERT_FALSE(bdfs.empty());
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    Cluster cluster(options);
+
+    const auto* desc = cluster.get_cluster_description();
+    ASSERT_NE(desc, nullptr);
+    EXPECT_EQ(desc->get_number_of_chips(), bdfs.size());
+    for (uint32_t bdf : bdfs) {
+        EXPECT_NE(desc->get_chips_with_mmio().count(static_cast<ChipId>((bdf >> 3) & 0x1F)), 0u);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Topology discovery against a simulator image
 // ---------------------------------------------------------------------------
@@ -331,6 +354,10 @@ protected:
             GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping discovery tests.";
         }
         simulator_path_ = simulator_path;
+
+        if (TTSimCommunicator::has_dynamic_chip_api(simulator_path_)) {
+            GTEST_SKIP() << "Dynamic-chip images expose endpoints through PCI config rather than firmware discovery.";
+        }
 
         if (std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path_))) {
             GTEST_SKIP() << "A cluster_descriptor.yaml sits beside this simulator, so its topology is declared "

@@ -3,7 +3,7 @@ name: Notify Slack of external contributions
 on:
   issues:
     types: [opened]
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, ready_for_review]
 
 jobs:
@@ -31,7 +31,7 @@ jobs:
             "$SLACK_WEBHOOK_URL"
 
   notify-pr:
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack unless author is a code owner

@@ -499,6 +499,103 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     }
 }
 
+// Touch the ends of a range rather than streaming it: on the emulator a single 4 MB transfer
+// already dominates a run, so covering 1 GB of DRAM by filling it is not viable. A wrong window
+// stride shows up at the top of a range, which is what these probe.
+TEST_P(ClusterReadWriteL1Test, ReadWriteL1AcrossItsRange) {
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
+
+    if (options.chip_type == ChipType::SIMULATION) {
+        cluster->start_device({.init_device = true});
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        const uint64_t l1_size = static_cast<uint64_t>(soc_desc.worker_l1_size);
+        // Room for the block at SAFE_IO_L1_ADDRESS and the one at the top without the two overlapping.
+        ASSERT_GT(l1_size, SAFE_IO_L1_ADDRESS + 2 * BLOCK_SIZE);
+
+        expect_round_trip(*cluster, chip_id, tensix_core, SAFE_IO_L1_ADDRESS, 0x11);
+        expect_round_trip(*cluster, chip_id, tensix_core, l1_size / 2, 0x22);
+        expect_round_trip(*cluster, chip_id, tensix_core, l1_size - BLOCK_SIZE, 0x33);
+    }
+}
+
+TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
+
+    if (options.chip_type == ChipType::SIMULATION) {
+        cluster->start_device({.init_device = true});
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
+        ASSERT_FALSE(dram_cores.empty());
+        const uint64_t bank_size = soc_desc.dram_bank_size;
+        // Room for the block at the bottom of the bank and the one at the top without the two overlapping.
+        ASSERT_GT(bank_size, 2 * BLOCK_SIZE);
+
+        expect_round_trip(*cluster, chip_id, dram_cores[0], 0x0, 0x44);
+        expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size / 2, 0x55);
+
+        // The last bytes of a bank round-trip only where dram_bank_size is the span a single DRAM
+        // core addresses. On Blackhole it is not: the probe at bank_size / 2 passes and this one
+        // reads back zeros, and the descriptor does not say where a bank's addressable top is.
+        if (options.chip_type == ChipType::SIMULATION) {
+            expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
+        }
+    }
+}
+
+// Each channel gets its own pattern, so two channels resolving to one bank fails rather than
+// passing on the second write happening to match.
+TEST_P(ClusterReadWriteL1Test, ReadWriteEveryDramChannel) {
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
+
+    if (options.chip_type == ChipType::SIMULATION) {
+        cluster->start_device({.init_device = true});
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
+        ASSERT_FALSE(dram_cores.empty());
+
+        // What one channel was given, so its readback has something to be checked against.
+        struct ChannelProbe {
+            CoreCoord core;
+            std::array<uint8_t, BLOCK_SIZE> data;
+        };
+
+        std::vector<ChannelProbe> probes;
+
+        // One core per channel: LOGICAL x is the channel, so take the first core of each.
+        for (const CoreCoord& core : dram_cores) {
+            const CoreCoord logical = soc_desc.translate_coord_to(core, CoordSystem::LOGICAL);
+            if (logical.y != 0) {
+                continue;
+            }
+            ChannelProbe& probe = probes.emplace_back(ChannelProbe{core, {}});
+            fill_block(probe.data, logical.x * 7 + 1);
+            cluster->write_to_device(probe.data.data(), BLOCK_SIZE, chip_id, core, 0x0);
+        }
+        ASSERT_FALSE(probes.empty());
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        for (const ChannelProbe& probe : probes) {
+            SCOPED_TRACE(fmt::format("dram core {}", probe.core.str()));
+            readback_.fill(0);
+            cluster->read_from_device(readback_.data(), chip_id, probe.core, 0x0, BLOCK_SIZE);
+            EXPECT_EQ(probe.data, readback_);
+        }
+    }
+}
+
 // Instantiate the test suite AFTER all TEST_P definitions.
 INSTANTIATE_TEST_SUITE_P(
     SiliconAndSimulationCluster,
@@ -760,6 +857,30 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
 
         ASSERT_EQ(write_data_l1[i], readback_value);
     }
+}
+
+// The register accessors on the TTDevice itself, rather than through Cluster. The two are not the
+// same path: a Chip may answer register access without ever entering TTDevice's register accessors
+// (SimulationChip delegates them to the bulk path a layer above), so only a direct call exercises
+// the TTDevice-level implementation -- the shared one on silicon, the simulation override on a
+// simulation backend.
+TEST_F(TestDeviceIOFixture, TTDeviceRegReadWrite) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+
+    constexpr uint32_t written_value = 0xABCD1234;
+    tt_device->write_to_device_reg(&written_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(written_value));
+
+    uint32_t reg_readback = 0;
+    tt_device->read_from_device_reg(&reg_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(reg_readback));
+    EXPECT_EQ(written_value, reg_readback);
+
+    // The bulk path must observe the same memory, whether or not it is the same transport.
+    uint32_t bulk_readback = 0;
+    tt_device->read_from_device(&bulk_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(bulk_readback));
+    EXPECT_EQ(written_value, bulk_readback);
 }
 
 INSTANTIATE_TEST_SUITE_P(

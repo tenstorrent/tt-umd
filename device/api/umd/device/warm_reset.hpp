@@ -59,7 +59,7 @@ private:
         std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT,
         bool secondary_bus_reset = true);
 
-    static bool wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
+    static bool galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 
     static void ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms);
 };

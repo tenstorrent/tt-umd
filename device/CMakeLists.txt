@@ -73,7 +73,6 @@ target_sources(
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
-        chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
         pcie/io_window_reconfigure.cpp
         io_window/io_window_target.cpp
@@ -83,7 +82,6 @@ target_sources(
         cluster.cpp
         tt_device_model/wormhole_tt_device_model.cpp
         tt_device_model/blackhole_tt_device_model.cpp
-        tt_device_model/simulation_tt_device_model.cpp
         tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -166,6 +164,10 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
+            tt_device/protocol/tt_sim_protocol.cpp
+            # Composes the protocol above, so it cannot be built without it. Every user of it is a
+            # simulation device, all of which are in this block too.
+            tt_device_model/simulation_tt_device_model.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -210,7 +212,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/system_memory_allocator.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
-                api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp

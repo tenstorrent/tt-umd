@@ -57,6 +57,15 @@ public:
     void write_to_device(
         const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    // A simulation backend has no separate ordered-register transport: every access reaches the
+    // simulator through the same entry points, clocked synchronously from the calling thread under
+    // device_lock, so ordering is already guaranteed. Delegate to the bulk path -- the base
+    // implementations would route through DeviceProtocol, which a simulation model does not provide.
+    void read_from_device_reg(
+        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void write_to_device_reg(
+        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,
@@ -84,6 +93,14 @@ public:
     // remote client can build the matching device class, and reported by Cluster so a caller can
     // tell what its simulation is backed by.
     virtual SimulationBackendType backend_type() const = 0;
+
+    // NOC access at an already-translated coordinate: the special-case fast paths, the
+    // TLB-window-or-tile choice, and the post-read clocking, without the coordinate translation
+    // host_read/host_write do first. Exposed so a DeviceProtocol serving this backend can reach the
+    // same path the device uses rather than reimplementing it -- the arch decision between the
+    // cached TLB window and direct tile access lives here and is shared.
+    void noc_read_translated(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
+    void noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
 
 protected:
     SimulationTTDevice(

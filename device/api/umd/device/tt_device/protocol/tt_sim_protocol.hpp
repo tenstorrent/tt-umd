@@ -1,0 +1,101 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/types/power_state.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+namespace tt::umd {
+
+class TTSimCommunicator;
+class SimulationTTDevice;
+class SimulationTTDeviceModel;
+
+/**
+ * @brief Transport for a chip modelled by a TTSim simulator image.
+ *
+ * A simulator is reached in-process rather than over a host bus, but it models the same PCIe surface
+ * silicon exposes, so serving it as a DeviceProtocol lets the silicon firmware stack read a
+ * simulated device without knowing it is simulated. PcieInterface comes with it because the
+ * architecture firmwares reach some registers by BAR rather than over the NOC, which in turn obliges
+ * the model to supply a HangDetector.
+ *
+ * Non-owning: the communicator belongs to the device that owns this protocol and must outlive it.
+ */
+class TTSimProtocol : public DeviceProtocol, public PcieInterface {
+public:
+    // The model that owns this protocol, so that attaching a working transport can hand it the
+    // architecture's firmware -- which cannot exist any earlier, since it reads the device as it is
+    // constructed.
+    explicit TTSimProtocol(SimulationTTDeviceModel* model);
+
+    // The device that owns this protocol, wired in once it exists: a model builds its components
+    // before the TTDevice that consumes them, so this cannot be a constructor argument.
+    void attach(SimulationTTDevice* device, TTSimCommunicator* communicator, int chip_id);
+
+    TTSimCommunicator* get_communicator() const { return communicator_; }
+
+    // --- DeviceProtocol ---
+    //
+    // A simulator has no separate ordered-register transport: every access reaches it through the
+    // same entry points, clocked synchronously from the calling thread, so ordering is already
+    // guaranteed and the ctrl variants delegate to the data ones.
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+
+    // No hardware multicast is modelled, so callers fall back to unicast.
+    [[nodiscard]] bool write_to_core_range(
+        const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) override;
+
+    int get_mmio_id() override;
+
+    // The id a simulated chip in this process is addressed and locked by. Exposed for the test that
+    // pins the composition; attach() resolves it for the device.
+    static int process_local_mmio_id(int chip_id);
+
+    // --- PcieInterface ---
+    void bar_write32(uint32_t addr, uint32_t data) override;
+    uint32_t bar_read32(uint32_t addr) override;
+    int get_numa_node() const override;
+    void set_power_state(PowerState state) override;
+    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
+
+private:
+    // BAR0's physical base, read from the simulator's config space on first use. The simulator
+    // decodes the whole window, so a BAR offset is added to this base directly.
+    uint64_t bar0_base();
+
+    SimulationTTDeviceModel* model_ = nullptr;
+    SimulationTTDevice* device_ = nullptr;
+    TTSimCommunicator* communicator_ = nullptr;
+    // -1 until attach() runs. RTL simulation and client mode build this model but never attach a
+    // transport to it, and a device with no MMIO endpoint is what
+    // TTDevice::get_communication_device_id() reports as -1. Defaulting to 0 would instead have
+    // those devices claim MMIO device 0.
+    int chip_id_ = -1;
+    // What get_mmio_id() answers: the endpoint's PCI device number qualified by this process -- the
+    // pid, with the chip id in the low 5 bits. A simulated endpoint exists only inside the process
+    // that brought its image up, so the device number alone means nothing outside it, and UMD names
+    // the cross-process locks keyed on this id after it: every simulator run on a machine contended
+    // with every other, and with silicon's PCI device of the same number.
+    //
+    // Chip ids are below 32 in BDF mode, which TTSimCommunicator asserts, and Linux caps pids at
+    // 2^22, so the composed value stays well inside an int. Resolved once at attach() rather than
+    // read live, so a process which forks after its devices are up keeps the names it registered.
+    int mmio_id_ = -1;
+    uint64_t bar0_base_ = 0;
+    bool bar0_base_read_ = false;
+};
+
+}  // namespace tt::umd

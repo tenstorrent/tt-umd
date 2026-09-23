@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -64,11 +65,16 @@ std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
 }
 
 TTSimCommunicator::TTSimCommunicator(
-    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    const std::filesystem::path &simulator_directory,
+    bool copy_sim_binary,
+    uint32_t chip_id,
+    uint32_t num_chips,
+    std::optional<uint32_t> image_endpoint_count) :
     simulator_directory_(simulator_directory),
     copy_sim_binary_(copy_sim_binary),
     chip_id_(chip_id),
-    num_chips_(num_chips) {}
+    num_chips_(num_chips),
+    image_endpoint_count_(image_endpoint_count) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
     // Unregister from the process-global DMA routing tables first. The shared simulator may still be
@@ -204,13 +210,16 @@ void TTSimCommunicator::initialize() {
     // (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id, no virtual eth switch (the simulator
     // routes inter-chip eth internally).
     //
-    // The signal is a cluster_descriptor.yaml shipped beside the .so (e.g. P300 bh_x2): the .so declares
-    // the topology it hosts. A plain multi-chip cluster that replicates a *single-chip* .so per chip
-    // (e.g. galaxy wormhole, driven by an external mock cluster desc) has no such file -- it must keep
-    // the per-chip isolated dlopen (legacy memfd path below) so each chip is its own simulator process.
-    const bool self_describing_multi_mmio =
-        num_chips_ > 1 &&
-        std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+    // Whether the image hosts several chips is a property of the image, answered by enumerating its
+    // endpoints and passing the count in. A caller that has not enumerated falls back to the older
+    // signal, a cluster_descriptor.yaml beside the .so; a cluster that replicates a single-chip .so
+    // per chip has no such file and keeps the per-chip isolated dlopen below.
+    const bool image_hosts_multiple_chips =
+        image_endpoint_count_.has_value()
+            ? *image_endpoint_count_ > 1
+            : std::filesystem::exists(
+                  SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+    const bool self_describing_multi_mmio = num_chips_ > 1 && image_hosts_multiple_chips;
     if (self_describing_multi_mmio) {
         std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!shared_lib) {
@@ -368,6 +377,64 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     }
     select_chip_if_needed();  // no-op outside the multichip-ABI mode
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
+}
+
+std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+    std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+
+    // This starts and stops an image of its own, so a simulator already running in this process
+    // would be re-initialized -- fatal inside the simulator -- and then torn down underneath the
+    // communicators still using it. Refuse instead, naming the ordering the caller has to keep.
+    UMD_ASSERT(
+        !s_sim_initialized_,
+        error::RuntimeError,
+        "enumerate_mmio_device_bdfs() must run before any simulator is brought up in this process: a "
+        "simulator is already initialized, and enumerating would re-initialize and then stop it.");
+
+    void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
+    if (handle == nullptr) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+    }
+    // Closed however this returns: the throwing paths below would otherwise leak the handle.
+    std::unique_ptr<void, int (*)(void *)> handle_guard(handle, &dlclose);
+
+    auto config_read32 = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t)>(dlsym(handle, "libttsim_pci_config_rd32"));
+    auto sim_init = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_init"));
+    auto sim_exit = reinterpret_cast<void (*)()>(dlsym(handle, "libttsim_exit"));
+    if (config_read32 == nullptr || sim_init == nullptr || sim_exit == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Simulator library {} does not export the symbols needed to enumerate it.", simulator_path.string()));
+    }
+
+    // Config space only reports endpoints while the image is running. Starting an image that is
+    // already running is fatal inside the simulator, which is why this must run before any
+    // simulator is brought up -- see the header.
+    sim_init();
+
+    // Stopped even if the walk below throws: config_read32 is documented to throw ConfigurationError,
+    // and a left-running image makes the next enumeration or device open hit that fatal path.
+    // Declared after handle_guard so the image stops before its library is unloaded.
+    struct SimRunGuard {
+        void (*exit_fn)();
+
+        ~SimRunGuard() { exit_fn(); }
+    } sim_run_guard{sim_exit};
+
+    // The device field is 5 bits, so bus 0 holds at most 32 endpoints; anything beyond would carry
+    // into the bus field, which the simulator rejects fatally.
+    constexpr uint32_t ABSENT_ENDPOINT = 0xFFFFFFFF;
+    constexpr uint32_t MAX_DEVICES_PER_BUS = 32;
+    std::vector<uint32_t> bdfs;
+    for (uint32_t device = 0; device < MAX_DEVICES_PER_BUS; ++device) {
+        const uint32_t bdf = device << 3;
+        if (config_read32(bdf, 0) != ABSENT_ENDPOINT) {
+            bdfs.push_back(bdf);
+        }
+    }
+
+    return bdfs;
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {

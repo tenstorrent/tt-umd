@@ -5,8 +5,10 @@
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
@@ -16,6 +18,8 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/att_resolver.hpp"
+#include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -98,6 +102,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    setup_noc_address_resolver();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -116,6 +121,35 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     setup_ = [this] { attach_client(); };
     teardown_ = [this] { detach_client(); };
     setup_();
+}
+
+void RtlSimulationTTDevice::setup_noc_address_resolver() {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR) {
+        return;
+    }
+    // The Grendel (qsr.s1) model routes host traffic through its boot-programmed address-translation
+    // tables, so its host coordinates are resolved through that map. Other Quasar RTL models (the
+    // aether 2x3 images) take raw coordinates, so the resolver stays off unless TT_UMD_RTL_SIM_ATT_MAP
+    // selects a map.
+    const char* map = std::getenv("TT_UMD_RTL_SIM_ATT_MAP");
+    if (map == nullptr || *map == '\0') {
+        return;
+    }
+    const std::string_view name(map);
+    if (name == "none" || name == "off" || name == "0") {
+        return;
+    }
+    UMD_ASSERT(
+        name == "grendel_qsr1",
+        error::RuntimeError,
+        fmt::format("Unknown TT_UMD_RTL_SIM_ATT_MAP '{}' (expected grendel_qsr1 or none).", name));
+    noc_address_resolver_ = std::make_unique<att::Resolver>(att::GRENDEL_QSR1_MAP);
+}
+
+bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
+    // Quasar has no TLBs. The window it would allocate is a dummy carrying the destination
+    // coordinate in tlb_data, which a resolved address already carries.
+    return get_soc_descriptor().arch != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
 }
 
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
@@ -155,7 +189,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
     int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
     auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, size, mapping);
-    return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
+    return std::make_unique<RtlSimTlbWindow>(std::move(handle), this, config);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {
@@ -172,11 +206,37 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     }
 }
 
+void RtlSimulationTTDevice::resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    if (noc_address_resolver_ != nullptr) {
+        const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core_coord, addr, size);
+    }
+    tile_write_bytes(core, addr, mem_ptr, size);
+}
+
+void RtlSimulationTTDevice::resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    if (noc_address_resolver_ != nullptr) {
+        const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core_coord, addr, size);
+    }
+    tile_read_bytes(core, addr, mem_ptr, size);
+}
+
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_read_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    // A resolver having run means addr already names the destination, so the coordinate is not
+    // sent: the simulator has nothing to translate and cannot resolve a resolved address again.
+    if (noc_address_resolver_ != nullptr) {
+        communicator_->global_write_bytes(addr, mem_ptr, size);
+        return;
+    }
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 

@@ -56,6 +56,15 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
+    /**
+     * Write/read a tile address given in the TRANSLATED coordinate frame, applying the NoC address
+     * resolver (when one is installed) the same way host_write/host_read do. Used by the RTL-sim TLB
+     * windows: without this a window sends a raw (x, y, addr) that the simulator interprets in its own
+     * frame, so on a model with translation enabled the access lands on the wrong tile.
+     */
+    void resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
+    void resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
+
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 
@@ -65,8 +74,14 @@ protected:
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
     bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
 
 private:
+    // Install the flat-address resolver when TT_UMD_RTL_SIM_ATT_MAP selects a map. Host mode only: a
+    // client hands the host a translated coordinate and a core-local address, and the host resolves
+    // it, so resolving here as well would fold the coordinate in twice.
+    void setup_noc_address_resolver();
+
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
     // the access was routed over the system NOC. These back handle_special_read/write and can grow to
     // dispatch additional special cases later.

@@ -74,6 +74,25 @@ public:
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
+     * Read device memory addressed by a flat global address, for a NOC that resolves the
+     * destination from the address itself. No coordinate is sent.
+     *
+     * @param addr Global address to read from
+     * @param data Buffer to store read data
+     * @param size Number of bytes to read
+     */
+    void global_read_bytes(uint64_t addr, void *data, uint32_t size);
+
+    /**
+     * Write device memory addressed by a flat global address. @see global_read_bytes().
+     *
+     * @param addr Global address to write to
+     * @param data Data to write
+     * @param size Number of bytes to write
+     */
+    void global_write_bytes(uint64_t addr, const void *data, uint32_t size);
+
+    /**
      * Read data from a tile core via SMN.
      *
      * @param x Core X coordinate
@@ -229,6 +248,11 @@ private:
 
     // Thread safety for send operations.
     mutable std::mutex device_lock_;
+
+    // One read at a time. All responses arrive on one queue, so two threads reading at once (e.g. the
+    // DPRINT poller and the main thread) could take each other's reply. Held from send to parse.
+    // Separate from device_lock_, which the notification thread still needs while a read waits.
+    mutable std::mutex request_lock_;
 
     // Notification handler thread.
     std::thread notification_thread_;

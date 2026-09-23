@@ -5,6 +5,7 @@ set(BAREMETAL_TESTS_SRCS
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
     test_core_coord_translation_quasar.cpp
+    test_grendel_att_map.cpp
     test_soc_arch_descriptor.cpp
     test_soc_descriptor.cpp
     test_long_jump.cpp
@@ -21,7 +22,12 @@ set(BAREMETAL_TESTS_SRCS
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
-target_link_libraries(baremetal_tests PRIVATE test_common)
+target_link_libraries(
+    baremetal_tests
+    PRIVATE
+        test_common
+        yaml-cpp::yaml-cpp
+)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
 endif()

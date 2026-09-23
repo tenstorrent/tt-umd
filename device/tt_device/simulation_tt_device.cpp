@@ -177,6 +177,9 @@ void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, co
     if (handle_special_write(mem_ptr, core, addr, size)) {
         return;
     }
+    if (noc_address_resolver_ != nullptr) {
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+    }
     if (should_use_cached_tlb_window()) {
         write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -191,6 +194,9 @@ void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, voi
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (handle_special_read(mem_ptr, core, addr, size)) {
         return;
+    }
+    if (noc_address_resolver_ != nullptr) {
+        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());

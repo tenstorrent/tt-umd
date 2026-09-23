@@ -514,6 +514,45 @@ Cluster::Cluster(ClusterOptions options) {
                         ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
                     break;
                 }
+
+                if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
+                    options.sdesc_path =
+                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                }
+
+                // Nothing declared this simulator's topology, so ask the simulator: enumerate its chips and
+                // walk them the way silicon is walked. Quasar is excluded because TTSim models no ARC or
+                // Ethernet for it, so there is no firmware to discover a topology from -- it falls through to
+                // the mock descriptor below, as does RTL simulation. Lifting the exclusion is #3404.
+                const bool discoverable = is_ttsim_build && SocDescriptor::get_arch_from_soc_descriptor_path(
+                                                                options.sdesc_path) != tt::ARCH::QUASAR;
+                if (discoverable) {
+                    TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+                    // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
+                    // to produce -- and a simulated device sizes its system memory as it is constructed.
+                    // A discovered simulator cluster is all-MMIO, which the auto-detect resolves to 1 for.
+                    discovery_options.simulation = SimulationDiscoveryOptions{
+                        .simulator_path = options.simulator_directory.string(),
+                        .num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
+                    };
+                    auto [discovered_desc, discovered_devices] =
+                        TopologyDiscovery::discover(discovery_options, options.io_device_type, options.sdesc_path);
+                    // discover() answers with a valid, chipless descriptor when it found nothing --
+                    // callers and the Python bindings go through it on an empty machine too -- so
+                    // the devices, not the pointer, are what say whether this simulator was
+                    // discovered at all.
+                    UMD_ASSERT(
+                        !discovered_devices.empty(),
+                        error::RuntimeError,
+                        fmt::format(
+                            "Discovering simulator {} produced no chips.", options.simulator_directory.string()));
+                    // Constrained the same way the descriptor-supplied path is, so target_devices means the
+                    // same thing however the topology was obtained.
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        discovered_desc.get(), options.target_devices);
+                    tt_devices = std::move(discovered_devices);
+                    break;
+                }
 #endif
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
@@ -1242,9 +1281,10 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
     get_chip(chip)->dram_membar(channels, subchannel);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+void Cluster::write_to_device(
+    const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
+    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes, ordering);
 }
 
 void Cluster::write_to_device_reg(
@@ -1268,9 +1308,10 @@ void Cluster::dma_multicast_write(
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size) {
+void Cluster::read_from_device(
+    void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
+    get_chip(chip)->read_from_device(core, mem_ptr, addr, size, ordering);
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {

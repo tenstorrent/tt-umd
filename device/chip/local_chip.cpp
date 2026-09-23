@@ -227,7 +227,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
     log_trace(
         LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
@@ -244,15 +244,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         return;
     }
 
-    // Strict orders this write against other Strict transfers, but the underlying MMIO stores
-    // are posted: the call returns once issued, not once landed. This path reconfigures the
-    // window between transfers, so nothing else orders them.
+    // Whatever the mode, the underlying MMIO stores are posted: the call returns once issued, not
+    // once landed. This path reconfigures the window between transfers, so nothing else orders them.
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
     write_block_reconfigure(
-        *get_cached_wc_tlb_window(), src, translated_core, l1_dest, size, get_selected_noc_id(), IoOrdering::Strict);
+        *get_cached_wc_tlb_window(), src, translated_core, l1_dest, size, get_selected_noc_id(), ordering);
 }
 
-void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
     log_trace(
         LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
@@ -268,10 +267,9 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
         return;
     }
-    // Strict, matching write_to_device so both directions of the bulk path carry the same guarantee.
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
     read_block_reconfigure(
-        *get_cached_wc_tlb_window(), dest, translated_core, l1_src, size, get_selected_noc_id(), IoOrdering::Strict);
+        *get_cached_wc_tlb_window(), dest, translated_core, l1_src, size, get_selected_noc_id(), ordering);
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {

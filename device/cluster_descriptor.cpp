@@ -1365,14 +1365,16 @@ bool ClusterDescriptor::verify_harvesting_information() {
     return harvesting_info_good;
 }
 
-bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count) {
+bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count, bool check_harvesting_counts) {
     bool cluster_desc_info_good = true;
 
     cluster_desc_info_good &= verify_board_info_for_chips(check_board_chip_count);
 
     cluster_desc_info_good &= verify_same_architecture();
 
-    cluster_desc_info_good &= verify_harvesting_information();
+    if (check_harvesting_counts) {
+        cluster_desc_info_good &= verify_harvesting_information();
+    }
 
     return cluster_desc_info_good;
 }
@@ -1418,7 +1420,7 @@ std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
         case BoardType::UBB_WORMHOLE:
             return ubb_tray_id(wormhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
         case BoardType::UBB_BLACKHOLE:
-        case BoardType::UBB_BLACKHOLE_BIN6:
+        case BoardType::UBB_BLACKHOLE_CF:
             return ubb_tray_id(blackhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
         default:
             return std::nullopt;

@@ -15,6 +15,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/io_window_config.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -57,8 +58,10 @@ public:
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) = 0;
 
-    virtual void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) = 0;
-    virtual void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) = 0;
+    virtual void write_to_device(
+        CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering = IoOrdering::Strict) = 0;
+    virtual void read_from_device(
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) = 0;
     virtual void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;

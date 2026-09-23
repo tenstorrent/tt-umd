@@ -30,12 +30,14 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_utils.hpp"
+#include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -49,33 +51,65 @@
 
 namespace tt::umd {
 
-std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
-    tt::ARCH current_arch = ARCH::Invalid;
+namespace {
 
+// Probe the architecture from the host bus. Returns ARCH::Invalid when the bus has no devices.
+tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
     switch (io_device_type) {
         case IODeviceType::PCIe: {
             auto pci_devices_info = PCIDevice::enumerate_devices_info();
             if (pci_devices_info.empty()) {
-                return nullptr;
+                return ARCH::Invalid;
             }
-            current_arch = pci_devices_info.begin()->second.get_arch();
-            break;
+            return pci_devices_info.begin()->second.get_arch();
         }
         case IODeviceType::JTAG: {
-            if (current_arch == tt::ARCH::BLACKHOLE) {
-                UMD_THROW(error::RuntimeError, "Blackhole architecture is not yet supported over JTAG interface.");
-            }
-
             auto jtag_device = JtagDevice::create();
             if (!jtag_device->get_device_cnt()) {
-                return nullptr;
+                return ARCH::Invalid;
             }
-            current_arch = jtag_device->get_jtag_arch(0);
-            break;
+            // This guard previously compared the architecture before it had been probed, so it
+            // could never fire. Comparing the probed value is what it was meant to do.
+            const tt::ARCH arch = jtag_device->get_jtag_arch(0);
+            UMD_ASSERT(
+                arch != tt::ARCH::BLACKHOLE,
+                error::RuntimeError,
+                "Blackhole architecture is not yet supported over JTAG interface.");
+            return arch;
         }
         default:
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
+    }
+}
+
+}  // namespace
+
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
+    // A simulator has no bus to probe: its architecture is declared by the SoC descriptor the image
+    // ships with, which is also what its devices are built from. Reading it from there rather than
+    // from the supplied descriptor is what gives the cross-check below two things to compare -- a
+    // supplied descriptor that disagrees with the image now selects no topology at all instead of
+    // the subclass of an architecture the devices are not.
+    tt::ARCH current_arch = ARCH::Invalid;
+    if (!options.simulation.has_value()) {
+        current_arch = probe_bus_architecture(io_device_type);
+    } else {
+#ifdef TT_UMD_BUILD_SIMULATION
+        UMD_ASSERT(
+            !soc_descriptor_path.empty(),
+            error::RuntimeError,
+            "Discovering a simulator needs a SoC descriptor path: a simulator's architecture is "
+            "declared by its descriptor rather than probed from a bus.");
+        current_arch = SocDescriptor::get_arch_from_soc_descriptor_path(
+            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulation->simulator_path));
+#else
+        UMD_THROW(
+            error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");
+#endif
+    }
+    if (current_arch == ARCH::Invalid) {
+        return nullptr;
     }
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
@@ -87,7 +121,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
-                    "Architecture {} in SocArchDescriptor file on path {} does not match architecture {} on silicon.",
+                    "Architecture {} in SocArchDescriptor file on path {} does not match the device architecture {}.",
                     arch_to_str(soc_arch_descriptor->get_arch()),
                     soc_descriptor_path,
                     arch_to_str(current_arch)));
@@ -159,8 +193,84 @@ bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const s
     return true;
 }
 
+void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, int device_id) {
+    ChipId chip_id = get_next_chip_id();
+
+    // When coming out of reset, devices can take on the order of minutes to become ready.
+    if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
+        uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
+        devices_to_discover.emplace(asic_id, std::move(tt_device));
+        asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+        log_warning(
+            LogUMD,
+            "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
+            DeviceTypeToString.at(io_device_type),
+            device_id,
+            asic_id);
+        return;
+    }
+
+    // Check some things on first discovered MMIO device.
+    if (devices_to_discover.empty()) {
+        init_first_device(tt_device.get());
+    }
+
+    if (options.wait_on_ethernet_link_training) {
+        wait_eth_cores_training(tt_device.get());
+    }
+
+    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+    std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
+    for (const CoreCoord& eth_core : eth_cores) {
+        uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
+        if (board_id != 0) {
+            board_ids.insert(board_id);
+            break;
+        }
+    }
+
+    uint64_t asic_id = get_asic_id(tt_device.get());
+    devices_to_discover.emplace(asic_id, std::move(tt_device));
+    asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+    log_debug(
+        LogUMD,
+        "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
+        DeviceTypeToString.at(io_device_type),
+        device_id,
+        asic_id);
+}
+
 void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
+
+    // Checked before the io_device_type switch below, and deliberately so: a simulator reports PCIe
+    // as its transport, but TTDevice::create(device_id, ...) would try to open /dev/tenstorrent for
+    // it. A simulator image enumerates its own endpoints instead.
+    if (options.simulation.has_value()) {
+#ifdef TT_UMD_BUILD_SIMULATION
+        // A simulator models PCIe and nothing else, so the devices created below are PCIe-modelled
+        // whatever the caller asked for. Accepting JTAG here would label the cluster descriptor with
+        // a transport none of its devices speak; refuse instead of misreporting it.
+        UMD_ASSERT(
+            io_device_type == IODeviceType::PCIe,
+            error::RuntimeError,
+            fmt::format(
+                "Simulation topology discovery models PCIe, but {} was requested.",
+                DeviceTypeToString.at(io_device_type)));
+        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(
+                 options.simulation->simulator_path, options.simulation->num_host_mem_channels)) {
+            add_local_device(std::move(tt_device), chip_id);
+        }
+        log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());
+        return;
+#else
+        UMD_THROW(
+            error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");
+#endif
+    }
+
     std::vector<int> local_device_ids;
     switch (io_device_type) {
         case IODeviceType::PCIe: {
@@ -199,52 +309,7 @@ void TopologyDiscovery::get_connected_devices() {
             continue;
         }
 
-        ChipId chip_id = get_next_chip_id();
-
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
-            uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
-            devices_to_discover.emplace(asic_id, std::move(tt_device));
-            asic_id_to_chip_id.emplace(asic_id, chip_id);
-
-            log_warning(
-                LogUMD,
-                "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
-                DeviceTypeToString.at(io_device_type),
-                device_id,
-                asic_id);
-            continue;
-        }
-
-        // Check some things on first discovered MMIO device.
-        if (devices_to_discover.empty()) {
-            init_first_device(tt_device.get());
-        }
-
-        if (options.wait_on_ethernet_link_training) {
-            wait_eth_cores_training(tt_device.get());
-        }
-
-        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-        std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
-        for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
-            if (board_id != 0) {
-                board_ids.insert(board_id);
-                break;
-            }
-        }
-
-        uint64_t asic_id = get_asic_id(tt_device.get());
-        devices_to_discover.emplace(asic_id, std::move(tt_device));
-        asic_id_to_chip_id.emplace(asic_id, chip_id);
-
-        log_debug(
-            LogUMD,
-            "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
-            DeviceTypeToString.at(io_device_type),
-            device_id,
-            asic_id);
+        add_local_device(std::move(tt_device), device_id);
     }
     log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }
@@ -436,7 +501,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
         cluster_desc->authentic_chip_unique_ids = true;
 
-        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
+        // A simulated device reports PCIe but has no PCIDevice behind it, so there is no BDF to
+        // record; its simulated BDF is reachable only through the communicator.
+        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote() && tt_device->get_pci_device() != nullptr) {
             cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
         }
 
@@ -528,7 +595,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
-    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices);
+    // A simulator's harvesting is whatever its image chose to model and need not match its board
+    // type -- TTSim's single-chip Wormhole image reports an n150 with nothing harvested. The masks
+    // still come from the device; only the board-level expectation is dropped.
+    const bool check_harvesting_counts = !options.simulation.has_value();
+    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices, check_harvesting_counts);
     return cluster_desc;
 }
 

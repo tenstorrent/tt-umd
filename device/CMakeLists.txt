@@ -259,6 +259,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
+                api/umd/device/tt_device/reset/risc_reset.hpp
                 api/umd/device/tt_device/hang_detection/hang_detector.hpp
                 api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
                 api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp

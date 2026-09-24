@@ -43,6 +43,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/reset/risc_reset.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device_model/blackhole_tt_device_model.hpp"
 #include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
@@ -599,20 +600,39 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
-    set_risc_reset_state(core, soft_reset_new);
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+    RiscReset *risc_reset = model_->get_risc_reset();
+    if (risc_reset != nullptr) {
+        risc_reset->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
+        return;
+    }
+
+    // TODO: transitional - the path for models that do not serve a RiscReset yet. Deleted once they
+    // all do. The register accesses are written out rather than taken from
+    // get_risc_reset_state()/set_risc_reset_state(), which cannot route on a given NOC.
+    const uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_state = 0;
+    read_from_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
+    soft_reset_state |= get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
+    write_to_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
+    tt_driver_atomics::sfence();
 }
 
-void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
-    uint32_t soft_reset_new_with_staggered_start =
-        soft_reset_new | (staggered_start ? get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
-    set_risc_reset_state(core, soft_reset_new_with_staggered_start);
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
+    RiscReset *risc_reset = model_->get_risc_reset();
+    if (risc_reset != nullptr) {
+        risc_reset->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
+        return;
+    }
+
+    // TODO: transitional - see assert_risc_reset.
+    const uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
+    uint32_t soft_reset_state = 0;
+    read_from_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
+    soft_reset_state &= ~get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
+    soft_reset_state |= staggered_start ? get_architecture_implementation()->get_soft_reset_staggered_start() : 0;
+    write_to_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
+    tt_driver_atomics::sfence();
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }

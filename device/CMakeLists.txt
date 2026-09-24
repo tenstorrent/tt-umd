@@ -199,6 +199,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/blackhole_arc_message_queue.hpp
                 api/umd/device/arc/smbus_arc_telemetry_reader.hpp
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
+                api/umd/device/coordinates/att/att_map.hpp
+                api/umd/device/coordinates/att/att_window.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
                 api/umd/device/coordinates/quasar_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp

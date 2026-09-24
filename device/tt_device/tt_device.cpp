@@ -137,8 +137,9 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         case ARCH::QUASAR: {
             // Quasar has no window for userspace to map, so the driver performs each access and
-            // there is no safe/unsafe pair of paths to choose between.
-            auto access = std::make_unique<KmdScalarNocAccess>(pci_device->get_tt_device_handle());
+            // there is no safe/unsafe pair of paths to choose between. The device goes with the
+            // accesses: closing it frees the handle they are issued on.
+            auto access = std::make_unique<KmdScalarNocAccess>(std::move(pci_device));
             return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<QuasarTTDeviceModel>(std::move(access), device_number, soc_arch_descriptor)));
         }

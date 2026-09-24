@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -25,9 +26,15 @@ uint32_t to_library_flags(uint32_t flags) {
 
 }  // namespace
 
-KmdScalarNocAccess::KmdScalarNocAccess(tt_device_t* handle) : handle_(handle) {
+KmdScalarNocAccess::KmdScalarNocAccess(std::unique_ptr<PCIDevice> pci_device) : pci_device_(std::move(pci_device)) {
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "Scalar access needs an open device.");
+
+    handle_ = pci_device_->get_tt_device_handle();
+
     UMD_ASSERT(handle_ != nullptr, error::RuntimeError, "Scalar access needs an open driver handle.");
 }
+
+KmdScalarNocAccess::~KmdScalarNocAccess() = default;
 
 void KmdScalarNocAccess::read(uint64_t addr, uint64_t* value, uint32_t width, uint32_t flags) {
     const int ret = tt_noc_read_scalar(handle_, addr, value, width, to_library_flags(flags));

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "tests/test_utils/protocol_mocks.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "umd/device/tt_device/protocol/quasar_protocol.hpp"
 #include "umd/device/tt_device/protocol/scalar_noc_access.hpp"
@@ -115,6 +116,6 @@ TEST_F(QuasarProtocolTest, ReportsThatItCannotMulticast) {
 
 TEST_F(QuasarProtocolTest, ReportsItsMmioId) { EXPECT_EQ(protocol_->get_mmio_id(), MMIO_ID); }
 
-// The driver handle is what performs the access, so an access path without one has nothing to
-// forward to and must say so at construction rather than on first use.
-TEST(KmdScalarNocAccessTest, RequiresADriverHandle) { EXPECT_THROW(KmdScalarNocAccess(nullptr), std::exception); }
+// The device's driver handle is what performs the access, so an access path without a device has
+// nothing to forward to and must say so at construction rather than on first use.
+TEST(KmdScalarNocAccessTest, RequiresADevice) { EXPECT_THROW(KmdScalarNocAccess(nullptr), std::exception); }

@@ -201,6 +201,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
+                api/umd/device/chip/mock_chip.hpp
                 api/umd/device/chip/sw_emule_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp

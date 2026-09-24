@@ -27,11 +27,11 @@
 #include <utility>
 #include <vector>
 
-#include "chip/mock_chip.hpp"
 #include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
+#include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.

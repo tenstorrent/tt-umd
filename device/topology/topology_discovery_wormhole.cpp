@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/topology/topology_discovery_wormhole.hpp"
+#include "topology/topology_discovery_wormhole.hpp"
 
 #include <fmt/format.h>
 
@@ -13,8 +13,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "firmware/erisc_firmware.hpp"
 #include "tracy.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
+#include "coordinates/wormhole_coordinate_manager.hpp"
 
 #include <cstddef>
 #include <map>

@@ -11,14 +11,14 @@
 #include <string>
 #include <vector>
 
+#include "coordinates/blackhole_coordinate_manager.hpp"
+#include "coordinates/quasar_coordinate_manager.hpp"
+#include "coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/coordinates/quasar_coordinate_manager.hpp"
-#include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"

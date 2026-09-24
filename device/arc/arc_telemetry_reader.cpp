@@ -13,11 +13,11 @@
 #include <thread>
 #include <vector>
 
+#include "arc/blackhole_arc_telemetry_reader.hpp"
+#include "arc/wormhole_arc_telemetry_reader.hpp"
 #include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
-#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
-#include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/noc_id.hpp"

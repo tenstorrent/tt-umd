@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/io_window/io_window_target.hpp"
+#include "io_window/io_window_target.hpp"
 
 namespace tt::umd {
 

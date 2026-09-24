@@ -1,113 +1,157 @@
-# Run exalens tests on the specified architecture and card.
-name: Run Exalens Tests
+# Build UMD and run an arbitrary test command on dedicated exabox runners
+# (sc1 / sc4 / sc16). Trigger from the Actions tab: pick hardware, paste a
+# test command, and run.
+#
+# Uses exabox-multihost-ci-* labels. The runner hook provisions the worker pods
+# from container.image, so there is no TTOP allocation lifecycle here.
+#
+# Setup (artifact fan-out, ttop-ipmi-reset, system_health) lives in
+# .github/actions/setup-multihost.
+name: Run tests on exabox
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      ubuntu-docker-version:
+      hardware:
+        description: >-
+          Exabox hardware (sc1 = 1 Galaxy, sc4 = 4-Galaxy quad,
+          sc16 = 16-Galaxy SC16). Maps to runner label
+          exabox-multihost-ci-<hardware>.
+        required: true
+        type: choice
+        default: sc1
+        options:
+          - sc1
+          - sc4
+          - sc16
+      test-command:
+        description: >-
+          Shell command run on every allocated host via mpirun --pernode
+          (cwd /home/user/tt-umd, LD_LIBRARY_PATH includes build/lib). Example:
+          ./build/test/umd/galaxy/unit_tests_glx
         required: true
         type: string
-      card:
-        required: true
-        type: string
-      timeout:
-        required: true
-        type: number
       build-type:
+        description: CMake build type
         required: true
-        type: string
         default: Release
-      log-level:
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+      ubuntu-docker-version:
+        description: >-
+          Ubuntu version to build on. The exabox workers run the matching
+          -exabox image, which adds the multihost tooling on top of it.
+        required: true
+        default: ubuntu-22.04
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+      timeout:
+        description: Per-job timeout in minutes (build and run)
+        required: true
+        default: 120
+        type: number
+      build-wheel:
+        description: Also build and install the Python wheel on workers
         required: false
-        type: string
-        default: 'info'
-      log-params:
-        required: false
-        type: string
-        default: ""
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
 
 env:
-  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  ARTIFACT_NAME: >-
+    build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  WHEEL_ARTIFACT_NAME: >-
+    wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
 jobs:
-  test:
-    name: Test Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+  ensure-build-image:
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ${{ inputs.ubuntu-docker-version }}
+
+  # The exabox image shares the same base and toolchain as the build image, so
+  # binaries built above run unchanged on the workers.
+  ensure-exabox-image:
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ${{ inputs.ubuntu-docker-version }}-exabox
+
+  build:
+    needs: ensure-build-image
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+      build-type: ${{ inputs.build-type }}
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      build-wheel: ${{ inputs.build-wheel }}
+      image-tag: ${{ needs.ensure-build-image.outputs.image-tag }}
+
+  run:
+    name: Run on exabox (${{ inputs.hardware }})
+    needs: [ensure-exabox-image, build]
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
-      - ${{ inputs.card }}
+      - exabox-multihost-ci-${{ inputs.hardware }}
+    # Consumed by the multihost runner container hook to provision remote
+    # worker pods. Job steps still run on the CPU/control runner; the hook
+    # handles worker image setup.
     container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
-      options: --device /dev/tenstorrent
-      volumes:
-        - /dev/hugepages:/dev/hugepages
-        - /dev/hugepages-1G:/dev/hugepages-1G
-        - /etc/udev/rules.d:/etc/udev/rules.d
-        - /lib/modules:/lib/modules
-        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+      image: >-
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version
+        }}-exabox:${{ needs.ensure-exabox-image.outputs.image-tag }}
+    env:
+      PATH: /opt/openmpi-v5.0.7-ulfm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      HOME: /home/user
+      LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
 
     steps:
-      - name: Print all params
-        run: |
-          ${{ inputs.log-params }}
-          echo run-exalens-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
-          echo run-exalens-tests - card: ${{ inputs.card }}
-          echo run-exalens-tests - build-type: ${{ inputs.build-type }}
-          echo run-exalens-tests - log-level: ${{ inputs.log-level }}
-
-      - name: Cleanup workspace directory from previous runs.
-        run: |
-          echo "Cleaning up working directory from previous runs: $(pwd)"
-          rm -rf *
-
-      # No source checkout here. The tt-exalens artifact packages the exact source tree the
-      # kernels were built from (build-exalens-kernels in build-and-run-all-tests-multiple-builds.yml),
-      # so the tests always run against the matching commit - a second `ref: main` checkout
-      # could resolve to a newer commit and drift from the built kernels.
-      - name: Get tt-exalens artifact (source + kernels)
-        uses: actions/download-artifact@v8
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
-          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}
-          path: ./
+          submodules: recursive
 
-      - name: Extract tt-exalens artifact
-        shell: bash
-        run: |
-          tar xf ttexalens-artifact.tar
-          rm ttexalens-artifact.tar
-
-      - name: Use wheel artifact
-        uses: actions/download-artifact@v8
+      - name: Setup multihost job
+        uses: ./.github/actions/setup-multihost
         with:
-          name: ${{ env.WHEEL_ARTIFACT_NAME }}
-          path: ./
+          build-artifact-name: ${{ env.ARTIFACT_NAME }}
+          wheel-artifact-name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          install-wheel: ${{ inputs.build-wheel }}
 
-      - name: Install UMD wheel
-        shell: bash
-        run: |
-          pip install tt_umd-*.whl --force-reinstall
-
-      - name: Run Python tests for tt-exalens library
+      - name: Run test command
+        id: run-test
+        # TEST_COMMAND is expanded by this job's shell into the remote bash -lc
+        # string (trusted workflow_dispatch). No eval — the remote shell runs the
+        # command text directly. mpirun --pernode wraps it for every host.
+        #
+        # A failure on a single host fails the whole run: mpirun aborts the job
+        # and exits non-zero as soon as any rank does, which fails this step and
+        # so the job. --tag-output prefixes each line with its rank, so the log
+        # shows which host failed.
         env:
-          TT_LOGGER_LEVEL: debug
-          PYTHONWARNINGS: ignore::ResourceWarning
+          TEST_COMMAND: ${{ inputs.test-command }}
         run: |
-          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-
-      - name: Run Python tests for tt-exalens app
-        run: |
-          python3 -m unittest discover -v -t . -s test/app -p *test*.py
-
-      - name: Run Python tests for tt-exalens library (NOC1)
-        env:
-          TTEXALENS_TESTS_USE_NOC1: 1
-          TT_LOGGER_LEVEL: debug
-          PYTHONWARNINGS: ignore::ResourceWarning
-        shell: bash
-        run: |
-          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-
-      - name: Run Python tests for tt-exalens app (NOC1)
-        env:
-          TTEXALENS_TESTS_USE_NOC1: 1
-        run: |
-          python3 -m unittest discover -v -t . -s test/app -p *test*.py
+          set -euo pipefail
+          echo "Running on every host via mpirun --pernode:"
+          echo "$TEST_COMMAND"
+          mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+            bash -lc "cd /home/user/tt-umd && $TEST_COMMAND"

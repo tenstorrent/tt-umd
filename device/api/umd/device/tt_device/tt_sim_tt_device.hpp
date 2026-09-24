@@ -77,6 +77,13 @@ public:
     // now a detail of this backend.
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
+    // Grows this chip's host-memory channels to num_host_mem_channels and re-programs the outbound
+    // iATU to match. The channel count a simulated MMIO chip needs is one per chip it gateways for,
+    // which is only known after topology discovery -- and discovery needs the device alive to walk
+    // the ethernet links that reveal those chips. So the device is built with a provisional count
+    // and the cluster corrects it here. A no-op when the device already has enough channels.
+    void grow_host_mem_channels(uint32_t num_host_mem_channels);
+
     void close_device();
     void start_device();
 
@@ -125,6 +132,9 @@ private:
 
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();
+
+    // Programs one outbound-iATU region per host-mem channel this device's sysmem manager holds.
+    void program_iatu_for_host_mem_channels();
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process .so backend (communicator_), client mode

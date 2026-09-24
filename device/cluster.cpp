@@ -528,7 +528,8 @@ Cluster::Cluster(ClusterOptions options) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
                     // to produce -- and a simulated device sizes its system memory as it is constructed.
-                    // A discovered simulator cluster is all-MMIO, which the auto-detect resolves to 1 for.
+                    // So absent an explicit count, discovery builds with a provisional 1, which the grow
+                    // after the auto-detect corrects once the descriptor says how many chips each serves.
                     discovery_options.simulation = SimulationDiscoveryOptions{
                         .simulator_path = options.simulator_directory.string(),
                         .num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
@@ -597,6 +598,21 @@ Cluster::Cluster(ClusterOptions options) {
         options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
         log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
     }
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Simulated devices size their system memory as they are constructed, and discovery constructs
+    // them before the descriptor that the auto-detect above reads exists. A discovered simulator is
+    // not necessarily all-MMIO -- wh_x2 models a second chip reached over ethernet, which groups
+    // under chip 0 and so needs a second host channel -- so the provisional count discovery used can
+    // be short. Correct it now that the descriptor is known, before any chip is built on top of it.
+    // Grow to the cluster-wide count -- the auto-detected value, or the caller's explicit one -- so a
+    // reused device ends up with the same channels every other chip is built with.
+    for (auto& [device_chip_id, tt_device] : tt_devices) {
+        if (auto* sim_device = dynamic_cast<TTSimTTDevice*>(tt_device.get())) {
+            sim_device->grow_host_mem_channels(options.num_host_mem_ch_per_mmio_device.value());
+        }
+    }
+#endif
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {

@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -96,6 +97,18 @@ protected:
 
     size_t page_size() const { return static_cast<size_t>(sysconf(_SC_PAGESIZE)); }
 
+    /**
+     * A write out of the device is posted and can still be in flight when the host looks at the
+     * page, so the host reads what was there before. A read back through the same path is the
+     * only fence there is, which is what tt-kmd's tools/keraunos_dma_loopback.c does here and
+     * for the same reason.
+     */
+    void flush_posted_writes(uint64_t device_address) {
+        uint32_t discarded = 0;
+        device_->read_from_device(&discarded, ORIGIN, device_address, sizeof(discarded), NocId::NOC0);
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+    }
+
     std::unique_ptr<PCIDevice> pci_device_;
     tt_device_t* handle_ = nullptr;
     std::unique_ptr<TTDevice> device_;
@@ -131,6 +144,7 @@ TEST_F(QuasarDmaLoopbackTest, HostSeesWhatTheDeviceWrote) {
     const uint64_t device_address = keraunos::host_window_address(page.dma_address());
     const uint32_t written = 0xfeed0002;
     device_->write_to_device(&written, ORIGIN, device_address, sizeof(written), NocId::NOC0);
+    flush_posted_writes(device_address);
 
     EXPECT_EQ(page.words()[0], 0xfeed0002u);
 }
@@ -152,6 +166,7 @@ TEST_F(QuasarDmaLoopbackTest, OffsetsWithinThePageAreDistinct) {
         const uint32_t value = 0xda7a0000 | index;
         device_->write_to_device(&value, ORIGIN, base + index * sizeof(uint32_t), sizeof(value), NocId::NOC0);
     }
+    flush_posted_writes(base);
 
     for (uint32_t index : WORDS) {
         EXPECT_EQ(page.words()[index], 0xda7a0000u | index) << "word " << index;

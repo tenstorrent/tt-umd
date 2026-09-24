@@ -39,10 +39,11 @@ runs:
       run: |
         mpirun --pernode --tag-output hostname
 
-    - name: Create user directory
+    # download-artifact writes into /home/user, which the image creates for uid 1001.
+    - name: Take ownership of the user directory
       shell: bash
       run: |
-        sudo mkdir -p /home/user/tt-umd
+        sudo mkdir -p /home/user
         sudo chown -R "$(id -u):$(id -g)" /home/user
 
     - name: Download build artifact
@@ -93,10 +94,9 @@ runs:
           echo "Using wheel: ${WHEEL}"
         fi
 
-        # Workers + runner local copy for runtime (local disk). Same layout as
-        # tt-metal setup-multihost-job: stage source + archive on NFS (/ci), then
-        # copy onto each host and extract from the local copy — do not tar from
-        # ARTIFACTS_PATH during mpirun (that path may be runner-local only).
+        # ARTIFACTS_PATH is runner-local, so the workers cannot read it. Stage the
+        # checkout and the archive on the shared /ci mount instead, then let every
+        # host pull its own copy onto local disk and extract there.
         rm -rf /ci/tt-umd
         cp -r "$GITHUB_WORKSPACE" /ci/tt-umd
         cp "${BUILD_ARCHIVE}" /ci/tt-umd/
@@ -104,12 +104,8 @@ runs:
           cp "${WHEEL}" /ci/tt-umd/
         fi
 
-        rm -rf /home/user/tt-umd
-        cp -r /ci/tt-umd /home/user/
-        tar xf "${BUILD_ARCHIVE}" -C /home/user/tt-umd
-
+        # --pernode covers this host too, so there is no separate local unpack.
         mpirun --pernode bash -lc 'rm -rf /home/user/tt-umd && cp -r /ci/tt-umd /home/user/'
-        mpirun --pernode git -C /home/user/tt-umd submodule update --init --recursive
         mpirun --pernode tar xf "/home/user/tt-umd/$(basename "${BUILD_ARCHIVE}")" -C /home/user/tt-umd
 
         if [ -n "${WHEEL}" ]; then
@@ -135,13 +131,6 @@ runs:
           echo "ERROR: ttop-ipmi-reset not on PATH on one or more workers"
           echo "Expected from the multihost-ci runner ConfigMap sidecar."
           exit 1
-        fi
-
-        echo "--- Checking socat availability (needed by ttop-ipmi-reset) ---"
-        if ! mpirun --pernode bash -c 'command -v socat >/dev/null 2>&1'; then
-          echo "Socat missing on some nodes, installing..."
-          mpirun --pernode bash -c \
-            'sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq socat >/dev/null'
         fi
 
         echo "--- Pre-check: topology visibility on all hosts ---"

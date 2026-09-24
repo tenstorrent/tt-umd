@@ -44,7 +44,11 @@ public:
         // rather than as a denominator that would look constant but isn't.
         const auto remaining = std::max(std::chrono::milliseconds(0), timeout_ - elapsed);
         log_info(
-            LogUMD, "Still waiting on {} ({} ms elapsed, {} ms budget left).", what_, elapsed.count(), remaining.count());
+            LogUMD,
+            "Still waiting on {} ({} ms elapsed, {} ms budget left).",
+            what_,
+            elapsed.count(),
+            remaining.count());
         return true;
     }
 

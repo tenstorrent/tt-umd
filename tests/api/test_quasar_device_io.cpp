@@ -61,6 +61,7 @@ constexpr uint64_t COLD_SCRATCH_BASE = 0x1202002800ULL;
 constexpr uint64_t COLD_SCRATCH_STRIDE = 0x4;
 constexpr uint32_t FIRST_WRITABLE_COLD_SCRATCH = 1;
 constexpr uint32_t LAST_WRITABLE_COLD_SCRATCH = 7;
+constexpr size_t WRITABLE_COLD_SCRATCH_WORDS = LAST_WRITABLE_COLD_SCRATCH - FIRST_WRITABLE_COLD_SCRATCH + 1;
 
 // Read only. Register 0 carries the firmware's "init complete" sentinel.
 constexpr uint64_t CPUCTRL_SCRATCH_BASE = 0x1202010100ULL;
@@ -101,6 +102,22 @@ protected:
         expect_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
 
         device_->write_to_device(&value, ORIGIN, addr, sizeof(value), noc);
+    }
+
+    /**
+     * Whether every word a multi-word transfer will touch is in a mapped region.
+     *
+     * Returned rather than asserted so the caller can refuse to issue the transfer at all: an
+     * ASSERT inside a helper returns from the helper, not from the test, which would leave the
+     * access to go ahead anyway.
+     */
+    static bool range_is_reachable(uint64_t spa, size_t size) {
+        for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+            if (keraunos::find_region(spa + offset) == nullptr) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Round-trips a pattern through a scratch register and puts back what was there. */
@@ -195,4 +212,60 @@ TEST_F(QuasarDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
 
     EXPECT_THROW(
         device_->read_from_device(&value, elsewhere, cold_scratch(1), sizeof(value), NocId::NOC0), std::exception);
+}
+
+// Everything above moves one word per call, which leaves the protocol's decomposition of a larger
+// transfer unexercised: the loop that walks the address never goes round twice. These two do it in
+// one call each, over the writable half of the cold scratch bank.
+//
+// Each direction is checked against the other done a word at a time, because that is the path the
+// tests above have already established. A stride or offset wrong in the loop then shows up as
+// values landing at the wrong words rather than as a transfer that fails.
+
+TEST_F(QuasarDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
+    const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
+    const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
+    ASSERT_TRUE(range_is_reachable(base, bytes)) << std::hex << "0x" << base << " + " << bytes << " is not all mapped.";
+
+    std::vector<uint32_t> originals;
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        originals.push_back(read32(cold_scratch(i)));
+        write32(cold_scratch(i), 0xb10c0000 | i);
+    }
+
+    std::vector<uint32_t> seen(WRITABLE_COLD_SCRATCH_WORDS, 0);
+    device_->read_from_device(seen.data(), ORIGIN, base, bytes, NocId::NOC0);
+
+    for (size_t word = 0; word < seen.size(); word++) {
+        EXPECT_EQ(seen[word], 0xb10c0000u | (FIRST_WRITABLE_COLD_SCRATCH + word)) << "word " << word;
+    }
+
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        write32(cold_scratch(i), originals[i - FIRST_WRITABLE_COLD_SCRATCH]);
+    }
+}
+
+TEST_F(QuasarDeviceIOTest, WritesTheScratchBankInOneTransfer) {
+    const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
+    const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
+    ASSERT_TRUE(range_is_reachable(base, bytes)) << std::hex << "0x" << base << " + " << bytes << " is not all mapped.";
+
+    std::vector<uint32_t> originals;
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        originals.push_back(read32(cold_scratch(i)));
+    }
+
+    std::vector<uint32_t> written;
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        written.push_back(0xb70c0000 | i);
+    }
+    device_->write_to_device(written.data(), ORIGIN, base, bytes, NocId::NOC0);
+
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        EXPECT_EQ(read32(cold_scratch(i)), 0xb70c0000u | i) << "register " << i;
+    }
+
+    for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
+        write32(cold_scratch(i), originals[i - FIRST_WRITABLE_COLD_SCRATCH]);
+    }
 }

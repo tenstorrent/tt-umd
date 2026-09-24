@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -35,6 +36,8 @@
 
 #include <exception>
 
+#include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
@@ -475,6 +478,57 @@ TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
         EXPECT_EQ(soc_desc.get_cores(CoreType::TENSIX).size(), live_grid.x * live_grid.y)
             << "chip " << chip << " Tensix core count disagrees with its " << live_grid.x << "x" << live_grid.y
             << " grid";
+    }
+}
+
+// Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
+// serves exists, so it sizes their sysmem provisionally and the cluster corrects it afterwards. Left
+// to auto-detect, every MMIO chip ends up with one channel per chip the busiest gateway serves --
+// on wh_x2 that is 2, the channel the remote chip needs, which the provisional count lacks.
+TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    // MAX_HOST_MEM_CHANNELS lives in a private header; the auto-detect caps at it.
+    constexpr size_t max_host_mem_channels = 4;
+    size_t max_chips_per_mmio = 0;
+    for (const auto& [_, chips] : cluster_desc->get_chips_grouped_by_closest_mmio()) {
+        max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
+    }
+    const size_t expected_channels = std::min(max_host_mem_channels, max_chips_per_mmio);
+    ASSERT_GT(expected_channels, 0u);
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected_channels)
+            << "MMIO chip " << chip << " kept the provisional channel count discovery built it with";
+    }
+}
+
+// The correction is for the auto-detected count only: a caller that names a count gets exactly it,
+// even where the topology would have auto-detected more (wh_x2 would pick 2).
+TEST_F(TTSimDiscoveryTest, ExplicitHostMemChannelsAreHonoured) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_FALSE(cluster_desc->get_chips_with_mmio().empty());
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), 1u)
+            << "MMIO chip " << chip << " did not keep the explicitly requested channel count";
     }
 }
 

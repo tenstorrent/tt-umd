@@ -108,6 +108,10 @@ private:
         uint64_t next_arena_offset = 0;
     };
 
+    // Releases the hugepage-channel mapping without touching the registry, so grow_host_mem_channels
+    // can remap while it holds registry_->mutex.
+    void unmap_system_memory();
+
     // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);
 

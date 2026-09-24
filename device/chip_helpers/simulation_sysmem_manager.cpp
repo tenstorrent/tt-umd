@@ -90,22 +90,23 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 }
 
 bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_channels) {
-    if (num_host_mem_channels <= hugepage_mapping_per_channel.size()) {
-        return false;
-    }
-
     // Channels are slices of one mapping, so more of them means a new, larger mapping: the old
     // channel bytes and any mapped-buffer registrations do not survive. That is only sound before
     // anything has used them, which is why this runs during cluster construction. Refuse rather
     // than silently invalidate a pointer someone is holding.
-    {
-        std::lock_guard<std::mutex> lock(registry_->mutex);
-        UMD_ASSERT(
-            registry_->buffers.empty(),
-            error::RuntimeError,
-            "Cannot grow simulation sysmem once sysmem buffers have been handed out.");
+    //
+    // The registry lock is held across the whole transition, not just the check: register_and_wrap
+    // takes it too, so a buffer registered between the check and the remap would otherwise have its
+    // registration dropped and its arena address overlapped by the larger mapping init_sysmem lays out.
+    std::lock_guard<std::mutex> lock(registry_->mutex);
+    if (num_host_mem_channels <= hugepage_mapping_per_channel.size()) {
+        return false;
     }
-    unpin_or_unmap_sysmem();
+    UMD_ASSERT(
+        registry_->buffers.empty(),
+        error::RuntimeError,
+        "Cannot grow simulation sysmem once sysmem buffers have been handed out.");
+    unmap_system_memory();
     init_sysmem(num_host_mem_channels);
     return true;
 }
@@ -120,6 +121,10 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
+    unmap_system_memory();
+}
+
+void SimulationSysmemManager::unmap_system_memory() {
     hugepage_mapping_per_channel.clear();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);

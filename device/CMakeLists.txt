@@ -122,7 +122,6 @@ target_sources(
         arc/blackhole_arc_telemetry_reader.cpp
         arc/smbus_arc_telemetry_reader.cpp
         arc/blackhole_arc_message_queue.cpp
-        arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
         warm_reset_with_recovery.cpp
@@ -138,8 +137,6 @@ target_sources(
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
-        arc/wormhole_spi_tt_device.cpp
-        arc/blackhole_spi_tt_device.cpp
         # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
@@ -330,7 +327,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
                 api/umd/device/arch/grendel_implementation.hpp
-                api/umd/device/arc/spi_tt_device.hpp
     )
 endif()
 

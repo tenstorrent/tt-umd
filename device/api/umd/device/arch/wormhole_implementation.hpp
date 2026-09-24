@@ -100,9 +100,6 @@ inline constexpr auto TLB_16M_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
-    GET_SPI_DUMP_ADDR = 0x29,
-    SPI_READ = 0x2A,
-    SPI_WRITE = 0x2B,
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
@@ -371,11 +368,6 @@ inline constexpr uint32_t SOFT_RESET_TRISC1 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
-
-// Constants related to SPI.
-inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
-inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
-inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
 // High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Wormhole boards.
 inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0x40};

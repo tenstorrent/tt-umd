@@ -306,6 +306,32 @@ constexpr bool is_arm_platform() {
 #endif
 }
 
+// ARM CPU implementer ID for Ampere custom cores (AmpereOne family).
+constexpr const char* ARM_CPU_IMPLEMENTER_KEY = "CPU implementer";
+constexpr const char* ARM_CPU_IMPLEMENTER_AMPEREONE = "0xc0";
+
+// Check whether the CPU is an Ampere custom core (AmpereOne family, implementer 0xc0).
+// Returns false for Ampere Altra (which uses ARM Neoverse N1 reference cores, implementer 0x41)
+// and for non-ARM platforms.  Reads /proc/cpuinfo once.
+inline bool is_ampereone() {
+#if defined(__aarch64__) || defined(__arm__)
+    static const bool result = [] {
+        std::ifstream f("/proc/cpuinfo");
+        std::string line;
+        while (std::getline(f, line)) {
+            if (line.find(ARM_CPU_IMPLEMENTER_KEY) != std::string::npos &&
+                line.find(ARM_CPU_IMPLEMENTER_AMPEREONE) != std::string::npos) {
+                return true;
+            }
+        }
+        return false;
+    }();
+    return result;
+#else
+    return false;
+#endif
+}
+
 constexpr bool is_riscv_platform() {
 #if defined(__riscv)
     return true;

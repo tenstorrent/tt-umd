@@ -1,156 +1,113 @@
-name: Check runner
+# Run exalens tests on the specified architecture and card.
+name: Run Exalens Tests
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
       timeout:
         required: true
-        description: 'The timeout for the job in minutes'
         type: number
-        default: 10
+      build-type:
+        required: true
+        type: string
+        default: Release
+      log-level:
+        required: false
+        type: string
+        default: 'info'
+      log-params:
+        required: false
+        type: string
+        default: ""
+
+env:
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
 jobs:
-  check-runners-host:
-    # Due to parsing bug, fromJSON is used to convert string to number
+  test:
+    name: Test Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable,
-          P300-viommu,
-          tt-ubuntu-2204-bh-loudbox-viommu-stable]
-
-    name: Check runner
-    runs-on: ${{ matrix.machine }}
-
-    steps:
-      - name: Fix ownership
-        run: |
-          sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
-
-      - uses: actions/checkout@v6
-
-      - name: Print machine info
-        run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
-
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
-
-          # Print current user
-          echo "Current User: $(whoami)"
-
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
-
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
-
-  check-runners-docker:
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable,
-          P300-viommu,
-          tt-ubuntu-2204-bh-loudbox-viommu-stable]
-        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
-
-    name: Check runner docker
-    needs: check-runners-host
-    runs-on: ${{ matrix.machine }}
-
+    runs-on:
+      - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
+      options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
 
     steps:
-      - name: Set working directory env variable
-        id: strings
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo run-exalens-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo run-exalens-tests - card: ${{ inputs.card }}
+          echo run-exalens-tests - build-type: ${{ inputs.build-type }}
+          echo run-exalens-tests - log-level: ${{ inputs.log-level }}
+
+      - name: Cleanup workspace directory from previous runs.
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      # No source checkout here. The tt-exalens artifact packages the exact source tree the
+      # kernels were built from (build-exalens-kernels in build-and-run-all-tests-multiple-builds.yml),
+      # so the tests always run against the matching commit - a second `ref: main` checkout
+      # could resolve to a newer commit and drift from the built kernels.
+      - name: Get tt-exalens artifact (source + kernels)
+        uses: actions/download-artifact@v8
+        with:
+          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}
+          path: ./
+
+      - name: Extract tt-exalens artifact
         shell: bash
         run: |
-          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
+          tar xf ttexalens-artifact.tar
+          rm ttexalens-artifact.tar
 
-      - name: Git add safe dir for working directory
-        run: |
-          # Mark the main repository as safe
-          git config --global --add safe.directory ${{ env.WORK_DIR }} || true
-          # Iterate over all submodules and mark them as safe
-          git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
-
-      - uses: actions/checkout@v6
+      - name: Use wheel artifact
+        uses: actions/download-artifact@v8
         with:
-          submodules: recursive
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ./
 
-      - name: Print machine info
+      - name: Install UMD wheel
+        shell: bash
         run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
+          pip install tt_umd-*.whl --force-reinstall
 
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
+      - name: Run Python tests for tt-exalens library
+        env:
+          TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
-          # Print current user
-          echo "Current User: $(whoami)"
+      - name: Run Python tests for tt-exalens app
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py
 
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
+      - name: Run Python tests for tt-exalens library (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
+          TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
+        shell: bash
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
+      - name: Run Python tests for tt-exalens app (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py

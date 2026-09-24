@@ -15,6 +15,7 @@ namespace tt::umd {
 std::unique_ptr<ArchitectureImplementation> ArchitectureImplementation::create(tt::ARCH architecture) {
     switch (architecture) {
         case tt::ARCH::QUASAR:
+        case tt::ARCH::GRENDEL:
             return std::make_unique<GrendelImplementation>();
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<BlackholeImplementation>();

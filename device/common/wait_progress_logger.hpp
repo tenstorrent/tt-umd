@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -38,7 +39,12 @@ public:
         }
         last_logged_ = now;
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_);
-        log_debug(LogUMD, "Still waiting on {} ({}/{} ms elapsed).", what_, elapsed.count(), timeout_.count());
+        // timeout_ is not always a fixed total for the whole wait (e.g. wait_eth_core_training is
+        // handed a shared budget that shrinks core by core), so it is reported as time remaining
+        // rather than as a denominator that would look constant but isn't.
+        const auto remaining = std::max(std::chrono::milliseconds(0), timeout_ - elapsed);
+        log_info(
+            LogUMD, "Still waiting on {} ({} ms elapsed, {} ms budget left).", what_, elapsed.count(), remaining.count());
         return true;
     }
 

@@ -192,7 +192,8 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
 
-    utils::WaitProgressLogger progress_logger("ARC firmware to become ready", timeout_ms);
+    utils::WaitProgressLogger progress_logger(
+        fmt::format("ARC firmware on device {} to become ready", device_id_), timeout_ms);
     const bool arc_core_started = utils::poll_until(
         [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id, &progress_logger]() {
             progress_logger.tick();
@@ -568,7 +569,7 @@ bool WormholeDeviceFirmware::wait_eth_core_training(
     tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
     auto start = std::chrono::steady_clock::now();
     utils::WaitProgressLogger progress_logger(
-        fmt::format("ETH training for core {}, {}", eth_core.x, eth_core.y), timeout_ms);
+        fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_), timeout_ms);
     while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
         progress_logger.tick();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
@@ -638,7 +639,8 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
     }
 
     auto start = std::chrono::steady_clock::now();
-    utils::WaitProgressLogger progress_logger(fmt::format("DRAM training for channel {}", dram_channel), timeout_ms);
+    utils::WaitProgressLogger progress_logger(
+        fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_), timeout_ms);
     while (true) {
         progress_logger.tick();
         std::vector<DramTrainingStatus> dram_training_status =

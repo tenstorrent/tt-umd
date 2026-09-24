@@ -14,7 +14,7 @@
 namespace tt::umd {
 
 QuasarTTDeviceModel::QuasarTTDeviceModel(
-    std::unique_ptr<ScalarNocAccess> access,
+    std::unique_ptr<KmdScalarNocAccess> access,
     int mmio_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::QUASAR>(soc_arch_descriptor)),

@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "umd/device/io_window/io_window.hpp"
-#include "umd/device/tt_device/protocol/scalar_noc_access.hpp"
+#include "umd/device/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "umd/device/types/io_window_config.hpp"
 
 namespace tt::umd {
@@ -28,7 +28,7 @@ namespace tt::umd {
  */
 class KmdNocWindow : public IoWindow {
 public:
-    KmdNocWindow(std::unique_ptr<ScalarNocAccess> access, const TargetIoWindowConfig& config);
+    KmdNocWindow(std::unique_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config);
     ~KmdNocWindow() override;
 
     void write_block(uint64_t offset, const void* data, size_t size) override;
@@ -55,7 +55,7 @@ private:
     /** Aperture flags implied by the configured target. */
     uint32_t access_flags() const;
 
-    std::unique_ptr<ScalarNocAccess> access_;
+    std::unique_ptr<KmdScalarNocAccess> access_;
     TargetIoWindowConfig config_;
 };
 

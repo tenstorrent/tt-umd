@@ -22,7 +22,7 @@ constexpr uint32_t ACCESS_WIDTH = 4;
 
 }  // namespace
 
-QuasarProtocol::QuasarProtocol(std::unique_ptr<ScalarNocAccess> access, int mmio_id) :
+QuasarProtocol::QuasarProtocol(std::unique_ptr<KmdScalarNocAccess> access, int mmio_id) :
     access_(std::move(access)), mmio_id_(mmio_id) {
     UMD_ASSERT(access_ != nullptr, error::RuntimeError, "Quasar protocol needs a scalar access path.");
 }
@@ -34,7 +34,7 @@ uint32_t QuasarProtocol::access_flags(NocId noc_id) {
         case NocId::NOC0:
             return 0;
         case NocId::SYSTEM_NOC:
-            return ScalarNocAccess::FLAG_LOCAL_ADDRESS;
+            return KmdScalarNocAccess::FLAG_LOCAL_ADDRESS;
         default:
             UMD_THROW(
                 error::RuntimeError,

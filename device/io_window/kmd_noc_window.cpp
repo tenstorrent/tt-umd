@@ -30,7 +30,7 @@ void check_aligned(uint64_t offset, size_t size, uint32_t width) {
 
 }  // namespace
 
-KmdNocWindow::KmdNocWindow(std::unique_ptr<ScalarNocAccess> access, const TargetIoWindowConfig& config) :
+KmdNocWindow::KmdNocWindow(std::unique_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config) :
     access_(std::move(access)), config_(config) {
     UMD_ASSERT(access_ != nullptr, error::RuntimeError, "An I/O window needs a scalar access path.");
 }
@@ -38,7 +38,7 @@ KmdNocWindow::KmdNocWindow(std::unique_ptr<ScalarNocAccess> access, const Target
 KmdNocWindow::~KmdNocWindow() = default;
 
 uint32_t KmdNocWindow::access_flags() const {
-    return config_.noc.value_or(NocId::NOC0) == NocId::SYSTEM_NOC ? ScalarNocAccess::FLAG_LOCAL_ADDRESS : 0;
+    return config_.noc.value_or(NocId::NOC0) == NocId::SYSTEM_NOC ? KmdScalarNocAccess::FLAG_LOCAL_ADDRESS : 0;
 }
 
 void KmdNocWindow::write32(uint64_t offset, uint32_t value) {

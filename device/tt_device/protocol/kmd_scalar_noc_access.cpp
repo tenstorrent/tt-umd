@@ -21,7 +21,7 @@ namespace {
  * value through keeps the interface from inheriting the driver's numbering.
  */
 uint32_t to_library_flags(uint32_t flags) {
-    return (flags & ScalarNocAccess::FLAG_LOCAL_ADDRESS) != 0 ? TT_NOC_FLAG_KLA : 0;
+    return (flags & KmdScalarNocAccess::FLAG_LOCAL_ADDRESS) != 0 ? TT_NOC_FLAG_KLA : 0;
 }
 
 }  // namespace

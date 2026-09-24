@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include "umd/device/tt_device/protocol/scalar_noc_access.hpp"
+#include "umd/device/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
@@ -31,7 +31,7 @@ public:
      * @param soc_arch_descriptor Caller's descriptor, or nullptr for the architecture's own.
      */
     QuasarTTDeviceModel(
-        std::unique_ptr<ScalarNocAccess> access,
+        std::unique_ptr<KmdScalarNocAccess> access,
         int mmio_id,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     ~QuasarTTDeviceModel() override;

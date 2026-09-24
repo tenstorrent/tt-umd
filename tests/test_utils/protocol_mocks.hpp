@@ -14,7 +14,6 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
-#include "umd/device/tt_device/protocol/scalar_noc_access.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/power_state.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -35,12 +34,6 @@ public:
     MOCK_METHOD(void, write_ctrl, (const void*, tt_xy_pair, uint64_t, size_t, NocId), (override));
     MOCK_METHOD(bool, write_to_core_range, (const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId), (override));
     MOCK_METHOD(int, get_mmio_id, (), (override));
-};
-
-class MockScalarNocAccess : public ScalarNocAccess {
-public:
-    MOCK_METHOD(void, read, (uint64_t, uint64_t*, uint32_t, uint32_t), (override));
-    MOCK_METHOD(void, write, (uint64_t, uint64_t, uint32_t, uint32_t), (override));
 };
 
 class MockPcieInterface : public PcieInterface {

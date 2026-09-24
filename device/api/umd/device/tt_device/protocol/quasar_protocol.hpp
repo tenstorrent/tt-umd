@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
-#include "umd/device/tt_device/protocol/scalar_noc_access.hpp"
+#include "umd/device/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -36,7 +36,7 @@ public:
      */
     static constexpr size_t MAX_TRANSFER_SIZE = 4096;
 
-    QuasarProtocol(std::unique_ptr<ScalarNocAccess> access, int mmio_id);
+    QuasarProtocol(std::unique_ptr<KmdScalarNocAccess> access, int mmio_id);
     ~QuasarProtocol() override;
 
     void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
@@ -57,7 +57,7 @@ private:
     /** Rejects a request the driver would refuse, naming what is wrong with it. */
     static void validate(tt_xy_pair core, uint64_t addr, size_t size);
 
-    std::unique_ptr<ScalarNocAccess> access_;
+    std::unique_ptr<KmdScalarNocAccess> access_;
     int mmio_id_;
 };
 

@@ -82,6 +82,7 @@ target_sources(
         cluster.cpp
         tt_device_model/wormhole_tt_device_model.cpp
         tt_device_model/blackhole_tt_device_model.cpp
+        tt_device_model/quasar_tt_device_model.cpp
         tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp

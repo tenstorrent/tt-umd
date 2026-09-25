@@ -49,9 +49,24 @@
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#endif
+
 namespace tt::umd {
 
 namespace {
+
+// A simulated device has no PCIDevice behind it; the BDF it answers at is the endpoint its
+// simulator image enumerated, which the device carries itself.
+std::optional<uint32_t> simulated_pci_bdf(TTDevice* tt_device) {
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (auto* sim_device = dynamic_cast<TTSimTTDevice*>(tt_device)) {
+        return sim_device->get_pci_bdf();
+    }
+#endif
+    return std::nullopt;
+}
 
 // Probe the architecture from the host bus. Returns ARCH::Invalid when the bus has no devices.
 tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
@@ -501,10 +516,16 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
         cluster_desc->authentic_chip_unique_ids = true;
 
-        // A simulated device reports PCIe but has no PCIDevice behind it, so there is no BDF to
-        // record; its simulated BDF is reachable only through the communicator.
-        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote() && tt_device->get_pci_device() != nullptr) {
-            cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
+        // A simulated device reports PCIe but has no PCIDevice behind it, so its BDF is the one its
+        // simulator image enumerated, spelled the way PCIDevice spells a real one.
+        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
+            if (tt_device->get_pci_device() != nullptr) {
+                cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
+            } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
+                cluster_desc->chip_pci_bdfs.emplace(
+                    chip_id,
+                    fmt::format("{:04x}:{:02x}:{:02x}.{:x}", 0, (*bdf >> 8) & 0xFF, (*bdf >> 3) & 0x1F, *bdf & 0x7));
+            }
         }
 
         if (eth_coords.empty()) {
@@ -541,6 +562,10 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         if (tt_device->get_pci_device()) {
             cluster_desc->chip_to_bus_id.insert(
                 {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
+        } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
+            // Whatever bus the simulator placed the endpoint on, so tray and ASIC positions derive
+            // from it as they do from a real bus id.
+            cluster_desc->chip_to_bus_id.insert({current_chip_id, static_cast<uint16_t>((*bdf >> 8) & 0xFF)});
         }
 
         if (is_using_eth_coords()) {

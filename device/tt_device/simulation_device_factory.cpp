@@ -64,9 +64,10 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
     const auto endpoint_count = static_cast<uint32_t>(bdfs.size());
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     for (size_t index = 0; index < bdfs.size(); ++index) {
-        // Chips are named by their PCI device number, which is the endpoint's position: the
-        // communicator folds the chip id into the BDF device field to reach its own endpoint.
-        const auto chip_id = static_cast<ChipId>(bdfs[index] >> 3);
+        // Chips are numbered densely in BDF order, as silicon numbers them in enumeration order; for
+        // a linear image (chip N at bus 0, device N) that is the device number. The BDF travels with
+        // the chip, so its communicator reaches its own endpoint however sparse the layout is.
+        const auto chip_id = static_cast<ChipId>(index);
         devices.emplace(
             chip_id,
             TTSimTTDevice::create_for_chip(
@@ -75,7 +76,8 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
                 num_host_mem_channels,
                 /*copy_sim_binary=*/false,
                 bdfs.size(),
-                endpoint_count));
+                endpoint_count,
+                bdfs[index]));
     }
     log_debug(tt::LogEmulationDriver, "Simulator {} exposes {} endpoint(s)", simulator_path.string(), bdfs.size());
     return devices;

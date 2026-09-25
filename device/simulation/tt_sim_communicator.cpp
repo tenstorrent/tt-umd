@@ -69,12 +69,22 @@ TTSimCommunicator::TTSimCommunicator(
     bool copy_sim_binary,
     uint32_t chip_id,
     uint32_t num_chips,
-    std::optional<uint32_t> image_endpoint_count) :
+    std::optional<uint32_t> image_endpoint_count,
+    std::optional<uint32_t> pci_bdf) :
     simulator_directory_(simulator_directory),
     copy_sim_binary_(copy_sim_binary),
     chip_id_(chip_id),
     num_chips_(num_chips),
-    image_endpoint_count_(image_endpoint_count) {}
+    image_endpoint_count_(image_endpoint_count),
+    pci_bdf_(pci_bdf) {
+    // Every endpoint a simulator exposes is single-function, and the simulator rejects a BDF wider
+    // than 16 bits fatally, so anything else did not come from enumerating it.
+    UMD_ASSERT(
+        !pci_bdf_.has_value() || (*pci_bdf_ <= 0xFFFF && (*pci_bdf_ & 0x7) == 0),
+        error::RuntimeError,
+        fmt::format(
+            "Simulated PCI endpoint BDF 0x{:x} is not a function-0 bus/device/function.", pci_bdf_.value_or(0)));
+}
 
 TTSimCommunicator::~TTSimCommunicator() {
     // Unregister from the process-global DMA routing tables first. The shared simulator may still be
@@ -288,9 +298,11 @@ void TTSimCommunicator::start_sim() {
             pfn_libttsim_init_();
             s_sim_initialized_ = true;
         }
+        resolve_pci_bdf();
         return;
     }
     pfn_libttsim_init_();
+    resolve_pci_bdf();
 }
 
 void TTSimCommunicator::shutdown() {
@@ -363,18 +375,32 @@ void TTSimCommunicator::pci_mem_write_bytes(uint64_t paddr, const void *data, ui
     pfn_libttsim_pci_mem_wr_bytes_(paddr, data, size);
 }
 
+void TTSimCommunicator::resolve_pci_bdf() {
+    if (pci_bdf_.has_value()) {
+        return;
+    }
+    // Nobody said where this chip's endpoint is, so find it the way enumerating the image would
+    // have: chips are numbered in BDF order, and an image this communicator has to itself holds its
+    // chip as the first endpoint. For a linear image that is bus 0, device chip_id (or device 0).
+    const std::vector<uint32_t> bdfs = scan_pci_endpoints(pfn_libttsim_pci_config_rd32_);
+    const uint32_t index = shared_bdf_mode_ ? chip_id_ : 0;
+    UMD_ASSERT(
+        index < bdfs.size(),
+        error::RuntimeError,
+        fmt::format(
+            "Simulator {} exposes {} PCI endpoint(s), so chip {} has none of its own.",
+            simulator_directory_.string(),
+            bdfs.size(),
+            chip_id_));
+    pci_bdf_ = bdfs[index];
+}
+
 uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    // In BDF mode there is no select_device_by_id: this chip's PCI device is named by
-    // its BDF (device field = chip_id), so each chip reads its own per-device BAR bases.
-    // Callers pass bus_device_function 0 ("this device"); we fill in the device field.
-    uint32_t bdf = bus_device_function;
-    if (shared_bdf_mode_) {
-        // BDF: function[2:0], device[7:3], bus[15:8]. The device field is only 5 bits, so chip_id >= 32
-        // would silently overflow into the bus field and misroute. Fail loudly instead.
-        UMD_ASSERT(chip_id_ < 32, error::RuntimeError, "BDF device field is 5 bits; chip_id must be < 32 in BDF mode.");
-        bdf |= (chip_id_ << 3);
-    }
+    // Outside the multichip-ABI mode there is no select_device_by_id: this chip's PCI device is
+    // named by its BDF, so each chip reads its own per-device BAR bases. Callers pass
+    // bus_device_function 0 ("this device"); we fill in this chip's endpoint.
+    const uint32_t bdf = (multichip_mode_ || bus_device_function != 0) ? bus_device_function : pci_bdf_.value_or(0);
     select_chip_if_needed();  // no-op outside the multichip-ABI mode
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
@@ -422,18 +448,36 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         ~SimRunGuard() { exit_fn(); }
     } sim_run_guard{sim_exit};
 
-    // The device field is 5 bits, so bus 0 holds at most 32 endpoints; anything beyond would carry
-    // into the bus field, which the simulator rejects fatally.
-    constexpr uint32_t ABSENT_ENDPOINT = 0xFFFFFFFF;
-    constexpr uint32_t MAX_DEVICES_PER_BUS = 32;
-    std::vector<uint32_t> bdfs;
-    for (uint32_t device = 0; device < MAX_DEVICES_PER_BUS; ++device) {
-        const uint32_t bdf = device << 3;
-        if (config_read32(bdf, 0) != ABSENT_ENDPOINT) {
-            bdfs.push_back(bdf);
-        }
-    }
+    return scan_pci_endpoints(config_read32);
+}
 
+std::vector<uint32_t> TTSimCommunicator::scan_pci_endpoints(
+    const std::function<uint32_t(uint32_t bus_device_function, uint32_t offset)> &config_read32) {
+    // BDF: function[2:0], device[7:3], bus[15:8]. Simulated endpoints are single-function, so only
+    // function 0 is probed.
+    constexpr uint32_t ABSENT_ENDPOINT = 0xFFFFFFFF;
+    constexpr uint32_t NUM_BUSES = 256;
+    constexpr uint32_t DEVICES_PER_BUS = 32;
+    std::vector<uint32_t> bdfs;
+    auto scan_bus = [&](uint32_t bus) {
+        for (uint32_t device = 0; device < DEVICES_PER_BUS; ++device) {
+            const uint32_t bdf = (bus << 8) | (device << 3);
+            if (config_read32(bdf, 0) != ABSENT_ENDPOINT) {
+                bdfs.push_back(bdf);
+            }
+        }
+    };
+
+    scan_bus(0);
+    // An endpoint at bus 0, device 0 means the linear layout, which never leaves bus 0. Probing
+    // further would be harmless on a current image but exits the process on one built before sparse
+    // layouts, and the two cannot be told apart -- see the header.
+    if (!bdfs.empty() && bdfs.front() == 0) {
+        return bdfs;
+    }
+    for (uint32_t bus = 1; bus < NUM_BUSES; ++bus) {
+        scan_bus(bus);
+    }
     return bdfs;
 }
 

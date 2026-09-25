@@ -66,7 +66,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     int num_host_mem_channels,
     bool copy_sim_binary,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count) {
+    std::optional<uint32_t> image_endpoint_count,
+    std::optional<uint32_t> pci_bdf) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
@@ -86,7 +87,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         copy_sim_binary,
         num_host_mem_channels,
         num_chips,
-        image_endpoint_count);
+        image_endpoint_count,
+        pci_bdf);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
@@ -111,7 +113,8 @@ TTSimTTDevice::TTSimTTDevice(
     bool copy_sim_binary,
     int num_host_mem_channels,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count) :
+    std::optional<uint32_t> image_endpoint_count,
+    std::optional<uint32_t> pci_bdf) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
@@ -129,7 +132,8 @@ TTSimTTDevice::TTSimTTDevice(
         copy_sim_binary,
         static_cast<uint32_t>(chip_id),
         static_cast<uint32_t>(num_chips),
-        image_endpoint_count)),
+        image_endpoint_count,
+        pci_bdf)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).

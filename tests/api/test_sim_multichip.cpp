@@ -31,9 +31,12 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
+#include <fmt/format.h>
 #include <unistd.h>
 
 #include <exception>
+#include <functional>
+#include <set>
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -179,6 +182,134 @@ TEST(TTSimProtocolMmioId, RefusesAChipIdThatDoesNotFitTheBdfField) {
     EXPECT_THROW(TTSimProtocol::process_local_mmio_id(-1), std::exception);
 }
 
+// ---------------------------------------------------------------------------
+// TTSimCommunicator::scan_pci_endpoints
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// A config space holding endpoints at the given BDFs, recording every BDF it is asked about. An
+// empty slot reads all-ones, as on a real bus.
+class FakeConfigSpace {
+public:
+    explicit FakeConfigSpace(std::set<uint32_t> endpoints) : endpoints_(std::move(endpoints)) {}
+
+    std::function<uint32_t(uint32_t, uint32_t)> reader() {
+        return [this](uint32_t bdf, uint32_t offset) {
+            probed_.push_back(bdf);
+            EXPECT_EQ(offset, 0u) << "presence is decided by the vendor/device dword";
+            return endpoints_.count(bdf) != 0 ? 0xB1401E52u : 0xFFFFFFFFu;
+        };
+    }
+
+    const std::vector<uint32_t>& probed() const { return probed_; }
+
+private:
+    std::set<uint32_t> endpoints_;
+    std::vector<uint32_t> probed_;
+};
+
+// Bus in the high nibble and device in the low nibble, the order the BH Galaxy image numbers its
+// chips in -- which is not BDF order.
+constexpr uint8_t BH_GALAXY_BUS_DEVICE[32] = {
+    0x01, 0x02, 0x03, 0x04, 0xC1, 0xC2, 0xC3, 0xC4, 0x05, 0x06, 0x07, 0x08, 0xC5, 0xC6, 0xC7, 0xC8,
+    0x45, 0x46, 0x47, 0x48, 0x85, 0x86, 0x87, 0x88, 0x41, 0x42, 0x43, 0x44, 0x81, 0x82, 0x83, 0x84,
+};
+
+uint32_t bdf_of(uint32_t bus, uint32_t device) { return (bus << 8) | (device << 3); }
+
+}  // namespace
+
+// Every current image: chip N at bus 0, device N. The scan has to name exactly those, in that
+// order, so chip ids come out as they always have.
+TEST(TTSimScanPciEndpoints, LinearLayoutIsBusZeroInDeviceOrder) {
+    std::set<uint32_t> endpoints;
+    for (uint32_t device = 0; device < 32; ++device) {
+        endpoints.insert(bdf_of(0, device));
+    }
+    FakeConfigSpace config_space(endpoints);
+
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::scan_pci_endpoints(config_space.reader());
+
+    ASSERT_EQ(bdfs.size(), 32u);
+    for (uint32_t chip = 0; chip < 32; ++chip) {
+        EXPECT_EQ(bdfs[chip], bdf_of(0, chip)) << "chip " << chip;
+        EXPECT_EQ(bdfs[chip] >> 3, chip) << "chip id no longer matches the device number";
+    }
+}
+
+// Images built before sparse layouts exit the process on any BDF off bus 0, and look exactly like
+// a linear image built since. A linear layout must therefore never be probed past bus 0.
+TEST(TTSimScanPciEndpoints, LinearLayoutNeverProbesPastBusZero) {
+    for (const uint32_t num_chips : {1u, 2u, 4u, 32u}) {
+        std::set<uint32_t> endpoints;
+        for (uint32_t device = 0; device < num_chips; ++device) {
+            endpoints.insert(bdf_of(0, device));
+        }
+        FakeConfigSpace config_space(endpoints);
+
+        EXPECT_EQ(TTSimCommunicator::scan_pci_endpoints(config_space.reader()).size(), num_chips);
+        for (const uint32_t bdf : config_space.probed()) {
+            EXPECT_EQ(bdf >> 8, 0u) << num_chips << "-chip image probed BDF 0x" << std::hex << bdf;
+        }
+    }
+}
+
+// The BH Galaxy layout: endpoints on buses 0x00, 0x40, 0x80, 0xC0 at devices 1-8, and nothing at
+// bus 0 device 0. All 32 are found, in BDF order rather than the image's own chip order.
+TEST(TTSimScanPciEndpoints, SparseLayoutIsFoundAcrossBusesInBdfOrder) {
+    std::set<uint32_t> endpoints;
+    for (const uint8_t bus_device : BH_GALAXY_BUS_DEVICE) {
+        endpoints.insert(bdf_of(bus_device & 0xF0, bus_device & 0x0F));
+    }
+    ASSERT_EQ(endpoints.size(), 32u);
+    ASSERT_EQ(endpoints.count(0u), 0u);
+    FakeConfigSpace config_space(endpoints);
+
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::scan_pci_endpoints(config_space.reader());
+
+    EXPECT_EQ(bdfs, std::vector<uint32_t>(endpoints.begin(), endpoints.end()));
+    ASSERT_EQ(bdfs.size(), 32u);
+    // Dense chip ids in BDF order: bus 0x00 first, then 0x40, 0x80, 0xC0, devices 1-8 on each.
+    const uint32_t buses[] = {0x00, 0x40, 0x80, 0xC0};
+    for (uint32_t chip = 0; chip < 32; ++chip) {
+        EXPECT_EQ(bdfs[chip], bdf_of(buses[chip / 8], (chip % 8) + 1)) << "chip " << chip;
+    }
+}
+
+// Only function 0 of each slot is probed: simulated endpoints are single-function.
+TEST(TTSimScanPciEndpoints, ProbesFunctionZeroOnly) {
+    FakeConfigSpace config_space({bdf_of(0x40, 1)});
+
+    EXPECT_EQ(TTSimCommunicator::scan_pci_endpoints(config_space.reader()), std::vector<uint32_t>{bdf_of(0x40, 1)});
+    for (const uint32_t bdf : config_space.probed()) {
+        EXPECT_EQ(bdf & 0x7u, 0u) << "probed BDF 0x" << std::hex << bdf;
+    }
+}
+
+// Nothing anywhere: every slot on every bus is probed, and none is reported.
+TEST(TTSimScanPciEndpoints, EmptyConfigSpaceFindsNothing) {
+    FakeConfigSpace config_space({});
+
+    EXPECT_TRUE(TTSimCommunicator::scan_pci_endpoints(config_space.reader()).empty());
+    EXPECT_EQ(config_space.probed().size(), 256u * 32u);
+    EXPECT_EQ(std::set<uint32_t>(config_space.probed().begin(), config_space.probed().end()).size(), 256u * 32u)
+        << "a slot was probed twice";
+}
+
+// A BDF that could not have come from enumerating an image is refused up front, before anything
+// is loaded, rather than misrouting config reads later.
+TEST(TTSimCommunicatorBdf, RefusesABdfThatIsNotAFunctionZeroEndpoint) {
+    const std::filesystem::path unused = "/nonexistent/libttsim.so";
+    EXPECT_THROW(TTSimCommunicator(unused, false, 0, 2, 2, bdf_of(0x40, 1) | 1), std::exception);
+    EXPECT_THROW(TTSimCommunicator(unused, false, 0, 2, 2, 0x10000), std::exception);
+
+    TTSimCommunicator linear(unused, false, 0, 2, 2);
+    EXPECT_EQ(linear.get_pci_bdf(), std::nullopt);
+    TTSimCommunicator sparse(unused, false, 0, 2, 2, bdf_of(0xC0, 8));
+    EXPECT_EQ(sparse.get_pci_bdf(), bdf_of(0xC0, 8));
+}
+
 class TTSimCommunicatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -206,19 +337,28 @@ TEST_F(TTSimCommunicatorTest, EnumerateMmioDeviceBdfs) {
     // Enumeration stands on its own: no device is constructed first, as on silicon.
     const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
 
-    // Every image exposes at least one endpoint, at bus 0 device 0. The count is a property of the
-    // image, so it is reported rather than asserted.
+    // Every image exposes at least one endpoint. The count and where the endpoints sit are
+    // properties of the image, so they are reported rather than asserted.
     ASSERT_FALSE(bdfs.empty());
-    EXPECT_EQ(bdfs.front(), 0u);
-    EXPECT_LE(bdfs.size(), 32u);
-    std::cout << "simulator exposes " << bdfs.size() << " host-visible PCI endpoint(s)" << std::endl;
+    std::cout << "simulator exposes " << bdfs.size() << " host-visible PCI endpoint(s):";
+    for (const uint32_t bdf : bdfs) {
+        std::cout << fmt::format(" {:02x}:{:02x}.{:x}", bdf >> 8, (bdf >> 3) & 0x1F, bdf & 0x7);
+    }
+    std::cout << std::endl;
 
-    // Endpoints live on bus 0, device field in bits [7:3], function 0, ascending and unique.
+    // Endpoints are 16-bit BDFs, function 0, ascending and unique.
     for (size_t i = 0; i < bdfs.size(); ++i) {
-        EXPECT_EQ(bdfs[i] & 0xFF00u, 0u) << "endpoint " << i << " is not on bus 0";
+        EXPECT_LE(bdfs[i], 0xFFFFu) << "endpoint " << i << " is wider than a BDF";
         EXPECT_EQ(bdfs[i] & 0x7u, 0u) << "endpoint " << i << " is not function 0";
         if (i > 0) {
             EXPECT_GT(bdfs[i], bdfs[i - 1]) << "endpoints are not ascending";
+        }
+    }
+
+    // A linear image fills bus 0 from device 0 up; one that leaves device 0 empty is sparse.
+    if (bdfs.front() == 0) {
+        for (size_t i = 0; i < bdfs.size(); ++i) {
+            EXPECT_EQ(bdfs[i], i << 3) << "linear image endpoint " << i << " is not at bus 0, device " << i;
         }
     }
 }
@@ -266,14 +406,16 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
     const size_t num_chips = bdfs.size();
     const auto endpoint_count = static_cast<uint32_t>(bdfs.size());
 
-    // The endpoint count selects shared-BDF addressing: the two devices share one image.
+    // The endpoint count selects shared-BDF addressing: the two devices share one image, each
+    // reaching its own endpoint by the BDF enumeration found it at.
     auto dev_0 = TTSimTTDevice::create_for_chip(
         simulator_path_,
         static_cast<ChipId>(0),
         /*num_host_mem_channels=*/0,
         /*copy_sim_binary=*/false,
         num_chips,
-        endpoint_count);
+        endpoint_count,
+        bdfs[0]);
     ASSERT_NE(dev_0, nullptr);
     auto dev_1 = TTSimTTDevice::create_for_chip(
         simulator_path_,
@@ -281,7 +423,8 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
         /*num_host_mem_channels=*/0,
         /*copy_sim_binary=*/false,
         num_chips,
-        endpoint_count);
+        endpoint_count,
+        bdfs[1]);
     ASSERT_NE(dev_1, nullptr);
 
     const auto& soc_0 = dev_0->get_soc_descriptor();
@@ -432,6 +575,41 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsAreReachedOverEthernet) {
             EXPECT_NE(cluster_desc->get_all_chips().count(peer), 0u)
                 << "chip " << chip << " channel " << channel << " links to unknown chip " << peer;
         }
+    }
+}
+
+// A simulated chip has no PCIDevice, so its bus id and BDF come from the endpoint the image
+// enumerated -- tray and ASIC positions are derived from the bus id downstream. Chips are numbered
+// densely in BDF order, so MMIO chip i is the i-th endpoint.
+TEST_F(TTSimDiscoveryTest, MmioChipsReportTheirEnumeratedBusAndBdf) {
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    ASSERT_FALSE(bdfs.empty());
+
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_EQ(cluster_desc->get_chips_with_mmio().size(), bdfs.size());
+
+    for (size_t index = 0; index < bdfs.size(); ++index) {
+        const auto chip = static_cast<ChipId>(index);
+        const uint32_t bdf = bdfs[index];
+        ASSERT_NE(cluster_desc->get_chips_with_mmio().count(chip), 0u) << "chip " << chip << " is not MMIO";
+
+        const auto& bus_ids = cluster_desc->get_chip_to_bus_id();
+        ASSERT_NE(bus_ids.find(chip), bus_ids.end()) << "chip " << chip << " has no bus id";
+        EXPECT_EQ(bus_ids.at(chip), (bdf >> 8) & 0xFF) << "chip " << chip;
+        EXPECT_EQ(cluster_desc->get_bus_id(chip), (bdf >> 8) & 0xFF) << "chip " << chip;
+
+        const auto& pci_bdfs = cluster_desc->get_chip_pci_bdfs();
+        ASSERT_NE(pci_bdfs.find(chip), pci_bdfs.end()) << "chip " << chip << " has no BDF";
+        EXPECT_EQ(
+            pci_bdfs.at(chip), fmt::format("0000:{:02x}:{:02x}.{:x}", (bdf >> 8) & 0xFF, (bdf >> 3) & 0x1F, bdf & 0x7))
+            << "chip " << chip;
     }
 }
 

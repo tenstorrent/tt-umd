@@ -42,7 +42,8 @@ public:
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt);
+        std::optional<uint32_t> image_endpoint_count = std::nullopt,
+        std::optional<uint32_t> pci_bdf = std::nullopt);
 
     ~TTSimTTDevice();
 
@@ -53,14 +54,16 @@ public:
     // so callers can open two devices with distinct IDs (chip 0 and chip 1) and
     // verify that I/O on one does not affect the other.
     // Named distinctly from create() because ChipId is an alias for int, which
-    // would otherwise produce a duplicate signature.
+    // would otherwise produce a duplicate signature. pci_bdf is the chip's endpoint as
+    // TTSimCommunicator::enumerate_mmio_device_bdfs() reported it; unset, the communicator finds it.
     static std::unique_ptr<TTSimTTDevice> create_for_chip(
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt);
+        std::optional<uint32_t> image_endpoint_count = std::nullopt,
+        std::optional<uint32_t> pci_bdf = std::nullopt);
 
     // Builds a client-mode device from device identity the connector already fetched over the
     // socket (build_soc_descriptor(device_info)); discovery uses this for a client that talks to a
@@ -90,6 +93,15 @@ public:
      * @return Pointer to TTSimCommunicator
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
+
+    /**
+     * Bus/device/function of the simulated PCI endpoint this device drives (see
+     * TTSimCommunicator::get_pci_bdf). A simulated device has no PCIDevice, so this is where its BDF
+     * lives.
+     */
+    std::optional<uint32_t> get_pci_bdf() const {
+        return communicator_ != nullptr ? communicator_->get_pci_bdf() : std::nullopt;
+    }
 
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;

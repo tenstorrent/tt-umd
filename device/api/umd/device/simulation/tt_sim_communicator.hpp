@@ -36,13 +36,19 @@ public:
      *   by enumerate_mmio_device_bdfs(). Distinguishes an image hosting several PCIe chips from a
      *   single-chip image replicated per chip, which selects shared-BDF addressing. Unset falls back
      *   to the older signal, a cluster_descriptor.yaml beside the .so.
+     * @param pci_bdf Bus/device/function of this chip's endpoint, as reported by
+     *   enumerate_mmio_device_bdfs(). The chip id is a dense index and says nothing about where the
+     *   endpoint sits, so config-space reads go to this BDF. Unset, start_sim() scans the running
+     *   image for it: the chip_id-th endpoint in BDF order when chips share the image, its first
+     *   endpoint otherwise -- for a linear image, bus 0 device chip_id or device 0 as before.
      */
     TTSimCommunicator(
         const std::filesystem::path &simulator_directory,
         bool copy_sim_binary = false,
         uint32_t chip_id = 0,
         uint32_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt);
+        std::optional<uint32_t> image_endpoint_count = std::nullopt,
+        std::optional<uint32_t> pci_bdf = std::nullopt);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -119,13 +125,21 @@ public:
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
 
     /**
+     * The bus/device/function of this chip's endpoint: the one named at construction, else the one
+     * start_sim() found. Unset in the multichip-ABI mode when not named, where the endpoint is
+     * reached by select_device_by_id instead.
+     */
+    std::optional<uint32_t> get_pci_bdf() const { return pci_bdf_; }
+
+    /**
      * Enumerate the host-visible PCI endpoints a simulator image exposes: the counterpart of
      * PCIDevice::enumerate_devices(), answering how many chips are present before any device object
      * exists, so a caller can size the cluster from the image itself.
      *
      * MUST be called before any simulator is brought up in this process. Config space only reports
      * endpoints while the image is running, so this starts and stops it around the walk, and
-     * starting an already-running image is fatal inside the simulator. Only bus 0 is enumerable.
+     * starting an already-running image is fatal inside the simulator. The walk itself is
+     * scan_pci_endpoints().
      *
      * @param simulator_path Path to the libttsim .so to enumerate.
      * @return Bus/device/function identifiers of the present endpoints, in ascending order.
@@ -133,6 +147,22 @@ public:
      *         re-initializing it fatally and stopping it under the communicators using it.
      */
     static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
+
+    /**
+     * Walk PCI config space for present endpoints: function 0 of every device slot, 32 slots per bus,
+     * a slot counting as present unless its first dword reads all-ones.
+     *
+     * Bus 0 is walked first. If it holds an endpoint at device 0, the image uses the linear layout
+     * (chip N at bus 0, device N) and the walk stops there: images built before sparse layouts
+     * existed treat any BDF off bus 0 as a fatal error and exit the process, and they are
+     * indistinguishable from a linear image built since. Otherwise buses 1-255 are walked too, which
+     * is what finds an image that places its endpoints the way a UBB tray does.
+     *
+     * @param config_read32 Reads a config-space dword: (bus_device_function, offset) -> value.
+     * @return Bus/device/function identifiers of the present endpoints, in ascending order.
+     */
+    static std::vector<uint32_t> scan_pci_endpoints(
+        const std::function<uint32_t(uint32_t bus_device_function, uint32_t offset)> &config_read32);
 
     /**
      * Advance the simulator clock.
@@ -187,6 +217,10 @@ private:
     // In multichip mode, selects this communicator's chip before an I/O call.
     void select_chip_if_needed();
 
+    // Outside the multichip-ABI mode, finds this chip's endpoint in the running image's config space
+    // when the caller did not name it.
+    void resolve_pci_bdf();
+
     // Dynamic library handle. A non-owning view in the shared-dlopen modes, where shared_lib_ owns the
     // library; owned outright on the legacy per-chip path.
     void *libttsim_handle_ = nullptr;
@@ -231,6 +265,7 @@ private:
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
     std::optional<uint32_t> image_endpoint_count_;
+    std::optional<uint32_t> pci_bdf_;
 
     // Owning reference to the process-shared libttsim dlopen, taken once this communicator has
     // committed to one of the shared-handle modes.  Dropping the last copy runs the teardown deleter

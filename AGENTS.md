@@ -11,6 +11,14 @@
 - Implement the simplest solution for simple problems, better solutions for harder problems. Do not over-engineer or add flexibility that isn't needed yet. 
 
 ## Development workflow
+- Always first present a plan to the user, layout the design and architecture and how you plan to separate PRs. Discuss and argue with the user. Continue with execution upon confirmation.
+- If the request is very direct, there is not much for discussion, and all fits into single PR, you can skip the planning phase. Use your judgement.
+- Once you start execution, you should implement PRs one by one. 
+- Changes drafted for a PR should be left in git staged index. Also leave a PR description draft in git unstaged index. Let user review it, once it is confirmed you should continue with committing the change on a new branch, pushing, and creating a PR. Do this for each PR in this stack of PRs.
+- Before giving the control back to the user, run pre-commit checks using `pre-commit run --all-files`, and build the whole repo using `cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON; cmake --build build`. Don't run any tests.
+- Before starting work, make sure you're on main, and fetch the latest one. If there are already some uncommitted changes in the repo, report to the user and ask what to do.
+- Once you finish the PR stack of changes, ask the user if they want to link them in a github stack (using gh stack).
+- Once you finish the PR stack of changes go through each of the created PRs, and add a new section in the PR description at the end "### Full stack diff" and add a compare link between last branch and main, so full diff can be easily accessed from any PR.
 
 ## PR split
 

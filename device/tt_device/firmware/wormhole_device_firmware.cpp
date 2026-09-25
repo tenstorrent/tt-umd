@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
 
 #include <fmt/format.h>
 

@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device_model/blackhole_tt_device_model.hpp"
+#include "tt_device_model/blackhole_tt_device_model.hpp"
 
 #include <utility>
 
+#include "tt_device/firmware/blackhole_device_firmware.hpp"
+#include "tt_device/hang_detection/blackhole_hang_detector.hpp"
+#include "tt_device/protocol/jtag_protocol.hpp"
+#include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
-#include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
-#include "umd/device/tt_device/protocol/jtag_protocol.hpp"
-#include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
 namespace tt::umd {
 

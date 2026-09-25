@@ -12,9 +12,9 @@
 #include <mutex>
 #include <optional>
 
+#include "tt_device/protocol/dma_interface.hpp"
+#include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
-#include "umd/device/tt_device/protocol/dma_interface.hpp"
-#include "umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/xy_pair.hpp"

@@ -116,6 +116,7 @@ target_sources(
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
         coordinates/quasar_coordinate_manager.cpp
+        coordinates/att/att_resolver.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -198,9 +199,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/firmware_telemetry_reader.hpp
                 api/umd/device/arc/blackhole_arc_message_queue.hpp
                 api/umd/device/arc/smbus_arc_telemetry_reader.hpp
-                api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
-                api/umd/device/coordinates/blackhole_coordinate_manager.hpp
-                api/umd/device/coordinates/quasar_coordinate_manager.hpp
+                api/umd/device/coordinates/att/att_map.hpp
+                api/umd/device/coordinates/att/att_window.hpp
+                api/umd/device/coordinates/att/att_resolver.hpp
+                api/umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
@@ -215,69 +217,49 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
-                api/umd/device/driver_atomics.hpp
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
+                api/umd/device/driver_atomics.hpp
+                api/umd/device/utils/mutex_interface.hpp
                 api/umd/device/pcie/pci_device.hpp
-                api/umd/device/pcie/tlb_handle.hpp
-                api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
                 api/umd/device/pcie/tlb_window.hpp
-                api/umd/device/pcie/tt_sim_tlb_window.hpp
-                api/umd/device/pcie/tt_sim_tlb_handle.hpp
-                api/umd/device/pcie/rtl_sim_tlb_window.hpp
-                api/umd/device/pcie/rtl_sim_tlb_handle.hpp
+                api/umd/device/pcie/tlb_handle.hpp
+                api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/io_window/io_window.hpp
-                api/umd/device/io_window/io_window_target.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
-                api/umd/device/utils/mutex_interface.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/utils/kmd_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/tt_device_error.hpp
-                api/umd/device/tt_device/simulation_tt_device.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device_model/tt_device_model.hpp
+                api/umd/device/types/eth_training_status.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
+                api/umd/device/tt_device/simulation_tt_device.hpp
+                api/umd/device/simulation/rtl_sim_communicator.hpp
+                api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/tt_device/simulation_device_factory.hpp
                 api/umd/device/tt_device/protocol/device_protocol.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
-                api/umd/device/tt_device/protocol/dma_interface.hpp
-                api/umd/device/tt_device/protocol/pcie_protocol.hpp
                 api/umd/device/tt_device/protocol/jtag_interface.hpp
-                api/umd/device/tt_device/protocol/jtag_protocol.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
-                api/umd/device/tt_device/protocol/remote_protocol.hpp
-                api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
-                api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
-                api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
-                api/umd/device/tt_device/hang_detection/hang_detector.hpp
-                api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
-                api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
-                api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/firmware/blackhole_arc_apb.hpp
                 api/umd/device/tt_device/firmware/device_firmware.hpp
-                api/umd/device/tt_device/firmware/blackhole_device_firmware.hpp
                 api/umd/device/tt_device/firmware/wormhole_arc_window.hpp
-                api/umd/device/tt_device/firmware/wormhole_device_firmware.hpp
-                api/umd/device/tt_device/firmware/simulation_device_firmware.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/ethernet_broadcast.hpp
-                api/umd/device/tt_device_model/tt_device_model.hpp
-                api/umd/device/tt_device_model/wormhole_tt_device_model.hpp
-                api/umd/device/tt_device_model/blackhole_tt_device_model.hpp
-                api/umd/device/tt_device_model/simulation_tt_device_model.hpp
-                api/umd/device/firmware/erisc_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_info_provider_implementation.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/types/eth_training_status.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/power_state.hpp
                 api/umd/device/types/risc_type.hpp
@@ -286,20 +268,15 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/simulation_client.hpp
                 api/umd/device/simulation/simulation_device_identity.hpp
                 api/umd/device/simulation/simulation_server_protocol.hpp
-                api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
-                api/umd/device/simulation/rtl_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
-                api/umd/device/topology/topology_discovery_blackhole.hpp
-                api/umd/device/topology/topology_discovery_wormhole.hpp
                 api/umd/device/topology/topology_discovery.hpp
-                api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/topology/topology_discovery_error.hpp
                 api/umd/device/utils/common.hpp
-                api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/error.hpp
+                api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/mmio_timeout_config.hpp
                 api/umd/device/utils/op_timeout_guard.hpp
                 api/umd/device/utils/timeouts.hpp
@@ -316,12 +293,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/io_window_config.hpp
-                api/umd/device/types/wormhole_dram.hpp
                 api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_l1.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
-                api/umd/device/coordinates/wormhole_coordinate_manager.hpp
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp

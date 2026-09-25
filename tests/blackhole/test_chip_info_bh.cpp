@@ -29,7 +29,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
         EXPECT_TRUE(
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
             chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE ||
-            chip_info.board_type == BoardType::UBB_BLACKHOLE_BIN6);
+            chip_info.board_type == BoardType::UBB_BLACKHOLE_CF);
 
         switch (chip_info.board_type) {
             case BoardType::P100:
@@ -42,7 +42,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
                 break;
             }
             case BoardType::UBB_BLACKHOLE:
-            case BoardType::UBB_BLACKHOLE_BIN6: {
+            case BoardType::UBB_BLACKHOLE_CF: {
                 EXPECT_TRUE(chip_info.asic_location <= 8);
                 break;
             }

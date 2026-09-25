@@ -1,5 +1,8 @@
 set(BAREMETAL_TESTS_SRCS
     test_architecture_tlbs.cpp
+    test_att_window.cpp
+    test_att_resolver.cpp
+    test_grendel_att_map.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp
     test_core_coord_translation_wh.cpp
@@ -22,6 +25,12 @@ set(BAREMETAL_TESTS_SRCS
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
 target_link_libraries(baremetal_tests PRIVATE test_common)
+
+# yaml-cpp is private to tt-umd, so its headers do not reach here through test_common, and the
+# ATT map fidelity test parses the vendored tables itself. Take the include path alone: linking
+# the library would place a second copy of it in this binary beside the one already inside
+# libtt-umd.so, which ASan reports as an ODR violation on YAML::Exception's typeinfo.
+target_include_directories(baremetal_tests PRIVATE $<TARGET_PROPERTY:yaml-cpp::yaml-cpp,INTERFACE_INCLUDE_DIRECTORIES>)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
 endif()

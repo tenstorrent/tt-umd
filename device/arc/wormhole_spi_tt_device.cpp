@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/arc/wormhole_spi_tt_device.hpp"
+#include "arc/wormhole_spi_tt_device.hpp"
 
 #include <fmt/format.h>
 
@@ -16,10 +16,10 @@
 #include <vector>
 
 #include "spi_arc_command.hpp"
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"

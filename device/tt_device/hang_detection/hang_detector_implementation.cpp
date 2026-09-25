@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
+#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"

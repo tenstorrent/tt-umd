@@ -2,20 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device_model/wormhole_tt_device_model.hpp"
+#include "tt_device_model/wormhole_tt_device_model.hpp"
 
 #include <utility>
 
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
+#include "tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "tt_device/protocol/jtag_protocol.hpp"
+#include "tt_device/protocol/pcie_protocol.hpp"
+#include "tt_device/protocol/remote_protocol.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
-#include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
-#include "umd/device/tt_device/protocol/jtag_protocol.hpp"
-#include "umd/device/tt_device/protocol/pcie_protocol.hpp"
-#include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "topology/topology_discovery_blackhole.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -12,9 +12,9 @@
 #include <utility>
 #include <vector>
 
+#include "firmware/erisc_firmware.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -179,7 +179,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     const BoardType board_type = tt_device->get_board_type();
-    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_BIN6;
+    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {

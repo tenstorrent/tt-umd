@@ -45,6 +45,7 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
+#include "utils/local_socket.hpp"
 
 namespace tt::umd {
 
@@ -711,8 +712,8 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
         do_accept = [&]() {
             auto sock = std::make_shared<asio::local::stream_protocol::socket>(*io);
-            acceptor.async_accept(
-                *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
+            async_accept_local(
+                acceptor, *sock, [sock, &do_accept, &on_cleanup_request, &post_cleanup_request](std::error_code ec) {
                     if (ec || !keep_monitoring) {
                         return;
                     }

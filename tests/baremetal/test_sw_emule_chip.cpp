@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/chip/sw_emule_chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/types/noc_id.hpp"
+#include "tt-umd/chip/sw_emule_chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/types/noc_id.hpp"
 
 using namespace tt;
 using namespace tt::umd;

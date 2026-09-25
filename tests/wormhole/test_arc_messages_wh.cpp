@@ -15,16 +15,16 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
 

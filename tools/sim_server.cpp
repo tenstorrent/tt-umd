@@ -36,14 +36,14 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/simulation_client.hpp"
-#include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/simulation/simulation_device_identity.hpp"
-#include "umd/device/simulation/simulation_server_protocol.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/simulation_client.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/simulation/simulation_device_identity.hpp"
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_types.hpp"
 
 using namespace tt::umd;
 

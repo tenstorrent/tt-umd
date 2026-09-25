@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
-#include "umd/device/simulation/simulation_client.hpp"
+#include "tt-umd/simulation/simulation_client.hpp"
 
 using namespace tt::umd;
 

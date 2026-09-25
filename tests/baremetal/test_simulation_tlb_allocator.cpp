@@ -8,8 +8,8 @@
 #include <memory>
 #include <unordered_set>
 
-#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
-#include "umd/device/types/arch.hpp"
+#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/types/arch.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -8,7 +8,7 @@
 #include <exception>
 #include <vector>
 
-#include "umd/device/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
 
 using namespace tt::umd;
 

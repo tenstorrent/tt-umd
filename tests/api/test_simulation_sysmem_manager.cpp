@@ -16,13 +16,13 @@
 #include <thread>
 #include <vector>
 
-#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/chip_helpers/system_memory_allocator.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/host_memory.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/host_memory.hpp"
 
 using namespace tt::umd;
 

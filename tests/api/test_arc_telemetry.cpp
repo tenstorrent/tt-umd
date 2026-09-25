@@ -12,15 +12,15 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/chip/remote_chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/telemetry.hpp"
-#include "umd/device/utils/semver.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/chip/remote_chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/telemetry.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;

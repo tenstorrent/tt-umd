@@ -7,8 +7,8 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/warm_reset.hpp"
-#include "umd/device/warm_reset_with_recovery.hpp"
+#include "tt-umd/warm_reset.hpp"
+#include "tt-umd/warm_reset_with_recovery.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

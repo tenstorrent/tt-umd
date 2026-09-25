@@ -9,8 +9,8 @@
 #include <thread>
 #include <vector>
 
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/utils/kmd_mutex.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/utils/kmd_mutex.hpp"
 
 using namespace tt::umd;
 

@@ -22,26 +22,26 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
 #include <unistd.h>
 
 #include <exception>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
+#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/utils/error.hpp"
 #endif
 
 using namespace tt;

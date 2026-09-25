@@ -13,10 +13,10 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 
 namespace tt {
 enum class ARCH;

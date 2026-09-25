@@ -8,10 +8,10 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "umd/device/coordinates/att/att_resolver.hpp"
-#include "umd/device/coordinates/att/att_window.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
+#include "tt-umd/coordinates/att/att_window.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;

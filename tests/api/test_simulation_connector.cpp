@@ -16,17 +16,17 @@
 
 #include "simulation/simulation_server_socket.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/simulation_client.hpp"
-#include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/simulation/simulation_server_protocol.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/simulation_client.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
 
 using namespace tt::umd;
 

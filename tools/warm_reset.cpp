@@ -10,7 +10,7 @@
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/warm_reset_with_recovery.hpp"
+#include "tt-umd/warm_reset_with_recovery.hpp"
 
 using namespace tt::umd;
 

@@ -10,13 +10,13 @@
 #include <cstdint>
 #include <functional>
 
-#include "umd/device/tt_device/protocol/device_protocol.hpp"
-#include "umd/device/tt_device/protocol/jtag_interface.hpp"
-#include "umd/device/tt_device/protocol/pcie_interface.hpp"
-#include "umd/device/tt_device/protocol/remote_interface.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/power_state.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device/protocol/jtag_interface.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/remote_interface.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/power_state.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 class RemoteCommunication;

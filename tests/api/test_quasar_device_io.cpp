@@ -26,6 +26,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include "umd/device/arch/configs/keraunos_address_map.hpp"
@@ -50,9 +52,25 @@ constexpr uint64_t SMC_LOCAL_BASE = 0x08000000ULL;
 // Every address below has to name a region the package actually maps. On the emulator an access
 // to an unmodelled address can hang the machine rather than fail, so this is checked before the
 // access is issued rather than discovered by issuing it.
-void expect_reachable(uint64_t spa) {
-    const keraunos::SpaRegion* region = keraunos::find_region(spa);
-    ASSERT_NE(region, nullptr) << std::hex << "0x" << spa << " is outside every mapped region.";
+//
+// It throws rather than asserting, because a gtest ASSERT here would return from this function
+// and leave the caller free to go on and issue the access -- the one thing the check exists to
+// prevent. A throw leaves the caller's statement unreached and still fails the test.
+void require_reachable(uint64_t spa) {
+    if (keraunos::find_region(spa) != nullptr) {
+        return;
+    }
+
+    std::ostringstream message;
+    message << "0x" << std::hex << spa << " is outside every mapped region.";
+    throw std::runtime_error(message.str());
+}
+
+/** Every word a multi-word transfer will touch, before any of it is issued. */
+void require_range_reachable(uint64_t spa, size_t size) {
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        require_reachable(spa + offset);
+    }
 }
 
 // Plain RW storage, 8 registers 4 bytes apart. Register 0 is left alone: the tool's write list
@@ -91,7 +109,7 @@ protected:
     uint32_t read32(uint64_t addr, NocId noc = NocId::NOC0) {
         // A local address has already been rebased out of the system physical range, so it is the
         // system physical form that the region table can speak about.
-        expect_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
+        require_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
 
         uint32_t value = 0;
         device_->read_from_device(&value, ORIGIN, addr, sizeof(value), noc);
@@ -99,25 +117,9 @@ protected:
     }
 
     void write32(uint64_t addr, uint32_t value, NocId noc = NocId::NOC0) {
-        expect_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
+        require_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
 
         device_->write_to_device(&value, ORIGIN, addr, sizeof(value), noc);
-    }
-
-    /**
-     * Whether every word a multi-word transfer will touch is in a mapped region.
-     *
-     * Returned rather than asserted so the caller can refuse to issue the transfer at all: an
-     * ASSERT inside a helper returns from the helper, not from the test, which would leave the
-     * access to go ahead anyway.
-     */
-    static bool range_is_reachable(uint64_t spa, size_t size) {
-        for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
-            if (keraunos::find_region(spa + offset) == nullptr) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /** Round-trips a pattern through a scratch register and puts back what was there. */
@@ -225,7 +227,7 @@ TEST_F(QuasarDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
 TEST_F(QuasarDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
-    ASSERT_TRUE(range_is_reachable(base, bytes)) << std::hex << "0x" << base << " + " << bytes << " is not all mapped.";
+    require_range_reachable(base, bytes);
 
     std::vector<uint32_t> originals;
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
@@ -248,7 +250,7 @@ TEST_F(QuasarDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
 TEST_F(QuasarDeviceIOTest, WritesTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
-    ASSERT_TRUE(range_is_reachable(base, bytes)) << std::hex << "0x" << base << " + " << bytes << " is not all mapped.";
+    require_range_reachable(base, bytes);
 
     std::vector<uint32_t> originals;
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {

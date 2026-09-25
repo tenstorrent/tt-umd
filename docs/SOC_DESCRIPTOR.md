@@ -44,4 +44,4 @@ Here are some examples on how to set the dram section, assuming we have 4 endpoi
 can store tensors, inter-op data that is not reused, etc.
 9. The memory size in bytes of a single tensix core or cluster is defined in the entry `worker_l1_size`
 10. The arch_name field defines at some places how our Driver initializes the device, mostly how harvesting is done. Legal values for this field
-can be found in [arch type definition file](../device/api/umd/device/types/arch.h).
+can be found in [arch type definition file](../tt-umd/api/tt-umd/types/arch.h).

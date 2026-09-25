@@ -18,7 +18,7 @@
 #include <thread>
 #include <vector>
 
-#include "device/api/umd/device/warm_reset.hpp"
+#include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "test_utils/pipe_communication.hpp"
 
 using namespace tt;

@@ -150,7 +150,7 @@ if(TT_UMD_BUILD_PIP)
         nanobind_tt_umd
         PROPERTIES
             BUILD_RPATH
-                "$ORIGIN/../device;$ORIGIN/../lib"
+                "$ORIGIN/../tt-umd;$ORIGIN/../lib"
             INSTALL_RPATH
                 "$ORIGIN"
     )

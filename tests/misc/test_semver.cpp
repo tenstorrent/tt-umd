@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/utils/semver.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 using namespace tt::umd;
 

@@ -165,8 +165,8 @@ directory; UMD sees the live sockets, attaches to each as a client, and hands yo
 exactly as you would silicon.
 
 ```cpp
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -195,8 +195,8 @@ host serves. Enter here when you want the devices directly rather than a full cl
 simulation's discovery entry point; the silicon `TopologyDiscovery` path is not involved.)
 
 ```cpp
-#include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 using namespace tt::umd;
 

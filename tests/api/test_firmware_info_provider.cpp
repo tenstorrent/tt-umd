@@ -17,17 +17,17 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/gddr_telemetry.hpp"
-#include "umd/device/utils/semver.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/gddr_telemetry.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;

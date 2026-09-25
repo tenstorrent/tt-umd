@@ -23,18 +23,18 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/utils/kmd_versions.hpp"
+#include "tt-umd/chip/chip.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 
 using namespace tt;
 using namespace tt::umd;

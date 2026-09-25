@@ -16,17 +16,17 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/simulation_device_factory.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/simulation_device_factory.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/tlb.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 

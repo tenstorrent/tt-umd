@@ -18,18 +18,18 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip/local_chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/chip/local_chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/remote_communication_legacy_firmware.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;

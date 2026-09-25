@@ -17,12 +17,12 @@
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/wormhole_l1.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/wormhole_l1.hpp"
 
 using namespace tt::umd;
 

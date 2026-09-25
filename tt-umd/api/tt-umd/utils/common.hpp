@@ -1,0 +1,32 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <algorithm>
+#include <cmath>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "tt-umd/types/xy_pair.hpp"
+
+static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
+    std::vector<tt_xy_pair> flat_vector;
+    for (const auto& single_vector : vector_of_vectors) {
+        flat_vector.insert(flat_vector.end(), single_vector.begin(), single_vector.end());
+    }
+    return flat_vector;
+}
+
+static inline std::string to_lower(const std::string& str) {
+    std::string res = str;
+    std::transform(res.begin(), res.end(), res.begin(), ::tolower);
+    return res;
+}
+
+// Returns true if value is within the given percentage of reference.
+static inline bool is_within_percentage(double value, double reference, double percentage) {
+    return std::abs(value - reference) <= std::abs(reference) * (percentage / 100.0);
+}

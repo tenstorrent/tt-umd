@@ -82,9 +82,14 @@ std::string probe_socket(const std::filesystem::path& socket_path) {
 // Points everything the host prints at its own log and detaches stdin, so a detached host neither
 // writes to nor reads from the terminal that started it. Line-buffered: a log that only materialises
 // when the process exits is no use for diagnosing a host that is stuck.
+//
+// O_NOFOLLOW, because the log path is derived from the server index and so is predictable, and the
+// temp directory it sits in is world-writable: following a symlink planted there would truncate
+// whatever it names, with this process's privileges. Owner-only for the same reason. Refusing to
+// start beats writing somewhere else.
 void redirect_standard_streams(const std::filesystem::path& log) {
     const int null_fd = open("/dev/null", O_RDONLY);
-    const int log_fd = open(log.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    const int log_fd = open(log.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
     const bool redirected = null_fd >= 0 && log_fd >= 0 && dup2(null_fd, STDIN_FILENO) >= 0 &&
                             dup2(log_fd, STDOUT_FILENO) >= 0 && dup2(log_fd, STDERR_FILENO) >= 0;
     const int failure = errno;

@@ -68,10 +68,10 @@ flowchart TB
 
 ## The flow
 
-1. **Start a server.** Launch a host in the background with the `sim_server.sh` wrapper:
+1. **Start a server.** Launch a host in the background with `--detach`:
 
    ```
-   sim_server.sh start <simulator>
+   sim_server start --detach <simulator>
    ```
 
    It brings the simulation up in a freshly allocated server directory and returns once the sockets
@@ -80,11 +80,9 @@ flowchart TB
    Other processes can now attach. Start another server the same way and it gets its own directory
    (`.../tt-umd-sim-server-1`).
 
-   The `sim_server` binary itself runs in the foreground: `sim_server start <simulator>` serves until
-   you stop it with `Ctrl-C`, `SIGTERM`, or `sim_server kill`. That is handy when you want the host
-   in a terminal you are watching. The wrapper is what adds the backgrounding, the per-server log,
-   and the check that startup actually succeeded; every other subcommand it forwards to the binary
-   untouched, so `sim_server.sh list` and `sim_server list` are the same thing.
+   Without `--detach` the host runs in the foreground and serves until you stop it with `Ctrl-C`,
+   `SIGTERM`, or `sim_server kill`. That is handy when you want the host in a terminal you are
+   watching.
 
 2. **See what's running.**
 
@@ -130,7 +128,7 @@ flowchart TB
    so it leaves a directory behind — `list` shows it as `unreachable`. Clear those out with:
 
    ```
-   sim_server.sh prune
+   sim_server prune
    ```
 
    It removes the directories and logs of servers that no longer answer, and leaves live ones alone.
@@ -139,7 +137,7 @@ At a glance, over the life of one server:
 
 ```mermaid
 sequenceDiagram
-  participant Tool as sim_server.sh
+  participant Tool as sim_server
   participant Host as host (sim_server start)
   participant Dir as server directory
   participant Client as client (Cluster)
@@ -257,10 +255,10 @@ client — there is no separate "connect" call.
   server directory *is* what a client points at, and what `sim_server list` scans — there is no
   central registry, just the directories present on disk. When a server shuts down it removes its
   sockets and its (now-empty) directory.
-- **Server logs.** Started through `sim_server.sh`, a host is detached from your terminal and its
-  output goes to a per-server log in the temporary directory, named after the server directory:
-  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started directly
-  with `sim_server start`, the host runs in the foreground and logs to your terminal.
+- **Server logs.** Started with `--detach`, a host is detached from your terminal and its output
+  goes to a per-server log in the temporary directory, named after the server directory:
+  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started without
+  it, the host runs in the foreground and logs to your terminal.
 
 ## What happens under the hood
 

@@ -98,10 +98,23 @@ public:
     // The claim is atomic, so racing starts get distinct directories.
     static std::filesystem::path allocate_server_directory();
 
-    // The simulation servers currently open on this machine, ordered by index, discovered by
-    // scanning the well-known server directories (the same directories a client attaches to). Does
-    // not connect to them. Exposed for management tooling (list / kill) without opening devices.
+    // One pass over every server directory: the servers still open, and the ones whose host was
+    // gone, which this removed. Both come from a single scan, so a caller acting on both sees one
+    // consistent view. A directory with no socket yet is never removed -- it cannot be told apart
+    // from a host still coming up.
+    struct ServerScan {
+        std::vector<SimulationServerInfo> live;
+        std::vector<SimulationServerInfo> removed;
+    };
+
+    static ServerScan scan_servers();
+
+    // The servers currently open on this machine, ordered by index. Opens no devices. Exposed for
+    // management tooling (list / kill).
     static std::vector<SimulationServerInfo> list_servers();
+
+    // Removes what hosts that are gone left on disk, and returns those servers.
+    static std::vector<SimulationServerInfo> prune_dead_servers();
 };
 
 }  // namespace tt::umd

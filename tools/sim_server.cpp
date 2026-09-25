@@ -65,6 +65,19 @@ std::filesystem::path log_path_for(const std::filesystem::path& server_directory
            fmt::format("sim_server-{}.log", server_directory.filename().string());
 }
 
+// Which servers are past saving is the connector's judgement, and it clears up after them
+// whenever it enumerates; their logs are this tool's own doing, so they go at the same moment.
+// One scan yields both halves: taking the live list from a second scan would let a host that
+// exited in between be swept by that scan, leaving its log behind with no directory.
+SimulationConnector::ServerScan scan_and_clear_up_logs() {
+    SimulationConnector::ServerScan scan = SimulationConnector::scan_servers();
+    for (const SimulationServerInfo& server : scan.removed) {
+        std::error_code ec;
+        std::filesystem::remove(log_path_for(server.directory), ec);
+    }
+    return scan;
+}
+
 // Asks the host on this socket who it is. Returns "<arch>/<backend>", or "" if nothing answers.
 std::string probe_socket(const std::filesystem::path& socket_path) {
     try {
@@ -187,19 +200,21 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
 }
 
 int cmd_list() {
-    const std::vector<SimulationServerInfo> servers = SimulationConnector::list_servers();
+    const std::vector<SimulationServerInfo> servers = scan_and_clear_up_logs().live;
     if (servers.empty()) {
         std::cout << "No simulation servers running.\n";
         return 0;
     }
     std::cout << fmt::format(LIST_ROW, "SERVER", "CHIP", "STATE", "ARCH", "SOCKET");
     for (const SimulationServerInfo& server : servers) {
-        // A directory with no sockets is a host still coming up, or one that died and left it behind.
+        // A server that is gone is already left out of the listing, so a directory with no sockets
+        // here is a host still coming up.
         if (server.sockets.empty()) {
             std::cout << fmt::format(LIST_ROW, server.index, "-", "empty", "-", server.directory.string());
             continue;
         }
         for (const auto& [chip_id, socket_path] : server.sockets) {
+            // Reachable only if the host died between the listing and this probe.
             const std::string arch = probe_socket(socket_path);
             const bool live = !arch.empty();
             std::cout << fmt::format(
@@ -215,7 +230,7 @@ int cmd_list() {
 }
 
 int cmd_kill(int server_index) {
-    const std::vector<SimulationServerInfo> servers = SimulationConnector::list_servers();
+    const std::vector<SimulationServerInfo> servers = scan_and_clear_up_logs().live;
     const auto it = std::find_if(servers.begin(), servers.end(), [server_index](const SimulationServerInfo& server) {
         return server.index == server_index;
     });
@@ -239,30 +254,12 @@ int cmd_kill(int server_index) {
     return 0;
 }
 
-// A host removes its own directory when it shuts down gracefully, so anything left behind belongs to
-// one that was killed or crashed: no chip of it answers. A directory with no socket at all reads the
-// same as a host that is still coming up, which is why this is a command rather than something
-// `list` does on its own -- don't prune while starting a server.
 int cmd_prune() {
-    int pruned = 0;
-    for (const SimulationServerInfo& server : SimulationConnector::list_servers()) {
-        const bool live = std::any_of(server.sockets.begin(), server.sockets.end(), [](const auto& socket) {
-            return !probe_socket(socket.second).empty();
-        });
-        if (live) {
-            continue;
-        }
-        std::error_code ec;
-        std::filesystem::remove_all(server.directory, ec);
-        if (ec) {
-            log_error(tt::LogUMD, "Could not remove {}: {}", server.directory.string(), ec.message());
-            continue;
-        }
-        std::filesystem::remove(log_path_for(server.directory), ec);
+    const std::vector<SimulationServerInfo> pruned = scan_and_clear_up_logs().removed;
+    for (const SimulationServerInfo& server : pruned) {
         std::cout << fmt::format("pruned server {} ({})\n", server.index, server.directory.string());
-        ++pruned;
     }
-    if (pruned == 0) {
+    if (pruned.empty()) {
         std::cout << "Nothing to prune.\n";
     }
     return 0;

@@ -387,6 +387,19 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
 
+    // Resolved before the model is asked, so a model serving its own window sees the same target
+    // the TLB path below would have used.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+
+    // A model whose architecture has no mappable aperture serves the window itself. The ordering
+    // argument does not travel with it: the Base API's signature takes target and host only, and a
+    // window with nothing mapped behind it has nothing weaker than Strict to offer anyway.
+    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host)) {
+        return window;
+    }
+
     const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
 
     // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
@@ -415,11 +428,6 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
                 tt::arch_to_str(get_arch()),
                 size_classes.back().size));
         size = size_class->size;
-    }
-
-    // Routing follows the caller's selected NOC unless the target names one explicitly.
-    if (!target.noc.has_value()) {
-        target.noc = get_selected_noc_id();
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);

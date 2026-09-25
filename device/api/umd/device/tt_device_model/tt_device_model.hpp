@@ -6,7 +6,12 @@
 
 #include <memory>
 
+// IoWindow is a complete type here, not a forward declaration: create_io_window's default body
+// returns a unique_ptr<IoWindow>, which instantiates the deleter and so needs the definition in
+// every translation unit that includes this.
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/types/io_window_config.hpp"
 
 namespace tt::umd {
 class DeviceFirmware;
@@ -77,6 +82,23 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
+
+    /**
+     * @brief Creates an I/O window mapping host memory to device address space.
+     *
+     * Required, so every model states its own answer rather than inheriting one.
+     *
+     * A model whose architecture has no mappable aperture builds the window itself. A model still
+     * served by TTDevice's TLB path returns nullptr, which is how it says so: the machinery for
+     * that path -- the architecture's size classes, the allocator behind the virtual
+     * get_io_window() -- has not moved off TTDevice yet, and cannot be reached from here. Once it
+     * has, those models build their own windows and nullptr stops being a legal answer.
+     *
+     * @param target Device-side target (core, address, NOC).
+     * @param host Host-side properties (caching, size).
+     * @return std::unique_ptr<IoWindow> Exclusively owned window handle, or nullptr for the TLB path.
+     */
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 
     // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once

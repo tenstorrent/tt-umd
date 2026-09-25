@@ -12,12 +12,12 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "tt_emule/device.hpp"
-#include "tt_emule/l1_pool.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_emule/device.hpp"
+#include "tt_emule/l1_pool.hpp"
 
 namespace tt::umd {
 

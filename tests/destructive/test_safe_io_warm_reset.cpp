@@ -49,13 +49,13 @@
 #include <thread>
 #include <vector>
 
-#include "tt-umd/api/tt-umd/warm_reset.hpp"
-#include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/multi_process_event.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/process_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd/api/tt-umd/warm_reset.hpp"
+#include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
 #include "tt-umd/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"

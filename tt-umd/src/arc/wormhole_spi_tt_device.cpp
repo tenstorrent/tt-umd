@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "spi_arc_command.hpp"
-#include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -25,6 +24,7 @@
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
 
 namespace tt::umd {
 

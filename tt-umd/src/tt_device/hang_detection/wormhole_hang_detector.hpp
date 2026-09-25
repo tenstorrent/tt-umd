@@ -7,9 +7,9 @@
 
 #include <cstdint>
 
-#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 
 namespace tt::umd {
 class DeviceProtocol;

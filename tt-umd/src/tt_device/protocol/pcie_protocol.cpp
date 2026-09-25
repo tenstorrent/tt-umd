@@ -19,8 +19,6 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
-#include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
-#include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -29,6 +27,8 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/tlb.hpp"
+#include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
+#include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

@@ -8,14 +8,14 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "soc_arch_descriptor_resolver.hpp"
-#include "tt_device/firmware/blackhole_device_firmware.hpp"
-#include "tt_device/firmware/simulation_device_firmware.hpp"
-#include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
+#include "tt_device/firmware/blackhole_device_firmware.hpp"
+#include "tt_device/firmware/simulation_device_firmware.hpp"
+#include "tt_device/firmware/wormhole_device_firmware.hpp"
 
 namespace tt::umd {
 

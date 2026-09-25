@@ -13,7 +13,6 @@
 #include <variant>
 #include <vector>
 
-#include "types/wormhole_dram.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
@@ -31,6 +30,7 @@
 #include "tt-umd/types/wormhole_telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "types/wormhole_dram.hpp"
 
 namespace tt::umd {
 

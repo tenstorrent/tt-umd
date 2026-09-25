@@ -6,15 +6,15 @@
 
 #include <utility>
 
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/jtag/jtag_device.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "tt_device/protocol/jtag_protocol.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
-#include "tt-umd/arch/blackhole_implementation.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
-#include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 

@@ -16,7 +16,6 @@
 #include <string_view>
 #include <utility>
 
-#include "tt_device_error.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -44,6 +43,7 @@
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
+#include "tt_device_error.hpp"
 
 namespace tt::umd {
 

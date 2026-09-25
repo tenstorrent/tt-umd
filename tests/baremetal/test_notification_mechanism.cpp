@@ -18,8 +18,8 @@
 #include <thread>
 #include <vector>
 
-#include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "test_utils/pipe_communication.hpp"
+#include "tt-umd/api/tt-umd/warm_reset.hpp"
 
 using namespace tt;
 using namespace tt::umd;

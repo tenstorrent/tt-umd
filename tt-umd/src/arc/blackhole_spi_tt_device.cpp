@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "spi_arc_command.hpp"
-#include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -21,6 +20,7 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "tt_device/firmware/blackhole_device_firmware.hpp"
 
 namespace tt::umd {
 

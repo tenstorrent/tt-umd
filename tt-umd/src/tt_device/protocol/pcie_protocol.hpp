@@ -12,12 +12,12 @@
 #include <mutex>
 #include <optional>
 
-#include "tt_device/protocol/dma_interface.hpp"
-#include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt_device/protocol/dma_interface.hpp"
+#include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 
 namespace tt {
 enum class ARCH;

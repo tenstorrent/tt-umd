@@ -7,11 +7,11 @@
 #include <fmt/format.h>
 #include <unistd.h>
 
-#include "tt_device_model/simulation_tt_device_model.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {
 

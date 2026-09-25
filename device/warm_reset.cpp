@@ -535,40 +535,49 @@ bool WarmReset::galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int
     return false;
 }
 
-void WarmReset::ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms) {
-    static constexpr size_t NUMBER_OF_PCIE_DEVICES = 32;
-    auto pci_devices = PCIDevice::enumerate_devices();
-    auto start = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start < timeout_ms) {
-        if (pci_devices.size() == NUMBER_OF_PCIE_DEVICES) {
-            log_debug(tt::LogUMD, "Found all {} PCIe devices", NUMBER_OF_PCIE_DEVICES);
-            return;
-        }
-        sleep(1);
-        pci_devices = PCIDevice::enumerate_devices();
+bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
+    if (std::getenv("TT_VISIBLE_DEVICES") != nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            "TT_VISIBLE_DEVICES is defined, IPMI reset does not support resetting a subset of devices.");
     }
 
-    log_warning(
-        tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
-}
-
-bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     if (PCIDevice::enumerate_devices().empty()) {
         log_info(LogUMD, "No PCI devices found.");
         return false;
     }
 
+    auto pci_device_ids = PCIDevice::enumerate_devices();
+    std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+
+    std::map<int, std::string> pci_bdfs;
+    for (auto& pci_device_info : pci_devices_info) {
+        pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
+    }
+
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
+
     static int constexpr UBB_NUM = 0xF;
     static int constexpr DEV_NUM = 0xFF;
     static int constexpr OP_MODE = 0x0;
     static int constexpr RESET_TIME = 0xF;
-
     const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
-    log_debug(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
-    sleep(30);
-    log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
-    ubb_wait_for_driver_load(timeout_ms);
 
+    for (auto& pci_bdf : pci_bdfs) {
+        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
+        if (new_id == -1) {
+            log_error(tt::LogUMD, "Reset failed.");
+            return false;
+        }
+
+        if (!wait_for_reset_marker(pci_bdf.second)) {
+            log_error(tt::LogUMD, "Reset failed.");
+            return false;
+        }
+    }
+
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
     return reset_success;
 }
 

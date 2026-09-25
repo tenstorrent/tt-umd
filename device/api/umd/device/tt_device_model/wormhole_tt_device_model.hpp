@@ -36,6 +36,13 @@ public:
 
     ~WormholeTTDeviceModel() override;
 
+    /**
+     * Still served by TTDevice's TLB path, which this model cannot reach: the size classes and the
+     * allocator behind get_io_window() have not moved off TTDevice. Returning nullptr is how the
+     * required component says so.
+     */
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+
     DeviceProtocol *get_device_protocol() override;
 
     DeviceFirmware *get_device_firmware() override;

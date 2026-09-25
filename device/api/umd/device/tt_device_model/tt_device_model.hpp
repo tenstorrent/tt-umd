@@ -86,19 +86,19 @@ public:
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
      *
-     * The Base API specifies this as a required component of a model. It is a nullptr default here
-     * while it is still being decoupled from TTDevice: returning nullptr keeps the existing
-     * behaviour, where TTDevice serves the window from the architecture's TLB size classes through
-     * the virtual get_io_window(). A model overrides it when its architecture has no mappable
-     * aperture for that path to allocate from, and becomes pure virtual once every model does.
+     * Required, so every model states its own answer rather than inheriting one.
+     *
+     * A model whose architecture has no mappable aperture builds the window itself. A model still
+     * served by TTDevice's TLB path returns nullptr, which is how it says so: the machinery for
+     * that path -- the architecture's size classes, the allocator behind the virtual
+     * get_io_window() -- has not moved off TTDevice yet, and cannot be reached from here. Once it
+     * has, those models build their own windows and nullptr stops being a legal answer.
      *
      * @param target Device-side target (core, address, NOC).
      * @param host Host-side properties (caching, size).
      * @return std::unique_ptr<IoWindow> Exclusively owned window handle, or nullptr for the TLB path.
      */
-    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
-        return nullptr;
-    }
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 
     // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once

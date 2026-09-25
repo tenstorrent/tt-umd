@@ -267,7 +267,8 @@ jobs:
 
       # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
       # which is the case where a host with no chips would serve no sockets and still look like it started.
-      # `list` must report the chip as live, and `kill` must be able to reach it over that socket.
+      # `list` must name the arch and the simulator the host is running -- both come from probing
+      # the socket, so either appearing also proves the chip is live -- and `kill` must reach it there.
       - name: Run sim_server start / list / kill / prune on tt-sim blackhole
         timeout-minutes: 2
         run: |
@@ -277,7 +278,8 @@ jobs:
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
           ./sim_server start --detach "$simulator"
           ./sim_server list | tee /tmp/sim_server_list.txt
-          grep -q "blackhole/ttsim" /tmp/sim_server_list.txt
+          grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
+          grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
 

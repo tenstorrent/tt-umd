@@ -7,6 +7,13 @@
 #include <optional>
 #include <string>
 
+// <windows.h> (winbase.h) defines IGNORE as an object-like macro, which would mangle the
+// Action::IGNORE enumerator below in any TU that included it first. The macro is a Win16-era
+// relic with no modern users; drop it.
+#ifdef IGNORE
+#undef IGNORE
+#endif
+
 namespace tt::umd {
 /**
  * @brief Settings for discovering the chips a simulator models, rather than the host's own.

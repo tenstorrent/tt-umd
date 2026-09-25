@@ -79,6 +79,13 @@ SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 // Serving a protocol is what lets the architecture's firmware, telemetry reader and firmware-info
 // provider read a simulated device without knowing it is simulated. It is usable only once the
 // device has attached itself to it, which it does when its backend comes up.
+// TTDevice still serves this architecture's windows from its TLB path; nullptr is how a required
+// component says the answer is not here. See TTDeviceModel::create_io_window.
+std::unique_ptr<IoWindow> SimulationTTDeviceModel::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return nullptr;
+}
+
 DeviceProtocol *SimulationTTDeviceModel::get_device_protocol() { return tt_sim_protocol_.get(); }
 
 HangDetector *SimulationTTDeviceModel::get_hang_detector() { return hang_detector_.get(); }

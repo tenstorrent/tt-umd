@@ -76,6 +76,17 @@ public:
     // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
     void* get_mapped_host_ptr(uint64_t device_io_addr);
 
+    // Re-sizes this chip's sysmem to num_host_mem_channels channels, and reports whether the channel
+    // count changed (the caller has iATU regions to re-program when it did).
+    //
+    // A simulated cluster's channel count is not knowable when the device is built: the count is one
+    // per chip the MMIO chip serves, and chips reached over ethernet are only found by the topology
+    // discovery that the device itself has to be alive for. So the device starts with a provisional
+    // count and the cluster grows it here once the discovered descriptor says how many chips this one
+    // actually gateways for. Growing only, and only before any sysmem buffer has been handed out: the
+    // channels are slices of one mapping, so growing replaces it and every existing channel moves.
+    bool grow_host_mem_channels(uint32_t num_host_mem_channels);
+
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
@@ -96,6 +107,10 @@ private:
         // Bump allocator: next arena offset (relative to pcie_base_) to assign.
         uint64_t next_arena_offset = 0;
     };
+
+    // Releases the hugepage-channel mapping without touching the registry, so grow_host_mem_channels
+    // can remap while it holds registry_->mutex.
+    void unmap_system_memory();
 
     // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);

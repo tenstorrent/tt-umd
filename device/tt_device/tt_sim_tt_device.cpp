@@ -198,13 +198,29 @@ void TTSimTTDevice::initialize_backend() {
     // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
     // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
     // of the multichip work), which is the behaviour of the stable simulator release.
-    if (get_arch() == tt::ARCH::WORMHOLE_B0 || get_arch() == tt::ARCH::BLACKHOLE) {
-        size_t nch = sysmem_manager_->get_num_host_mem_channels();
-        for (size_t ch = 0; ch < nch; ch++) {
-            HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
-            TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
-        }
+    program_iatu_for_host_mem_channels();
+}
+
+void TTSimTTDevice::program_iatu_for_host_mem_channels() {
+    if (get_arch() != tt::ARCH::WORMHOLE_B0 && get_arch() != tt::ARCH::BLACKHOLE) {
+        return;
     }
+    size_t nch = sysmem_manager_->get_num_host_mem_channels();
+    for (size_t ch = 0; ch < nch; ch++) {
+        HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
+        TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
+    }
+}
+
+void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
+    auto* sim_mgr = dynamic_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    if (sim_mgr == nullptr || !sim_mgr->grow_host_mem_channels(num_host_mem_channels)) {
+        return;
+    }
+    // Only the added channels need a region -- an existing channel's target is host_base_ + ch * 1 GiB,
+    // which does not depend on where the mapping landed -- but re-programming all of them is harmless
+    // and keeps one path for programming the iATU.
+    program_iatu_for_host_mem_channels();
 }
 
 TTSimTTDevice::TTSimTTDevice(

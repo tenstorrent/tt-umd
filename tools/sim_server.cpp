@@ -65,16 +65,17 @@ std::filesystem::path log_path_for(const std::filesystem::path& server_directory
            fmt::format("sim_server-{}.log", server_directory.filename().string());
 }
 
-// Which servers are past saving is the connector's judgement, and it clears up after them whenever
-// it enumerates; their logs are this tool's own doing, so they go at the same moment. Every command
-// that enumerates calls this first, so the two halves cannot drift apart.
-std::vector<SimulationServerInfo> clear_up_dead_servers() {
-    const std::vector<SimulationServerInfo> pruned = SimulationConnector::prune_dead_servers();
-    for (const SimulationServerInfo& server : pruned) {
+// Which servers are past saving is the connector's judgement, and it clears up after them
+// whenever it enumerates; their logs are this tool's own doing, so they go at the same moment.
+// One scan yields both halves: taking the live list from a second scan would let a host that
+// exited in between be swept by that scan, leaving its log behind with no directory.
+SimulationConnector::ServerScan scan_and_clear_up_logs() {
+    SimulationConnector::ServerScan scan = SimulationConnector::scan_servers();
+    for (const SimulationServerInfo& server : scan.removed) {
         std::error_code ec;
         std::filesystem::remove(log_path_for(server.directory), ec);
     }
-    return pruned;
+    return scan;
 }
 
 // Asks the host on this socket who it is. Returns "<arch>/<backend>", or "" if nothing answers.
@@ -199,8 +200,7 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
 }
 
 int cmd_list() {
-    clear_up_dead_servers();
-    const std::vector<SimulationServerInfo> servers = SimulationConnector::list_servers();
+    const std::vector<SimulationServerInfo> servers = scan_and_clear_up_logs().live;
     if (servers.empty()) {
         std::cout << "No simulation servers running.\n";
         return 0;
@@ -230,8 +230,7 @@ int cmd_list() {
 }
 
 int cmd_kill(int server_index) {
-    clear_up_dead_servers();
-    const std::vector<SimulationServerInfo> servers = SimulationConnector::list_servers();
+    const std::vector<SimulationServerInfo> servers = scan_and_clear_up_logs().live;
     const auto it = std::find_if(servers.begin(), servers.end(), [server_index](const SimulationServerInfo& server) {
         return server.index == server_index;
     });
@@ -256,7 +255,7 @@ int cmd_kill(int server_index) {
 }
 
 int cmd_prune() {
-    const std::vector<SimulationServerInfo> pruned = clear_up_dead_servers();
+    const std::vector<SimulationServerInfo> pruned = scan_and_clear_up_logs().removed;
     for (const SimulationServerInfo& server : pruned) {
         std::cout << fmt::format("pruned server {} ({})\n", server.index, server.directory.string());
     }

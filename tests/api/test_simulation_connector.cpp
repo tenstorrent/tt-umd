@@ -504,6 +504,23 @@ TEST(SimulationConnector, PruneReportsTheServerItCleared) {
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
 }
 
+// Both halves come from one pass, so a caller acting on the live list and on what was swept sees
+// one consistent view rather than two scans that can disagree. Needs no simulator.
+TEST(SimulationConnector, ScanReportsBothHalvesFromOnePass) {
+    const test_utils::ScopedServerDirectory gone(SimulationServerSocket::allocate_server_directory());
+    const test_utils::ScopedServerDirectory coming_up(SimulationServerSocket::allocate_server_directory());
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(gone.path(), 0));
+
+    const SimulationConnector::ServerScan scan = SimulationConnector::scan_servers();
+
+    EXPECT_EQ(count_directory(scan.removed, gone.path()), 1);
+    EXPECT_EQ(count_directory(scan.live, gone.path()), 0);
+    // The socket-less directory is on the other side of the same pass.
+    EXPECT_EQ(count_directory(scan.live, coming_up.path()), 1);
+    EXPECT_FALSE(std::filesystem::exists(gone.path()));
+    EXPECT_TRUE(std::filesystem::is_directory(coming_up.path()));
+}
+
 // A host that has claimed its directory and not bound its socket yet is indistinguishable from one
 // that died before it could. Neither the listing nor the sweep may act on that, or a server would
 // be swept out from under itself as it starts. Needs no simulator.

@@ -101,6 +101,26 @@ class TestSimulationConnector(unittest.TestCase):
         finally:
             shutil.rmtree(directory, ignore_errors=True)
 
+    def test_scan_servers_reports_both_halves_from_one_pass(self):
+        gone = tt_umd.SimulationConnector.allocate_server_directory()
+        coming_up = tt_umd.SimulationConnector.allocate_server_directory()
+        try:
+            leave_stale_socket(gone / SOCKET_NAME)
+            live, removed = tt_umd.SimulationConnector.scan_servers()
+            self.assertEqual(
+                [s.directory for s in removed if s.directory == gone], [gone]
+            )
+            self.assertEqual([s.directory for s in live if s.directory == gone], [])
+            # The socket-less directory is on the other side of the same pass.
+            self.assertEqual(
+                [s.directory for s in live if s.directory == coming_up], [coming_up]
+            )
+            self.assertFalse(gone.exists())
+            self.assertTrue(coming_up.is_dir())
+        finally:
+            shutil.rmtree(gone, ignore_errors=True)
+            shutil.rmtree(coming_up, ignore_errors=True)
+
     def test_prune_leaves_a_directory_with_no_socket_yet_alone(self):
         # Indistinguishable from a host still coming up, so the sweep must not take it.
         directory = tt_umd.SimulationConnector.allocate_server_directory()

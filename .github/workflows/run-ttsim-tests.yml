@@ -328,7 +328,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       # TTSimCommunicatorTest covers the simulator-facing plumbing rather than device IO: the shared
       # dlopen, endpoint enumeration, the closed-device guard, and independent IO across two chips of
@@ -410,7 +411,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). Its topology is
       # discovered rather than declared (see "Prepare sim paths"), so the standard device-IO fixtures
@@ -428,7 +430,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -442,7 +445,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
       # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
@@ -459,7 +463,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       - name: Install microbenchmark python deps
         run: |
@@ -667,14 +672,14 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -688,7 +693,7 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
       # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
@@ -706,7 +711,7 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
 
   # Compare the simulator microbenchmark results against the per-arch baselines in
   # tests/microbenchmark/baselines/sim-*.yaml.

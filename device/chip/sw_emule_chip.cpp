@@ -5,11 +5,13 @@
 #include "umd/device/chip/sw_emule_chip.hpp"
 
 #include <cassert>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <set>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 #include <vector>
 
 #include "tt_emule/device.hpp"
@@ -20,6 +22,39 @@
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+// Empty/unset and "0" disable sharing; any other nonempty value requests it.
+// Keep private pools usable with the declared tt-emule pin, which has no shared-pool API.
+bool shared_pool_requested() {
+    const char* value = std::getenv("TT_EMULE_CHIP_SHM");
+    return value != nullptr && value[0] != '\0' && std::strcmp(value, "0") != 0;
+}
+
+template <typename Pool>
+std::unique_ptr<Pool> make_shared_pool(size_t slots, uint64_t uid, uint64_t harvest_mask) {
+    if constexpr (std::is_constructible_v<Pool, size_t, uint64_t, uint64_t>) {
+        return std::make_unique<Pool>(slots, uid, harvest_mask);
+    } else {
+        UMD_THROW(error::RuntimeError, "SWEmuleChip: this tt-emule dependency does not support TT_EMULE_CHIP_SHM");
+    }
+}
+
+template <typename Pool, typename = void>
+struct HasSharedPoolQuery : std::false_type {};
+
+template <typename Pool>
+struct HasSharedPoolQuery<Pool, std::void_t<decltype(std::declval<const Pool&>().is_shared())>> : std::true_type {};
+
+template <typename Pool>
+bool is_shared_pool(const Pool& pool) {
+    if constexpr (HasSharedPoolQuery<Pool>::value) {
+        return pool.is_shared();
+    } else {
+        return false;
+    }
+}
+}  // namespace
 
 std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor& soc_descriptor) {
     // TRANSLATED, because that is the naming get_core() resolves in: write_to_device normalizes
@@ -101,13 +136,13 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
         }
         shm_harvest_mask_ = tensix_mask | (dram_mask << HARVEST_FIELD_BITS) | (eth_mask << (2 * HARVEST_FIELD_BITS));
     }
-    if (chip_uid.has_value() && tt_emule::chip_store_shared()) {
-        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, *chip_uid, shm_harvest_mask_);
+    if (chip_uid.has_value() && shared_pool_requested()) {
+        worker_pool_ = make_shared_pool<tt_emule::L1Pool>(pool_size, *chip_uid, shm_harvest_mask_);
     } else {
         // Refuse when sharing was ASKED FOR but this chip has no stable id. A process-private pool
         // is invisible to every peer, so the run would continue and drop each cross-rank write, and
         // the only symptom appears far away as a fabric problem. Fail at the cause instead.
-        if (!chip_uid.has_value() && tt_emule::chip_store_shared()) {
+        if (!chip_uid.has_value() && shared_pool_requested()) {
             UMD_THROW(
                 error::RuntimeError,
                 "SWEmuleChip: TT_EMULE_CHIP_SHM requests shared chip backing, but this chip has no "
@@ -177,7 +212,7 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         // No slot: a non-pooled core, which is expected traffic — write_to_device routes
         // ETH/PCIE/DISPATCH/ARC here too, since it only special-cases DRAM. Only a SHARED pool
         // makes this actionable, because the private mapping is then invisible to peer ranks.
-        if (worker_pool_ && worker_pool_->is_shared()) {
+        if (worker_pool_ && is_shared_pool(*worker_pool_)) {
             static std::once_flag warned;
             std::call_once(warned, [&]() {
                 log_warning(
@@ -286,6 +321,16 @@ void SWEmuleChip::dram_membar(const std::unordered_set<CoreCoord>&) {}
 void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&, uint32_t) {}
 
 void SWEmuleChip::deassert_risc_resets() {}
+
+RiscType SWEmuleChip::get_risc_reset_state(CoreCoord core) { return RiscType::NONE; }
+
+void SWEmuleChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {}
+
+void SWEmuleChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {}
+
+void SWEmuleChip::assert_risc_reset(const RiscType selected_riscs) {}
+
+void SWEmuleChip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {}
 
 int SWEmuleChip::arc_msg(
     uint32_t, bool, const std::vector<uint32_t>&, const std::chrono::milliseconds, uint32_t* return_3, uint32_t*) {

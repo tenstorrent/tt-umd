@@ -6,6 +6,7 @@
 
 #include "soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/io_window/kmd_noc_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/tt_device/firmware/quasar_device_firmware.hpp"
 #include "umd/device/tt_device/protocol/quasar_protocol.hpp"
@@ -14,15 +15,22 @@
 namespace tt::umd {
 
 QuasarTTDeviceModel::QuasarTTDeviceModel(
-    std::unique_ptr<KmdScalarNocAccess> access,
+    std::shared_ptr<KmdScalarNocAccess> access,
     int mmio_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    access_(std::move(access)),
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::QUASAR>(soc_arch_descriptor)),
     architecture_impl_(ArchitectureImplementation::create(tt::ARCH::QUASAR)),
-    protocol_(std::make_unique<QuasarProtocol>(std::move(access), mmio_id)),
+    protocol_(std::make_unique<QuasarProtocol>(access_, mmio_id)),
     device_firmware_(std::make_unique<QuasarDeviceFirmware>()) {}
 
 QuasarTTDeviceModel::~QuasarTTDeviceModel() = default;
+
+// The window and the protocol issue their accesses over the same driver handle, which is why the
+// access is shared rather than owned by whichever of them was built first.
+std::unique_ptr<IoWindow> QuasarTTDeviceModel::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return std::make_unique<KmdNocWindow>(access_, target, host.size);
+}
 
 DeviceProtocol *QuasarTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 

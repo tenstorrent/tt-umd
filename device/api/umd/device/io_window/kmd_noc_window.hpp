@@ -23,12 +23,19 @@ namespace tt::umd {
  * same so that callers above need not know which of the two they hold, but the cost is not: a
  * block transfer is one round trip per word.
  *
- * The window has no size of its own. Its base is whatever it was last configured with, and an
- * offset past the target's slot is caught by the translation rather than by this class.
+ * Its base is whatever it was last configured with. Nothing is allocated to bound it, so the size
+ * is the span the window accepts offsets within: whatever the caller asked for, or unbounded when
+ * the caller asked for nothing and left the choice here. A mapped window cannot offer the latter.
  */
 class KmdNocWindow : public IoWindow {
 public:
-    KmdNocWindow(std::unique_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config);
+    /**
+     * @param access The scalar access every transfer through this window is built from. Shared,
+     * because the protocol on the same device issues its own accesses over the same driver handle.
+     * @param config The target this window starts out pointing at.
+     * @param size The span to accept offsets within, or 0 for unbounded.
+     */
+    KmdNocWindow(std::shared_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config, size_t size = 0);
     ~KmdNocWindow() override;
 
     void write_block(uint64_t offset, const void* data, size_t size) override;
@@ -55,8 +62,12 @@ private:
     /** Aperture flags implied by the configured target. */
     uint32_t access_flags() const;
 
-    std::unique_ptr<KmdScalarNocAccess> access_;
+    /** Refuses an access that is misaligned, or that runs past a window with a size. */
+    void validate(uint64_t offset, size_t size, uint32_t width) const;
+
+    std::shared_ptr<KmdScalarNocAccess> access_;
     TargetIoWindowConfig config_;
+    size_t size_;
 };
 
 }  // namespace tt::umd

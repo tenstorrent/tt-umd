@@ -31,10 +31,16 @@ public:
      * @param soc_arch_descriptor Caller's descriptor, or nullptr for the architecture's own.
      */
     QuasarTTDeviceModel(
-        std::unique_ptr<KmdScalarNocAccess> access,
+        std::shared_ptr<KmdScalarNocAccess> access,
         int mmio_id,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     ~QuasarTTDeviceModel() override;
+
+    /**
+     * A window served from the same scalar accesses the protocol uses, because the TLB path
+     * TTDevice takes otherwise allocates a hardware mapping and this architecture exposes none.
+     */
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
 
     DeviceProtocol *get_device_protocol() override;
     DeviceFirmware *get_device_firmware() override;
@@ -43,6 +49,7 @@ public:
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
+    std::shared_ptr<KmdScalarNocAccess> access_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> protocol_;

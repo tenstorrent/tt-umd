@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "umd/device/arch/configs/keraunos_address_map.hpp"
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -270,4 +271,65 @@ TEST_F(QuasarDeviceIOTest, WritesTheScratchBankInOneTransfer) {
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
         write32(cold_scratch(i), originals[i - FIRST_WRITABLE_COLD_SCRATCH]);
     }
+}
+
+// The window path, which is what a caller wanting a handle rather than a call gets. The Base API
+// makes create_io_window a required component of a model, and the path TTDevice takes otherwise
+// allocates a hardware mapping this architecture does not expose -- so the model serves the window
+// from the same scalar accesses as everything above, and these check it arrives and addresses
+// correctly rather than that it is fast.
+TEST_F(QuasarDeviceIOTest, ServesAWindowOverTheScratchBank) {
+    const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
+    const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
+    require_range_reachable(base, bytes);
+
+    TargetIoWindowConfig target{};
+    target.core_start = tt_xy_pair(0, 0);
+    target.addr = base;
+
+    HostIoWindowConfig host{};
+    host.size = bytes;
+
+    std::unique_ptr<IoWindow> window = device_->create_io_window(target, host);
+    ASSERT_NE(window, nullptr) << "The model served no window.";
+
+    // Nothing is allocated behind it, so the size it reports is the span it was asked for. A
+    // caller that sized its own loop from this would otherwise walk off the end of the bank.
+    EXPECT_EQ(window->get_size(), bytes);
+
+    const uint32_t first = read32(base);
+    const uint32_t last = read32(cold_scratch(LAST_WRITABLE_COLD_SCRATCH));
+
+    // Both ends, because a window that ignored the offset and drove its base would pass at one.
+    window->write32(0, 0xc0ffee00);
+    window->write32(bytes - sizeof(uint32_t), 0xc0ffee07);
+
+    EXPECT_EQ(window->read32(0), 0xc0ffee00u);
+    EXPECT_EQ(window->read32(bytes - sizeof(uint32_t)), 0xc0ffee07u);
+
+    // The scalar path reads the same registers, so the window is addressing the storage the rest
+    // of these tests address rather than something that merely round-trips.
+    EXPECT_EQ(read32(base), 0xc0ffee00u);
+    EXPECT_EQ(read32(cold_scratch(LAST_WRITABLE_COLD_SCRATCH)), 0xc0ffee07u);
+
+    write32(base, first);
+    write32(cold_scratch(LAST_WRITABLE_COLD_SCRATCH), last);
+}
+
+// A sized window refuses an offset past its end rather than issuing the access, which is the only
+// thing bounding it: there is no mapping whose extent would catch the overrun.
+TEST_F(QuasarDeviceIOTest, ASizedWindowRefusesAnOffsetPastItsEnd) {
+    const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
+
+    TargetIoWindowConfig target{};
+    target.core_start = tt_xy_pair(0, 0);
+    target.addr = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
+
+    HostIoWindowConfig host{};
+    host.size = bytes;
+
+    std::unique_ptr<IoWindow> window = device_->create_io_window(target, host);
+    ASSERT_NE(window, nullptr) << "The model served no window.";
+
+    EXPECT_THROW(window->read32(bytes), std::exception);
 }

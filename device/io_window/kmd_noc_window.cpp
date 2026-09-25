@@ -17,7 +17,15 @@ namespace {
 
 constexpr uint32_t WORD_WIDTH = 4;
 
-void check_aligned(uint64_t offset, size_t size, uint32_t width) {
+}  // namespace
+
+KmdNocWindow::KmdNocWindow(
+    std::shared_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config, size_t size) :
+    access_(std::move(access)), config_(config), size_(size) {
+    UMD_ASSERT(access_ != nullptr, error::RuntimeError, "An I/O window needs a scalar access path.");
+}
+
+void KmdNocWindow::validate(uint64_t offset, size_t size, uint32_t width) const {
     UMD_ASSERT(
         offset % width == 0,
         error::RuntimeError,
@@ -26,13 +34,13 @@ void check_aligned(uint64_t offset, size_t size, uint32_t width) {
         size != 0 && size % width == 0,
         error::RuntimeError,
         fmt::format("A {} byte transfer is not a whole number of {} byte accesses.", size, width));
-}
 
-}  // namespace
-
-KmdNocWindow::KmdNocWindow(std::unique_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config) :
-    access_(std::move(access)), config_(config) {
-    UMD_ASSERT(access_ != nullptr, error::RuntimeError, "An I/O window needs a scalar access path.");
+    // A window with a size accepts offsets within it. One created with no size has nothing
+    // allocated to overrun, so the target's own translation is what bounds it.
+    UMD_ASSERT(
+        size_ == 0 || (offset <= size_ && size <= size_ - offset),
+        error::RuntimeError,
+        fmt::format("A {} byte access at offset 0x{:x} runs past this {} byte window.", size, offset, size_));
 }
 
 KmdNocWindow::~KmdNocWindow() = default;
@@ -42,12 +50,12 @@ uint32_t KmdNocWindow::access_flags() const {
 }
 
 void KmdNocWindow::write32(uint64_t offset, uint32_t value) {
-    check_aligned(offset, WORD_WIDTH, WORD_WIDTH);
+    validate(offset, WORD_WIDTH, WORD_WIDTH);
     access_->write(config_.addr + offset, value, WORD_WIDTH, access_flags());
 }
 
 uint32_t KmdNocWindow::read32(uint64_t offset) {
-    check_aligned(offset, WORD_WIDTH, WORD_WIDTH);
+    validate(offset, WORD_WIDTH, WORD_WIDTH);
 
     uint64_t value = 0;
     access_->read(config_.addr + offset, &value, WORD_WIDTH, access_flags());
@@ -55,12 +63,12 @@ uint32_t KmdNocWindow::read32(uint64_t offset) {
 }
 
 void KmdNocWindow::write16(uint64_t offset, uint16_t value) {
-    check_aligned(offset, sizeof(uint16_t), sizeof(uint16_t));
+    validate(offset, sizeof(uint16_t), sizeof(uint16_t));
     access_->write(config_.addr + offset, value, sizeof(uint16_t), access_flags());
 }
 
 uint16_t KmdNocWindow::read16(uint64_t offset) {
-    check_aligned(offset, sizeof(uint16_t), sizeof(uint16_t));
+    validate(offset, sizeof(uint16_t), sizeof(uint16_t));
 
     uint64_t value = 0;
     access_->read(config_.addr + offset, &value, sizeof(uint16_t), access_flags());
@@ -68,7 +76,7 @@ uint16_t KmdNocWindow::read16(uint64_t offset) {
 }
 
 void KmdNocWindow::write_block(uint64_t offset, const void* data, size_t size) {
-    check_aligned(offset, size, WORD_WIDTH);
+    validate(offset, size, WORD_WIDTH);
 
     const auto* in = static_cast<const uint8_t*>(data);
     for (size_t done = 0; done < size; done += WORD_WIDTH) {
@@ -79,7 +87,7 @@ void KmdNocWindow::write_block(uint64_t offset, const void* data, size_t size) {
 }
 
 void KmdNocWindow::read_block(uint64_t offset, void* data, size_t size) {
-    check_aligned(offset, size, WORD_WIDTH);
+    validate(offset, size, WORD_WIDTH);
 
     auto* out = static_cast<uint8_t*>(data);
     for (size_t done = 0; done < size; done += WORD_WIDTH) {
@@ -107,8 +115,9 @@ TargetIoWindowConfig KmdNocWindow::get_target_config() const { return config_; }
 
 IoOrdering KmdNocWindow::get_io_ordering() const { return IoOrdering::Strict; }
 
-// Nothing is mapped, so there is no region whose extent could be reported.
-size_t KmdNocWindow::get_size() const { return 0; }
+// What this window accepts offsets within: the caller's requested size, or 0 when the caller left
+// the choice here and it is bounded only by the target's translation.
+size_t KmdNocWindow::get_size() const { return size_; }
 
 HostMemoryCaching KmdNocWindow::get_memory_caching_type() const { return HostMemoryCaching::UC; }
 

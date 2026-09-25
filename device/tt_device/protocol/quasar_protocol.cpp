@@ -22,7 +22,7 @@ constexpr uint32_t ACCESS_WIDTH = 4;
 
 }  // namespace
 
-QuasarProtocol::QuasarProtocol(std::unique_ptr<KmdScalarNocAccess> access, int mmio_id) :
+QuasarProtocol::QuasarProtocol(std::shared_ptr<KmdScalarNocAccess> access, int mmio_id) :
     access_(std::move(access)), mmio_id_(mmio_id) {
     UMD_ASSERT(access_ != nullptr, error::RuntimeError, "Quasar protocol needs a scalar access path.");
 }

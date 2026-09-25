@@ -11,6 +11,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -268,6 +269,20 @@ public:
     DmaBuffer &get_dma_buffer() { return dma_buffer; }
 
     /**
+     * Spread page pins across `count` extra handles to this device, one per pinning thread.
+     *
+     * The KMD pins pages for one handle at a time, so threads that call map_for_dma() or map_buffer_to_noc()
+     * concurrently only pin in parallel when each uses its own handle. After this call, each thread pins through one
+     * of the extra handles (assigned round-robin on the thread's first pin), and unmap_for_dma() returns the pages
+     * through the handle that pinned them, from any thread. Pins remain valid until they are unmapped or the device
+     * is destroyed.
+     *
+     * The count only grows: a smaller value than the current count is ignored. With a count of 0 (the default), all
+     * pins go through the device's main handle.
+     */
+    void set_pin_handle_count(size_t count);
+
+    /**
      * Unmap a buffer that was previously mapped for DMA access.
      *
      * @param buffer must be page-aligned
@@ -448,6 +463,18 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
+
+    // Returns the handle this thread pins through: one of pin_handles_, or tt_device_handle when there are none.
+    tt_device_t *pin_handle_for_current_thread();
+    // Records that `handle` pinned [virtual_address, virtual_address + size), so unmapping uses the same handle.
+    void record_pin_handle(tt_device_t *handle, uint64_t virtual_address, size_t size);
+    // Returns (and forgets) the handle that pinned the range, or tt_device_handle if none was recorded.
+    tt_device_t *take_pin_handle(uint64_t virtual_address, size_t size);
+
+    // Extra handles for concurrent pinning, see set_pin_handle_count(), and the handle each pinned range came from.
+    std::mutex pin_handles_mutex_;
+    std::vector<tt_device_t *> pin_handles_;
+    std::map<std::pair<uint64_t, size_t>, tt_device_t *> pin_handle_by_range_;
 
     // TLB configuration registers mapped space.
     void *tlb_config_space = nullptr;

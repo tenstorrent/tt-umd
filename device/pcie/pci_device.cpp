@@ -11,6 +11,7 @@
 #include <unistd.h>       // for ::close
 
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -20,6 +21,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -539,6 +541,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 PCIDevice::~PCIDevice() {
+    for (tt_device_t *pin_handle : pin_handles_) {
+        tt_device_close(pin_handle);
+    }
+
     int ret_code = tt_device_close(tt_device_handle);
 
     if (ret_code != 0) {
@@ -627,7 +633,11 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
 
     uint64_t physical_address = 0;
     uint64_t noc_address = 0;
-    int ret = tt_pin_pages(tt_device_handle, buffer, size, flags, &physical_address, &noc_address);
+    tt_device_t *pin_handle = pin_handle_for_current_thread();
+    int ret = tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, &noc_address);
+    if (ret == 0) {
+        record_pin_handle(pin_handle, virtual_address, size);
+    }
     if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
@@ -714,7 +724,11 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess de
     }
 
     uint64_t physical_address = 0;
-    int ret = tt_pin_pages(tt_device_handle, buffer, size, flags, &physical_address, nullptr);
+    tt_device_t *pin_handle = pin_handle_for_current_thread();
+    int ret = tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, nullptr);
+    if (ret == 0) {
+        record_pin_handle(pin_handle, virtual_address, size);
+    }
     if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
@@ -737,6 +751,54 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess de
     return physical_address;
 }
 
+void PCIDevice::set_pin_handle_count(size_t count) {
+    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
+    while (pin_handles_.size() < count) {
+        tt_device_t *handle = nullptr;
+        int ret = tt_device_open(device_path.c_str(), &handle, 0);
+        if (ret != 0) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to open pin handle {} of {} for {}: {}",
+                    pin_handles_.size() + 1,
+                    count,
+                    device_path,
+                    strerror(-ret)));
+        }
+        pin_handles_.push_back(handle);
+    }
+}
+
+tt_device_t *PCIDevice::pin_handle_for_current_thread() {
+    // Each thread gets a fixed slot on its first pin, so a thread's pins never contend with each other for a handle
+    // and N threads spread over N handles.
+    static std::atomic<size_t> next_thread_slot{0};
+    thread_local const size_t thread_slot = next_thread_slot++;
+
+    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
+    return pin_handles_.empty() ? tt_device_handle : pin_handles_[thread_slot % pin_handles_.size()];
+}
+
+void PCIDevice::record_pin_handle(tt_device_t *handle, uint64_t virtual_address, size_t size) {
+    if (handle == tt_device_handle) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
+    pin_handle_by_range_[{virtual_address, size}] = handle;
+}
+
+tt_device_t *PCIDevice::take_pin_handle(uint64_t virtual_address, size_t size) {
+    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
+    auto it = pin_handle_by_range_.find({virtual_address, size});
+    if (it == pin_handle_by_range_.end()) {
+        return tt_device_handle;
+    }
+    tt_device_t *handle = it->second;
+    pin_handle_by_range_.erase(it);
+    return handle;
+}
+
 void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
@@ -746,7 +808,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
-    int ret = tt_unpin_pages(tt_device_handle, buffer, size);
+    int ret = tt_unpin_pages(take_pin_handle(virtual_address, size), buffer, size);
     if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,

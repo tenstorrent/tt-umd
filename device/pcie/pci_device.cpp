@@ -633,12 +633,13 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
 
     uint64_t physical_address = 0;
     uint64_t noc_address = 0;
-    tt_device_t *pin_handle = pin_handle_for_current_thread();
-    int ret = tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, &noc_address);
-    if (ret == 0) {
-        record_pin_handle(pin_handle, virtual_address, size);
-    }
+    tt_device_t *pin_handle = claim_pin_handle(virtual_address, size);
+    int ret = pin_handle == nullptr ? -EEXIST
+                                    : tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, &noc_address);
     if (ret != 0) {
+        if (pin_handle != nullptr) {
+            take_pin_handle(virtual_address, size);
+        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -724,12 +725,13 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess de
     }
 
     uint64_t physical_address = 0;
-    tt_device_t *pin_handle = pin_handle_for_current_thread();
-    int ret = tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, nullptr);
-    if (ret == 0) {
-        record_pin_handle(pin_handle, virtual_address, size);
-    }
+    tt_device_t *pin_handle = claim_pin_handle(virtual_address, size);
+    int ret =
+        pin_handle == nullptr ? -EEXIST : tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, nullptr);
     if (ret != 0) {
+        if (pin_handle != nullptr) {
+            take_pin_handle(virtual_address, size);
+        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -770,22 +772,19 @@ void PCIDevice::set_pin_handle_count(size_t count) {
     }
 }
 
-tt_device_t *PCIDevice::pin_handle_for_current_thread() {
+tt_device_t *PCIDevice::claim_pin_handle(uint64_t virtual_address, size_t size) {
     // Each thread gets a fixed slot on its first pin, so a thread's pins never contend with each other for a handle
     // and N threads spread over N handles.
     static std::atomic<size_t> next_thread_slot{0};
     thread_local const size_t thread_slot = next_thread_slot++;
 
     std::lock_guard<std::mutex> lock(pin_handles_mutex_);
-    return pin_handles_.empty() ? tt_device_handle : pin_handles_[thread_slot % pin_handles_.size()];
-}
-
-void PCIDevice::record_pin_handle(tt_device_t *handle, uint64_t virtual_address, size_t size) {
-    if (handle == tt_device_handle) {
-        return;
+    tt_device_t *handle = pin_handles_.empty() ? tt_device_handle : pin_handles_[thread_slot % pin_handles_.size()];
+    // Claimed before pinning, so two threads pinning the same range at once cannot both succeed.
+    if (!pin_handle_by_range_.try_emplace({virtual_address, size}, handle).second) {
+        return nullptr;
     }
-    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
-    pin_handle_by_range_[{virtual_address, size}] = handle;
+    return handle;
 }
 
 tt_device_t *PCIDevice::take_pin_handle(uint64_t virtual_address, size_t size) {

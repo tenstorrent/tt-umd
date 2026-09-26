@@ -275,7 +275,8 @@ public:
      * concurrently only pin in parallel when each uses its own handle. After this call, each thread pins through one
      * of the extra handles (assigned round-robin on the thread's first pin), and unmap_for_dma() returns the pages
      * through the handle that pinned them, from any thread. Pins remain valid until they are unmapped or the device
-     * is destroyed.
+     * is destroyed. As with a single handle, a range that is pinned cannot be pinned again (same address and size),
+     * whichever handles the two pins would use, until it is unmapped.
      *
      * The count only grows: a smaller value than the current count is ignored. With a count of 0 (the default), all
      * pins go through the device's main handle.
@@ -464,10 +465,11 @@ private:
 
     tt_device_t *tt_device_handle = nullptr;
 
-    // Returns the handle this thread pins through: one of pin_handles_, or tt_device_handle when there are none.
-    tt_device_t *pin_handle_for_current_thread();
-    // Records that `handle` pinned [virtual_address, virtual_address + size), so unmapping uses the same handle.
-    void record_pin_handle(tt_device_t *handle, uint64_t virtual_address, size_t size);
+    // Picks the handle this thread pins [virtual_address, virtual_address + size) through (one of pin_handles_, or
+    // tt_device_handle when there are none) and records it, so unmapping uses the same handle. Returns nullptr,
+    // recording nothing, when that exact range is already pinned: the KMD refuses a duplicate only within one handle,
+    // and two pins of one range through different handles would leave unmap_for_dma() unable to tell which to unpin.
+    tt_device_t *claim_pin_handle(uint64_t virtual_address, size_t size);
     // Returns (and forgets) the handle that pinned the range, or tt_device_handle if none was recorded.
     tt_device_t *take_pin_handle(uint64_t virtual_address, size_t size);
 

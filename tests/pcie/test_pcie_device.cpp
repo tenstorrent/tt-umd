@@ -91,3 +91,32 @@ TEST(PcieDeviceTest, ConcurrentPinsOnPinHandles) {
     EXPECT_NO_THROW(device.unmap_for_dma(buffer, total_size));
     munmap(buffer, total_size);
 }
+
+TEST(PcieDeviceTest, DuplicatePinThroughAnotherHandleIsRefused) {
+    const auto device_ids = PCIDevice::enumerate_devices();
+    if (device_ids.empty()) {
+        GTEST_SKIP() << "No PCIe devices were enumerated";
+    }
+    PCIDevice device(device_ids.front());
+    if (!device.is_iommu_enabled()) {
+        GTEST_SKIP() << "Pinning scattered pages requires an IOMMU";
+    }
+
+    const size_t size = 1 << 20;
+    void* buffer = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    ASSERT_NE(buffer, MAP_FAILED);
+
+    device.set_pin_handle_count(2);
+
+    // New threads take consecutive handle slots, so these two pins go through different handles, where the KMD alone
+    // would accept both.
+    std::thread([&] { EXPECT_NO_THROW(device.map_for_dma(buffer, size)); }).join();
+    std::thread([&] { EXPECT_ANY_THROW(device.map_for_dma(buffer, size)); }).join();
+
+    // The refused pin left nothing behind: the range unpins exactly once, and can then be pinned again.
+    EXPECT_NO_THROW(device.unmap_for_dma(buffer, size));
+    EXPECT_ANY_THROW(device.unmap_for_dma(buffer, size));
+    EXPECT_NO_THROW(device.map_for_dma(buffer, size));
+    EXPECT_NO_THROW(device.unmap_for_dma(buffer, size));
+    munmap(buffer, size);
+}

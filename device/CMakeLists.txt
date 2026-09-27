@@ -275,6 +275,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/topology/topology_discovery_error.hpp
+                api/umd/device/topology/ip_layout.hpp
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/error.hpp
                 api/umd/device/utils/error_detail.hpp

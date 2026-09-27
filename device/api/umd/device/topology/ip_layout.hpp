@@ -66,4 +66,11 @@ public:
     virtual AccessPointLocation get_location(AccessPointId access_point) const = 0;
 };
 
+/**
+ * Throws if @p layout has no devices, device ids that aren't 0..N-1, a device with no access points
+ * or one listing an access point twice, an unknown access point, or an access point not owned by
+ * exactly one device.
+ */
+void validate_ip_layout(const IpLayout& layout);
+
 }  // namespace tt::umd

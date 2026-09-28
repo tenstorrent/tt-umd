@@ -89,7 +89,8 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
     const std::map<ChipId, uint32_t> &chips,
-    int num_host_mem_channels) {
+    int num_host_mem_channels,
+    bool launch_simulator) {
     const RtlSimIpLayout layout(simulator_directory);
 
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
@@ -109,7 +110,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
                 access_points.size()));
         sockets.push_back(layout.get_host_access(access_points.front()));
     }
-    auto session = std::make_shared<RtlSimSession>(simulator_directory, sockets);
+    auto session = std::make_shared<RtlSimSession>(simulator_directory, sockets, launch_simulator);
     session->start();
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;

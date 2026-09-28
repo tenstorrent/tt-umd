@@ -4,7 +4,8 @@
 
 // A partitioned RTL simulator build (one with an ip_layout.yaml) opened as one chip per device.
 // Runs when TT_UMD_SIMULATOR points at such a build; skipped otherwise. One Cluster, and so one
-// simulator run, serves the whole suite.
+// simulator run, serves the whole suite. The chips are the layout's devices, or the subset named by
+// TT_VISIBLE_DEVICES, so the suite also runs as one of several processes sharing the run.
 //
 // The HorizonAtt tests use the noc2axi bridge ATT of Horizon: its registers sit behind the noc2axi
 // APB port, reached at (1 << 56) | apb address through the device's tensix (0,0). They skip when the
@@ -12,9 +13,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <set>
 #include <unordered_set>
@@ -58,9 +62,6 @@ protected:
         options.chip_type = ChipType::SIMULATION;
         options.simulator_directory = simulator;
         options.num_host_mem_ch_per_mmio_device = 0;
-        for (const auto& [device, access_points] : layout_->get_devices()) {
-            options.target_devices.insert(static_cast<tt::ChipId>(device));
-        }
         cluster_ = std::make_unique<Cluster>(options);
         cluster_->start_device({.init_device = true});
     }
@@ -101,7 +102,11 @@ protected:
 }  // namespace
 
 TEST_F(RtlSimIpPartitionTest, OneChipPerDevice) {
-    EXPECT_EQ(cluster_->get_target_device_ids().size(), layout_->get_devices().size());
+    size_t expected = layout_->get_devices().size();
+    if (const char* visible = std::getenv("TT_VISIBLE_DEVICES"); visible != nullptr && *visible != '\0') {
+        expected = std::count(visible, visible + std::strlen(visible), ',') + 1;
+    }
+    EXPECT_EQ(cluster_->get_target_device_ids().size(), expected);
 }
 
 TEST_F(RtlSimIpPartitionTest, DevicesAreIsolated) {
@@ -132,6 +137,7 @@ TEST_F(RtlSimIpPartitionTest, HorizonAttEachDeviceHasItsOwnWindow) {
             GTEST_SKIP() << "ATT is off on chip " << chip << ".";
         }
         offsets.insert(table_offset(chip));
+        std::cout << "chip " << chip << ": bridge ATT table offset " << table_offset(chip) << std::endl;
     }
     EXPECT_EQ(offsets.size(), cluster_->get_target_device_ids().size());
 }

@@ -58,8 +58,8 @@ void spawn_simulator(const std::filesystem::path &simulator_directory) {
 }  // namespace
 
 RtlSimSession::RtlSimSession(
-    const std::filesystem::path &simulator_directory, const std::vector<std::string> &sockets) :
-    simulator_directory_(simulator_directory), sockets_(sockets) {
+    const std::filesystem::path &simulator_directory, const std::vector<std::string> &sockets, bool launch_simulator) :
+    simulator_directory_(simulator_directory), sockets_(sockets), launch_simulator_(launch_simulator) {
     UMD_ASSERT(!sockets_.empty(), error::RuntimeError, "RtlSimSession needs at least one socket.");
     // Each name is a process-wide NNG_SOCKET_ADDR_<name> variable, so a repeated one would leave a
     // listener nobody can reach.
@@ -79,7 +79,9 @@ void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
         hosts_[i]->init(sockets_[i]);
     }
 
-    spawn_simulator(simulator_directory_);
+    if (launch_simulator_) {
+        spawn_simulator(simulator_directory_);
+    }
 
     for (auto &host : hosts_) {
         host->start_host();

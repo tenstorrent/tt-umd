@@ -501,24 +501,37 @@ Cluster::Cluster(ClusterOptions options) {
                     std::filesystem::exists(options.simulator_directory / RtlSimIpLayout::FILE_NAME);
                 if (is_rtl_build_with_ip_layout) {
                     const RtlSimIpLayout layout(options.simulator_directory);
-                    std::map<ChipId, uint32_t> chips;
-                    std::unordered_set<ChipId> chip_ids;
+                    std::unordered_set<ChipId> layout_chips;
                     for (const auto& [device, access_points] : layout.get_devices()) {
-                        chips[static_cast<ChipId>(device)] = static_cast<uint32_t>(device);
-                        chip_ids.insert(static_cast<ChipId>(device));
+                        layout_chips.insert(static_cast<ChipId>(device));
                     }
                     const IpDeviceId first_device = layout.get_devices().begin()->first;
                     const tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(
                         layout.get_soc_descriptor(first_device).string());
+
+                    // The descriptor picks the devices this process opens (target_devices, else
+                    // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
+                    // layout device id, so it maps each chip back to its device.
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        ClusterDescriptor::create_mock_cluster(layout_chips, arch, false).get(),
+                        options.target_devices);
+                    std::map<ChipId, uint32_t> chips;
+                    for (const auto& [chip_id, unique_id] : cluster_desc->get_chip_unique_ids()) {
+                        chips[chip_id] = static_cast<uint32_t>(unique_id);
+                    }
+
+                    // Serve only this process's devices. Another process may serve the rest of the
+                    // layout; TT_UMD_SIMULATOR_LAUNCH=0 leaves launching run.sh to it.
+                    const char* launch_env = std::getenv("TT_UMD_SIMULATOR_LAUNCH");
+                    const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
                     tt_devices = create_rtl_sim_ip_layout_tt_devices(
                         options.simulator_directory,
                         chips,
-                        static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)));
+                        static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
+                        launch);
                     if (options.sdesc_path.empty()) {
                         options.sdesc_path = layout.get_soc_descriptor(first_device).string();
                     }
-                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                        ClusterDescriptor::create_mock_cluster(chip_ids, arch, false).get(), options.target_devices);
                     break;
                 }
 

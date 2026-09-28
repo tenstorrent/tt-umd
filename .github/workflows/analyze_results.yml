@@ -107,6 +107,9 @@ jobs:
 
       - name: Run analysis of benchmark data (with baseline)
         if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
+        # Container jobs default to `sh -e`, which has no pipefail, so a crash in the
+        # script was swallowed by the exit code of the trailing tee.
+        shell: bash
         run: |
           set -o pipefail
           . /tmp/venv/bin/activate
@@ -119,6 +122,7 @@ jobs:
 
       - name: Run analysis of benchmark data
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
+        shell: bash
         run: |
           set -o pipefail
           . /tmp/venv/bin/activate

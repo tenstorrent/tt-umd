@@ -50,6 +50,7 @@ jobs:
         with:
           sparse-checkout: |
             tests/microbenchmark/tools/analyze_results.py
+            tests/microbenchmark/tools/utils.py
           sparse-checkout-cone-mode: false
 
       - name: Install dependencies for API calls
@@ -107,6 +108,7 @@ jobs:
       - name: Run analysis of benchmark data (with baseline)
         if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          set -o pipefail
           . /tmp/venv/bin/activate
           echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
@@ -118,6 +120,7 @@ jobs:
       - name: Run analysis of benchmark data
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
         run: |
+          set -o pipefail
           . /tmp/venv/bin/activate
           echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md

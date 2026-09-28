@@ -380,6 +380,21 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
+// Extra flags for opening the device's own tt-kmd-lib handles, the main handle and the pin handles alike.
+static constexpr int tt_device_open_extra_flags = 0;
+
+// Closes `handle`, warning on failure: the destructor that closes it has no one to throw to.
+static void close_tt_device(tt_device_t *handle, int pci_device_number) {
+    int ret_code = tt_device_close(handle);
+    if (ret_code != 0) {
+        log_warning(
+            LogUMD,
+            "tt_device_close failed with error code {} for PCI device with device ID {}.",
+            ret_code,
+            pci_device_number);
+    }
+}
+
 static int open_pci_device(const std::string &device_path) {
     // O_APPEND is temporarily disabled to investigate NOC1 issues. See
     // https://github.com/tenstorrent/tt-umd/issues/2531.
@@ -404,8 +419,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
-    int extra_flags = 0;
-    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
+    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, tt_device_open_extra_flags);
 
     if (ret_code != 0) {
         if (tt_device_handle != nullptr) {
@@ -541,19 +555,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 PCIDevice::~PCIDevice() {
-    for (tt_device_t *pin_handle : pin_handles_) {
-        tt_device_close(pin_handle);
+    for (tt_device_t *pin_handle : pin_handles) {
+        close_tt_device(pin_handle, pci_device_num);
     }
-
-    int ret_code = tt_device_close(tt_device_handle);
-
-    if (ret_code != 0) {
-        log_warning(
-            LogUMD,
-            "tt_device_close failed with error code {} for PCI device with device ID {}.",
-            ret_code,
-            pci_device_num);
-    }
+    close_tt_device(tt_device_handle, pci_device_num);
 
     close(pci_device_file_desc);
 
@@ -633,13 +638,8 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
 
     uint64_t physical_address = 0;
     uint64_t noc_address = 0;
-    tt_device_t *pin_handle = claim_pin_handle(virtual_address, size);
-    int ret = pin_handle == nullptr ? -EEXIST
-                                    : tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, &noc_address);
+    int ret = pin_pages(buffer, size, flags, &physical_address, &noc_address);
     if (ret != 0) {
-        if (pin_handle != nullptr) {
-            take_pin_handle(virtual_address, size);
-        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -725,13 +725,8 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess de
     }
 
     uint64_t physical_address = 0;
-    tt_device_t *pin_handle = claim_pin_handle(virtual_address, size);
-    int ret =
-        pin_handle == nullptr ? -EEXIST : tt_pin_pages(pin_handle, buffer, size, flags, &physical_address, nullptr);
+    int ret = pin_pages(buffer, size, flags, &physical_address, nullptr);
     if (ret != 0) {
-        if (pin_handle != nullptr) {
-            take_pin_handle(virtual_address, size);
-        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -754,48 +749,57 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess de
 }
 
 void PCIDevice::set_pin_handle_count(size_t count) {
-    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
-    while (pin_handles_.size() < count) {
+    std::lock_guard<std::mutex> lock(pin_handles_mutex);
+    while (pin_handles.size() < count) {
         tt_device_t *handle = nullptr;
-        int ret = tt_device_open(device_path.c_str(), &handle, 0);
+        int ret = tt_device_open(device_path.c_str(), &handle, tt_device_open_extra_flags);
         if (ret != 0) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
                     "Failed to open pin handle {} of {} for {}: {}",
-                    pin_handles_.size() + 1,
+                    pin_handles.size() + 1,
                     count,
                     device_path,
                     strerror(-ret)));
         }
-        pin_handles_.push_back(handle);
+        pin_handles.push_back(handle);
     }
 }
 
-tt_device_t *PCIDevice::claim_pin_handle(uint64_t virtual_address, size_t size) {
-    // Each thread gets a fixed slot on its first pin, so a thread's pins never contend with each other for a handle
-    // and N threads spread over N handles.
+int PCIDevice::pin_pages(void *buffer, size_t size, int flags, uint64_t *physical_address, uint64_t *noc_address) {
+    // Each thread takes the next slot on its first pin through any PCIDevice and keeps it, so pinning threads spread
+    // round-robin over the handles.
     static std::atomic<size_t> next_thread_slot{0};
     thread_local const size_t thread_slot = next_thread_slot++;
 
-    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
-    tt_device_t *handle = pin_handles_.empty() ? tt_device_handle : pin_handles_[thread_slot % pin_handles_.size()];
-    // Claimed before pinning, so two threads pinning the same range at once cannot both succeed.
-    if (!pin_handle_by_range_.try_emplace({virtual_address, size}, handle).second) {
-        return nullptr;
+    const std::pair<uint64_t, size_t> range{reinterpret_cast<uint64_t>(buffer), size};
+    tt_device_t *handle = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(pin_handles_mutex);
+        handle = pin_handles.empty() ? tt_device_handle : pin_handles[thread_slot % pin_handles.size()];
+        // Claimed before pinning, so two threads pinning the same range at once cannot both succeed.
+        if (!pin_handle_by_range.try_emplace(range, handle).second) {
+            return -EEXIST;
+        }
     }
-    return handle;
+    int ret = tt_pin_pages(handle, buffer, size, flags, physical_address, noc_address);
+    if (ret != 0) {
+        std::lock_guard<std::mutex> lock(pin_handles_mutex);
+        pin_handle_by_range.erase(range);
+    }
+    return ret;
 }
 
-tt_device_t *PCIDevice::take_pin_handle(uint64_t virtual_address, size_t size) {
-    std::lock_guard<std::mutex> lock(pin_handles_mutex_);
-    auto it = pin_handle_by_range_.find({virtual_address, size});
-    if (it == pin_handle_by_range_.end()) {
-        return tt_device_handle;
+int PCIDevice::unpin_pages(void *buffer, size_t size) {
+    tt_device_t *handle = tt_device_handle;
+    {
+        std::lock_guard<std::mutex> lock(pin_handles_mutex);
+        if (auto record = pin_handle_by_range.extract({reinterpret_cast<uint64_t>(buffer), size})) {
+            handle = record.mapped();
+        }
     }
-    tt_device_t *handle = it->second;
-    pin_handle_by_range_.erase(it);
-    return handle;
+    return tt_unpin_pages(handle, buffer, size);
 }
 
 void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
@@ -807,7 +811,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
-    int ret = tt_unpin_pages(take_pin_handle(virtual_address, size), buffer, size);
+    int ret = unpin_pages(buffer, size);
     if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,

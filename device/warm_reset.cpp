@@ -270,7 +270,8 @@ bool wait_for_reset_marker(
         [&]() { return is_reset_marker_cleared(bdf); },
         timeout_ms,
         timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL,
-        timeout::WARM_RESET_MARKER_TIMEOUT);
+        timeout::WARM_RESET_MARKER_TIMEOUT,
+        fmt::format("reset marker to clear for device {}", bdf));
 
     if (!reset_complete) {
         log_warning(tt::LogUMD, "Timeout waiting for reset marker to clear for device {}.", bdf);

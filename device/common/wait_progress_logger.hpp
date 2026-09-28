@@ -13,21 +13,24 @@
 namespace tt::umd::utils {
 
 // Periodically logs that a wait loop is still in progress, so a long poll (measured in seconds to
-// minutes, not milliseconds) is visible instead of looking like a hang. Construct it once
-// immediately before the loop, with what it is waiting on and that wait's timeout, and call tick()
-// once per iteration; it logs at most once per log_interval. A wait that finishes well within
-// log_interval never logs, since tick() is first called right after construction.
+// minutes, not milliseconds) is visible instead of looking like a hang. Most waits get this by
+// passing progress_what to utils::poll_until, which owns the logger; construct one directly only
+// for a loop that cannot be expressed as poll_until. Construct it once immediately before the
+// loop, with what it is waiting on and that wait's timeout, and call tick() once per iteration; it
+// logs at most once per log_interval. A wait that finishes well within log_interval never logs,
+// since tick() is first called right after construction.
 class WaitProgressLogger {
 public:
+    static constexpr std::chrono::milliseconds DEFAULT_LOG_INTERVAL{5'000};
+
+    // `start` lets a loop that already tracks its own start time (poll_until) share it, so the
+    // elapsed time logged is the same one the loop times out on.
     WaitProgressLogger(
         std::string what,
         std::chrono::milliseconds timeout,
-        std::chrono::milliseconds log_interval = std::chrono::milliseconds(5'000)) :
-        what_(std::move(what)),
-        timeout_(timeout),
-        log_interval_(log_interval),
-        start_(std::chrono::steady_clock::now()),
-        last_logged_(start_) {}
+        std::chrono::milliseconds log_interval = DEFAULT_LOG_INTERVAL,
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now()) :
+        what_(std::move(what)), timeout_(timeout), log_interval_(log_interval), start_(start), last_logged_(start_) {}
 
     // `now` defaults to the real clock for production call sites; tests pass an explicit time
     // point so the throttling can be exercised deterministically, without sleeping, matching the

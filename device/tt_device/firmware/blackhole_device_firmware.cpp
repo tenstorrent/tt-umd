@@ -28,11 +28,16 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
-#include "wait_progress_logger.hpp"
 
 namespace tt::umd {
 
-// How this class picks a route: a non-null JtagInterface means the device is reached over JTAG,
+namespace {
+// ETH and DRAM training take seconds, so there is no point in spinning past the first millisecond.
+constexpr auto TRAINING_BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
+constexpr auto TRAINING_POLL_INTERVAL = std::chrono::microseconds(10);
+}  // namespace
+
+// How this class picks a route:a non-null JtagInterface means the device is reached over JTAG,
 // otherwise it is reached over PCIe. Inferring the route from which optional interface is present
 // is sound because a TTDevice is built for exactly one communication protocol - reaching the same
 // chip over both PCIe and JTAG today requires two TTDevice objects, so the two interfaces are never
@@ -319,18 +324,16 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
 
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("ARC firmware on device {} to become ready", device_id_), timeout_ms);
     const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode, &noc_id, &progress_logger]() {
-            progress_logger.tick();
+        [this, &arc_boot_status, &arc_postcode, &noc_id]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status, noc_id);
             read_from_arc_apb(&arc_postcode, blackhole::ARC_RESET_SCRATCH_OFFSET, sizeof arc_postcode, noc_id);
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,
         busy_poll_window,
-        poll_interval);
+        poll_interval,
+        fmt::format("ARC firmware on device {} to become ready", device_id_));
 
     if (!arc_core_started) {
         read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0, noc_id);
@@ -367,20 +370,18 @@ bool BlackholeDeviceFirmware::wait_eth_core_training(
     tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
     // Port status is the last state to settle during the eth training sequence; IN_PROGRESS means
     // training has not finished yet.
-    auto start = std::chrono::steady_clock::now();
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_), timeout_ms);
-    while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
-        progress_logger.tick();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
-        if (duration > timeout_ms) {
-            // TODO: This should throw. ETH connections are very flaky on Blackhole right now, so
-            // the timeout is only logged, matching the BlackholeTTDevice override this replaces.
-            log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
-            return false;
-        }
+    const bool trained = utils::poll_until(
+        [&]() { return get_eth_core_training_status(eth_core, noc_id) != EthTrainingStatus::IN_PROGRESS; },
+        timeout_ms,
+        TRAINING_BUSY_POLL_WINDOW,
+        TRAINING_POLL_INTERVAL,
+        fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_));
+    if (!trained) {
+        // TODO: This should throw. ETH connections are very flaky on Blackhole right now, so
+        // the timeout is only logged, matching the BlackholeTTDevice override this replaces.
+        log_error(LogUMD, "ETH training timed out after {} ms", timeout_ms.count());
     }
-    return true;
+    return trained;
 }
 
 EthTrainingStatus BlackholeDeviceFirmware::get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id) {
@@ -405,48 +406,55 @@ bool BlackholeDeviceFirmware::wait_dram_channel_training(
     // Number of retrain attempts is chosen based on syseng team testing.
     constexpr uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = 3;
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
-    auto start = std::chrono::steady_clock::now();
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_), timeout_ms);
-    while (true) {
-        progress_logger.tick();
-        std::vector<DramTrainingStatus> dram_training_status =
-            firmware_info_provider_->get_dram_training_status(dram_banks_number);
+    // Missing status ends the poll early, but is not a success.
+    bool status_unavailable = false;
+    const bool done = utils::poll_until(
+        [&]() {
+            std::vector<DramTrainingStatus> dram_training_status =
+                firmware_info_provider_->get_dram_training_status(dram_banks_number);
 
-        if (dram_training_status.empty()) {
-            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
-            return false;
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            if (num_retrain_dram_core > 0) {
-                log_warning(
-                    LogUMD,
-                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
-                    dram_channel,
-                    num_retrain_dram_core - 1);
-                retrain_dram_core(dram_channel, noc_id);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                num_retrain_dram_core--;
-            } else {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "DRAM training failed for channel {} after {} retrain attempts.",
-                        dram_channel,
-                        MAX_DRAM_RETRAIN_ATTEMPTS));
+            if (dram_training_status.empty()) {
+                status_unavailable = true;
+                return true;
             }
-        }
 
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
-            return true;
-        }
+            if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
+                if (num_retrain_dram_core > 0) {
+                    log_warning(
+                        LogUMD,
+                        "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
+                        dram_channel,
+                        num_retrain_dram_core - 1);
+                    retrain_dram_core(dram_channel, noc_id);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    num_retrain_dram_core--;
+                } else {
+                    UMD_THROW(
+                        error::RuntimeError,
+                        fmt::format(
+                            "DRAM training failed for channel {} after {} retrain attempts.",
+                            dram_channel,
+                            MAX_DRAM_RETRAIN_ATTEMPTS));
+                }
+            }
 
-        utils::check_timeout(
-            start,
-            timeout_ms,
+            return dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS;
+        },
+        timeout_ms,
+        TRAINING_BUSY_POLL_WINDOW,
+        TRAINING_POLL_INTERVAL,
+        fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_));
+
+    if (!done) {
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
+    if (status_unavailable) {
+        log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
+        return false;
+    }
+    return true;
 }
 
 void BlackholeDeviceFirmware::retrain_dram_core(uint32_t dram_channel, NocId noc_id) {

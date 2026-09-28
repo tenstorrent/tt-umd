@@ -142,8 +142,6 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
     return *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar0) + addr);
 }
 
-PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
-
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
 std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }

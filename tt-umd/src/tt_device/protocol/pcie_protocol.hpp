@@ -75,11 +75,6 @@ public:
         uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
         override;
 
-    // Not part of any Base API interface: internal PCIe plumbing reached by TTDevice via the
-    // concrete PcieProtocol rather than through PcieInterface/DmaInterface.
-    // TODO: delete this along with TTDevice::get_pci_device() once callers go through PcieInterface only.
-    PCIDevice* get_pci_device();
-
 private:
     TlbWindow* get_cached_tlb_window();
     TlbWindow* get_cached_dma_tlb_window(const tlb_data& config);

@@ -269,17 +269,19 @@ public:
     DmaBuffer &get_dma_buffer() { return dma_buffer; }
 
     /**
-     * Spread page pins across `count` extra handles to this device, one per pinning thread.
+     * Spread page pins across `count` extra handles to this device.
      *
      * The KMD pins pages for one handle at a time, so threads that call map_for_dma() or map_buffer_to_noc()
-     * concurrently only pin in parallel when each uses its own handle. After this call, each thread pins through one
-     * of the extra handles (assigned round-robin on the thread's first pin), and unmap_for_dma() returns the pages
-     * through the handle that pinned them, from any thread. Pins remain valid until they are unmapped or the device
-     * is destroyed. As with a single handle, a range that is pinned cannot be pinned again (same address and size),
-     * whichever handles the two pins would use, until it is unmapped.
+     * concurrently only pin in parallel when they use different handles. After this call, each thread pins through
+     * the extra handle its slot selects: slots are handed out in order on each thread's first pin through any
+     * PCIDevice, and taken modulo `count`. Threads whose slots are equal modulo `count` share a handle, so `count`
+     * should cover every thread that pins on this device concurrently. unmap_for_dma() returns the pages through the
+     * handle that pinned them, from any thread. Pins remain valid until they are unmapped or the device is destroyed.
+     * As with a single handle, a range that is pinned cannot be pinned again (same address and size), whichever
+     * handles the two pins would use, until it is unmapped.
      *
-     * The count only grows: a smaller value than the current count is ignored. With a count of 0 (the default), all
-     * pins go through the device's main handle.
+     * The count only grows: a smaller value than the current count is ignored. Until this is called, all pins go
+     * through the device's main handle.
      */
     void set_pin_handle_count(size_t count);
 
@@ -465,18 +467,19 @@ private:
 
     tt_device_t *tt_device_handle = nullptr;
 
-    // Picks the handle this thread pins [virtual_address, virtual_address + size) through (one of pin_handles_, or
-    // tt_device_handle when there are none) and records it, so unmapping uses the same handle. Returns nullptr,
-    // recording nothing, when that exact range is already pinned: the KMD refuses a duplicate only within one handle,
-    // and two pins of one range through different handles would leave unmap_for_dma() unable to tell which to unpin.
-    tt_device_t *claim_pin_handle(uint64_t virtual_address, size_t size);
-    // Returns (and forgets) the handle that pinned the range, or tt_device_handle if none was recorded.
-    tt_device_t *take_pin_handle(uint64_t virtual_address, size_t size);
+    // tt_pin_pages() through the handle this thread pins with (one of pin_handles, or tt_device_handle when there are
+    // none), recording it so that unpin_pages() returns the pages through the same handle. Returns -EEXIST, pinning
+    // nothing, when that exact range is already pinned: the KMD refuses a duplicate only within one handle, and two
+    // pins of one range through different handles would leave unpin_pages() unable to tell which to unpin.
+    int pin_pages(void *buffer, size_t size, int flags, uint64_t *physical_address, uint64_t *noc_address);
+    // tt_unpin_pages() through the handle that pinned the range. A range with no record unpins through
+    // tt_device_handle: hugepage pins (map_for_hugepage(), map_hugepage_to_noc()) go through it unrecorded.
+    int unpin_pages(void *buffer, size_t size);
 
     // Extra handles for concurrent pinning, see set_pin_handle_count(), and the handle each pinned range came from.
-    std::mutex pin_handles_mutex_;
-    std::vector<tt_device_t *> pin_handles_;
-    std::map<std::pair<uint64_t, size_t>, tt_device_t *> pin_handle_by_range_;
+    std::mutex pin_handles_mutex;
+    std::vector<tt_device_t *> pin_handles;
+    std::map<std::pair<uint64_t, size_t>, tt_device_t *> pin_handle_by_range;
 
     // TLB configuration registers mapped space.
     void *tlb_config_space = nullptr;

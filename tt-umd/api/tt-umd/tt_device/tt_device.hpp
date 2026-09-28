@@ -386,6 +386,13 @@ public:
     IODeviceType get_communication_device_type() const;
 
     /**
+     * Returns the NUMA node this device is attached to.
+     *
+     * @return NUMA node ID, or -1 if the device is not PCIe-connected or the system is non-NUMA.
+     */
+    int get_numa_node() const;
+
+    /**
      * Get the soft reset signal for the given riscs.
      *
      * @param core Core to get soft reset for, in translated coordinates

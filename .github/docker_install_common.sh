@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Install essential packages first (required for HTTPS and GPG operations)
 apt-get update && apt-get install -y \

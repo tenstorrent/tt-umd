@@ -14,6 +14,7 @@
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -160,6 +161,16 @@ protected:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
+
+    // Whether an access carries its destination in the address rather than alongside it. A NOC
+    // that resolves a flat address into a destination core needs the coordinate folded in; every
+    // other backend leaves the address core-local and sends the coordinate with it. Stated rather
+    // than inferred from the resolver, because which addressing a target uses is a property of the
+    // target, and a future one may be configured rather than implied.
+    bool global_address_mode_ = false;
+
+    // The map interpreter, present when global_address_mode_ is set.
+    std::unique_ptr<att::EndpointResolver> noc_address_resolver_ = nullptr;
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.

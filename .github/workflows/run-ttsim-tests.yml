@@ -296,11 +296,6 @@ jobs:
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
 
-      - name: Install nanobind test python deps
-        run: |
-          python3 -m ensurepip --upgrade
-          python3 -m pip install --no-cache-dir pytest
-
       # Python mirror of the C++ SimulationConnector coverage above: nanobind/tests only runs in the
       # pytest lane (no simulator) elsewhere, so its host/client test against a real simulator has
       # never run anywhere. Only the simulator-gated test file runs here -- the rest of nanobind/tests
@@ -313,7 +308,10 @@ jobs:
           # The tests skip rather than fail on a module built without simulation, which would turn
           # this step green while testing nothing.
           python3 -c "import tt_umd; assert hasattr(tt_umd, 'SimulationConnector'), 'tt_umd built without simulation'"
-          python3 -m pytest -s -rs tt-metal/tt_metal/third_party/umd/nanobind/tests/test_py_simulation_connector.py
+          # unittest rather than pytest: this file sits inside tt-metal's tree, and pytest would
+          # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
+          cd tt-metal/tt_metal/third_party/umd/nanobind/tests
+          python3 -m unittest -v test_py_simulation_connector
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.

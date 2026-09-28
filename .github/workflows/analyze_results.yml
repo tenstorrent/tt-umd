@@ -88,12 +88,14 @@ jobs:
 
       - name: Download baseline JSON benchmark results
         id: download-baseline
-        if: steps.get-main-run.outcome == 'success'
+        if: >-
+          inputs.baseline-run-id != ''
+          || (steps.get-main-run.outcome == 'success' && steps.get-main-run.outputs.run-id != '')
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          run-id: ${{ inputs.baseline-run-id != '' && inputs.baseline-run-id || steps.get-main-run.outputs.run-id }}
+          run-id: ${{ (inputs.baseline-run-id != '' && inputs.baseline-run-id) || steps.get-main-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
@@ -103,6 +105,9 @@ jobs:
         continue-on-error: false
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          # Empty when called from the benchmark run, where github.run_id is that same run.
+          run-id: ${{ inputs.results-run-id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
 
       - name: Run analysis of benchmark data (with baseline)

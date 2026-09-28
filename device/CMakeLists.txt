@@ -47,9 +47,9 @@ set_target_properties(
     tt-umd
     PROPERTIES
         VERSION
-            ${CMAKE_PROJECT_VERSION}
+            ${umd_VERSION}
         SOVERSION
-            ${CMAKE_PROJECT_VERSION_MAJOR}
+            ${umd_VERSION_MAJOR}
 )
 
 # Enable unity builds for faster compilation 

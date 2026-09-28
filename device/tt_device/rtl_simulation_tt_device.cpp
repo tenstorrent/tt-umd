@@ -104,11 +104,42 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels,
+        std::nullopt,
+        std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const RtlSimSocket& socket,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels,
+        socket,
+        std::make_unique<RtlSimCommunicator>(socket.get_host())) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels,
+    std::optional<RtlSimSocket> socket,
+    std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
         simulator_directory,
-        std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
-    communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
+        std::make_unique<SimulationSysmemManager>(
+            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
+    session_socket_(std::move(socket)),
+    communicator_(std::move(communicator)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();

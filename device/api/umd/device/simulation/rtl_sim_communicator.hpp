@@ -10,10 +10,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 
+#include "umd/device/simulation/rtl_sim_session.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 
 namespace tt::umd {
@@ -35,6 +37,12 @@ public:
     explicit RtlSimCommunicator(const std::filesystem::path &simulator_directory);
 
     /**
+     * Communicate over @p host, one socket of an RtlSimSession that has already been started.
+     * initialize() then only starts the notification thread; the caller keeps the session alive.
+     */
+    explicit RtlSimCommunicator(SimulationHost &host);
+
+    /**
      * Destructor that properly cleans up simulation host.
      */
     ~RtlSimCommunicator();
@@ -42,7 +50,7 @@ public:
     /**
      * Initialize the simulator and establish communication.
      * Must be called before using any communication methods.
-     * This spawns the simulator process and starts the host.
+     * With the directory constructor this spawns the simulator process and waits for its ack.
      */
     void initialize();
 
@@ -195,7 +203,7 @@ public:
      *
      * @return Reference to the SimulationHost
      */
-    SimulationHost &get_host() { return host_; }
+    SimulationHost &get_host() { return *host_; }
 
     // Callback for AXI RAM write: (address, data, size) -> write data into host memory.
     using RamWriteCallback = std::function<void(uint64_t address, const void *data, uint32_t size)>;
@@ -243,8 +251,11 @@ private:
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
 
+    // Single-socket session, when constructed from a simulator directory.
+    std::unique_ptr<RtlSimSession> owned_session_;
+
     // Simulation host for communication.
-    SimulationHost host_;
+    SimulationHost *host_ = nullptr;
 
     // Thread safety for send operations.
     mutable std::mutex device_lock_;

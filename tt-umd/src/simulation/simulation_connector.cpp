@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -95,6 +96,30 @@ Classification classify(const std::filesystem::path& simulator_path) {
     return {SimulationConnector::Role::Client, std::nullopt, std::move(live_sockets)};
 }
 
+// A server is gone when it published sockets and not one of them still has a listener: the host
+// that bound them died without tearing them down. A directory with no socket at all is not gone --
+// it reads exactly like a host that has claimed its directory and not bound yet -- so neither the
+// listing nor the sweep may act on it.
+bool is_server_gone(const SimulationServerInfo& server) {
+    return !server.sockets.empty() &&
+           std::none_of(server.sockets.begin(), server.sockets.end(), [](const auto& socket) {
+               return SimulationServerSocket::is_live(socket.second);
+           });
+}
+
+// Clears up after a server that is gone. Best-effort and quiet when it fails: simulation sockets
+// are cross-user by design, and another user's directory cannot be removed from the temp
+// directory, which every scan would otherwise report.
+bool remove_server_directory(const SimulationServerInfo& server) {
+    std::error_code ec;
+    std::filesystem::remove_all(server.directory, ec);
+    if (ec) {
+        log_debug(LogUMD, "Could not remove {}: {}", server.directory.string(), ec.message());
+        return false;
+    }
+    return true;
+}
+
 // Host path: bring up the in-process backend (the direct hot path). A null socket means serving is
 // off, so the device stays a private in-process host; a non-null socket is adopted so clients can
 // attach.
@@ -145,16 +170,34 @@ std::filesystem::path SimulationConnector::allocate_server_directory() {
     return SimulationServerSocket::allocate_server_directory();
 }
 
-std::vector<SimulationServerInfo> SimulationConnector::list_servers() {
-    // Each server owns a directory under the system temp dir (see allocate_server_directory);
-    // scanning for those directories and the sockets in each yields every open server, and the
-    // chips it serves, without connecting to any.
-    std::vector<SimulationServerInfo> servers;
+SimulationConnector::ServerScan SimulationConnector::scan_servers() {
+    // The one enumeration of every server, so clearing up after hosts that are gone happens
+    // wherever all servers are looked at rather than each caller remembering to ask. An operation
+    // aimed at a directory the caller named must not be built on this: that directory is theirs to
+    // be told the truth about, not to have swept out from under them (see classify()).
+    ServerScan scan;
     for (const auto& [index, directory] : SimulationServerSocket::list_server_directories()) {
-        servers.push_back({index, directory, SimulationServerSocket::sockets_in_directory(directory)});
+        SimulationServerInfo server{index, directory, SimulationServerSocket::sockets_in_directory(directory)};
+        if (!is_server_gone(server)) {
+            scan.live.push_back(std::move(server));
+            continue;
+        }
+        // Asked again immediately before removing: the probe above and the removal are not one
+        // operation, and a host may bind a stale socket in between (SimulationServerSocket::create
+        // reclaims one). This narrows that window; only a claim on the directory itself would
+        // close it.
+        if (is_server_gone(server) && remove_server_directory(server)) {
+            scan.removed.push_back(std::move(server));
+        }
+        // A server that is gone and could not be removed is in neither half: not a server anything
+        // can attach to, and not ours to clear up.
     }
-    return servers;
+    return scan;
 }
+
+std::vector<SimulationServerInfo> SimulationConnector::list_servers() { return scan_servers().live; }
+
+std::vector<SimulationServerInfo> SimulationConnector::prune_dead_servers() { return scan_servers().removed; }
 
 SimulationConnector::Result SimulationConnector::discover(const SimulationConnectorOptions& options) {
     Result result;

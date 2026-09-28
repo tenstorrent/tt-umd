@@ -125,7 +125,8 @@ flowchart TB
    clients.
 
    A host that shuts down this way removes its own directory. One that was killed or crashed cannot,
-   so it leaves a directory behind — `list` shows it as `unreachable`. Clear those out with:
+   so it leaves a directory behind — `list` stops reporting it, and clears it away as it goes, since
+   nothing can attach to it any more. To run that sweep without listing, and be told what it took:
 
    ```
    sim_server prune
@@ -224,7 +225,8 @@ and behaves exactly as it does in C++ — including deciding the role from the p
 ```python
 import tt_umd
 
-# What is running on this machine, without connecting to any of it.
+# What is running on this machine. Listing opens no devices, but it does probe each
+# socket for a listener, and clears up after the hosts that turn out to be gone.
 for server in tt_umd.SimulationConnector.list_servers():
     print(server.index, server.directory, server.sockets)
 
@@ -241,7 +243,8 @@ print(connection.role, connection.simulator, connection.arch, connection.server_
 
 To host instead, name a simulator rather than a server directory, and set
 `options.serve_over_sockets = True` to publish it. `SimulationConnector.allocate_server_directory()`
-claims a directory up front when you want to report where you are about to serve.
+claims a directory up front when you want to report where you are about to serve, and
+`SimulationConnector.prune_dead_servers()` runs the clear-up on its own, returning what it removed.
 
 In all cases the target is the server directory, and pointing at it is what makes your process a
 client — there is no separate "connect" call.

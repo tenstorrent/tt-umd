@@ -139,10 +139,27 @@ void bind_simulation(nb::module_ &m) {
             "Claims a fresh directory for one simulation server (the lowest free index) and returns it, so a caller "
             "can report the location before it starts serving there. The claim is atomic.")
         .def_static(
+            "scan_servers",
+            []() {
+                SimulationConnector::ServerScan scan = SimulationConnector::scan_servers();
+                return std::make_pair(std::move(scan.live), std::move(scan.removed));
+            },
+            release_gil(),
+            "One pass over every server directory. Returns (live, removed) -- the servers still open, and the ones "
+            "whose host was gone, which this removed. Both come from one scan, so a caller acting on both sees one "
+            "consistent view.")
+        .def_static(
             "list_servers",
             &SimulationConnector::list_servers,
             release_gil(),
-            "The simulation servers currently open on this machine, ordered by index. Does not connect to them.");
+            "The simulation servers currently open on this machine, ordered by index. A server whose host is gone "
+            "is left out, and what it left on disk is cleared up.")
+        .def_static(
+            "prune_dead_servers",
+            &SimulationConnector::prune_dead_servers,
+            release_gil(),
+            "The same sweep list_servers() does, reporting the other half: the servers whose host was gone, now "
+            "removed. A directory that has published no socket yet is never swept.");
 }
 
 #else

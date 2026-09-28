@@ -165,7 +165,8 @@ pointing at a specific server's directory. It has four subcommands:
   next request with a clear "server stopped" error. Shutdown goes over the socket rather than by
   PID/signal because the socket is world-writable and cross-user, while a signal would be same-uid
   only.
-- `prune` — removes the directories, and the logs, of servers that no longer answer.
+- `prune` — the same sweep `list` does, reported: removes the directories, and the logs, of
+  servers that no longer answer, and names each one.
 
 `start` runs in the foreground by default, so a failure is visible and the exit code is real, and
 `Ctrl-C` or `SIGTERM` stops the host. `--detach` is what you want for anything long-running: the
@@ -174,10 +175,11 @@ the sockets are actually serving — so a zero exit status means clients may att
 host's pid, its server directory, and where its log went.
 
 A host removes its own server directory when it shuts down gracefully, so a host that was killed or
-crashed leaves one behind — `list` shows it as `unreachable` (its socket file is there but nobody
-answers) or `empty` (no socket at all). `sim_server prune` removes those directories and their
-logs, leaving live servers alone. A host that is still coming up also looks `empty`, so don't prune
-while starting one.
+crashed leaves one behind. You do not have to clean up after it: enumerating the servers is also
+what clears up after the ones that are gone, so `list` neither reports such a server nor leaves its
+directory and log lying around. `sim_server prune` runs the same sweep and names what it removed.
+A directory whose host has not bound a socket yet shows as `empty`, and both leave it be: it cannot
+be told apart from a host that is still coming up.
 
 You can run the following for more information:
 ```

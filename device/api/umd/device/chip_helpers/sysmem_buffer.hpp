@@ -27,9 +27,6 @@ class TTDevice;
  * Traditionally, we have referred to the sysmem buffer as something that is
  * visible to device, has its own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
  * buffers.
- *
- * SystemMemoryBuffer is the Base API Specification name for this type, available as an alias below and the one
- * new code should use. The class keeps its SysmemBuffer spelling here; renaming it is a separate change.
  */
 class SysmemBuffer {
 public:
@@ -121,6 +118,10 @@ public:
         return get_iova(offset);
     }
 
+    /**
+     * Returns the NOC address through which every tile on the device can reach this buffer, or std::nullopt
+     * until the buffer is bound, either at pin time or by bind_noc_address().
+     */
     std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
 
     [[deprecated("Use get_noc_address() instead.")]] std::optional<uint64_t> get_noc_addr() const {
@@ -245,10 +246,5 @@ private:
     // Device this buffer's IOVA is valid for. -1 when unknown.
     int communication_id_ = -1;
 };
-
-// The Base API Specification name for the type above. An alias rather than the class name itself for now:
-// downstream repos forward declare `class SysmemBuffer;`, which a type alias cannot satisfy, so the class is
-// renamed only once those declarations are gone.
-using SystemMemoryBuffer = SysmemBuffer;
 
 }  // namespace tt::umd

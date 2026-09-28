@@ -97,7 +97,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -161,7 +161,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     const size_t unaligned_offset = 100;
     void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -222,7 +222,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
     EXPECT_EQ(sysmem_buffer->get_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_va(), mapped_buffer);
@@ -265,7 +265,7 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
     const int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
-    { std::unique_ptr<SystemMemoryBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
+    { std::unique_ptr<SysmemBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
 
     const size_t rss_before = read_rss_kib();
     if (rss_before == 0) {
@@ -274,7 +274,7 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
 
     const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
     for (int i = 0; i < iterations; i++) {
-        std::unique_ptr<SystemMemoryBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
@@ -313,7 +313,7 @@ TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
         EXPECT_EQ(sysmem_manager->get_communication_id(), expected_id);
 
         const size_t buf_size = 1 << 20;
-        std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(sysmem_buffer, nullptr);
         EXPECT_EQ(sysmem_buffer->get_communication_id(), expected_id);
     }
@@ -345,7 +345,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_offset;
 
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
 
     const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
 
@@ -384,7 +384,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
 
     EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());
 
@@ -422,7 +422,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     }
 
     // If we map another buffer it is expected to have a higher NOC address.
-    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
     EXPECT_TRUE(sysmem_buffer2->get_noc_address().has_value());
     EXPECT_GT(sysmem_buffer2->get_noc_address().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
 }

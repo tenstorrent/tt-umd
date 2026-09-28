@@ -117,11 +117,9 @@ namespace {
 // weakening the encapsulation.
 class TestBufferFactory : public SystemMemoryAllocator {
 public:
-    std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
 
-    std::unique_ptr<SystemMemoryBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override {
-        return nullptr;
-    }
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override { return nullptr; }
 
     int get_communication_id() const override { return 0; }
 
@@ -178,7 +176,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        SystemMemoryBuffer::Deleter{},
+        SysmemBuffer::Deleter{},
         std::optional<uint64_t>(0x1234));
 
     EXPECT_NO_THROW(buffer->bind_noc_address());
@@ -205,7 +203,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        SystemMemoryBuffer::Deleter{},
+        SysmemBuffer::Deleter{},
         std::nullopt,
         DeviceBufferAccess::READ_WRITE,
         binder.AsStdFunction());
@@ -235,7 +233,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        SystemMemoryBuffer::Deleter{},
+        SysmemBuffer::Deleter{},
         std::optional<uint64_t>(0x1234),
         DeviceBufferAccess::READ_WRITE,
         binder.AsStdFunction());
@@ -254,7 +252,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
-        SystemMemoryBuffer::Deleter{});
+        SysmemBuffer::Deleter{});
 
     EXPECT_FALSE(buffer->get_noc_address().has_value());
     EXPECT_THROW(buffer->bind_noc_address(), std::exception);
@@ -272,7 +270,7 @@ TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
             backing.size(),
             /*device_io_addr=*/0x2000,
             /*communication_id=*/1,
-            SystemMemoryBuffer::Deleter{});
+            SysmemBuffer::Deleter{});
     });
 }
 
@@ -287,7 +285,7 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
             backing.size(),
             /*device_io_addr=*/0x3000,
             /*communication_id=*/1,
-            SystemMemoryBuffer::Deleter{[](void*) { throw std::runtime_error("deleter failed"); }});
+            SysmemBuffer::Deleter{[](void*) { throw std::runtime_error("deleter failed"); }});
     });
 }
 
@@ -318,7 +316,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
     const int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
-    { std::unique_ptr<SystemMemoryBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
+    { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
 
     const size_t rss_before = read_rss_kib();
     if (rss_before == 0) {
@@ -327,7 +325,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
 
     const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
     for (int i = 0; i < iterations; i++) {
-        std::unique_ptr<SystemMemoryBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
@@ -352,7 +350,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferOutlivesItsManager) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
 
     const size_t buf_size = 4096;
-    std::unique_ptr<SystemMemoryBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+    std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
     ASSERT_NE(buffer, nullptr);
 
     uint8_t* bytes = static_cast<uint8_t*>(buffer->get_va());
@@ -635,7 +633,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, ConcurrentAllocateDoesNotCrash) {
 
     constexpr int kThreads = 4;
     constexpr size_t kBufSize = 4096;
-    std::vector<std::unique_ptr<SystemMemoryBuffer>> results(kThreads);
+    std::vector<std::unique_ptr<SysmemBuffer>> results(kThreads);
     std::vector<std::thread> threads;
     threads.reserve(kThreads);
 
@@ -662,7 +660,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, ConcurrentAllocateDoesNotCrash) {
 // Destroy the SimulationSysmemManager while a SysmemBuffer still exists.
 // The buffer's unmap callback must not crash (weak_ptr / captured-reference safety).
 TEST_P(ApiSimulationSysmemManagerByArch, ManagerDestroyedBeforeBuffer) {
-    std::unique_ptr<SystemMemoryBuffer> buffer;
+    std::unique_ptr<SysmemBuffer> buffer;
     {
         auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
         buffer = sysmem->allocate_sysmem_buffer(4096);

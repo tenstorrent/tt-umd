@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device/reset/classic_tile_risc_reset.hpp"
+#include "tt_device/reset/classic_tile_risc_reset.hpp"
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"

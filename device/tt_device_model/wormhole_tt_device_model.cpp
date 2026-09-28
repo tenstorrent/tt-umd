@@ -11,13 +11,13 @@
 #include "tt_device/protocol/jtag_protocol.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
+#include "tt_device/reset/classic_tile_risc_reset.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/reset/classic_tile_risc_reset.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {

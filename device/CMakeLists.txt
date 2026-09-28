@@ -239,7 +239,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/tt_device_error.hpp
                 api/umd/device/tt_device/reset/risc_reset.hpp
-                api/umd/device/tt_device/reset/classic_tile_risc_reset.hpp
                 api/umd/device/tt_device/hang_detection/hang_detector.hpp
                 api/umd/device/tt_device_model/tt_device_model.hpp
                 api/umd/device/types/eth_training_status.hpp

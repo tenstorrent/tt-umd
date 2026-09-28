@@ -10,8 +10,8 @@
 #include <memory>
 
 #include "tests/test_utils/protocol_mocks.hpp"
+#include "tt_device/reset/classic_tile_risc_reset.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/tt_device/reset/classic_tile_risc_reset.hpp"
 #include "umd/device/types/arch.hpp"
 
 using namespace tt::umd;

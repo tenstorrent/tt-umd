@@ -12,8 +12,10 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
+#include "test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/io_window/io_window.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -93,6 +95,24 @@ TEST(MicrobenchmarkTLB, Variance) {
     benchmark_io_window_case(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, 4 * ONE_KIB);
     benchmark_cluster_case(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, 2 * ONE_KIB);
     benchmark_cluster_case(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, 8 * ONE_KIB);
+
+    auto devices_info = PCIDevice::enumerate_devices_info();
+    ASSERT_FALSE(devices_info.empty());
+    const tt::ARCH arch = devices_info.begin()->second.get_arch();
+    ClusterOptions options;
+    options.num_host_mem_ch_per_mmio_device = 0;
+
+    bench.unit("cluster");
+    bench.name("Cluster constructor, default").epochIterations(1).run([&]() {
+        std::unique_ptr<Cluster> ctor_cluster = std::make_unique<Cluster>(options);
+        ankerl::nanobench::doNotOptimizeAway(ctor_cluster);
+    });
+
+    options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
+    bench.name("Cluster constructor, from sdesc").epochIterations(1).run([&]() {
+        std::unique_ptr<Cluster> ctor_cluster = std::make_unique<Cluster>(options);
+        ankerl::nanobench::doNotOptimizeAway(ctor_cluster);
+    });
 
     test::utils::export_results(bench);
 }

@@ -372,6 +372,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/jtag_interface.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
+                api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp

@@ -125,6 +125,38 @@ void SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     }
 }
 
+bool SimulationHost::send_to_device(const uint8_t *buf, size_t buf_size, int timeout_ms) {
+    nng_msg *msg = nullptr;
+    int rv = nng_msg_alloc(&msg, buf_size);
+    if (rv != 0) {
+        log_error(tt::LogEmulationDriver, "Failed to allocate message: {}", nng_strerror(rv));
+        return false;
+    }
+    std::memcpy(nng_msg_body(msg), buf, buf_size);
+
+    nng_aio *aio = nullptr;
+    rv = nng_aio_alloc(&aio, nullptr, nullptr);
+    if (rv != 0) {
+        nng_msg_free(msg);
+        log_error(tt::LogEmulationDriver, "Failed to allocate aio: {}", nng_strerror(rv));
+        return false;
+    }
+    nng_aio_set_msg(aio, msg);
+    nng_aio_set_timeout(aio, timeout_ms);
+    nng_send_aio(*host_socket, aio);
+    nng_aio_wait(aio);
+
+    rv = nng_aio_result(aio);
+    if (rv != 0) {
+        // On failure the message still belongs to us.
+        nng_msg_free(nng_aio_get_msg(aio));
+        log_error(
+            tt::LogEmulationDriver, "Failed to send message to remote within {}ms: {}", timeout_ms, nng_strerror(rv));
+    }
+    nng_aio_free(aio);
+    return rv == 0;
+}
+
 size_t SimulationHost::recv_from_device(void **data_ptr) { return recv_from_device(data_ptr, NNG_DURATION_INFINITE); }
 
 size_t SimulationHost::recv_from_device(void **data_ptr, int timeout_ms) {

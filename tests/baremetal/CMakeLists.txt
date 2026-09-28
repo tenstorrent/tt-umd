@@ -21,6 +21,7 @@ set(BAREMETAL_TESTS_SRCS
     test_simulation_server_socket.cpp
     test_simulation_client.cpp
     test_simulation_server_transport.cpp
+    test_simulator_signal_guard.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

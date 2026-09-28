@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -17,6 +18,8 @@
 #include "umd/device/simulation/simulation_host.hpp"
 
 namespace tt::umd {
+
+class SimulatorSignalGuard;
 
 /**
  * RtlSimCommunicator handles low-level communication with RTL simulation.
@@ -261,6 +264,14 @@ private:
     // AXI RAM callbacks.
     RamWriteCallback ram_write_callback_;
     RamReadCallback ram_read_callback_;
+
+    // The simulator only frees its machine on an EXIT message, so it must get exactly one: from
+    // shutdown() on a normal teardown, or from signal_guard_ on Ctrl+C/SIGTERM.
+    std::atomic<bool> exit_sent_{false};
+
+    // Sends EXIT when the process is interrupted. Alive from the simulator spawn until the
+    // destructor, which releases it before anything the callback uses is torn down.
+    std::unique_ptr<SimulatorSignalGuard> signal_guard_;
 };
 
 }  // namespace tt::umd

@@ -24,6 +24,9 @@ public:
     void init();
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);
+    // Gives up after timeout_ms instead of blocking until the peer takes the message.
+    // Returns whether the message was sent.
+    bool send_to_device(const uint8_t *buf, size_t buf_size, int timeout_ms);
     size_t recv_from_device(void **data_ptr);
     size_t recv_from_device(void **data_ptr, int timeout_ms);
 

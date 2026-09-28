@@ -148,6 +148,9 @@ target_sources(
         # Length-prefixed message framing over the socket (uses asio, a core dependency; no
         # FlatBuffers), so it is always built and unit-tested in the same no-card baremetal lane.
         simulation/simulation_server_transport.cpp
+        # Plain POSIX signals and a thread, no simulation deps, so it is always built and its unit
+        # tests run in the same no-card baremetal lane.
+        simulation/simulator_signal_guard.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

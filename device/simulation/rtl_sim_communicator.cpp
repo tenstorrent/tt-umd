@@ -11,6 +11,7 @@
 #include <nng/nng.h>
 #include <uv.h>
 
+#include <chrono>
 #include <cstring>
 #include <exception>
 #include <string>
@@ -18,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "simulation/simulator_signal_guard.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -69,6 +71,11 @@ inline void send_command_to_simulation_host(SimulationHost &host, const flatbuff
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
+// How long the signal path waits for the simulator to take the EXIT message, and then how long it
+// lets nng flush it to the wire before the signal is re-sent and the process likely dies.
+constexpr int kSignalExitSendTimeoutMs = 1000;
+constexpr std::chrono::milliseconds kSignalExitFlushTime{500};
+
 }  // namespace
 
 RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory) :
@@ -80,6 +87,10 @@ RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_di
 }
 
 RtlSimCommunicator::~RtlSimCommunicator() {
+    // Before anything else, so a signal arriving now cannot run the callback on a half-torn-down
+    // communicator.
+    signal_guard_.reset();
+
     if (notification_thread_running_.load()) {
         notification_thread_running_.store(false);
         if (notification_thread_.joinable()) {
@@ -133,6 +144,22 @@ void RtlSimCommunicator::initialize() {
         log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
 
+    // The simulator runs detached, in its own session, so the terminal's Ctrl+C never reaches it,
+    // and it outlives this process unless told to exit. Registered now rather than after the ack
+    // because waiting for a booting emulator is itself a common place to give up and hit Ctrl+C.
+    // Runs while other threads may hold device_lock_ in a hung call, so it must not take it; nng
+    // sockets are safe to send on from several threads.
+    signal_guard_ = std::make_unique<SimulatorSignalGuard>([this] {
+        if (exit_sent_.exchange(true)) {
+            return;
+        }
+        log_warning(tt::LogEmulationDriver, "Sending exit signal to remote...");
+        const auto exit_msg = create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0});
+        if (host_.send_to_device(exit_msg.GetBufferPointer(), exit_msg.GetSize(), kSignalExitSendTimeoutMs)) {
+            std::this_thread::sleep_for(kSignalExitFlushTime);
+        }
+    });
+
     uv_unref(reinterpret_cast<uv_handle_t *>(&child_p));
     uv_run(loop, UV_RUN_DEFAULT);
     uv_loop_close(loop);
@@ -163,6 +190,11 @@ void RtlSimCommunicator::shutdown() {
         if (notification_thread_.joinable()) {
             notification_thread_.join();
         }
+    }
+
+    if (exit_sent_.exchange(true)) {
+        log_info(tt::LogEmulationDriver, "Exit signal already sent to remote.");
+        return;
     }
 
     std::lock_guard<std::mutex> lock(device_lock_);

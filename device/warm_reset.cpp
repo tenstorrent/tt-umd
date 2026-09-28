@@ -504,7 +504,7 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
 
     for (auto& pci_bdf : pci_bdfs) {
-        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
+        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms);
         if (new_id == -1) {
             log_error(tt::LogUMD, "Reset failed.");
             return false;
@@ -516,7 +516,9 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         }
     }
 
-    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    PCIDevice::send_reset_ioctl_to_devices(
+        pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
     return reset_success;
 }
 

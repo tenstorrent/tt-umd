@@ -490,6 +490,20 @@ void TopologyDiscovery::discover_remote_devices() {
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
 
+    // Keyed by the device number get_communication_device_id() reports; empty for non-PCIe devices.
+    const std::map<int, PciDeviceInfo> pci_devices_info =
+        io_device_type == IODeviceType::PCIe ? PCIDevice::enumerate_devices_info() : std::map<int, PciDeviceInfo>{};
+
+    // A remote device reports the communication id of the gateway it is reached through, so looking
+    // it up here would attribute the gateway's BDF and bus to it. Only local devices have one.
+    auto local_pci_info = [&pci_devices_info](TTDevice* tt_device) -> const PciDeviceInfo* {
+        if (tt_device->is_remote()) {
+            return nullptr;
+        }
+        auto it = pci_devices_info.find(tt_device->get_communication_device_id());
+        return it == pci_devices_info.end() ? nullptr : &it->second;
+    };
+
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
 
@@ -501,10 +515,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
         cluster_desc->authentic_chip_unique_ids = true;
 
-        // A simulated device reports PCIe but has no PCIDevice behind it, so there is no BDF to
-        // record; its simulated BDF is reachable only through the communicator.
-        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote() && tt_device->get_pci_device() != nullptr) {
-            cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
+        if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
+            cluster_desc->chip_pci_bdfs.emplace(chip_id, pci_info->pci_bdf);
         }
 
         if (eth_coords.empty()) {
@@ -538,9 +550,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         cluster_desc->harvesting_masks_map.insert({current_chip_id, tt_device->get_chip_info().harvesting_masks});
         cluster_desc->asic_locations.insert({current_chip_id, tt_device->get_chip_info().asic_location});
 
-        if (tt_device->get_pci_device()) {
-            cluster_desc->chip_to_bus_id.insert(
-                {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
+        if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
+            cluster_desc->chip_to_bus_id.insert({current_chip_id, pci_info->pci_bus});
         }
 
         if (is_using_eth_coords()) {

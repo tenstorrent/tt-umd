@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
                                                                   : "Unknown")
                   << std::endl;
 
-        std::cout << "PCI Device: " << device->get_pci_device()->get_device_num() << std::endl;
+        std::cout << "PCI Device: " << device->get_communication_device_id() << std::endl;
 
         std::cout << "Testing BAR read/write (without init)..." << std::endl;
         // ARC reset unit SCRATCH_0 over BAR0, at the same address on all supported architectures.

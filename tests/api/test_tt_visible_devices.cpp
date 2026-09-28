@@ -248,13 +248,13 @@ TEST_F(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     for (const ChipId chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
         ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
-        auto pci_device = tt_device->get_pci_device();
+        const int pci_device_num = tt_device->get_communication_device_id();
         ASSERT_LT(chip_id, enumerated_ids.size())
             << "Logical chip ID " << chip_id << " is out of bounds for enumerate_devices() result of size "
             << enumerated_ids.size();
-        EXPECT_EQ(pci_device->get_device_num(), enumerated_ids[chip_id])
-            << "Chip ID " << chip_id << " maps to PCI device " << pci_device->get_device_num()
-            << " but enumerate_devices() returned " << enumerated_ids[chip_id] << " at index " << chip_id;
+        EXPECT_EQ(pci_device_num, enumerated_ids[chip_id])
+            << "Chip ID " << chip_id << " maps to PCI device " << pci_device_num << " but enumerate_devices() returned "
+            << enumerated_ids[chip_id] << " at index " << chip_id;
     }
 }
 

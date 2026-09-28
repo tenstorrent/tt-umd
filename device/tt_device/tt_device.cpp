@@ -509,6 +509,11 @@ int TTDevice::get_communication_device_id() const {
     return device_protocol != nullptr ? device_protocol->get_mmio_id() : -1;
 }
 
+int TTDevice::get_numa_node() const {
+    PcieInterface *pcie_interface = model_->get_pcie_interface();
+    return pcie_interface != nullptr ? pcie_interface->get_numa_node() : -1;
+}
+
 // Derived from the transport the device actually has, rather than stored: exactly one of these
 // interfaces is present, and a remote device reports the transport of the local device it is
 // reached through.

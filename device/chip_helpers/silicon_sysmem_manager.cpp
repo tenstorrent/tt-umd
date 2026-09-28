@@ -420,8 +420,8 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
     }
 
     sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, true);
-    uint64_t iova = sysmem_buffer_->get_device_io_addr();
-    auto noc_address = sysmem_buffer_->get_noc_addr();
+    uint64_t iova = sysmem_buffer_->get_iova();
+    auto noc_address = sysmem_buffer_->get_noc_address();
 
     if (!noc_address.has_value()) {
         UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");

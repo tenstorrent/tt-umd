@@ -159,8 +159,8 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
             /*communication_id=*/7,
             deleter.AsStdFunction());
 
-        EXPECT_EQ(buffer->get_buffer_va(), user_va);
-        EXPECT_EQ(buffer->get_buffer_size(), 128u);
+        EXPECT_EQ(buffer->get_va(), user_va);
+        EXPECT_EQ(buffer->get_size(), 128u);
         buffer_still_alive.Call();
     }
 }
@@ -180,11 +180,11 @@ TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
         std::optional<uint64_t>(0x1234));
 
     EXPECT_NO_THROW(buffer->bind_noc_address());
-    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
+    EXPECT_EQ(buffer->get_noc_address().value(), 0x1234u);
 
     // Idempotent.
     EXPECT_NO_THROW(buffer->bind_noc_address());
-    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
+    EXPECT_EQ(buffer->get_noc_address().value(), 0x1234u);
 }
 
 // An allocator that can bind after the fact injects a binder. bind_noc_address() must run it exactly
@@ -209,15 +209,15 @@ TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
         binder.AsStdFunction());
 
     // Nothing bound yet, so construction cannot have run the binder.
-    EXPECT_FALSE(buffer->get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_address().has_value());
 
     buffer->bind_noc_address();
-    ASSERT_TRUE(buffer->get_noc_addr().has_value());
-    EXPECT_EQ(buffer->get_noc_addr().value(), 0xDEADBEEFu);
+    ASSERT_TRUE(buffer->get_noc_address().has_value());
+    EXPECT_EQ(buffer->get_noc_address().value(), 0xDEADBEEFu);
 
     // Idempotent: the cached address is returned without running the binder again.
     buffer->bind_noc_address();
-    EXPECT_EQ(buffer->get_noc_addr().value(), 0xDEADBEEFu);
+    EXPECT_EQ(buffer->get_noc_address().value(), 0xDEADBEEFu);
 }
 
 // A buffer that is already bound never runs its binder.
@@ -239,7 +239,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
         binder.AsStdFunction());
 
     buffer->bind_noc_address();
-    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
+    EXPECT_EQ(buffer->get_noc_address().value(), 0x1234u);
 }
 
 // A buffer whose pages were not pinned with NOC access can never be given a NOC address, so asking
@@ -254,9 +254,9 @@ TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
         /*communication_id=*/2,
         SysmemBuffer::Deleter{});
 
-    EXPECT_FALSE(buffer->get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_address().has_value());
     EXPECT_THROW(buffer->bind_noc_address(), std::exception);
-    EXPECT_FALSE(buffer->get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_address().has_value());
 }
 
 // A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function
@@ -329,7 +329,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
-        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_va());
         for (size_t offset = 0; offset < buf_size; offset += page_size) {
             bytes[offset] = static_cast<uint8_t>(i);
         }
@@ -353,7 +353,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferOutlivesItsManager) {
     std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
     ASSERT_NE(buffer, nullptr);
 
-    uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+    uint8_t* bytes = static_cast<uint8_t*>(buffer->get_va());
     std::memset(bytes, 0xA5, buf_size);
 
     sysmem.reset();
@@ -399,10 +399,10 @@ TEST_P(ApiSimulationSysmemManagerByArch, AllocateSysmemBufferReturnsValidBuffer)
     const size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
-    EXPECT_NE(buffer->get_buffer_va(), nullptr);
-    EXPECT_GE(buffer->get_buffer_size(), buffer_size);
+    EXPECT_NE(buffer->get_va(), nullptr);
+    EXPECT_GE(buffer->get_size(), buffer_size);
     // device_io_addr should be non-zero (pcie_base + offset).
-    EXPECT_GT(buffer->get_device_io_addr(), 0u);
+    EXPECT_GT(buffer->get_iova(), 0u);
 }
 
 TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
@@ -413,8 +413,8 @@ TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
     std::vector<uint8_t> external_buf(buffer_size, 0);
     auto buffer = sysmem->map_sysmem_buffer(external_buf.data(), buffer_size);
     ASSERT_NE(buffer, nullptr);
-    EXPECT_EQ(buffer->get_buffer_va(), external_buf.data());
-    EXPECT_GT(buffer->get_device_io_addr(), 0u);
+    EXPECT_EQ(buffer->get_va(), external_buf.data());
+    EXPECT_GT(buffer->get_iova(), 0u);
 }
 
 // Verify that write_mapped_buffer / read_mapped_buffer correctly address the
@@ -428,7 +428,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
-    const uint64_t device_addr = buffer->get_device_io_addr();
+    const uint64_t device_addr = buffer->get_iova();
     EXPECT_GT(device_addr, 0u);
 
     // Write a pattern via write_mapped_buffer — this mirrors the
@@ -445,7 +445,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
     EXPECT_EQ(pattern, readback);
 
     // Confirm the data is also visible through the buffer VA.
-    EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
+    EXPECT_EQ(0, std::memcmp(buffer->get_va(), pattern.data(), pattern.size()));
 }
 
 // SysmemBuffer::write_to_sysmem / read_from_sysmem are pure host-side copies against the
@@ -464,7 +464,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     std::vector<uint8_t> readback(pattern.size(), 0);
     buffer->read_from_sysmem(readback.data(), readback.size(), 0);
     EXPECT_EQ(pattern, readback);
-    EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
+    EXPECT_EQ(0, std::memcmp(buffer->get_va(), pattern.data(), pattern.size()));
 
     // Round-trip at a non-zero offset, leaving the earlier bytes untouched.
     const size_t offset = 512;
@@ -472,7 +472,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     std::fill(readback.begin(), readback.end(), 0);
     buffer->read_from_sysmem(readback.data(), readback.size(), offset);
     EXPECT_EQ(pattern, readback);
-    EXPECT_EQ(0, std::memcmp(static_cast<uint8_t*>(buffer->get_buffer_va()) + offset, pattern.data(), pattern.size()));
+    EXPECT_EQ(0, std::memcmp(static_cast<uint8_t*>(buffer->get_va()) + offset, pattern.data(), pattern.size()));
 
     // The last byte of the buffer is addressable.
     const uint8_t sentinel = 0xA5;
@@ -493,14 +493,14 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
 
     auto allocated = allocator->allocate_buffer(4096);
     ASSERT_NE(allocated, nullptr);
-    EXPECT_NE(allocated->get_buffer_va(), nullptr);
+    EXPECT_NE(allocated->get_va(), nullptr);
     EXPECT_EQ(allocated->get_communication_id(), static_cast<int>(chip_id));
-    EXPECT_FALSE(allocated->get_noc_addr().has_value());
+    EXPECT_FALSE(allocated->get_noc_address().has_value());
 
     std::vector<uint8_t> external(8192, 0);
     auto mapped = allocator->map_user_buffer(external.data(), external.size());
     ASSERT_NE(mapped, nullptr);
-    EXPECT_EQ(mapped->get_buffer_va(), external.data());
+    EXPECT_EQ(mapped->get_va(), external.data());
     // Mappings are read-write unless the caller asks otherwise.
     EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
 
@@ -515,7 +515,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     // bind_to_noc reaches the same path as the concrete map_to_noc flag.
     auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
     ASSERT_NE(bound, nullptr);
-    EXPECT_TRUE(bound->get_noc_addr().has_value());
+    EXPECT_TRUE(bound->get_noc_address().has_value());
 }
 
 // The manager stamps its communication id into every buffer it produces, so a caller can confirm a
@@ -573,18 +573,18 @@ TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) 
     const size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
-    const uint64_t device_addr = buffer->get_device_io_addr();
+    const uint64_t device_addr = buffer->get_iova();
     ASSERT_GT(device_addr, 0u);
 
     // Base address resolves to the buffer VA; an interior address to VA + offset.
     void* base_ptr = sysmem->get_mapped_host_ptr(device_addr);
     ASSERT_NE(base_ptr, nullptr);
-    EXPECT_EQ(base_ptr, buffer->get_buffer_va());
+    EXPECT_EQ(base_ptr, buffer->get_va());
 
     const uint64_t kOffset = 128;
     void* mid_ptr = sysmem->get_mapped_host_ptr(device_addr + kOffset);
     ASSERT_NE(mid_ptr, nullptr);
-    EXPECT_EQ(mid_ptr, static_cast<uint8_t*>(buffer->get_buffer_va()) + kOffset);
+    EXPECT_EQ(mid_ptr, static_cast<uint8_t*>(buffer->get_va()) + kOffset);
 
     // The pointer aliases the backing (zero-copy): a write through it is visible via read_mapped_buffer.
     std::vector<uint8_t> pattern = {0x11, 0x22, 0x33, 0x44};
@@ -608,9 +608,9 @@ TEST_P(ApiSimulationSysmemManagerByArch, MultipleMappedBuffersAreIndependent) {
     ASSERT_NE(buf_b, nullptr);
 
     // Buffers should have different device IO addresses.
-    EXPECT_NE(buf_a->get_device_io_addr(), buf_b->get_device_io_addr());
+    EXPECT_NE(buf_a->get_iova(), buf_b->get_iova());
     // And different virtual addresses.
-    EXPECT_NE(buf_a->get_buffer_va(), buf_b->get_buffer_va());
+    EXPECT_NE(buf_a->get_va(), buf_b->get_va());
 }
 
 TEST_P(ApiSimulationSysmemManagerByArch, DestroyedBufferUnmapsCleanly) {
@@ -647,11 +647,11 @@ TEST_P(ApiSimulationSysmemManagerByArch, ConcurrentAllocateDoesNotCrash) {
     // Every allocation should have succeeded with a unique device address.
     for (int i = 0; i < kThreads; ++i) {
         ASSERT_NE(results[i], nullptr) << "Thread " << i << " got null buffer";
-        EXPECT_NE(results[i]->get_buffer_va(), nullptr);
+        EXPECT_NE(results[i]->get_va(), nullptr);
     }
     for (int i = 0; i < kThreads; ++i) {
         for (int j = i + 1; j < kThreads; ++j) {
-            EXPECT_NE(results[i]->get_device_io_addr(), results[j]->get_device_io_addr())
+            EXPECT_NE(results[i]->get_iova(), results[j]->get_iova())
                 << "Buffers from threads " << i << " and " << j << " have same device addr";
         }
     }

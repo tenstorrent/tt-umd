@@ -95,7 +95,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_write_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_write_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -112,7 +112,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_read_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_read_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
 SysmemBuffer::~SysmemBuffer() {
@@ -124,13 +124,13 @@ SysmemBuffer::~SysmemBuffer() {
 void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
-    memcpy(static_cast<uint8_t*>(get_buffer_va()) + offset, src, size);
+    memcpy(static_cast<uint8_t*>(get_va()) + offset, src, size);
 }
 
 void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
-    memcpy(dest, static_cast<const uint8_t*>(get_buffer_va()) + offset, size);
+    memcpy(dest, static_cast<const uint8_t*>(get_va()) + offset, size);
 }
 
 void SysmemBuffer::bind_noc_address() {
@@ -146,11 +146,11 @@ void SysmemBuffer::bind_noc_address() {
     noc_addr_ = noc_binder_();
 }
 
-void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
+void* SysmemBuffer::get_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
-size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
+size_t SysmemBuffer::get_size() const { return buffer_size_; }
 
-uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
+uint64_t SysmemBuffer::get_iova(const size_t offset) const {
     validate(offset);
     return device_io_addr_ + offset + offset_from_aligned_addr_;
 }

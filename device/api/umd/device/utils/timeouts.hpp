@@ -16,6 +16,12 @@ inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 // per-request round trip is far quicker.
 inline constexpr auto SIMULATION_SOCKET_TIMEOUT = std::chrono::milliseconds(30'000);
 
+// How long RtlSimSession::start() waits for the simulator's ack on each socket. Covers job
+// scheduling and model load on an emulator (about 90 s when healthy, but in CI the emulation is a
+// downstream pipeline queued for a Zebu board, which tt-umd-simulators' trigger waits up to 1 h for);
+// a run that never acks, e.g. a model that fails to load, otherwise blocks the host forever.
+inline constexpr auto RTL_SIM_ACK_TIMEOUT = std::chrono::minutes(60);
+
 // Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via
 // MmioTimeoutConfig::set_op_timeout. A healthy MMIO op is microseconds; 2 ms sits well above that yet far
 // below the ~700 ms latency of a read on a hung NOC, so genuine hangs are still caught promptly. A slow-

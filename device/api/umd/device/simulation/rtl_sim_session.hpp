@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include "umd/device/simulation/simulation_host.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -25,8 +27,11 @@ class RtlSimSession {
 public:
     RtlSimSession(const std::filesystem::path& simulator_directory, const std::vector<std::string>& sockets);
 
-    /** Create every listener, launch run.sh, then wait for the ack on each socket in order. Once only. */
-    void start();
+    /**
+     * Create every listener, launch run.sh, then wait for the ack on each socket in order. Once only.
+     * Throws if a socket does not ack within @p ack_timeout.
+     */
+    void start(std::chrono::milliseconds ack_timeout = timeout::RTL_SIM_ACK_TIMEOUT);
 
     size_t get_num_sockets() const;
 

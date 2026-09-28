@@ -23,6 +23,12 @@ enum DEVICE_COMMAND : byte {
     ALL_NEO_DMS_UNCORE_RESET_ASSERT = 15,
     NEO_DM_UNCORE_RESET_ASSERT = 16,
     NEO_DM_UNCORE_RESET_DEASSERT = 17,
+    // Device memory addressed by a flat global address alone, for a NOC that resolves the
+    // destination from the address itself. `core` is absent on these, so the simulator has no
+    // coordinate to translate and cannot translate an already-resolved address a second time.
+    // 18 and 19 are WAVES_ON/WAVES_OFF, which the simulator defines and this schema does not.
+    GLOBAL_WRITE = 20,
+    GLOBAL_READ = 21,
 }
 
 struct tt_vcs_core {

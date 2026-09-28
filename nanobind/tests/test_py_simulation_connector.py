@@ -3,6 +3,7 @@
 
 import os
 import shutil
+import socket
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,19 @@ SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
 # A host's per-chip sockets are named tt-umd-sim-<chip_id>.sock; a directory holding one is what
 # makes UMD classify a path as a live server to attach to.
 SOCKET_NAME = "tt-umd-sim-0.sock"
+
+
+def leave_stale_socket(path):
+    """Leave a socket file nothing is serving -- what a crashed host leaves on disk.
+
+    Bound and closed, never listened on, so connect() gets ECONNREFUSED while stat() cannot tell
+    it from a live host's socket. Mirrors leave_stale_socket in the C++ test utilities.
+    """
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.bind(str(path))
+    finally:
+        sock.close()
 
 
 @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
@@ -48,6 +62,76 @@ class TestSimulationConnector(unittest.TestCase):
             # Nothing serves in it yet, so it has no per-chip sockets.
             self.assertEqual(listed[0].sockets, {})
             self.assertGreaterEqual(listed[0].index, 0)
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+    def test_listing_leaves_out_and_clears_up_a_server_whose_host_is_gone(self):
+        directory = tt_umd.SimulationConnector.allocate_server_directory()
+        try:
+            leave_stale_socket(directory / SOCKET_NAME)
+            servers = tt_umd.SimulationConnector.list_servers()
+            self.assertEqual(
+                [server for server in servers if server.directory == directory], []
+            )
+            # Enumerating is also what clears up, so nothing is left to prune by hand.
+            self.assertFalse(directory.exists())
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+    def test_prune_dead_servers_reports_what_it_cleared(self):
+        directory = tt_umd.SimulationConnector.allocate_server_directory()
+        try:
+            leave_stale_socket(directory / SOCKET_NAME)
+            pruned = [
+                server
+                for server in tt_umd.SimulationConnector.prune_dead_servers()
+                if server.directory == directory
+            ]
+            self.assertEqual(len(pruned), 1, f"{directory} was not reported as pruned")
+            self.assertFalse(directory.exists())
+            # Gone means gone: a second sweep has nothing left to report.
+            self.assertEqual(
+                [
+                    server
+                    for server in tt_umd.SimulationConnector.prune_dead_servers()
+                    if server.directory == directory
+                ],
+                [],
+            )
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+    def test_scan_servers_reports_both_halves_from_one_pass(self):
+        gone = tt_umd.SimulationConnector.allocate_server_directory()
+        coming_up = tt_umd.SimulationConnector.allocate_server_directory()
+        try:
+            leave_stale_socket(gone / SOCKET_NAME)
+            live, removed = tt_umd.SimulationConnector.scan_servers()
+            self.assertEqual(
+                [s.directory for s in removed if s.directory == gone], [gone]
+            )
+            self.assertEqual([s.directory for s in live if s.directory == gone], [])
+            # The socket-less directory is on the other side of the same pass.
+            self.assertEqual(
+                [s.directory for s in live if s.directory == coming_up], [coming_up]
+            )
+            self.assertFalse(gone.exists())
+            self.assertTrue(coming_up.is_dir())
+        finally:
+            shutil.rmtree(gone, ignore_errors=True)
+            shutil.rmtree(coming_up, ignore_errors=True)
+
+    def test_prune_leaves_a_directory_with_no_socket_yet_alone(self):
+        # Indistinguishable from a host still coming up, so the sweep must not take it.
+        directory = tt_umd.SimulationConnector.allocate_server_directory()
+        try:
+            pruned = [
+                server
+                for server in tt_umd.SimulationConnector.prune_dead_servers()
+                if server.directory == directory
+            ]
+            self.assertEqual(pruned, [])
+            self.assertTrue(directory.is_dir())
         finally:
             shutil.rmtree(directory, ignore_errors=True)
 

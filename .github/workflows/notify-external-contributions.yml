@@ -25,9 +25,9 @@ jobs:
             echo "Author $AUTHOR is a code owner, skipping notification."
             exit 0
           fi
-          MESSAGE="New issue: <${URL}|#${NUMBER} ${TITLE}> by ${AUTHOR}"
+          MESSAGE="New issue #${NUMBER}: ${TITLE} by ${AUTHOR}"
           curl -sf -X POST -H 'Content-type: application/json' \
-            --data "$(jq -n --arg message "$MESSAGE" '{message: $message}')" \
+            --data "$(jq -n --arg message "$MESSAGE" --arg url "$URL" '{message: $message, url: $url}')" \
             "$SLACK_WEBHOOK_URL"
 
   notify-pr:
@@ -48,7 +48,7 @@ jobs:
             echo "Author $AUTHOR is a code owner, skipping notification."
             exit 0
           fi
-          MESSAGE="PR ready for review: <${URL}|#${NUMBER} ${TITLE}> by ${AUTHOR}"
+          MESSAGE="PR ready for review #${NUMBER}: ${TITLE} by ${AUTHOR}"
           curl -sf -X POST -H 'Content-type: application/json' \
-            --data "$(jq -n --arg message "$MESSAGE" '{message: $message}')" \
+            --data "$(jq -n --arg message "$MESSAGE" --arg url "$URL" '{message: $message, url: $url}')" \
             "$SLACK_WEBHOOK_URL"

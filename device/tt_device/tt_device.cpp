@@ -423,9 +423,6 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
-    // A caller-owned window carries the same per-op timeout hang check as the cached ones: an overrun
-    // aborts only on a confirmed NOC hang. Installed once here, so the I/O path never mutates state.
-    window->set_io_timeout_hang_check(make_io_timeout_hang_check());
     window->configure(target, ordering);
     return window;
 }

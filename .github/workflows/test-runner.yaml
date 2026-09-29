@@ -123,6 +123,7 @@ jobs:
       PATH: /opt/openmpi-v5.0.7-ulfm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       HOME: /home/user
       LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
+      UMD_TESTS_ROOT_PATH: /home/user/tt-umd/tests
 
     steps:
       - name: Checkout repository
@@ -153,5 +154,5 @@ jobs:
           set -euo pipefail
           echo "Running on every host via mpirun --pernode:"
           echo "$TEST_COMMAND"
-          mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+          mpirun --pernode --tag-output -x LD_LIBRARY_PATH -x UMD_TESTS_ROOT_PATH \
             bash -lc "cd /home/user/tt-umd && $TEST_COMMAND"

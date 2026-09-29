@@ -16,7 +16,7 @@ namespace tt::umd::test_utils {
 
 inline std::string GetAbsPath(const std::string& relative_path) {
 #ifdef UMD_TESTS_ROOT_PATH
-    std::filesystem::path umd_test_root("/home/user/tt-umd/tests");
+    std::filesystem::path umd_test_root(UMD_TESTS_ROOT_PATH);
 #else
 #error "UMD_TESTS_ROOT_PATH not defined. The UMD tests project cannot find cluster and SoC descriptors."
 #endif

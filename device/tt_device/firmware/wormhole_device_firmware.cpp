@@ -41,7 +41,7 @@ constexpr auto TRAINING_BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
 constexpr auto TRAINING_POLL_INTERVAL = std::chrono::microseconds(10);
 }  // namespace
 
-// How this class picks a route for ARC accesses:a non-null RemoteInterface means the device is
+// How this class picks a route for ARC accesses: a non-null RemoteInterface means the device is
 // reached over ethernet through a gateway, a non-null JtagInterface means it is reached over JTAG,
 // and otherwise it is reached over PCIe. Inferring the route from which optional interface is
 // present is sound because a TTDevice is built for exactly one communication protocol. The routing

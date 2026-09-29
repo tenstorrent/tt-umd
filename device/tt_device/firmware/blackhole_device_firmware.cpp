@@ -37,7 +37,7 @@ constexpr auto TRAINING_BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
 constexpr auto TRAINING_POLL_INTERVAL = std::chrono::microseconds(10);
 }  // namespace
 
-// How this class picks a route:a non-null JtagInterface means the device is reached over JTAG,
+// How this class picks a route: a non-null JtagInterface means the device is reached over JTAG,
 // otherwise it is reached over PCIe. Inferring the route from which optional interface is present
 // is sound because a TTDevice is built for exactly one communication protocol - reaching the same
 // chip over both PCIe and JTAG today requires two TTDevice objects, so the two interfaces are never

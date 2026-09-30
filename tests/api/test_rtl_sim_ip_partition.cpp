@@ -93,6 +93,11 @@ protected:
 
     static bool att_enabled(tt::ChipId chip) { return (read32(chip, APB_PORT | ATT_ENABLE) & 1) != 0; }
 
+    // TT_UMD_NOC_ATT switches UMD to flat addresses: every access is resolved through that map's
+    // windows. The bridge ATT's own registers sit behind the APB port (bit 56), outside every window,
+    // so the tests that read them run only in coordinate mode, without TT_UMD_NOC_ATT.
+    static bool bridge_registers_reachable() { return std::getenv("TT_UMD_NOC_ATT") == nullptr; }
+
     static uint32_t table_offset(tt::ChipId chip) { return (read32(chip, APB_PORT | ATT_MASK_ENTRY_0) >> 18) & 0x3FF; }
 
     static inline std::unique_ptr<RtlSimIpLayout> layout_;
@@ -131,6 +136,9 @@ TEST_F(RtlSimIpPartitionTest, DevicesAreIsolated) {
 }
 
 TEST_F(RtlSimIpPartitionTest, HorizonAttEachDeviceHasItsOwnWindow) {
+    if (!bridge_registers_reachable()) {
+        GTEST_SKIP() << "Reads the bridge ATT registers, which flat addresses (TT_UMD_NOC_ATT) cannot reach.";
+    }
     std::unordered_set<uint32_t> offsets;
     for (tt::ChipId chip : cluster_->get_target_device_ids()) {
         if (!att_enabled(chip)) {
@@ -143,6 +151,9 @@ TEST_F(RtlSimIpPartitionTest, HorizonAttEachDeviceHasItsOwnWindow) {
 }
 
 TEST_F(RtlSimIpPartitionTest, HorizonAttReadModifyWriteBack) {
+    if (!bridge_registers_reachable()) {
+        GTEST_SKIP() << "Reads the bridge ATT registers, which flat addresses (TT_UMD_NOC_ATT) cannot reach.";
+    }
     const size_t bytes = marker(0).size() * sizeof(uint32_t);
     for (tt::ChipId chip : cluster_->get_target_device_ids()) {
         if (!att_enabled(chip)) {

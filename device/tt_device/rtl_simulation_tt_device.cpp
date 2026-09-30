@@ -4,13 +4,18 @@
 
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
+#include <fmt/ranges.h>
+
+#include <algorithm>
 #include <array>
 #include <filesystem>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "common/utils.hpp"
 #include "noc_access.hpp"
@@ -22,6 +27,7 @@
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
+#include "umd/device/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
@@ -43,7 +49,17 @@ namespace {
 // unset, no coordinate is folded into an address: architecture alone cannot say whether a model
 // carries an ATT, and the Quasar models that do not would be sent addresses they cannot route.
 constexpr const char* NOC_ATT_MAP_ENV_VAR = "TT_UMD_NOC_ATT";
-constexpr const char* GRENDEL_QSR1_MAP_NAME = "grendel_qsr1";
+
+// The maps this build carries, by the name TT_UMD_NOC_ATT gives them.
+struct NamedAttMap {
+    const char* name;
+    const att::MapData* map;
+};
+
+constexpr NamedAttMap ATT_MAPS[] = {
+    {"grendel_qsr1", &att::GRENDEL_QSR1_MAP},
+    {"horizon_2x3", &att::HORIZON_2X3_MAP},
+};
 
 }  // namespace
 
@@ -169,16 +185,22 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
         return;
     }
 
+    const auto* const known = std::find_if(
+        std::begin(ATT_MAPS), std::end(ATT_MAPS), [&](const NamedAttMap& map) { return *map_name == map.name; });
+    std::vector<std::string> names;
+    for (const NamedAttMap& map : ATT_MAPS) {
+        names.emplace_back(map.name);
+    }
     UMD_ASSERT(
-        map_name == GRENDEL_QSR1_MAP_NAME,
+        known != std::end(ATT_MAPS),
         error::RuntimeError,
         fmt::format(
             "{} names ATT map '{}', which this build does not carry. Known maps: {}.",
             NOC_ATT_MAP_ENV_VAR,
             *map_name,
-            GRENDEL_QSR1_MAP_NAME));
+            fmt::join(names, ", ")));
 
-    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(att::GRENDEL_QSR1_MAP);
+    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(*known->map);
     global_address_mode_ = true;
 }
 

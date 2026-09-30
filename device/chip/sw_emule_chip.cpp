@@ -12,6 +12,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "tt_emule/device.hpp"

@@ -17,13 +17,10 @@
                     "value": "clang++-20"
                 },
                 "TT_UMD_BUILD_TESTS": {
-                    "value": "TRUE"
+                    "value": "ON"
                 },
                 "TT_UMD_BUILD_SIMULATION": {
-                    "value": "TRUE"
-                },
-                "CMAKE_EXPORT_COMPILE_COMMANDS": {
-                    "value": "TRUE"
+                    "value": "ON"
                 }
             }
         }

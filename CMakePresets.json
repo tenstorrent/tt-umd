@@ -5,7 +5,7 @@
             "name": "code-analysis",
             "description": "Run Clang Static Analyzer",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/.build/code-analysis",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": {
                     "value": "Debug"

@@ -83,6 +83,32 @@ TEST(ApiEmuleClusterTest, UnsupportedSharedPoolRequestFailsExplicitly) {
     }
 }
 
+TEST(ApiEmuleClusterTest, ResetCallsThroughChipInterfaceAreNoOps) {
+    auto descriptor = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+    Cluster cluster{ClusterOptions{.chip_type = ChipType::SWEMULE, .cluster_descriptor = descriptor.get()}};
+    ASSERT_FALSE(cluster.get_target_device_ids().empty());
+    Chip* chip = cluster.get_chip(*cluster.get_target_device_ids().begin());
+    ASSERT_NE(chip, nullptr);
+    ASSERT_EQ(chip->get_tt_device(), nullptr);
+    const auto cores = chip->get_soc_descriptor().get_cores(CoreType::TENSIX);
+    ASSERT_FALSE(cores.empty());
+    const CoreCoord core = cores.front();
+
+    EXPECT_NO_THROW(chip->assert_risc_reset(core, RiscType::ALL));
+    EXPECT_EQ(chip->get_risc_reset_state(core), RiscType::NONE);
+    EXPECT_NO_THROW(chip->deassert_risc_reset(core, RiscType::ALL, true));
+    EXPECT_NO_THROW(chip->assert_risc_reset(RiscType::ALL));
+    EXPECT_NO_THROW(chip->deassert_risc_reset(RiscType::ALL, false));
+    EXPECT_NO_THROW(chip->deassert_risc_resets());
+    EXPECT_EQ(chip->get_risc_reset_state(core), RiscType::NONE);
+
+    // A backend without overrides must fail explicitly, not silently skip reset
+    // or dereference a missing TTDevice. Bypass virtual dispatch to check the base contract.
+    EXPECT_THROW(chip->Chip::get_risc_reset_state(core), std::exception);
+    EXPECT_THROW(chip->Chip::assert_risc_reset(core, RiscType::ALL), std::exception);
+    EXPECT_THROW(chip->Chip::deassert_risc_reset(core, RiscType::ALL, false), std::exception);
+}
+
 TEST(ApiEmuleClusterTest, EmuleRoundtripIO) {
     std::string descriptor_file = test_utils::GetClusterDescAbsPath("wormhole_N150.yaml");
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file);

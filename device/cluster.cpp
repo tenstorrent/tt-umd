@@ -745,7 +745,8 @@ Cluster::Cluster(ClusterOptions options) {
                 for (const auto& [channel, remote] : channel_map) {
                     const auto [peer_uid, peer_channel] = remote;
                     UMD_ASSERT(
-                        channel < get_soc_descriptor(local_chip).get_num_eth_channels() && peer_channel >= 0 &&
+                        channel >= 0 && channel < get_soc_descriptor(local_chip).get_num_eth_channels() &&
+                            peer_channel >= 0 &&
                             static_cast<uint32_t>(peer_channel) < get_soc_descriptor(local_chip).get_num_eth_channels(),
                         error::RuntimeError,
                         "Invalid cross-rank Ethernet channel");

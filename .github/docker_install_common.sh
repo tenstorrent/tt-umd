@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
+
 # Install essential packages first (required for HTTPS and GPG operations)
 apt-get update && apt-get install -y \
     ca-certificates \
@@ -25,9 +27,6 @@ apt-get update && apt-get install -y \
     libboost-all-dev \
     wget \
     yamllint \
-    python3-dev \
-    python3-pip \
-    python3-venv \
     patchelf \
     xxd \
     rpm \
@@ -35,7 +34,12 @@ apt-get update && apt-get install -y \
     fakeroot
 
 # Install Python dependencies
-python3 -m pip install --no-cache-dir pytest pyyaml
+apt-get update && apt-get install -y \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    python3-pyyaml \
+    python3-pytest \
 
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then
@@ -46,7 +50,6 @@ else
 fi
 
 # Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
-UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
 if [ "${UBUNTU_VERSION}" = "22.04" ]; then
     echo "Installing clang-13 for minimum compiler version testing..."
     wget https://apt.llvm.org/llvm.sh && \

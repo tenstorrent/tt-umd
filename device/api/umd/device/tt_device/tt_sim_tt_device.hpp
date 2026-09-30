@@ -139,7 +139,8 @@ private:
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();
 
-    // Programs one outbound-iATU region per host-mem channel this device's sysmem manager holds.
+    // Programs one outbound-iATU region per host-mem channel this device's sysmem manager holds, plus
+    // the mapped-buffer arena region that sits after them.
     void program_iatu_for_host_mem_channels();
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client

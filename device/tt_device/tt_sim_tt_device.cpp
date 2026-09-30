@@ -438,8 +438,9 @@ void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint6
     // history), we do NOT write limit_hi (0x1c) or
     // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
     // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
-    // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not
-    // reprogrammed, so there is no stale-high-bits hazard.
+    // asserted to stay within 4 GiB, so limit_hi is never anything but 0. Regions are re-programmed when
+    // grow_host_mem_channels() adds channels, but since no write ever sets the high bits, re-programming
+    // cannot leave stale high bits behind.
     wr(0x04, 1u << 31);  // region_ctrl_2 = REGION_EN, written last so the sim validates a complete region
 }
 

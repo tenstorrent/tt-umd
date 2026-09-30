@@ -17,6 +17,8 @@
 
 namespace tt::umd {
 
+class EthIpcEndpoint;
+
 // Thin C++ wrapper around the libttsim.so dynamic library.
 // Handles dlopen/dlsym, per-chip device selection, and thread-safe I/O.
 class TTSimCommunicator final {
@@ -167,6 +169,10 @@ public:
     void register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac);
     void switch_drain();
     void register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id);
+    bool supports_eth_link_fd() const;
+    // Transfers endpoint ownership only once attachment succeeds. Teardown
+    // detaches simulator references before closing the borrowed descriptors.
+    void configure_eth_link_fd(uint32_t channel, std::unique_ptr<EthIpcEndpoint> endpoint);
     void register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id);
     void register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction);
 
@@ -282,6 +288,16 @@ private:
     void (*pfn_libttsim_switch_reset_)() = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
     void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
+    uint32_t (*pfn_libttsim_eth_fd_capabilities_)() = nullptr;
+    int (*pfn_libttsim_attach_eth_link_fd_)(void *, uint32_t, int, int) = nullptr;
+    int (*pfn_libttsim_detach_eth_link_fd_)(void *, uint32_t) = nullptr;
+
+    struct OwnedEthLink {
+        uint32_t channel;
+        std::unique_ptr<EthIpcEndpoint> endpoint;
+    };
+
+    std::vector<OwnedEthLink> owned_eth_links_;
     void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) =
         nullptr;
     void (*pfn_libttsim_switch_register_fabric_node_id_)(void *dev, uint32_t mesh_id, uint32_t chip_id) = nullptr;

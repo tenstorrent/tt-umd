@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/utils.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -173,11 +174,8 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
 }
 
-void RtlSimCommunicator::global_read_bytes(uint64_t addr, void *data, uint32_t size) {
-    UMD_ASSERT(
-        size % sizeof(uint32_t) == 0,
-        error::RuntimeError,
-        fmt::format("global_read_bytes size {} must be a multiple of {} bytes.", size, sizeof(uint32_t)));
+void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {
+    validate_register_access(addr, size);
 
     {
         std::lock_guard<std::mutex> lock(device_lock_);
@@ -198,25 +196,21 @@ void RtlSimCommunicator::global_read_bytes(uint64_t addr, void *data, uint32_t s
     UMD_ASSERT(
         response_bytes >= size,
         error::RuntimeError,
-        fmt::format("global_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
+        fmt::format("global_read_words response size {} is smaller than requested size {}.", response_bytes, size));
     std::memcpy(data, rd_resp_buf->data()->data(), size);
     nng_free(msg.data, msg.size);
 }
 
-void RtlSimCommunicator::global_write_bytes(uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
 
-    // The payload travels as words. A trailing partial word would be dropped here and the smaller
-    // count carried in the request, so the simulator would write less than was asked for.
-    UMD_ASSERT(
-        size % sizeof(uint32_t) == 0,
-        error::RuntimeError,
-        fmt::format("global_write_bytes size {} must be a multiple of {} bytes.", size, sizeof(uint32_t)));
+    // The payload travels as words, so a partial word could only be dropped or written short.
+    validate_register_access(addr, size);
 
-    const uint32_t num_elements = size / sizeof(uint32_t);
-    const auto *data_ptr = static_cast<const uint32_t *>(data);
-    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
+    // Copied, since the caller's buffer need not be word-aligned.
+    std::vector<uint32_t> data_vec(size / sizeof(uint32_t));
+    std::memcpy(data_vec.data(), data, size);
 
     send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, data_vec, addr));
 }

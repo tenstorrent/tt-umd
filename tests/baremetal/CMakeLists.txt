@@ -45,6 +45,7 @@ if(TT_UMD_BUILD_SIMULATION)
             test_rtl_sim_att_program.cpp
             test_rtl_sim_ip_layout.cpp
             test_rtl_sim_session.cpp
+            test_word_access.cpp
     )
 endif()
 set_target_properties(

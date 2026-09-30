@@ -38,7 +38,7 @@ apt-get update && apt-get install -y \
     python3-dev \
     python3-pip \
     python3-venv \
-    python3-pyyaml \
+    python3-yaml \
     python3-pytest \
 
 # gcc-11 should be available only for ubuntu 22 and not 20

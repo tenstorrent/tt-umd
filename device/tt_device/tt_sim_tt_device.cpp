@@ -199,22 +199,39 @@ void TTSimTTDevice::initialize_backend() {
     // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
     // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
     // of the multichip work), which is the behaviour of the stable simulator release.
-    if (get_arch() == tt::ARCH::WORMHOLE_B0 || get_arch() == tt::ARCH::BLACKHOLE) {
-        size_t nch = sysmem_manager_->get_num_host_mem_channels();
-        for (size_t ch = 0; ch < nch; ch++) {
-            HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
-            TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
-        }
-        auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-        const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
-        const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
-        if (arena_size > 0) {
-            // Keep the arena above channels 0..3 and WH's silicon channel-3 slot 4.
-            constexpr size_t MAPPED_ARENA_REGION = 5;
-            configure_iatu_region_at(
-                MAPPED_ARENA_REGION, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
-        }
+    program_iatu_for_host_mem_channels();
+}
+
+void TTSimTTDevice::program_iatu_for_host_mem_channels() {
+    if (get_arch() != tt::ARCH::WORMHOLE_B0 && get_arch() != tt::ARCH::BLACKHOLE) {
+        return;
     }
+    size_t nch = sysmem_manager_->get_num_host_mem_channels();
+    for (size_t ch = 0; ch < nch; ch++) {
+        HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
+        TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
+    }
+    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
+    const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
+    if (arena_size > 0) {
+        // Keep the arena above channels 0..3 and WH's silicon channel-3 slot 4.
+        constexpr size_t MAPPED_ARENA_REGION = 5;
+        configure_iatu_region_at(
+            MAPPED_ARENA_REGION, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+    }
+}
+
+void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
+    auto* sim_mgr = dynamic_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    if (sim_mgr == nullptr || !sim_mgr->grow_host_mem_channels(num_host_mem_channels)) {
+        return;
+    }
+    // The added channels need new regions, and the mapped-buffer arena moves up to start after them, so
+    // its region must be re-programmed too. An existing channel's target is host_base_ + ch * 1 GiB,
+    // which does not depend on where the mapping landed, so re-programming it is harmless and keeps one
+    // path for programming the iATU.
+    program_iatu_for_host_mem_channels();
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -421,8 +438,9 @@ void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint6
     // history), we do NOT write limit_hi (0x1c) or
     // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
     // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
-    // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not
-    // reprogrammed, so there is no stale-high-bits hazard.
+    // asserted to stay within 4 GiB, so limit_hi is never anything but 0. Regions are re-programmed when
+    // grow_host_mem_channels() adds channels, but since no write ever sets the high bits, re-programming
+    // cannot leave stale high bits behind.
     wr(0x04, 1u << 31);  // region_ctrl_2 = REGION_EN, written last so the sim validates a complete region
 }
 

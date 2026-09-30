@@ -255,6 +255,8 @@ TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
 
 SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
+TLBManager* SWEmuleChip::get_tlb_manager() { return nullptr; }
+
 // --- Host memory (no-ops) ---
 
 int SWEmuleChip::get_num_host_channels() { return 0; }

@@ -204,20 +204,47 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     }
 }
 
+namespace {
+
+// A sysmem manager with no host memory channels can't back remote transfers, so remote communication treats it as
+// absent.
+SysmemManager* usable_sysmem_manager(Chip* chip) {
+    SysmemManager* sysmem_manager = chip->get_sysmem_manager();
+    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+        return nullptr;
+    }
+    return sysmem_manager;
+}
+
+}  // namespace
+
 #ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
-    ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc) {
+    ChipId chip_id,
+    ClusterDescriptor* cluster_desc,
+    const SocDescriptor& soc_desc,
+    std::unique_ptr<TTDevice> remote_tt_device) {
     ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+    // Not get_local_chip(): a simulated gateway is a SimulationChip, not a LocalChip.
     Chip* gateway_chip = get_chip(gateway_id);
-    SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
-    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
-        sysmem_manager = nullptr;
+    SysmemManager* sysmem_manager = usable_sysmem_manager(gateway_chip);
+    if (remote_tt_device != nullptr) {
+        // Topology discovery already reached this chip, but its RemoteCommunication was created before sysmem
+        // managers existed, so wire in the gateway's now.
+        if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
+            remote_communication->set_sysmem_manager(sysmem_manager);
+        }
+    } else {
+        auto remote_communication = RemoteCommunication::create_remote_communication(
+            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
+        remote_communication->set_remote_transfer_ethernet_cores(
+            gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+        // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
+        // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
+        // construct one.
+        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
     }
-    auto remote_communication = RemoteCommunication::create_remote_communication(
-        gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
-    remote_communication->set_remote_transfer_ethernet_cores(
-        gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-            cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
 
     ChipInfo chip_info;
     chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
@@ -226,9 +253,6 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
     chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
     chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
 
-    // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
-    // instead of letting init_tt_device construct one.
-    auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
     return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
 }
 #endif  // TT_UMD_BUILD_SIMULATION
@@ -272,6 +296,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
+        if (tt_device != nullptr && tt_device->is_remote()) {
+            // Topology discovery reached this chip over ethernet, so it is driven as a RemoteChip.
+            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc, std::move(tt_device));
+        }
         if (tt_device != nullptr) {
             // A device the connector already created (client mode): wrap it rather than building a
             // new backend. Its SoC descriptor was sourced over the socket, so read it back.
@@ -298,12 +326,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
-            SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
-            if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
-                sysmem_ptr = nullptr;
-            }
-            remote_communications_[chip_id] =
-                RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
+            remote_communications_[chip_id] = RemoteCommunication::create_remote_communication(
+                chip->get_tt_device(), {0, 0, 0, 0}, usable_sysmem_manager(chip.get()));
             remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
                 chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                     cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
@@ -314,14 +338,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         LocalChip* gateway_chip = get_local_chip(gateway_id);
         if (tt_device != nullptr) {
             if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
-                SysmemManager* sysmem_ptr = gateway_chip->get_sysmem_manager();
-                if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
-                    sysmem_ptr = nullptr;
-                }
                 // Remote communications created during topology discovery start without one, since sysmem
                 // managers don't exist yet at that point; the owning Cluster wires in the gateway's sysmem manager
                 // afterwards.
-                remote_communication->set_sysmem_manager(sysmem_ptr);
+                remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
             }
         }
         return RemoteChip::create(std::move(tt_device), gateway_chip);

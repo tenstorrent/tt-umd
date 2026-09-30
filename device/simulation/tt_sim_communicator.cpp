@@ -20,6 +20,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "eth_ipc.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -77,6 +78,25 @@ TTSimCommunicator::TTSimCommunicator(
     image_endpoint_count_(image_endpoint_count) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
+    {
+        std::lock_guard<std::mutex> lock(device_lock_);
+        for (auto &link : owned_eth_links_) {
+            const int result = pfn_libttsim_detach_eth_link_fd_(dev_handle_, link.channel);
+            // Detach is idempotent for a valid attached device/channel. If a
+            // broken simulator violates that contract, do not close/recycle FDs
+            // it might still reference. Leak only this endpoint, with an error.
+            if (result != 0) {
+                auto *retained_endpoint = link.endpoint.release();
+                log_error(
+                    tt::LogEmulationDriver,
+                    "Retaining Ethernet descriptors {} and {} after simulator detach failed: {}",
+                    retained_endpoint->read_fd(),
+                    retained_endpoint->write_fd(),
+                    result);
+            }
+        }
+        owned_eth_links_.clear();
+    }
     // Unregister from the process-global DMA routing tables first. The shared simulator may still be
     // alive (other chips not yet destructed) and could emit a DMA; leaving a stale entry/callback
     // pointing at this freed communicator would route into freed memory (use-after-free).
@@ -195,6 +215,12 @@ void TTSimCommunicator::initialize() {
         pfn_libttsim_switch_register_fabric_endpoint_direction_ =
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
+        pfn_libttsim_eth_fd_capabilities_ = reinterpret_cast<decltype(pfn_libttsim_eth_fd_capabilities_)>(
+            dlsym(libttsim_handle_, "libttsim_eth_fd_capabilities"));
+        pfn_libttsim_attach_eth_link_fd_ = reinterpret_cast<decltype(pfn_libttsim_attach_eth_link_fd_)>(
+            dlsym(libttsim_handle_, "libttsim_attach_eth_link_fd"));
+        pfn_libttsim_detach_eth_link_fd_ = reinterpret_cast<decltype(pfn_libttsim_detach_eth_link_fd_)>(
+            dlsym(libttsim_handle_, "libttsim_detach_eth_link_fd"));
 
         // Only commit to multichip mode and take an owning reference after ALL symbol
         // resolution has succeeded.  Until then the probe reference is the only one this
@@ -676,6 +702,29 @@ void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint
         return;
     }
     pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
+}
+
+bool TTSimCommunicator::supports_eth_link_fd() const {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    return multichip_mode_ && dev_handle_ && pfn_libttsim_eth_fd_capabilities_ && pfn_libttsim_attach_eth_link_fd_ &&
+           pfn_libttsim_detach_eth_link_fd_ && (pfn_libttsim_eth_fd_capabilities_() & 1U) != 0;
+}
+
+void TTSimCommunicator::configure_eth_link_fd(uint32_t channel, std::unique_ptr<EthIpcEndpoint> endpoint) {
+    UMD_ASSERT(endpoint != nullptr, error::RuntimeError, "Missing Ethernet FD endpoint");
+    UMD_ASSERT(
+        supports_eth_link_fd(), error::RuntimeError, "Simulator lacks checked Ethernet FD attach/detach support");
+    std::lock_guard<std::mutex> lock(device_lock_);
+    for (const auto &link : owned_eth_links_) {
+        UMD_ASSERT(link.channel != channel, error::RuntimeError, "Duplicate Ethernet FD channel attachment");
+    }
+    // Reserve first: no allocating operation may throw after the simulator
+    // starts borrowing the endpoint's descriptors.
+    owned_eth_links_.reserve(owned_eth_links_.size() + 1);
+    const int result =
+        pfn_libttsim_attach_eth_link_fd_(dev_handle_, channel, endpoint->write_fd(), endpoint->read_fd());
+    UMD_ASSERT(result == 0, error::RuntimeError, fmt::format("Simulator rejected Ethernet FD attachment: {}", result));
+    owned_eth_links_.push_back({channel, std::move(endpoint)});
 }
 
 void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id) {

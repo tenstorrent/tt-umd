@@ -421,6 +421,9 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
+    // EXPERIMENT (tt-metal#58148): the one line #3396 added here, put back on top of the revert to test
+    // whether the per-op timeout hang check on caller-owned windows is what wedges Blackhole.
+    window->set_io_timeout_hang_check([this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
     window->configure(target, ordering);
     return window;
 }

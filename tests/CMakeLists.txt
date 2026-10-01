@@ -42,6 +42,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/l2cpu)
 
 add_custom_target(
     umd_tests

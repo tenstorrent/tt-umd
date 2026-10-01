@@ -234,6 +234,17 @@ private:
     // said command queue.
     ReceivedMessage wait_for_command_response();
 
+    // Which command pair an access uses and whether a core coordinate travels with it.
+    enum class AccessKind { kTile, kGlobal, kSmn };
+
+    // Read the whole words covering [addr, addr + size) and copy the requested bytes out. Called with
+    // request_lock_ held.
+    void read_covering_words(AccessKind kind, uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+
+    // Write whole aligned words. A sub-word or unaligned write first reads the covering words so the
+    // bytes around the request go back unchanged. Called with request_lock_ held.
+    void write_whole_words(AccessKind kind, uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
     // Handle AXI RAM write notification from the simulator.
     void handle_ram_write_notification(const void *notification);
 
@@ -248,6 +259,12 @@ private:
 
     // Thread safety for send operations.
     mutable std::mutex device_lock_;
+
+    // One request at a time. All responses arrive on one queue, so two threads reading at once (e.g. the
+    // DPRINT poller and the main thread) could take each other's reply. Held from send to parse, and
+    // across the read and write of a sub-word write. Separate from device_lock_, which the notification
+    // thread still needs while a read waits.
+    mutable std::mutex request_lock_;
 
     // Notification handler thread.
     std::thread notification_thread_;

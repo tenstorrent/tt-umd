@@ -13,19 +13,23 @@
 
 namespace tt::umd {
 
-class RtlSimCommunicator;
+class RtlSimulationTTDevice;
 class TlbHandle;
 struct tlb_data;
 
 /**
- * RTL simulation TlbWindow implementation that translates TLB-based memory access
- * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
- * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
- * is used to reconstruct the target core and address for each access.
+ * RTL simulation TlbWindow implementation. Since RTL sim has no PCIe BAR0, the TLB config
+ * (core coordinates + address) is used to reconstruct the target core and address for each
+ * access, which then goes through RtlSimulationTTDevice::resolved_tile_write/read.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:
-    RtlSimTlbWindow(std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config = {});
+    /**
+     * @param device Every access is resolved through the device (its NoC address resolver, when
+     *        installed) exactly like host_write/host_read, so a TLB window never sends a raw
+     *        (x, y, addr) the simulator would interpret in another coordinate frame.
+     */
+    RtlSimTlbWindow(std::unique_ptr<TlbHandle> handle, RtlSimulationTTDevice* device, const tlb_data config = {});
 
     void write16(uint64_t offset, uint16_t value) override;
     uint16_t read16(uint64_t offset) override;
@@ -38,16 +42,16 @@ public:
 
 private:
     /**
-     * Translate a TLB window offset to (core, address) and perform a write via the communicator.
+     * Translate a TLB window offset to (core, address) and perform a write through the device.
      */
     void translate_and_write(uint64_t offset, const void* data, size_t size);
 
     /**
-     * Translate a TLB window offset to (core, address) and perform a read via the communicator.
+     * Translate a TLB window offset to (core, address) and perform a read through the device.
      */
     void translate_and_read(uint64_t offset, void* data, size_t size);
 
-    RtlSimCommunicator* communicator_;
+    RtlSimulationTTDevice* device_;
 };
 
 }  // namespace tt::umd

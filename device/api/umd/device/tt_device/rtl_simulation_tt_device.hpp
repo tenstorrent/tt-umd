@@ -25,6 +25,7 @@
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class RtlSimTlbWindow;
 class SimulationSysmemManager;
 class SimulationServerSocket;
 class SimulationClient;
@@ -72,6 +73,17 @@ protected:
     bool should_use_cached_tlb_window() override;
 
 private:
+    // The RTL-sim TLB windows reach the device through resolved_tile_write/read only.
+    friend class RtlSimTlbWindow;
+
+    /**
+     * Write/read a tile address given in the TRANSLATED coordinate frame, resolved through the same
+     * resolve_translated() the host path uses. Used by the RTL-sim TLB windows: without this a window
+     * sends a raw (x, y, addr) that the simulator interprets in its own frame, so on a model with
+     * translation enabled the access lands on the wrong tile.
+     */
+    void resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
+    void resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size);
     // Install the flat-address resolver when the environment names an ATT map. Host mode only: a
     // client hands the host a translated coordinate and a core-local address, and the host resolves
     // it, so resolving here as well would fold the coordinate in twice.

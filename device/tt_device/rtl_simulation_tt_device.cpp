@@ -21,6 +21,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
@@ -208,7 +209,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
     int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
     auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, size, mapping);
-    return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
+    return std::make_unique<RtlSimTlbWindow>(std::move(handle), this, config);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {
@@ -223,6 +224,14 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
             log_warning(tt::LogEmulationDriver, "RtlSimulationTTDevice teardown failed: {}", e.what());
         }
     }
+}
+
+void RtlSimulationTTDevice::resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    tile_write_bytes(core, resolve_translated(core, addr, size), mem_ptr, size);
+}
+
+void RtlSimulationTTDevice::resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    tile_read_bytes(core, resolve_translated(core, addr, size), mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {

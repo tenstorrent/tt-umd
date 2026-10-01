@@ -95,6 +95,10 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
     get_tt_device()->deassert_risc_reset(core, selected_riscs, staggered_start);
 }
 
+void Chip::release_cce_uncore_for_firmware_load(CoreCoord core) {
+    get_tt_device()->release_cce_uncore_for_firmware_load(core);
+}
+
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
     for (const CoreCoord core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {

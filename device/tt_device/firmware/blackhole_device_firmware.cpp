@@ -27,15 +27,10 @@
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
-
-namespace {
-// ETH and DRAM training take seconds, so there is no point in spinning past the first millisecond.
-constexpr auto TRAINING_BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
-constexpr auto TRAINING_POLL_INTERVAL = std::chrono::microseconds(10);
-}  // namespace
 
 // How this class picks a route: a non-null JtagInterface means the device is reached over JTAG,
 // otherwise it is reached over PCIe. Inferring the route from which optional interface is present
@@ -322,8 +317,6 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
     uint32_t arc_postcode = 0;
     uint32_t arc_error_status0 = 0;
 
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
     const bool arc_core_started = utils::poll_until(
         [this, &arc_boot_status, &arc_postcode, &noc_id]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status, noc_id);
@@ -331,8 +324,8 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,
-        busy_poll_window,
-        poll_interval,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("ARC firmware on device {} to become ready", device_id_));
 
     if (!arc_core_started) {
@@ -373,8 +366,8 @@ bool BlackholeDeviceFirmware::wait_eth_core_training(
     const bool trained = utils::poll_until(
         [&]() { return get_eth_core_training_status(eth_core, noc_id) != EthTrainingStatus::IN_PROGRESS; },
         timeout_ms,
-        TRAINING_BUSY_POLL_WINDOW,
-        TRAINING_POLL_INTERVAL,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_));
     if (!trained) {
         // TODO: This should throw. ETH connections are very flaky on Blackhole right now, so
@@ -441,8 +434,8 @@ bool BlackholeDeviceFirmware::wait_dram_channel_training(
             return dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS;
         },
         timeout_ms,
-        TRAINING_BUSY_POLL_WINDOW,
-        TRAINING_POLL_INTERVAL,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_));
 
     if (!done) {

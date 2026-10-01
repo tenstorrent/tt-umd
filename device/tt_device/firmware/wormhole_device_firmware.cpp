@@ -35,12 +35,6 @@
 
 namespace tt::umd {
 
-namespace {
-// ETH and DRAM training take seconds, so there is no point in spinning past the first millisecond.
-constexpr auto TRAINING_BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
-constexpr auto TRAINING_POLL_INTERVAL = std::chrono::microseconds(10);
-}  // namespace
-
 // How this class picks a route for ARC accesses: a non-null RemoteInterface means the device is
 // reached over ethernet through a gateway, a non-null JtagInterface means it is reached over JTAG,
 // and otherwise it is reached over PCIe. Inferring the route from which optional interface is
@@ -194,9 +188,6 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
     uint32_t arc_post_code = 0;
     uint32_t message_id = 0;
 
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-
     const bool arc_core_started = utils::poll_until(
         [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id]() {
             read_from_arc_apb(
@@ -267,8 +258,8 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
             return false;
         },
         timeout_ms,
-        busy_poll_window,
-        poll_interval,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("ARC firmware on device {} to become ready", device_id_));
 
     if (!arc_core_started) {
@@ -573,8 +564,8 @@ bool WormholeDeviceFirmware::wait_eth_core_training(
     const bool trained = utils::poll_until(
         [&]() { return get_eth_core_training_status(eth_core, noc_id) != EthTrainingStatus::IN_PROGRESS; },
         timeout_ms,
-        TRAINING_BUSY_POLL_WINDOW,
-        TRAINING_POLL_INTERVAL,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_));
     if (trained) {
         return true;
@@ -660,8 +651,8 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
             return dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS;
         },
         timeout_ms,
-        TRAINING_BUSY_POLL_WINDOW,
-        TRAINING_POLL_INTERVAL,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_));
 
     if (!done) {

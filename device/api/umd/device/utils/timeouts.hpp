@@ -56,4 +56,9 @@ inline constexpr auto WARM_RESET_DEVICES_REAPPEAR_TIMEOUT = std::chrono::millise
 
 inline constexpr auto UBB_WARM_RESET_TIMEOUT = std::chrono::milliseconds(100'000);
 inline constexpr auto BH_WARM_RESET_TIMEOUT = std::chrono::milliseconds(2'000);
+
+// Poll cadence for the firmware waits (ARC ready, ETH and DRAM training). These can take seconds,
+// so spin only during the first millisecond in case the firmware is already done, otherwise poll.
+inline constexpr auto FIRMWARE_BUSY_POLL_WINDOW = std::chrono::microseconds(1'000);
+inline constexpr auto FIRMWARE_POLL_INTERVAL = std::chrono::microseconds(10);
 }  // namespace tt::umd::timeout

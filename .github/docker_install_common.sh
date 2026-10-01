@@ -40,6 +40,7 @@ apt-get update && apt-get install -y \
     python3-venv \
     python3-yaml \
     python3-pytest \
+    python3-typing-extensions
 
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then

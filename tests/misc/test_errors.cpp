@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd::error;
 

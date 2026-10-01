@@ -1,0 +1,56 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "tt-umd/pcie/tlb_handle.hpp"
+#include "tt-umd/types/tlb.hpp"
+
+struct tt_tlb_t;
+
+namespace tt::umd {
+
+// Forward declaration.
+class PCIDevice;
+
+/**
+ * Hardware TLB Handle implementation that manages actual silicon TLBs.
+ * This class handles allocation, mapping, and configuration of hardware TLBs
+ * through the kernel mode driver (KMD).
+ */
+class SiliconTlbHandle : public TlbHandle {
+public:
+    /**
+     * Constructor for SiliconTlbHandle.
+     * Allocates a TLB from KMD of the specified size and maps it to the user space.
+     *
+     * @param tt_device Pointer to the tt_device structure representing the PCI device.
+     * @param size Size of the TLB to allocate.
+     * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
+     */
+    SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Constructor for SiliconTlbHandle that additionally fixes verify_config_ for the handle's
+     * lifetime. See TlbHandle's protected verify_config constructor for when to pass true.
+     */
+    SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping, const bool verify_config);
+
+    ~SiliconTlbHandle() noexcept override;
+
+    void configure(const tlb_data& new_config) override;
+
+    tt::ARCH get_arch() const override;
+
+private:
+    void free_tlb() noexcept override;
+
+    PCIDevice& pci_device_;
+    tt_tlb_t* tlb_handle_ = nullptr;
+};
+
+}  // namespace tt::umd

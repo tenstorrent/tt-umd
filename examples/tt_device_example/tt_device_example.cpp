@@ -7,10 +7,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

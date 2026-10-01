@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/pcie/pci_device.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 
 using namespace tt::umd;
 

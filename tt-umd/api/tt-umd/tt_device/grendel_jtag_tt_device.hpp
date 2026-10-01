@@ -17,6 +17,7 @@
 namespace tt::umd {
 
 class SocDescriptor;
+class MimirChippyMemoryMap;
 
 /**
  * A pre-initialized Grendel package reached through chippy JTAG2AXI/OpenOCD.
@@ -29,7 +30,7 @@ public:
     static std::unique_ptr<GrendelJtagTTDevice> create(
         const SocDescriptor& soc_descriptor,
         const std::string& host,
-        uint16_t port = 6666,
+        uint16_t port = kDefaultOpenOcdTclPort,
         uint32_t chiplet_number = 0,
         GrendelJtagTransportVersion version = GrendelJtagTransportVersion::V2);
 
@@ -46,9 +47,12 @@ public:
 
 private:
     GrendelJtagTTDevice(
-        const SocDescriptor& soc_descriptor, std::unique_ptr<GrendelJtagProtocol> protocol);
+        const SocDescriptor& soc_descriptor,
+        std::unique_ptr<GrendelJtagProtocol> protocol,
+        std::unique_ptr<MimirChippyMemoryMap> memory_map);
 
     std::unique_ptr<GrendelNocAddressResolver> address_resolver_;
+    std::unique_ptr<MimirChippyMemoryMap> memory_map_;
     std::mutex io_mutex_;
 };
 

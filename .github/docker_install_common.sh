@@ -42,6 +42,13 @@ apt-get update && apt-get install -y \
     python3-pytest \
     python3-typing-extensions
 
+# nanobind's stubgen.py requires typing_extensions on Python < 3.11 and needs TypeVarTuple (>= 4.1).
+# Ubuntu 22.04's apt package is 3.10.0.2, which is too old, so install a newer one via pip.
+# Ubuntu 24.04 uses Python 3.12 (stubgen doesn't need it, and pip is externally managed), so skip there.
+if [ "${UBUNTU_VERSION}" = "22.04" ]; then
+    python3 -m pip install --upgrade "typing_extensions>=4.6"
+fi
+
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then
     echo "gcc-11 is available. Installing..."

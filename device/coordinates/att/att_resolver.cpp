@@ -86,13 +86,12 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
 
     // The worker window only covers a Tensix tile's L1. Its registers (NEO_REGS, semaphores, overlay)
     // sit above L1 and are reached through the full-tile window, like on every other tile. So an
-    // offset that does not fit the L1 window is a register access: use the full-tile window instead.
-    if (window_class == WindowClass::WORKER) {
-        const Window& l1_window = map_.windows[static_cast<size_t>(WindowClass::WORKER)];
-        const Window& tile_window = map_.windows[static_cast<size_t>(WindowClass::FULL_TILE)];
-        if (!l1_window.transfer_supported(offset, size) && tile_window.transfer_supported(offset, size)) {
-            window_class = WindowClass::FULL_TILE;
-        }
+    // offset at or above the L1 window is a register access: use the full-tile window instead. A
+    // transfer that starts in L1 stays on the L1 window, so one that runs past the end of L1 is
+    // still rejected below.
+    if (window_class == WindowClass::WORKER &&
+        offset >= map_.windows[static_cast<size_t>(WindowClass::WORKER)].local_address_limit()) {
+        window_class = WindowClass::FULL_TILE;
     }
 
     const uint32_t package_x = x + map_.package_offset_x;

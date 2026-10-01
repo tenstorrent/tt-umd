@@ -169,6 +169,16 @@ void SimulationTTDevice::write_to_device_reg(
     write_to_device(mem_ptr, core, addr, size, noc_id);
 }
 
+uint64_t SimulationTTDevice::resolve_translated(tt_xy_pair core, uint64_t addr, size_t size) const {
+    if (!global_address_mode_) {
+        return addr;
+    }
+    UMD_ASSERT(
+        noc_address_resolver_ != nullptr, error::RuntimeError, "Global address mode without a NoC address resolver.");
+    const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
+    return att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core_coord, addr, size);
+}
+
 void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
@@ -177,9 +187,7 @@ void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, co
     if (handle_special_write(mem_ptr, core, addr, size)) {
         return;
     }
-    if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
-    }
+    addr = resolve_translated(core, addr, size);
     if (should_use_cached_tlb_window()) {
         write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -195,9 +203,7 @@ void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, voi
     if (handle_special_read(mem_ptr, core, addr, size)) {
         return;
     }
-    if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
-    }
+    addr = resolve_translated(core, addr, size);
     if (should_use_cached_tlb_window()) {
         read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {

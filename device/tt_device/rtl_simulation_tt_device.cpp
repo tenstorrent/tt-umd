@@ -213,19 +213,11 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
 }
 
 void RtlSimulationTTDevice::resolved_tile_write(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
-    if (noc_address_resolver_ != nullptr) {
-        const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core_coord, addr, size);
-    }
-    tile_write_bytes(core, addr, mem_ptr, size);
+    tile_write_bytes(core, resolve_translated(core, addr, size), mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::resolved_tile_read(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    if (noc_address_resolver_ != nullptr) {
-        const CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::TRANSLATED);
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core_coord, addr, size);
-    }
-    tile_read_bytes(core, addr, mem_ptr, size);
+    tile_read_bytes(core, resolve_translated(core, addr, size), mem_ptr, size);
 }
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {

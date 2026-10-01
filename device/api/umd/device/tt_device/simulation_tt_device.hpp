@@ -172,6 +172,13 @@ protected:
     // The map interpreter, present when global_address_mode_ is set.
     std::unique_ptr<att::EndpointResolver> noc_address_resolver_ = nullptr;
 
+    // The address an access at an already-translated coordinate goes to: the flat global address
+    // when this target uses global addressing, otherwise `addr` unchanged. The coordinate is
+    // converted from the TRANSLATED frame to the descriptor's frame before the map lookup, so the
+    // result does not rely on the two frames coinciding. The host path and the RTL-sim TLB windows
+    // both resolve through here.
+    uint64_t resolve_translated(tt_xy_pair core, uint64_t addr, size_t size) const;
+
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.
     std::unique_ptr<SimulationServerSocket> socket_;

@@ -39,3 +39,12 @@ TEST(WaitProgressLogger, IntervalResetsAfterEachLog) {
     EXPECT_FALSE(logger.tick(start + 10s));
     EXPECT_TRUE(logger.tick(start + 12s));
 }
+
+// An explicit start (as poll_until passes its own) is where the first interval is measured from,
+// not the moment of construction.
+TEST(WaitProgressLogger, ExplicitStartIsHonored) {
+    const auto start = std::chrono::steady_clock::now() - 10s;
+    WaitProgressLogger logger("something", 1min, 5s, start);
+    EXPECT_FALSE(logger.tick(start + 4s));
+    EXPECT_TRUE(logger.tick(start + 5s));
+}

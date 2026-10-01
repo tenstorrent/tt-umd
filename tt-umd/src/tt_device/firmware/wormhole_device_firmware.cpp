@@ -32,7 +32,6 @@
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
-#include "wait_progress_logger.hpp"
 
 namespace tt::umd {
 
@@ -189,14 +188,8 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
     uint32_t arc_post_code = 0;
     uint32_t message_id = 0;
 
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("ARC firmware on device {} to become ready", device_id_), timeout_ms);
     const bool arc_core_started = utils::poll_until(
-        [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id, &progress_logger]() {
-            progress_logger.tick();
+        [this, &arc_reset_scratch_status, &arc_post_code, &message_id, &noc_id]() {
             read_from_arc_apb(
                 &arc_reset_scratch_status,
                 wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
@@ -265,8 +258,9 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
             return false;
         },
         timeout_ms,
-        busy_poll_window,
-        poll_interval);
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
+        fmt::format("ARC firmware on device {} to become ready", device_id_));
 
     if (!arc_core_started) {
         UMD_THROW(
@@ -567,35 +561,32 @@ tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
 
 bool WormholeDeviceFirmware::wait_eth_core_training(
     tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {
-    auto start = std::chrono::steady_clock::now();
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_), timeout_ms);
-    while (get_eth_core_training_status(eth_core, noc_id) == EthTrainingStatus::IN_PROGRESS) {
-        progress_logger.tick();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
-        if (duration > timeout_ms) {
-            // UBB (6U) systems are known to leave links in training, so the timeout is only logged
-            // there; every other board treats it as an error.
-            if (firmware_info_provider_ != nullptr &&
-                get_board_type_from_board_id(firmware_info_provider_->get_board_id().value_or(0)) == BoardType::UBB) {
-                log_warning(
-                    LogUMD,
-                    "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
-                    timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y);
-                return false;
-            }
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "ETH training timed out after {} ms, on eth core {}, {}",
-                    timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y));
-        }
+    const bool trained = utils::poll_until(
+        [&]() { return get_eth_core_training_status(eth_core, noc_id) != EthTrainingStatus::IN_PROGRESS; },
+        timeout_ms,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
+        fmt::format("ETH training for core {}, {} on device {}", eth_core.x, eth_core.y, device_id_));
+    if (trained) {
+        return true;
     }
-    return true;
+
+    // UBB (6U) systems are known to leave links in training, so the timeout is only logged
+    // there; every other board treats it as an error.
+    if (firmware_info_provider_ != nullptr &&
+        get_board_type_from_board_id(firmware_info_provider_->get_board_id().value_or(0)) == BoardType::UBB) {
+        log_warning(
+            LogUMD,
+            "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
+            timeout_ms.count(),
+            eth_core.x,
+            eth_core.y);
+        return false;
+    }
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format(
+            "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms.count(), eth_core.x, eth_core.y));
 }
 
 EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id) {
@@ -638,35 +629,42 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
                 dram_banks_number - 1));
     }
 
-    auto start = std::chrono::steady_clock::now();
-    utils::WaitProgressLogger progress_logger(
-        fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_), timeout_ms);
-    while (true) {
-        progress_logger.tick();
-        std::vector<DramTrainingStatus> dram_training_status =
-            firmware_info_provider_->get_dram_training_status(dram_banks_number);
+    // Missing status ends the poll early, but is not a success.
+    bool status_unavailable = false;
+    const bool done = utils::poll_until(
+        [&]() {
+            std::vector<DramTrainingStatus> dram_training_status =
+                firmware_info_provider_->get_dram_training_status(dram_banks_number);
 
-        if (dram_training_status.empty()) {
-            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
-            return false;
-        }
+            if (dram_training_status.empty()) {
+                status_unavailable = true;
+                return true;
+            }
 
-        // Wormhole cannot retrain a channel, so a reported failure is terminal.
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format("DRAM training failed for channel {}; Wormhole cannot retrain it.", dram_channel));
-        }
+            // Wormhole cannot retrain a channel, so a reported failure is terminal.
+            if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("DRAM training failed for channel {}; Wormhole cannot retrain it.", dram_channel));
+            }
 
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
-            return true;
-        }
+            return dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS;
+        },
+        timeout_ms,
+        timeout::FIRMWARE_BUSY_POLL_WINDOW,
+        timeout::FIRMWARE_POLL_INTERVAL,
+        fmt::format("DRAM training for channel {} on device {}", dram_channel, device_id_));
 
-        utils::check_timeout(
-            start,
-            timeout_ms,
+    if (!done) {
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
+    if (status_unavailable) {
+        log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
+        return false;
+    }
+    return true;
 }
 
 uint64_t WormholeDeviceFirmware::get_refclk_counter(NocId noc_id) {

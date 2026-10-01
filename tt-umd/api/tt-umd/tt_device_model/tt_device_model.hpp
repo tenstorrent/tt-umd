@@ -10,6 +10,7 @@
 
 namespace tt::umd {
 class DeviceFirmware;
+class RiscReset;
 
 class ArchitectureImplementation;
 class DmaInterface;
@@ -61,6 +62,10 @@ public:
 
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
+
+    // Controls the reset state of the device's RISC cores. Null until a model provides one, which
+    // is what TTDevice falls back to its own reset path for.
+    virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware
     // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the

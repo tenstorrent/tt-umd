@@ -13,6 +13,14 @@ import tt_umd
 # The simulation bindings only exist when UMD is built with TT_UMD_BUILD_SIMULATION.
 SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
 
+# Setting TT_UMD_SIMULATOR means the simulator tests are expected to run.
+# If tt-umd is built without simulation and TT_UMD_SIMULATOR is set, tests will fail.
+# Otherwise tests will be skipped
+if os.environ.get("TT_UMD_SIMULATOR") and not SIMULATION_BUILT:
+    raise ImportError(
+        "TT_UMD_SIMULATOR is set, but tt_umd was built without simulation support"
+    )
+
 # A host's per-chip sockets are named tt-umd-sim-<chip_id>.sock; a directory holding one is what
 # makes UMD classify a path as a live server to attach to.
 SOCKET_NAME = "tt-umd-sim-0.sock"

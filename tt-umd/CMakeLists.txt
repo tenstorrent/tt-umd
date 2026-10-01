@@ -47,9 +47,9 @@ set_target_properties(
     tt-umd
     PROPERTIES
         VERSION
-            ${CMAKE_PROJECT_VERSION}
+            ${umd_VERSION}
         SOVERSION
-            ${CMAKE_PROJECT_VERSION_MAJOR}
+            ${umd_VERSION_MAJOR}
 )
 
 # Enable unity builds for faster compilation 
@@ -237,6 +237,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp
+                api/tt-umd/tt_device/reset/risc_reset.hpp
                 api/tt-umd/tt_device/hang_detection/hang_detector.hpp
                 api/tt-umd/tt_device_model/tt_device_model.hpp
                 api/tt-umd/types/eth_training_status.hpp

@@ -6,10 +6,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <exception>
 #include <memory>
 #include <set>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tt_emule/l1_pool.hpp>
+#include <type_traits>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -47,6 +51,35 @@ TEST(ApiEmuleClusterTest, CreateEmuleSingleChipClusters) {
             emule_cluster->write_to_device(data.data(), data.size(), chip_id, any_tensix_core, 0);
             emule_cluster->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
         }
+    }
+}
+
+TEST(ApiEmuleClusterTest, UnsupportedSharedPoolRequestFailsExplicitly) {
+    if constexpr (std::is_constructible_v<tt_emule::L1Pool, size_t, uint64_t, uint64_t>) {
+        GTEST_SKIP() << "The supplied tt-emule dependency supports shared pools";
+    }
+
+    struct RestoreEnvironment {
+        const char* original = std::getenv("TT_EMULE_CHIP_SHM");
+        std::string saved = original ? original : "";
+
+        ~RestoreEnvironment() {
+            if (original) {
+                ::setenv("TT_EMULE_CHIP_SHM", saved.c_str(), 1);
+            } else {
+                ::unsetenv("TT_EMULE_CHIP_SHM");
+            }
+        }
+    } restore;
+
+    ASSERT_EQ(::setenv("TT_EMULE_CHIP_SHM", "1", 1), 0);
+    const SocDescriptor soc(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml")));
+    try {
+        SWEmuleChip chip(soc, 123);
+        FAIL() << "Unsupported shared backing was accepted";
+    } catch (const std::exception& error) {
+        EXPECT_NE(std::string(error.what()).find("does not support TT_EMULE_CHIP_SHM"), std::string::npos);
     }
 }
 

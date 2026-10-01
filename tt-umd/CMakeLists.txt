@@ -373,6 +373,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
+                api/umd/device/tt_device/reset/risc_reset.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/simulation_device_factory.hpp
                 api/umd/device/tt_device/simulation_tt_device.hpp

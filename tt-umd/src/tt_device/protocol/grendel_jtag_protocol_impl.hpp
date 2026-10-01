@@ -27,6 +27,12 @@ namespace tt::umd {
  */
 using SmnTransportProvider = std::function<std::shared_ptr<chippy::transport::TransportInterface>(tt_xy_pair)>;
 
+std::shared_ptr<chippy::transport::TransportInterface> make_grendel_jtag_transport(
+    const std::string& host,
+    uint16_t port,
+    uint32_t chiplet_number,
+    GrendelJtagTransportVersion version);
+
 struct GrendelJtagProtocol::Impl {
     SmnTransportProvider provider;
     int mmio_id;
@@ -47,8 +53,8 @@ struct GrendelJtagProtocol::Impl {
 };
 
 /**
- * Test-only construction seam: builds a GrendelJtagProtocol around an injected
- * transport provider, bypassing the (chippy-backed) production path.
+ * Builds a GrendelJtagProtocol around a transport provider. Production and tests
+ * share this seam so the device can reuse the same OpenOCD transport as the Memory map.
  */
 struct GrendelJtagProtocolTestAccess {
     static std::unique_ptr<GrendelJtagProtocol> make(SmnTransportProvider provider, int mmio_id = 0) {
@@ -56,5 +62,10 @@ struct GrendelJtagProtocolTestAccess {
             new GrendelJtagProtocol(std::make_unique<GrendelJtagProtocol::Impl>(std::move(provider), mmio_id)));
     }
 };
+
+inline std::unique_ptr<GrendelJtagProtocol> make_grendel_jtag_protocol(
+    SmnTransportProvider provider, int mmio_id = 0) {
+    return GrendelJtagProtocolTestAccess::make(std::move(provider), mmio_id);
+}
 
 }  // namespace tt::umd

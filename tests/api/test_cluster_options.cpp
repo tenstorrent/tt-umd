@@ -21,7 +21,7 @@ TEST(ClusterOptions, Defaults) {
     EXPECT_EQ(opts.chip_type, ChipType::SILICON);
     EXPECT_TRUE(opts.target_devices.empty());
     EXPECT_TRUE(opts.grendel_jtag_host.empty());
-    EXPECT_EQ(opts.grendel_jtag_port, 6666u);
+    EXPECT_EQ(opts.grendel_jtag_port, kDefaultOpenOcdTclPort);
     EXPECT_EQ(opts.grendel_jtag_chiplet, 0u);
     EXPECT_FALSE(opts.grendel_jtag_use_v1);
 

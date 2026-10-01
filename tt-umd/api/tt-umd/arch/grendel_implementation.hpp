@@ -326,6 +326,11 @@ inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 // That polarity is the inverse of Tensix.
 inline constexpr uint64_t CCE_RESET_VECTOR_BASE = 0x02000000;
 inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
+// SMC view of CCE0's dmrisc_addr_remap. CCE1 is one within-tile stride above it.
+// Each of the 16 entries is 0x20 bytes: start, end, remap start, attrs.
+inline constexpr uint64_t CCE_DMRISC_REMAP_BASE = 0x02202000;
+inline constexpr uint64_t CCE_DMRISC_REMAP_ENTRY_STRIDE = 0x20;
+inline constexpr uint64_t CCE_DMRISC_REMAP_ADDR_SHIFT = 6;
 inline constexpr uint64_t CCE_HSIO_TILE_STRIDE = 0x04000000;
 inline constexpr uint64_t CCE_WITHIN_TILE_STRIDE = 0x01000000;
 inline constexpr uint32_t CCE_PER_HSIO_TILE = 2;

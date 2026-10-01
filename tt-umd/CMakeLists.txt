@@ -476,6 +476,7 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         GRENDEL_CHIPPY_SRCS
         src/tt_device/protocol/grendel_jtag_protocol.cpp
         src/tt_device/grendel_jtag_tt_device.cpp
+        src/tt_device/mimir_chippy_memory.cpp
     )
     if(TT_UMD_BUILD_SIMULATION)
         # The emu backend derives from SimulationTTDevice, which only exists in a simulation

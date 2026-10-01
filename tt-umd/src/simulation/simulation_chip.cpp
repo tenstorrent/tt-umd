@@ -109,6 +109,15 @@ void SimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected
         staggered_start);
 }
 
+void SimulationChip::release_cce_uncore_for_firmware_load(CoreCoord core) {
+    // Same lock as read/write and the other reset calls. The DPRINT thread polls CCE SRAM on this
+    // socket while firmware load programs the uncore, and the transport pairs each command with
+    // one reply.
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->release_cce_uncore_for_firmware_load(
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
+}
+
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->write_to_device_reg(

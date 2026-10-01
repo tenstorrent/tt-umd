@@ -21,6 +21,11 @@ enum class GrendelJtagTransportVersion {
     V2,
 };
 
+// OpenOCD's default TCL RPC port (`tcl_port`). Metal still requires host:port in
+// TT_METAL_GRENDEL_JTAG_SERVER; this is only the UMD factory/ClusterOptions default when a
+// caller constructs the JTAG path in C++ without specifying a port.
+inline constexpr uint16_t kDefaultOpenOcdTclPort = 6666;
+
 /**
  * GrendelJtagProtocol implements DeviceProtocol for a Grendel package reached over JTAG, backed by
  * the chippy grendel access stack.
@@ -49,7 +54,7 @@ class GrendelJtagProtocol : public DeviceProtocol {
 public:
     static std::unique_ptr<GrendelJtagProtocol> create(
         const std::string& host,
-        uint16_t port = 6666,
+        uint16_t port = kDefaultOpenOcdTclPort,
         uint32_t chiplet_number = 0,
         GrendelJtagTransportVersion version = GrendelJtagTransportVersion::V2);
 

@@ -200,7 +200,6 @@ class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
             self.assertEqual(
                 client_cluster.get_all_chips(), host_cluster.get_all_chips()
             )
-            self.assertEqual(client_cluster.get_all_chips(), set(client_devices))
 
             # The client builds the device class matching the backend the host reports, so the
             # concrete type is visible from Python and not just the TTDevice base.

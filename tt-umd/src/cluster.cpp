@@ -919,7 +919,10 @@ void Cluster::serve_simulation_devices_over_sockets(
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             const std::filesystem::path socket_path =
                 SimulationServerSocket::default_socket_path(server_directory, chip_id);
-            sim_device->adopt_socket(SimulationServerSocket::create(socket_path), shutdown_handler);
+            // Serve this Cluster's own topology, so a client attaching to any chip sees the cluster
+            // this host was built over.
+            sim_device->adopt_socket(
+                SimulationServerSocket::create(socket_path), cluster_desc->serialize(), shutdown_handler);
             simulation_connection_->sockets.emplace(chip_id, socket_path);
         }
     }

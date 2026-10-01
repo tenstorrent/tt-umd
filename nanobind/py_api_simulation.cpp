@@ -51,8 +51,8 @@ void bind_simulation(nb::module_ &m) {
         .def_rw(
             "cluster_descriptor",
             &SimulationConnectorOptions::cluster_descriptor,
-            "Connectivity/topology used to configure the simulator on the host path. Optional; a client takes the "
-            "topology from the host instead.")
+            "Not used: a host reports and serves the simulator's own topology (and warns when this is set); a "
+            "client takes the topology from the host.")
         .def_rw("num_host_mem_channels", &SimulationConnectorOptions::num_host_mem_channels);
 
     nb::class_<SimulationServerInfo>(m, "SimulationServerInfo")

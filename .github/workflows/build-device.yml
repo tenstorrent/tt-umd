@@ -250,25 +250,10 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
-          if [[ "${{ matrix.image.use_release_flags }}" == "true" ]]; then
-            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_TESTS=OFF \
-              -DTT_UMD_BUILD_SIMULATION=OFF \
-              -DTT_UMD_BUILD_PIP=OFF \
-              -DTT_UMD_BUILD_PYTHON=ON \
-              -DTT_UMD_BUILD_EXAMPLES=OFF \
-              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-              -DCMAKE_BUILD_TYPE=Release
-          else
-            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_ALL=ON \
-              -DTT_UMD_BUILD_PIP=ON \
-              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-              -DTT_UMD_ENABLE_TRACY=ON
-          fi
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          PRESET="${{ matrix.image.use_release_flags && 'release' || 'all' }}"
+          cmake --preset "$PRESET" \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }}
+          cmake --build --preset "$PRESET"
           echo "Compile complete."
 
       # Upload compile_commands.json for debugging and IDE integration.
@@ -374,12 +359,9 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_ALL=ON \
-            -DTT_UMD_BUILD_PIP=OFF \
-            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-            -DTT_UMD_ENABLE_CLANG_TIDY=ON
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          cmake --preset all-no-pip \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }}
+          cmake --build --preset all-no-pip
           echo "Compile complete."
 
       - name: Generate ${{ matrix.image.package }} package for umd-python
@@ -443,15 +425,8 @@ jobs:
             bash -c '
               set -euo pipefail
               git config --global --add safe.directory /work
-              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-                -DTT_UMD_BUILD_TESTS=OFF \
-                -DTT_UMD_BUILD_SIMULATION=OFF \
-                -DTT_UMD_BUILD_PIP=OFF \
-                -DTT_UMD_BUILD_PYTHON=ON \
-                -DTT_UMD_BUILD_EXAMPLES=OFF \
-                -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-                -DCMAKE_BUILD_TYPE=Release
-              cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+              cmake --preset release-no-clang-tidy
+              cmake --build --preset release-no-clang-tidy
               echo "Compile complete."
             '
 

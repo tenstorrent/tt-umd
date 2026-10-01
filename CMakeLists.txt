@@ -91,6 +91,7 @@ if(TT_UMD_BUILD_STATIC)
 endif()
 
 # If BUILD_ALL is enabled, enable all individual build options
+# TODO: Should PIP and TRACY be added to this list?
 if(TT_UMD_BUILD_ALL)
     set(TT_UMD_BUILD_TESTS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
     set(TT_UMD_BUILD_SIMULATION ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)

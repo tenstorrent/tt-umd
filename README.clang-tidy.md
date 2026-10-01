@@ -48,6 +48,13 @@ To disable clang-tidy during the build process:
 cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_ENABLE_CLANG_TIDY=OFF
 ```
 
+The `tests` CMake preset applies the same settings:
+
+```bash
+cmake --preset tests
+cmake --build --preset tests
+```
+
 Note: `.clang-tidy` and `.clangd` depend on the compilation database `compile_commands.json`. This compilation database is generated once the flag `CMAKE_EXPORT_COMPILE_COMMANDS` is set to `1` (but this is by default set to true in the UMD codebase).
 
 Note: The flag `TT_UMD_BUILD_TESTS` isn't necessary, but it's almost always used, see the general `README.md` for more information.

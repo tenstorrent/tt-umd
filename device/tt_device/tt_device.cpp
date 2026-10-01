@@ -124,16 +124,85 @@ void TTDevice::write_cce_reset_vector_register(
         &reset_vector, resolve_coordinate(core, NocId::NOC0), register_addr, sizeof(reset_vector), NocId::NOC0);
 }
 
-void TTDevice::apply_cce_pf_ctrl_reset(CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release) {
+void TTDevice::write_cce_dmrisc_remap_entry(
+    CoreCoord core,
+    uint32_t cce_index,
+    uint32_t entry,
+    uint64_t region_start,
+    uint64_t region_end,
+    uint64_t local_base) {
+    const uint64_t entry_addr = grendel::cce_control_addr(grendel::CCE_DMRISC_REMAP_BASE, cce_index) +
+                                entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
+    const xy_pair xy = resolve_coordinate(core, NocId::NOC0);
+    auto write_reg = [&](uint64_t offset, uint64_t value) {
+        get_device_protocol()->write_ctrl(&value, xy, entry_addr + offset, sizeof(value), NocId::NOC0);
+    };
+    // Address registers store the byte address >> 6 in bits [63:6]. A 64-byte-aligned address
+    // written as itself lands in that field.
+    write_reg(0x00, region_start);
+    write_reg(0x08, region_end);
+    write_reg(0x10, local_base);
+    const uint64_t valid = 1;
+    write_reg(0x18, valid);
+}
+
+void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index) {
+    const uint32_t locations_per_channel =
+        std::max<uint32_t>(get_soc_descriptor().get_grid_size(CoreType::DRAM).y, 1);
+    const uint32_t mimir = cce_index / locations_per_channel;
+
+    // 1 GB/channel geometry, matching set_mimir_cce_remappers: one 128 MB config window, one 8 MB
+    // SRAM window covering both CCEs on the Mimir, and one 8 GiB GDDR window. Local targets are
+    // the chiplet-local bases (config 0, CCE0 SRAM 0x40000000, GDDR 0x800000000).
+    constexpr uint64_t kConfigSpaBase = 0x1300000000ULL;
+    constexpr uint64_t kConfigStride = 0x8000000ULL;
+    constexpr uint64_t kSramSpaBase = 0x1280000000ULL;
+    constexpr uint64_t kSramStride = 0x800000ULL;
+    constexpr uint64_t kSramLocal = 0x40000000ULL;
+    constexpr uint64_t kGddrSpaBase = 0x1000000000000ULL;
+    constexpr uint64_t kGddrSpan = 0x200000000ULL;
+    constexpr uint64_t kGddrLocal = 0x800000000ULL;
+
+    const uint64_t config = kConfigSpaBase + mimir * kConfigStride;
+    write_cce_dmrisc_remap_entry(core, cce_index, 0, config, config + kConfigStride, 0);
+    const uint64_t sram = kSramSpaBase + mimir * kSramStride;
+    write_cce_dmrisc_remap_entry(core, cce_index, 1, sram, sram + kSramStride, kSramLocal);
+    const uint64_t gddr = kGddrSpaBase + mimir * kGddrSpan;
+    write_cce_dmrisc_remap_entry(core, cce_index, 2, gddr, gddr + kGddrSpan, kGddrLocal);
+}
+
+void TTDevice::release_cce_uncore_for_firmware_load(CoreCoord core) {
+    const auto index = cce_index(*this, core);
+    if (!index.has_value()) {
+        return;
+    }
+    // Harts stay held. The DMRISC block only answers once the uncore is released.
+    apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+    program_cce_dmrisc_remap(core, *index);
+    tt_driver_atomics::sfence();
+}
+
+void TTDevice::apply_cce_pf_ctrl_reset(
+    CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release, bool reset_uncore) {
     const uint64_t addr = grendel::cce_pf_ctrl_reset_addr(cce_index);
     const xy_pair xy = resolve_coordinate(core, NocId::NOC0);
     uint64_t current = 0;
     get_device_protocol()->read_ctrl(&current, xy, addr, sizeof(current), NocId::NOC0);
-    uint64_t next = current | grendel::CCE_UNCORE_RELEASED;
-    if (release) {
-        next |= hart_bits;
-    } else {
-        next &= ~hart_bits;
+    uint64_t next = current;
+    // Bit 0 is the uncore. Same polarity as the hart bits: 1 = released.
+    if (reset_uncore) {
+        if (release) {
+            next |= grendel::CCE_UNCORE_RELEASED;
+        } else {
+            next &= ~grendel::CCE_UNCORE_RELEASED;
+        }
+    }
+    if (hart_bits != 0) {
+        if (release) {
+            next |= hart_bits;
+        } else {
+            next &= ~hart_bits;
+        }
     }
     get_device_protocol()->write_ctrl(&next, xy, addr, sizeof(next), NocId::NOC0);
 }
@@ -684,8 +753,14 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     if (const auto index = cce_index(*this, core)) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        // RiscType::ALL on a Quasar worker resets the DM harts and then the DM uncore.
+        // A CCE full reset follows that order. A partial hart selection does not touch uncore.
+        const bool reset_uncore = selected_riscs == RiscType::ALL;
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/false);
+            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/false, /*reset_uncore=*/false);
+        }
+        if (reset_uncore) {
+            apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/false, /*reset_uncore=*/true);
         }
         tt_driver_atomics::sfence();
         return;
@@ -699,8 +774,17 @@ void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     if (const auto index = cce_index(*this, core)) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        // Release uncore before the harts, matching the Quasar worker RiscType::ALL order.
+        const bool reset_uncore = selected_riscs == RiscType::ALL;
+        if (reset_uncore) {
+            // Uncore first, then DMRISC while the harts are still held, then the harts. Asserting
+            // the uncore drops the remap block; the entries have to be written again before any
+            // hart runs.
+            apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+            program_cce_dmrisc_remap(core, *index);
+        }
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/true);
+            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/true, /*reset_uncore=*/false);
         }
         tt_driver_atomics::sfence();
         return;

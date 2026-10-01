@@ -417,6 +417,13 @@ public:
      */
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
+    // CCE firmware-load window. Cold reset is already released by bring-up. This releases the
+    // uncore while the harts stay held, then programs the DMRISC remap. The block does not answer
+    // while the uncore is in reset, so a full reset (which asserts the uncore) drops the entries
+    // bring-up wrote. Call this after that assert and before loading firmware or writing reset
+    // vectors; deassert of RiscType::ALL programs the entries again before it releases the harts.
+    void release_cce_uncore_for_firmware_load(CoreCoord core);
+
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
     /**
@@ -511,9 +518,26 @@ protected:
         CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector);
 
     // Backend seam for CCE PF_CTRL_RESET assert/release. hart_bits is the PF_CTRL bit mask
-    // (bit 0 unused here; bits 1-8 are harts 0-7). The default writes the CCE register plane
-    // through the device protocol; chippy-backed devices override it to use pf_ctrl.reset.
-    virtual void apply_cce_pf_ctrl_reset(CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release);
+    // (bits 1-8 are harts 0-7). reset_uncore also drives bit 0, with the same polarity as the
+    // harts: 1 = released. A full reset (RiscType::ALL) passes reset_uncore, matching Quasar
+    // worker DM uncore; a partial hart selection leaves the uncore bit unchanged. The default
+    // writes the CCE register plane through the device protocol; chippy-backed devices override
+    // it to use pf_ctrl.reset.
+    virtual void apply_cce_pf_ctrl_reset(
+        CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release, bool reset_uncore);
+
+    // One DMRISC remap entry. Addresses are bytes; the register stores them >> 6. The default
+    // writes the CCE register plane; chippy-backed devices override it.
+    virtual void write_cce_dmrisc_remap_entry(
+        CoreCoord core,
+        uint32_t cce_index,
+        uint32_t entry,
+        uint64_t region_start,
+        uint64_t region_end,
+        uint64_t local_base);
+
+    // Entries 0 (config), 1 (both CCE SRAMs) and 2 (this Mimir's 8 GiB GDDR window).
+    void program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index);
 
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate

@@ -31,6 +31,7 @@
 #endif  // TT_UMD_BUILD_SIMULATION
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/protocol/grendel_jtag_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -134,7 +135,7 @@ struct ClusterOptions {
      * GRENDEL_JTAG. OpenOCD/probe setup and fabric initialization are owned by the caller.
      */
     std::string grendel_jtag_host;
-    uint32_t grendel_jtag_port = 6666;
+    uint32_t grendel_jtag_port = kDefaultOpenOcdTclPort;
     uint32_t grendel_jtag_chiplet = 0;
     bool grendel_jtag_use_v1 = false;
 

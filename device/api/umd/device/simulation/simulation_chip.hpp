@@ -114,6 +114,7 @@ public:
 
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void release_cce_uncore_for_firmware_load(CoreCoord core) override;
 
 protected:
     // Common state variables.

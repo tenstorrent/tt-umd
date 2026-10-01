@@ -235,10 +235,25 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
             auto reset = chippy_cce.registers.pf_ctrl.reset.read();
             EXPECT_EQ(reset.fields.uncore_reset, 1);
             EXPECT_EQ(reset.fields.core_reset, 0xFF);
+            // Full release reprograms DMRISC while the harts are still held. Entry 2 is this
+            // Mimir's 8 GiB GDDR window at the D2D0 SPA, translated to the local GDDR base.
+            constexpr uint64_t kGddrSpan = 0x200000000ULL;
+            const uint64_t gddr_base = 0x1000000000000ULL + channel * kGddrSpan;
+            auto& gddr = chippy_cce.registers.dmrisc_addr_remap.dmrisc_remap_entries[2];
+            EXPECT_EQ(gddr.region_attrs.read().fields.valid, 1u);
+            EXPECT_EQ(gddr.region_start.read().fields.start_addr, gddr_base >> 6);
+            EXPECT_EQ(gddr.region_end.read().fields.end_addr, (gddr_base + kGddrSpan) >> 6);
+            EXPECT_EQ(gddr.region_remap_start.read().fields.remap_start_addr, 0x800000000ULL >> 6);
+
+            // A single hart follows the worker rule: the uncore bit stays as it is.
+            device->assert_risc_reset(cce, RiscType::DM0);
+            reset = chippy_cce.registers.pf_ctrl.reset.read();
+            EXPECT_EQ(reset.fields.uncore_reset, 1);
+            EXPECT_EQ(reset.fields.core_reset, 0xFE);
 
             device->assert_risc_reset(cce, RiscType::ALL);
             reset = chippy_cce.registers.pf_ctrl.reset.read();
-            EXPECT_EQ(reset.fields.uncore_reset, 1);
+            EXPECT_EQ(reset.fields.uncore_reset, 0);
             EXPECT_EQ(reset.fields.core_reset, 0);
         }
     }

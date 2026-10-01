@@ -73,6 +73,7 @@ target_sources(
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
+        chip_helpers/layout_pad.cpp
         pcie/tlb_window.cpp
         pcie/io_window_reconfigure.cpp
         io_window/io_window_target.cpp

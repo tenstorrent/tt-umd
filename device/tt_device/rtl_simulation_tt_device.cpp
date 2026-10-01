@@ -167,6 +167,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
+                if (mgr->write_mapped_buffer(address, data, size)) {
+                    return;
+                }
+                UMD_ASSERT(
+                    address < pcie_base + mgr->get_mapped_arena_offset(),
+                    error::RuntimeError,
+                    "RAM callback mapped-buffer address is not registered.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
                 UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
@@ -177,6 +184,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
+                if (mgr->read_mapped_buffer(address, data_out, size)) {
+                    return;
+                }
+                UMD_ASSERT(
+                    address < pcie_base + mgr->get_mapped_arena_offset(),
+                    error::RuntimeError,
+                    "RAM callback mapped-buffer address is not registered.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
                 UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");

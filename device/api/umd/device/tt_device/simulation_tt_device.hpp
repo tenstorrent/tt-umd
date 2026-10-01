@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
@@ -40,7 +41,9 @@ public:
     ~SimulationTTDevice() override;
 
     // Takes ownership of the serving socket that exposes this device (created by discovery) and
-    // begins serving. An optional shutdown_handler is invoked when a client sends SHUTDOWN: a
+    // begins serving. cluster_descriptor_yaml is the host's own topology, served verbatim to every
+    // client that asks, so a client sees exactly the cluster the host that opened this device does.
+    // An optional shutdown_handler is invoked when a client sends SHUTDOWN: a
     // dedicated server (e.g. the sim_server tool) passes one to signal its main thread to exit and
     // tear this device down; a host that passes none acks SHUTDOWN as a no-op, so a simulation
     // embedded in another program can't be torn down by a stray client. The handler is fixed here,
@@ -50,7 +53,10 @@ public:
     // flag / notify a condition variable / write a self-pipe); tearing down from within it would
     // join the serving threads from one of them and deadlock. It must also be safe to call more than
     // once and concurrently: every attached client that sends SHUTDOWN invokes it.
-    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler = {});
+    void adopt_socket(
+        std::unique_ptr<SimulationServerSocket> socket,
+        std::string cluster_descriptor_yaml,
+        std::function<void()> shutdown_handler = {});
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
     void read_from_device(
@@ -191,6 +197,10 @@ private:
     // is (de)serialized.
     std::vector<uint8_t> handle_request(
         const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler);
+
+    // The host's topology, as handed to adopt_socket(). Set before serving starts and never changed
+    // afterwards, so the serving threads read it without locking.
+    std::string served_cluster_descriptor_yaml_;
 
     // The device serves one of two disjoint roles; read_from_device/write_to_device dispatch on
     // this rather than a bare client_ null-check so the intent is named at the call site.

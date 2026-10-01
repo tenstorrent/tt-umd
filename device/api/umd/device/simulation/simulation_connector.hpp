@@ -32,8 +32,9 @@ struct SimulationConnectorOptions {
     // distinct hosts never collide; set it to serve in a specific directory (e.g. one the caller
     // pre-allocated to report to the user).
     std::filesystem::path server_directory;
-    // Connectivity/topology used to configure the simulator on the host path. Optional; when
-    // attaching to a live host the topology comes from the host instead.
+    // Not used: the simulator is not configured from it, and a host reports (and serves) the
+    // simulator build's own topology, so a host logs a warning when it is set. A client takes the
+    // topology from the host.
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     int num_host_mem_channels = 0;
 };
@@ -89,9 +90,9 @@ public:
     struct Result {
         Connection connection;
         std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-        // The cluster the opened devices belong to: the simulator build's own topology, or the one
-        // the host serves to a client, or -- when the build ships none -- a mock over exactly the
-        // chips that were opened. Never null.
+        // The cluster the opened devices belong to: on a host, the simulator build's own topology,
+        // or -- when the build ships none -- a mock over exactly the chips it opened; this is also
+        // what the host serves. On a client, the topology its host serves. Never null.
         std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     };
 

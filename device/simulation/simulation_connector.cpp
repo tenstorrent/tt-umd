@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -123,26 +124,14 @@ bool remove_server_directory(const SimulationServerInfo& server) {
     return true;
 }
 
-// Host path: bring up the in-process backend (the direct hot path). A null socket means serving is
-// off, so the device stays a private in-process host; a non-null socket is adopted so clients can
-// attach.
-std::unique_ptr<TTDevice> make_host_device(
-    SimulationBackendType backend,
-    const std::filesystem::path& simulator_directory,
-    int num_host_mem_channels,
-    std::unique_ptr<SimulationServerSocket> socket) {
+// Host path: bring up the in-process backend (the direct hot path). Serving, if requested, is
+// started afterwards by the caller, once the host's topology is known -- it is part of what is served.
+std::unique_ptr<SimulationTTDevice> make_host_device(
+    SimulationBackendType backend, const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     if (backend == SimulationBackendType::TTSIM) {
-        auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
-        if (socket) {
-            device->adopt_socket(std::move(socket));
-        }
-        return device;
+        return TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
     }
-    auto device = RtlSimulationTTDevice::create(simulator_directory, num_host_mem_channels);
-    if (socket) {
-        device->adopt_socket(std::move(socket));
-    }
-    return device;
+    return RtlSimulationTTDevice::create(simulator_directory, num_host_mem_channels);
 }
 
 // The topology the opened devices sit in. A simulator build, or a host serving one, may ship a
@@ -321,22 +310,31 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
     // value() rather than operator*: classify() always sets a backend for the host role, and this
     // makes that invariant explicit instead of reading an empty optional if it ever stops holding.
     const SimulationBackendType backend = classification.backend.value();
-    devices.emplace(
-        chip_id, make_host_device(backend, simulator_path, options.num_host_mem_channels, std::move(socket)));
+    std::unique_ptr<SimulationTTDevice> device =
+        make_host_device(backend, simulator_path, options.num_host_mem_channels);
+    SimulationTTDevice& host_device = *device;
+    devices.emplace(chip_id, std::move(device));
 
     result.connection.role = Role::Host;
     result.connection.simulator = simulator_path;
     result.connection.backend = backend;
     const SocDescriptor& soc_descriptor = devices.at(chip_id)->get_soc_descriptor();
     result.connection.arch = soc_descriptor.arch;
-    // A caller that supplied the topology gets it back: that is the cluster these devices were
-    // configured for, whatever the build ships beside itself.
-    result.cluster_descriptor = options.cluster_descriptor != nullptr ? options.cluster_descriptor
-                                                                      : build_topology(
-                                                                            describe_cluster(simulator_path).yaml,
-                                                                            devices,
-                                                                            result.connection.arch,
-                                                                            soc_descriptor.noc_translation_enabled);
+    // The host's topology is what the simulator build describes, never one a caller hands in: the
+    // simulator was not configured from it, so it could name chips that have no device here.
+    if (options.cluster_descriptor != nullptr) {
+        log_warning(
+            LogUMD,
+            "Ignoring the cluster descriptor passed to the simulation host for {}; reporting the simulator's own "
+            "topology instead.",
+            simulator_path.string());
+    }
+    result.cluster_descriptor = build_topology(
+        describe_cluster(simulator_path).yaml, devices, result.connection.arch, soc_descriptor.noc_translation_enabled);
+    // Serve that same topology, so every client that attaches sees the cluster this host reports.
+    if (socket) {
+        host_device.adopt_socket(std::move(socket), result.cluster_descriptor->serialize());
+    }
     return result;
 }
 

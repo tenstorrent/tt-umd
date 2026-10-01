@@ -35,8 +35,6 @@ public:
         TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     // Target core should be in translated coords.
-    // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
-    // probably be redesigned in some way.
     virtual void read_non_mmio(
         tt_xy_pair target_core,
         void* dest,

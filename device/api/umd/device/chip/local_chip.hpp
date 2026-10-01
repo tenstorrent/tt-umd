@@ -26,7 +26,6 @@
 namespace tt::umd {
 class SocDescriptor;
 class SysmemManager;
-class TLBManager;
 
 class LocalChip : public Chip {
 public:
@@ -41,7 +40,6 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
-    TLBManager* get_tlb_manager() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 

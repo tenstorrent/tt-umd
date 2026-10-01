@@ -170,9 +170,5 @@ SysmemManager* RemoteChip::get_sysmem_manager() {
     UMD_THROW(error::RuntimeError, "RemoteChip::get_sysmem_manager is not available for this chip.");
 }
 
-TLBManager* RemoteChip::get_tlb_manager() {
-    UMD_THROW(error::RuntimeError, "RemoteChip::get_tlb_manager is not available for this chip.");
-}
-
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }
 }  // namespace tt::umd

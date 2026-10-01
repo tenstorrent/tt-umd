@@ -298,6 +298,10 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
+std::function<bool(NocId)> TTDevice::make_io_timeout_hang_check() {
+    return [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); };
+}
+
 void TTDevice::wire_hang_detector() {
     HangDetector *hang_detector = model_->get_hang_detector();
 
@@ -315,8 +319,7 @@ void TTDevice::wire_hang_detector() {
 
     // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
     // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
-    get_pcie_interface()->set_io_timeout_callback(
-        [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
+    get_pcie_interface()->set_io_timeout_callback(make_io_timeout_hang_check());
 
     // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
     // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
@@ -423,8 +426,7 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
     // A caller-owned window carries the same per-op timeout hang check as the cached ones: an overrun
     // aborts only on a confirmed NOC hang. Installed once here, so the I/O path never mutates state.
-    // Kept from #3396: the rest of that commit is reverted here, this line is not the Blackhole trigger.
-    window->set_io_timeout_hang_check([this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
+    window->set_io_timeout_hang_check(make_io_timeout_hang_check());
     window->configure(target, ordering);
     return window;
 }

@@ -126,9 +126,6 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-// EXPERIMENT split B: LocalChip owns no TLBManager, so the restored Cluster TLB APIs reach nothing.
-TLBManager* LocalChip::get_tlb_manager() { return nullptr; }
-
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device(uint32_t dram_membar_subchannel) {

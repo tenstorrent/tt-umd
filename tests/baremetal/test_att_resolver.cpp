@@ -13,6 +13,7 @@
 #include "umd/device/coordinates/att/att_resolver.hpp"
 #include "umd/device/coordinates/att/att_window.hpp"
 #include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
+#include "umd/device/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -212,4 +213,47 @@ TEST(AttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) {
     EXPECT_EQ(
         att::resolve_core(resolver, soc_descriptor, literal, 0x1000, 4),
         att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
+}
+
+// The Horizon 2x3 map sends a tile's selector in address bits 51:40, the encoding tt-metal's
+// horizon_2x3 map gives kernels, so the host and the kernels address a tile identically.
+TEST(AttHorizonMap, ResolvesEachTileToItsSelectorAtBit40) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    // Tensix (0,0), selector 1: 0x0000'0100'0000'1000.
+    EXPECT_EQ(resolver.resolve({0, 0}, CoreType::TENSIX, 0x1000, 4), (uint64_t{1} << 40) | 0x1000);
+    // Tensix (1,0), selector 2: 0x0000'0200'0000'1000.
+    EXPECT_EQ(resolver.resolve({1, 0}, CoreType::TENSIX, 0x1000, 4), (uint64_t{2} << 40) | 0x1000);
+    // Dispatch (0,1), selector 3: 0x0000'0300'0000'0020.
+    EXPECT_EQ(resolver.resolve({0, 1}, CoreType::DISPATCH, 0x20, 4), (uint64_t{3} << 40) | 0x20);
+    // Dispatch (1,1), selector 4: 0x0000'0400'0000'0020.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::DISPATCH, 0x20, 4), (uint64_t{4} << 40) | 0x20);
+    // NOC2AXI (0,2) as DRAM, selector 5: 0x0000'0500'016f'd880.
+    EXPECT_EQ(resolver.resolve({0, 2}, CoreType::DRAM, 0x16fd880, 4), (uint64_t{5} << 40) | 0x16fd880);
+    // NOC2AXI (1,2) as DRAM, selector 6: 0x0000'0600'016f'e880.
+    EXPECT_EQ(resolver.resolve({1, 2}, CoreType::DRAM, 0x16fe880, 4), (uint64_t{6} << 40) | 0x16fe880);
+    // The same NOC2AXI tiles' own registers (ROUTER_ONLY) resolve to the same selectors.
+    // NOC2AXI (0,2), selector 5: 0x0000'0500'0000'0000.
+    EXPECT_EQ(resolver.resolve({0, 2}, CoreType::ROUTER_ONLY, 0x0, 4), uint64_t{5} << 40);
+    // NOC2AXI (1,2), selector 6: 0x0000'0600'0000'0000.
+    EXPECT_EQ(resolver.resolve({1, 2}, CoreType::ROUTER_ONLY, 0x0, 4), uint64_t{6} << 40);
+}
+
+// Selector 0 is the issuing tile itself, so a bare address never names another core.
+TEST(AttHorizonMap, LeavesSelectorZeroToTheTileItself) {
+    for (const auto& words : att::HORIZON_2X3_MAP.endpoint_words) {
+        ASSERT_FALSE(words.empty());
+        EXPECT_EQ(words[0], att::ENDPOINT_UNPOPULATED);
+    }
+}
+
+TEST(AttHorizonMap, RejectsATileOutsideTheIp) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    EXPECT_THROW(resolver.resolve({2, 0}, CoreType::TENSIX, 0, 4), std::exception);
+    EXPECT_THROW(resolver.resolve({0, 1}, CoreType::TENSIX, 0, 4), std::exception);
+}
+
+TEST(AttHorizonMap, CarriesAFortyBitLocalAddress) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    EXPECT_NO_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 4, 4));
+    EXPECT_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 2, 4), std::exception);
 }

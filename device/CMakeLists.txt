@@ -163,6 +163,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
             simulation/rtl_sim_session.cpp
+            simulation/rtl_sim_att_program.cpp
             simulation/rtl_sim_ip_layout.cpp
             tt_device/simulation_tt_device.cpp
             tt_device/rtl_simulation_tt_device.cpp

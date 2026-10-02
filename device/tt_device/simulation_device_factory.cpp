@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "simulation/rtl_sim_att_program.hpp"
 #include "simulation/rtl_sim_ip_layout.hpp"
 #include "umd/device/simulation/rtl_sim_session.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
@@ -113,13 +114,20 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     auto session = std::make_shared<RtlSimSession>(simulator_directory, sockets, launch_simulator);
     session->start();
 
+    // The build's ATT programming, if it ships one, goes in before any core runs.
+    const std::optional<RtlSimAttProgram> att_program = RtlSimAttProgram::load(simulator_directory);
+
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     size_t socket = 0;
     for (const auto &[chip_id, device_id] : chips) {
         const SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(
             layout.get_soc_descriptor(static_cast<IpDeviceId>(device_id)).string()));
-        devices[chip_id] = std::make_unique<RtlSimulationTTDevice>(
+        auto device = std::make_unique<RtlSimulationTTDevice>(
             RtlSimSocket(session, socket++), simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
+        if (att_program.has_value()) {
+            att_program->apply(static_cast<IpDeviceId>(device_id), *device->get_communicator());
+        }
+        devices[chip_id] = std::move(device);
     }
     return devices;
 }

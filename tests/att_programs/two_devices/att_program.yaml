@@ -1,0 +1,9 @@
+devices:
+  - id: 1
+    writes:  # [x, y, address, value]
+      - [1, 0, 0x2010000, 0x0]
+      - [1, 0, 0x2012410, 0x1]
+      - [0, 0, 0x100000002010000, 0x1]   # a bridge register over APB: bit 56 set, sent to core (0, 0)
+  - id: 0
+    writes:
+      - [0, 1, 0x2012208, 0x40]

@@ -18,6 +18,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -40,6 +41,7 @@
 
 #include "device/simulation/eth_ipc.hpp"
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -438,6 +440,35 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsAreReachedOverEthernet) {
             EXPECT_NE(cluster_desc->get_all_chips().count(peer), 0u)
                 << "chip " << chip << " channel " << channel << " links to unknown chip " << peer;
         }
+    }
+}
+
+// A chip reached over ethernet has to be driven as one, even though discovery already created its
+// TTDevice: a RemoteChip flushes non-MMIO writes over the link, where a SimulationChip treats every
+// flush and membar as a no-op because it reaches its device in-process.
+TEST_F(TTSimDiscoveryTest, RemoteChipsAreBuiltAsRemoteChips) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    const std::set<ChipId> remote_chips = cluster.get_target_remote_device_ids();
+    // As above: a discovery that missed the remote chip would otherwise leave the loop nothing to check.
+    if (expected_chips_.has_value()) {
+        const size_t mmio_chips = cluster.get_cluster_description()->get_chips_with_mmio().size();
+        ASSERT_EQ(remote_chips.size(), *expected_chips_ - mmio_chips);
+    }
+    if (remote_chips.empty()) {
+        GTEST_SKIP() << "This image models no chip reached over ethernet.";
+    }
+
+    for (const ChipId chip : remote_chips) {
+        EXPECT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(chip)), nullptr)
+            << "remote chip " << chip << " was not built as a RemoteChip";
+        EXPECT_FALSE(cluster.get_chip(chip)->is_mmio_capable()) << "remote chip " << chip << " claims MMIO";
+        EXPECT_NE(cluster.get_chip(chip)->get_tt_device()->get_remote_communication(), nullptr)
+            << "remote chip " << chip << " has no RemoteCommunication to flush through";
     }
 }
 

@@ -193,3 +193,15 @@ TEST_F(RtlSimSessionTest, HandsOutHostsOnlyAfterStart) {
     EXPECT_THROW(RtlSimSocket(session, 1), std::exception);
     EXPECT_THROW(RtlSimSocket(nullptr, 0), std::exception);
 }
+
+TEST_F(RtlSimSessionTest, ServesWithoutLaunching) {
+    const std::string address = add_socket("ut_a");
+    RtlSimSession session(dir_, {"ut_a"}, /*launch_simulator=*/false);
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session.start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    EXPECT_FALSE(std::filesystem::exists(dir_ / "launched_with"));
+}

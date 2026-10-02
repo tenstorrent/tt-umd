@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.13] - 2026-10-02
+
+### Changed
+
+Changes since 0.9.5 (0.9.6 - 0.9.12 had no changelog entries).
+Base API alignment: DmaInterface, IoWindow, MutexInterface, SystemMemoryAllocator, RiscReset; stateless NOC in TTDevice/SocDescriptor.
+SysmemBuffer ownership, host copy and NOC binding APIs; dma-buf export for RDMA.
+ArchitectureImplementation split into register and TLB descriptions.
+Locks backed by KMD resource locks; tt-kmd-lib extracted and used for KMD access.
+Shared simulation server (sim_server), client/host simulation over sockets, TTSim multichip and topology discovery.
+Quasar ATT address map; RTL simulator IP partition support.
+Per-op MMIO timeout, IoOrdering for Cluster reads and writes, telemetry buffer locators, TDP limit and fan APIs.
+
 ## [0.9.5] - 2026-05-12
 
 ### Changed

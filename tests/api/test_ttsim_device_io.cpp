@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"

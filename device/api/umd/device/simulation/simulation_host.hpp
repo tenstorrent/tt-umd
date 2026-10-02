@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "umd/device/types/xy_pair.hpp"
@@ -21,7 +22,12 @@ public:
     SimulationHost();
     ~SimulationHost();
 
-    void init();
+    /**
+     * Create the listener. With an empty @p suffix, reads NNG_SOCKET_LOCAL_PORT and exports
+     * NNG_SOCKET_ADDR; otherwise reads NNG_SOCKET_LOCAL_PORT_<suffix> and exports
+     * NNG_SOCKET_ADDR_<suffix>. @p suffix must be [A-Za-z0-9_]+, so run.sh can read the variables.
+     */
+    void init(const std::string &suffix = "");
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);

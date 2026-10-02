@@ -4,14 +4,72 @@
 
 ### Changed
 
-Changes since 0.9.5 (0.9.6 - 0.9.12 had no changelog entries).
-Base API alignment: DmaInterface, IoWindow, MutexInterface, SystemMemoryAllocator, RiscReset; stateless NOC in TTDevice/SocDescriptor.
-SysmemBuffer ownership, host copy and NOC binding APIs; dma-buf export for RDMA.
-ArchitectureImplementation split into register and TLB descriptions.
-Locks backed by KMD resource locks; tt-kmd-lib extracted and used for KMD access.
-Shared simulation server (sim_server), client/host simulation over sockets, TTSim multichip and topology discovery.
-Quasar ATT address map; RTL simulator IP partition support.
-Per-op MMIO timeout, IoOrdering for Cluster reads and writes, telemetry buffer locators, TDP limit and fan APIs.
+RTL simulator IP partitioning: one simulator run serving several chips via ip_layout.yaml.
+RiscReset component interface.
+Host memory channels set automatically based on topology.
+IPMI reset improvements.
+
+## [0.9.12] - 2026-09-28
+
+### Changed
+
+Simulator topology discovered through the silicon path.
+IoOrdering parameter on Cluster read and write.
+Quasar ATT address map.
+Simulation servers whose host is gone are no longer reported.
+
+## [0.9.11] - 2026-09-21
+
+### Changed
+
+TLBManager removed in favor of IoWindow; per-arch silicon TTDevice subclasses deleted.
+Runtime telemetry and clock queries served by DeviceFirmware.
+Optional cluster_id in the cluster descriptor.
+Latest supported CMFW raised to 19.14.
+
+## [0.9.10] - 2026-09-09
+
+### Changed
+
+Base API alignment: TTDeviceModel, DeviceFirmware, DmaInterface, IoWindow, MutexInterface, SystemMemoryAllocator.
+SysmemBuffer ownership and host copy APIs; dma-buf export for RDMA.
+Locks backed by KMD resource locks; tt-kmd-lib extracted.
+Stateless NOC across TTDevice and SocDescriptor; xy_pair overloads removed.
+Shared simulation server (sim_server) with client/host mode over sockets.
+
+## [0.9.9] - 2026-07-09
+
+### Changed
+
+Blackhole runtime telemetry buffer accessors.
+Precise ETH_LIVE_STATUS based APIs and Blackhole harvesting utility.
+TTSim cluster descriptor discovered from simulator directory.
+
+## [0.9.8] - 2026-07-01
+
+### Changed
+
+Per-op MMIO timeout for TLB-mapped device access.
+set_power_state renamed to set_clock_state in TTDevice.
+Simulation client mode over SimulationClient.
+
+## [0.9.7] - 2026-06-26
+
+### Changed
+
+Device health errors returned from TopologyDiscovery.
+Dedicated EthernetBroadcast and noc_multicast for remote chips.
+DeviceTimeoutError exception type.
+DRAM retrain on BIST failure.
+
+## [0.9.6] - 2026-06-03
+
+### Changed
+
+ARM (aarch64) builds and fixes.
+TTSimChip and RtlSimulationChip merged into SimulationChip, with multichip support.
+TensixSoftResetOptions removed.
+Warm reset with remote IO failure recovery.
 
 ## [0.9.5] - 2026-05-12
 

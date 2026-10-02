@@ -62,11 +62,16 @@ constexpr auto PLL_LOCK_TIME = std::chrono::microseconds(300);
 constexpr uint64_t L3_WAYENABLE = 0x0201'0008;
 constexpr uint32_t LIM_WAY_KIB = 128;
 
-// LIM, the uncached part of L3, at its X280 address; the NOC reaches it at the same address. LIM is ECC-protected and
-// partial writes may fault until the X280 primes it. tt-metal says the unit is 64 B (unsourced), so host buffers are
-// 64 B aligned and padded, but write_to_device still sends them as stores of at most 32 B (unverified as safe).
-constexpr uint64_t LIM_BASE = 0x0800'0000;
-constexpr uint64_t LIM_LINE = 64;
+// WayEnable value that makes the whole L3 a cache (no LIM), as tt-bh-linux boot.py sets before loading. LIM is not
+// used: on hardware, host writes to unprimed LIM trip the L3 ECC check and leave the line failing on later reads.
+constexpr uint32_t L3_ALL_WAYS = 0xF;
+
+// Local DRAM bank in the X280 address space, cached alias. Host accesses go through the L2CPU tile and its L3, so they
+// are coherent with the harts. tt-bh-linux boot.py loads OpenSBI at this base the same way.
+constexpr uint64_t DRAM_CACHED = 0x4000'3000'0000;
+
+// Host buffers are padded to whole cache lines.
+constexpr uint64_t CACHE_LINE = 64;
 
 // Per-hart reset vectors at X280 0x2001_0000 + 8 * hart, reached through the NOC "high alias" (X280 address +
 // 0xFFFF_F7FE_DFF0_0000). Each is 64 bits, written low word first, like tt-bh-linux boot.py.
@@ -84,10 +89,12 @@ constexpr uint64_t DATA_BLOCK = 0x0010'0000;
 constexpr uint64_t DATA_SUM = DATA_BLOCK + 0x10;
 constexpr uint64_t DATA_COUNT = DATA_BLOCK + 0x18;
 
-// Status block in LIM, one line. Word 0 is MAGIC_ALIVE after each sum, or MAGIC_TRAP if the kernel took an
-// exception, with mcause, mepc and mtval at +0x28.
-constexpr uint64_t STATUS_BLOCK = 0x0810'0000;
-constexpr uint64_t STATUS_TRAP = STATUS_BLOCK + 0x28;
+// Status block in DRAM through the cached alias, one line, read through the L2CPU tile so it does not depend on the
+// uncached mapping above. Words: magic, then A, B, SUM and COUNT as the kernel saw them, then mcause, mepc and mtval
+// if it trapped. The magic is MAGIC_BOOT once hart 0 starts, MAGIC_ALIVE after each sum, or MAGIC_TRAP. The code
+// must sit below it.
+constexpr uint64_t STATUS_BLOCK = DRAM_CACHED + 0x0008'0000;
+constexpr uint64_t MAGIC_BOOT = 0x0000'0280'B007'B007;
 constexpr uint64_t MAGIC_ALIVE = 0x0000'0280'600D'600D;
 constexpr uint64_t MAGIC_TRAP = 0x0000'0280'DEAD'DEAD;
 
@@ -154,7 +161,7 @@ struct ElfImage {
 };
 
 // Reads the PT_LOAD segments of a little-endian RISC-V ELF64. Each segment is zero-filled from filesz to memsz
-// (that is .bss), then padded with zeros to whole LIM lines.
+// (that is .bss), then padded with zeros to whole cache lines.
 ElfImage read_elf(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
@@ -187,7 +194,7 @@ ElfImage read_elf(const std::string& path) {
             throw std::runtime_error(path + ": segment " + std::to_string(i) + " is truncated.");
         }
 
-        const uint64_t padded_size = (phdr.p_memsz + LIM_LINE - 1) / LIM_LINE * LIM_LINE;
+        const uint64_t padded_size = (phdr.p_memsz + CACHE_LINE - 1) / CACHE_LINE * CACHE_LINE;
         ElfSegment segment = {phdr.p_paddr, std::vector<uint8_t>(padded_size, 0)};
         std::copy_n(bytes.begin() + phdr.p_offset, phdr.p_filesz, segment.data.begin());
         image.segments.push_back(std::move(segment));
@@ -293,7 +300,8 @@ TEST_F(L2CPULoaderTest, Probe) {
     }
 }
 
-// One-shot: loads the ELF into LIM, sets reset vectors and releases reset. Needs `tt-smi -r` before each run.
+// One-shot: loads the ELF into local DRAM through the L2CPU tile, sets reset vectors and releases reset. Needs
+// `tt-smi -r` before each run.
 TEST_F(L2CPULoaderTest, Boot) {
     const char* elf_path = std::getenv("TT_UMD_L2CPU_ELF");
     if (elf_path == nullptr) {
@@ -308,7 +316,8 @@ TEST_F(L2CPULoaderTest, Boot) {
     const CoreCoord l2cpu_core(L2CPU_TILES[idx], CoreType::L2CPU, CoordSystem::NOC0);
     const CoreCoord dram_core(L2CPU_LOCAL_DRAM[idx], CoreType::DRAM, CoordSystem::NOC0);
 
-    // 1. Pre-flight: tile not harvested, still held in reset, ELF fits in LIM. Nothing is written before this passes.
+    // 1. Pre-flight: tile not harvested, still held in reset, ELF fits below the status block. Nothing is written
+    // before this passes.
     // Harvesting: telemetry and the SoC descriptor must agree.
     FirmwareTelemetryReader* telemetry = tt_device_->get_firmware_telemetry_reader();
     ASSERT_NE(telemetry, nullptr);
@@ -330,25 +339,20 @@ TEST_F(L2CPULoaderTest, Boot) {
     ASSERT_FALSE((l2cpu_reset >> (4 + idx)) & 1) << "L2CPU" << idx << " was already released (L2CPU_RESET = 0x"
                                                  << std::hex << l2cpu_reset << "). Run `tt-smi -r` first.";
 
-    // LIM: every segment must be whole, aligned lines inside it, and the entry point must be in LIM.
-    uint32_t way_enable = 0;
-    tt_device_->read_from_device_reg(&way_enable, l2cpu_core, L3_WAYENABLE, sizeof(way_enable));
-    const uint64_t lim_end = LIM_BASE + (15 - (way_enable & 0xF)) * LIM_WAY_KIB * 1024;
+    // Image: every segment must be whole, aligned lines in cached DRAM below the status block, and so must the entry.
     const ElfImage elf = read_elf(elf_path);
     for (const ElfSegment& segment : elf.segments) {
         const uint64_t segment_end = segment.addr + segment.data.size();
-        ASSERT_TRUE(segment.addr % LIM_LINE == 0 && segment.addr >= LIM_BASE && segment_end <= lim_end)
-            << "Segment 0x" << std::hex << segment.addr << "-0x" << segment_end << " is not 64 B aligned inside LIM [0x"
-            << LIM_BASE << ", 0x" << lim_end << ").";
+        ASSERT_TRUE(segment.addr % CACHE_LINE == 0 && segment.addr >= DRAM_CACHED && segment_end <= STATUS_BLOCK)
+            << "Segment 0x" << std::hex << segment.addr << "-0x" << segment_end << " is not 64 B aligned inside [0x"
+            << DRAM_CACHED << ", 0x" << STATUS_BLOCK << ").";
     }
-    ASSERT_LE(STATUS_BLOCK + LIM_LINE, lim_end) << "The kernel's status block is not in LIM.";
-    ASSERT_TRUE(elf.entry >= LIM_BASE && elf.entry < lim_end)
-        << "Entry 0x" << std::hex << elf.entry << " is not in LIM.";
+    ASSERT_TRUE(elf.entry >= DRAM_CACHED && elf.entry < STATUS_BLOCK)
+        << "Entry 0x" << std::hex << elf.entry << " is not inside [0x" << DRAM_CACHED << ", 0x" << STATUS_BLOCK << ").";
     log_info(
         tt::LogUMD,
-        "Pre-flight ok: L2CPU{} held in reset, LIM {} KiB, {} segments, entry 0x{:x}.",
+        "Pre-flight ok: L2CPU{} held in reset, {} segments, entry 0x{:x}.",
         idx,
-        (lim_end - LIM_BASE) / 1024,
         elf.segments.size(),
         elf.entry);
 
@@ -370,23 +374,29 @@ TEST_F(L2CPULoaderTest, Boot) {
     ASSERT_EQ(lowered_pll.postdivs, PLL_200MHZ.postdivs);
     log_info(tt::LogUMD, "PLL4 lowered to 200 MHz.");
 
-    // 3. Load ELF segments into LIM, then read each back. write_to_device copies with 32 B AVX2 stores through an
-    // uncached window; the _reg variants would issue 4 B stores. Whether 32 B NOC writes are safe on unprimed LIM
-    // is unverified.
+    // 3. Make the whole L3 a cache, like tt-bh-linux boot.py, so host writes through the L2CPU tile land in cache
+    // lines filled from DRAM, with valid ECC. Ways cannot be disabled again (SiFive manual, unverified here), so this
+    // tile has no LIM until the next chip reset.
+    tt_device_->write_to_device_reg(&L3_ALL_WAYS, l2cpu_core, L3_WAYENABLE, sizeof(L3_ALL_WAYS));
+    uint32_t way_enable = 0;
+    tt_device_->read_from_device_reg(&way_enable, l2cpu_core, L3_WAYENABLE, sizeof(way_enable));
+    ASSERT_EQ(way_enable, L3_ALL_WAYS) << "L3 WayEnable reads back " << way_enable << ".";
+
+    // Load ELF segments through the L2CPU tile at their X280 addresses, then read each back.
     for (const ElfSegment& segment : elf.segments) {
         tt_device_->write_to_device(segment.data.data(), l2cpu_core, segment.addr, segment.data.size());
         std::vector<uint8_t> readback(segment.data.size());
         tt_device_->read_from_device(readback.data(), l2cpu_core, segment.addr, readback.size());
-        ASSERT_TRUE(readback == segment.data) << "LIM readback mismatch in segment at 0x" << std::hex << segment.addr;
-        log_info(tt::LogUMD, "Loaded {} B at LIM 0x{:08x}, readback ok.", segment.data.size(), segment.addr);
+        ASSERT_TRUE(readback == segment.data) << "Readback mismatch in segment at 0x" << std::hex << segment.addr;
+        log_info(tt::LogUMD, "Loaded {} B at X280 0x{:x}, readback ok.", segment.data.size(), segment.addr);
     }
 
     // Clear the kernel's outputs so values from an earlier run cannot look like a result: SUM, COUNT and DOORBELL in
-    // DRAM (A and B stay), and the LIM status block as one whole line.
+    // DRAM (A and B stay), and the status block.
     const std::array<uint64_t, 3> zero_outputs = {};  // also clears COUNT and DOORBELL
     tt_device_->write_to_device(zero_outputs.data(), dram_core, DATA_SUM, sizeof(zero_outputs));
-    const std::vector<uint8_t> zero_status(LIM_LINE, 0);
-    tt_device_->write_to_device(zero_status.data(), l2cpu_core, STATUS_BLOCK, zero_status.size());
+    const std::array<uint64_t, CACHE_LINE / sizeof(uint64_t)> zero_status = {};
+    tt_device_->write_to_device(zero_status.data(), l2cpu_core, STATUS_BLOCK, sizeof(zero_status));
 
     // 4. Point every hart's reset vector at the ELF entry, then read each back. These are registers, so the _reg
     // variants issue one 4 B access per word.
@@ -439,22 +449,28 @@ TEST_F(L2CPULoaderTest, Boot) {
     ASSERT_EQ(restored_pll.fbdiv, original_pll.fbdiv);
     ASSERT_EQ(restored_pll.postdivs, original_pll.postdivs);
 
-    // 7. Poll until COUNT in DRAM is non-zero (the first sum is there) or the LIM status says the kernel trapped. The
-    // kernel has no free-running heartbeat: MAGIC_ALIVE is written once per sum.
+    // 7. Poll until COUNT in DRAM is non-zero (the first sum is there), or the status block says the kernel finished
+    // a sum or trapped. The kernel has no free-running heartbeat: MAGIC_ALIVE is written once per sum.
     uint64_t count = 0;
     uint64_t magic = 0;
     const auto deadline = std::chrono::steady_clock::now() + KERNEL_TIMEOUT;
     while (std::chrono::steady_clock::now() < deadline) {
         tt_device_->read_from_device(&count, dram_core, DATA_COUNT, sizeof(count));
         tt_device_->read_from_device(&magic, l2cpu_core, STATUS_BLOCK, sizeof(magic));
-        if (count != 0 || magic == MAGIC_TRAP) {
+        if (count != 0 || magic == MAGIC_ALIVE || magic == MAGIC_TRAP) {
             break;
         }
         std::this_thread::sleep_for(KERNEL_POLL_INTERVAL);
     }
 
+    // Read both blocks once more: the kernel writes COUNT before the status block, so they may have moved on.
     uint64_t sum = 0;
     tt_device_->read_from_device(&sum, dram_core, DATA_SUM, sizeof(sum));
+    tt_device_->read_from_device(&count, dram_core, DATA_COUNT, sizeof(count));
+    std::array<uint64_t, 8> status = {};  // magic, A, B, SUM, COUNT, mcause, mepc, mtval.
+    tt_device_->read_from_device(status.data(), l2cpu_core, STATUS_BLOCK, sizeof(status));
+    magic = status[0];
+
     log_info(
         tt::LogUMD,
         "SUM at DRAM {} 0x{:x} = 0x{:016x}, COUNT at 0x{:x} = {}.",
@@ -463,19 +479,28 @@ TEST_F(L2CPULoaderTest, Boot) {
         sum,
         DATA_COUNT,
         count);
+    const char* state = magic == MAGIC_ALIVE  ? "alive"
+                        : magic == MAGIC_TRAP ? "TRAP"
+                        : magic == MAGIC_BOOT ? "started, no sum yet"
+                                              : "no heartbeat";
     log_info(
         tt::LogUMD,
-        "Status at LIM {} 0x{:08x}: magic = 0x{:016x} ({}).",
-        L2CPU_TILES[idx].str(),
+        "Status at X280 0x{:x}: magic = 0x{:016x} ({}); kernel saw A=0x{:x} B=0x{:x} SUM=0x{:x} COUNT={}.",
         STATUS_BLOCK,
         magic,
-        magic == MAGIC_ALIVE ? "alive" : (magic == MAGIC_TRAP ? "TRAP" : "no heartbeat"));
+        state,
+        status[1],
+        status[2],
+        status[3],
+        status[4]);
 
     if (magic == MAGIC_TRAP) {
-        std::array<uint64_t, 3> trap = {};  // mcause, mepc, mtval.
-        tt_device_->read_from_device(trap.data(), l2cpu_core, STATUS_TRAP, sizeof(trap));
-        log_warning(tt::LogUMD, "Kernel trapped: mcause={} mepc=0x{:x} mtval=0x{:x}.", trap[0], trap[1], trap[2]);
+        log_warning(tt::LogUMD, "Kernel trapped: mcause={} mepc=0x{:x} mtval=0x{:x}.", status[5], status[6], status[7]);
     }
     EXPECT_NE(magic, MAGIC_TRAP) << "The kernel took an exception; see the log for mcause and mepc.";
+    EXPECT_NE(magic, MAGIC_BOOT) << "Hart 0 started but never finished a sum: likely stuck on its first DRAM access.";
+    EXPECT_FALSE(magic == MAGIC_ALIVE && count == 0)
+        << "The kernel finished a sum but COUNT at " << L2CPU_LOCAL_DRAM[idx].str()
+        << " is 0: X280 0x3000_0000 + N is not DRAM-tile address N.";
     EXPECT_NE(count, 0U) << "No sum within " << KERNEL_TIMEOUT.count() << " s.";
 }

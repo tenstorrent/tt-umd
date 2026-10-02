@@ -26,113 +26,166 @@
                     "value": "OFF"
                 },
                 "TT_UMD_BUILD_TOOLS": {
-                    "value": "ON"
+                    "value": "OFF"
                 },
                 "TT_UMD_ENABLE_CLANG_TIDY": {
-                    "value": "ON"
+                    "value": "OFF"
                 },
                 "TT_UMD_ENABLE_TRACY": {
                     "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "with-tests",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_TESTS": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-simulation",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-python",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-pip",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_PIP": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-tools",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_TOOLS": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-clang-tidy",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_ENABLE_CLANG_TIDY": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-tracy",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_ENABLE_TRACY": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-all",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_ALL": {
+                    "value": "ON"
                 }
             }
         },
         {
             "name": "tests",
-            "inherits": "base",
-            "description": "Tests and tools, without simulation, Python or clang-tidy",
-            "cacheVariables": {
-                "TT_UMD_BUILD_TESTS": {
-                    "value": "ON"
-                },
-                "TT_UMD_ENABLE_CLANG_TIDY": {
-                    "value": "OFF"
-                }
-            }
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "base"
+            ],
+            "description": "Tests and tools, without simulation, Python or clang-tidy"
         },
         {
             "name": "simulation",
-            "inherits": "tests",
-            "description": "Tests and tools with simulation support and Python bindings",
-            "cacheVariables": {
-                "TT_UMD_BUILD_SIMULATION": {
-                    "value": "ON"
-                },
-                "TT_UMD_BUILD_PYTHON": {
-                    "value": "ON"
-                },
-                "TT_UMD_BUILD_PIP": {
-                    "value": "ON"
-                }
-            }
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "with-simulation",
+                "with-python",
+                "with-pip",
+                "base"
+            ],
+            "description": "Tests and tools with simulation support and Python bindings"
         },
         {
             "name": "simulation-no-tools",
-            "inherits": "simulation",
-            "description": "Tests with simulation support, without tools and Python bindings",
-            "cacheVariables": {
-                "TT_UMD_BUILD_TOOLS": {
-                    "value": "OFF"
-                },
-                "TT_UMD_BUILD_PYTHON": {
-                    "value": "OFF"
-                },
-                "TT_UMD_BUILD_PIP": {
-                    "value": "OFF"
-                }
-            }
+            "inherits": [
+                "with-tests",
+                "with-simulation",
+                "base"
+            ],
+            "description": "Tests with simulation support, without tools and Python bindings"
         },
         {
             "name": "release",
-            "inherits": "base",
-            "description": "Library and Python bindings, as shipped in release packages",
-            "cacheVariables": {
-                "TT_UMD_BUILD_PYTHON": {
-                    "value": "ON"
-                }
-            }
+            "inherits": [
+                "with-python",
+                "with-tools",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "Library and Python bindings, as shipped in release packages"
         },
         {
             "name": "release-no-clang-tidy",
-            "inherits": "release",
-            "description": "Release build without clang-tidy",
-            "cacheVariables": {
-                "TT_UMD_ENABLE_CLANG_TIDY": {
-                    "value": "OFF"
-                }
-            }
+            "inherits": [
+                "with-python",
+                "with-tools",
+                "base"
+            ],
+            "description": "Release build without clang-tidy"
         },
         {
             "name": "all",
-            "inherits": "base",
-            "description": "All components, including the pip package and Tracy",
-            "cacheVariables": {
-                "TT_UMD_BUILD_ALL": {
-                    "value": "ON"
-                },
-                "TT_UMD_BUILD_PIP": {
-                    "value": "ON"
-                },
-                "TT_UMD_ENABLE_TRACY": {
-                    "value": "ON"
-                }
-            }
+            "inherits": [
+                "with-all",
+                "with-pip",
+                "with-tracy",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "All components, including the pip package and Tracy"
         },
         {
             "name": "all-no-pip",
-            "inherits": "all",
-            "description": "All components, without the pip package",
-            "cacheVariables": {
-                "TT_UMD_BUILD_PIP": {
-                    "value": "OFF"
-                },
-                "TT_UMD_ENABLE_TRACY": {
-                    "value": "OFF"
-                }
-            }
+            "inherits": [
+                "with-all",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "All components, without the pip package"
         },
         {
             "name": "code-analysis",
-            "inherits": "simulation",
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "with-simulation",
+                "with-clang-tidy",
+                "base"
+            ],
             "description": "Run Clang Static Analyzer",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": {
@@ -143,15 +196,6 @@
                 },
                 "CMAKE_CXX_COMPILER": {
                     "value": "clang++-20"
-                },
-                "TT_UMD_ENABLE_CLANG_TIDY": {
-                    "value": "ON"
-                },
-                "TT_UMD_BUILD_PYTHON": {
-                    "value": "OFF"
-                },
-                "TT_UMD_BUILD_PIP": {
-                    "value": "OFF"
                 }
             }
         }

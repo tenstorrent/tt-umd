@@ -57,6 +57,14 @@ set_target_properties(
 if(COMMAND TT_ENABLE_UNITY_BUILD)
     tt_enable_unity_build(tt-umd)
 endif()
+# EXPERIMENT (tt-metal#58148): compile tt-umd one source per translation unit, overriding the parent
+# project's unity build, to test whether unity batching of neighbouring sources is the trigger.
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        UNITY_BUILD
+            OFF
+)
 
 target_sources(
     tt-umd

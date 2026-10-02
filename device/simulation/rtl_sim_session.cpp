@@ -48,7 +48,9 @@ void spawn_simulator(const std::filesystem::path &simulator_directory) {
     UMD_ASSERT(rv == 0, error::RuntimeError, fmt::format("Failed to spawn simulator process: {}", uv_strerror(rv)));
     log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
 
-    uv_unref(reinterpret_cast<uv_handle_t *>(&child_p));
+    // Stop tracking the detached child before child_p goes out of scope; otherwise libuv's SIGCHLD
+    // handling writes into this stack frame when run.sh exits.
+    uv_close(reinterpret_cast<uv_handle_t *>(&child_p), nullptr);
     uv_run(loop, UV_RUN_DEFAULT);
     uv_loop_close(loop);
 }

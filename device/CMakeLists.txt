@@ -134,6 +134,7 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         topology/topology_discovery_error.cpp
+        topology/ip_layout.cpp
         tt_device/remote_communication.cpp
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp

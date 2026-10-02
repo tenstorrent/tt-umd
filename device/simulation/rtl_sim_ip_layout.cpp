@@ -76,6 +76,8 @@ RtlSimIpLayout::RtlSimIpLayout(const std::filesystem::path& simulator_directory)
             fmt::format("{} lists device {} twice.", path.string(), static_cast<uint32_t>(device)));
         soc_descriptors_.emplace(device, soc_descriptor);
     }
+
+    validate_ip_layout(*this);
 }
 
 size_t RtlSimIpLayout::get_num_access_points() const { return access_points_.size(); }

@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -107,6 +108,9 @@ public:
 
     int get_packer_version() const { return packer_version_; }
 
+    // IP variant, or std::nullopt for the default design of the arch.
+    std::optional<tt::IpVariant> get_ip_variant() const { return ip_variant_; }
+
     // TRISC sizes.
     const std::vector<std::size_t>& get_trisc_sizes() const { return trisc_sizes_; }
 
@@ -164,6 +168,7 @@ private:
     int unpacker_version_ = 0;
     int dst_size_alignment_ = 0;
     int packer_version_ = 0;
+    std::optional<tt::IpVariant> ip_variant_;
     std::vector<std::size_t> trisc_sizes_;
     std::string device_descriptor_file_path_;
     std::unordered_map<tt_xy_pair, CoreDescriptor> cores_;

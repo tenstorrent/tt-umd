@@ -33,8 +33,12 @@ jobs:
   test:
     name: Test Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    runs-on:
-      - ${{ inputs.card }}
+    # On-prem runners (P300-viommu, BH-Quietbox-2) also need in-service, which their owners clear
+    # to take a machine out of rotation; the tt-ubuntu-2204-* cloud fleet doesn't use the label.
+    runs-on: >-
+      ${{ fromJSON(contains(fromJSON('["P300-viommu", "BH-Quietbox-2"]'), inputs.card)
+      && format('["{0}", "in-service"]', inputs.card)
+      || format('["{0}"]', inputs.card)) }}
     container:
       image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
       options: --device /dev/tenstorrent

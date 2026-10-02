@@ -83,8 +83,12 @@ jobs:
           "P300-viommu",
           "tt-ubuntu-2204-wh-glx-6u-stable"
           ]' || format('["{0}"]', github.event.inputs.card)) }}
-    runs-on:
-      - ${{ matrix.card }}
+    # On-prem runners (P300-viommu, BH-Quietbox-2) also need in-service, which their owners clear
+    # to take a machine out of rotation; the tt-ubuntu-2204-* cloud fleet doesn't use the label.
+    runs-on: >-
+      ${{ fromJSON(contains(fromJSON('["P300-viommu", "BH-Quietbox-2"]'), matrix.card)
+      && format('["{0}", "in-service"]', matrix.card)
+      || format('["{0}"]', matrix.card)) }}
     container:
       image: >-
         ghcr.io/${{ github.repository }}/tt-umd-ci-${{

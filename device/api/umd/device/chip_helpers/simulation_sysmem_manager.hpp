@@ -30,10 +30,18 @@ public:
     // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
     // routes by which chip's [host_base, host_base + PER_CHIP_HOST_STRIDE) window contains the address.
     static constexpr uint64_t PER_CHIP_HOST_STRIDE = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+    // The modeled outbound iATU uses 32-bit base/limit registers. Mapped-buffer IOVAs share this
+    // device-visible window with the fixed-stride host-memory channels. WH's modeled PCIe DMA
+    // aperture ends at offset 0xFFFE0000, so use that conservative limit for every architecture.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
 
     uint64_t get_host_base() const { return host_base_; }
 
     uint64_t get_host_region_size() const { return PER_CHIP_HOST_STRIDE; }
+
+    uint64_t get_mapped_arena_offset() const { return system_memory_size_; }
+
+    uint64_t get_mapped_arena_size() const;
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -76,10 +84,24 @@ public:
     // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
     void* get_mapped_host_ptr(uint64_t device_io_addr);
 
+    // Re-sizes this chip's sysmem to num_host_mem_channels channels, and reports whether the channel
+    // count changed (the caller has iATU regions to re-program when it did).
+    //
+    // A simulated cluster's channel count is not knowable when the device is built: the count is one
+    // per chip the MMIO chip serves, and chips reached over ethernet are only found by the topology
+    // discovery that the device itself has to be alive for. So the device starts with a provisional
+    // count and the cluster grows it here once the discovered descriptor says how many chips this one
+    // actually gateways for. Growing only, and only before any sysmem buffer has been handed out: the
+    // channels are slices of one mapping, so growing replaces it and every existing channel moves.
+    bool grow_host_mem_channels(uint32_t num_host_mem_channels);
+
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
+    // Caller holds registry_->mutex for capacity checks and registration.
+    void check_arena_capacity(uint64_t extent) const;
+
     struct MappedBuffer {
         // Device IO address (pcie_base_ + arena offset) of the first byte.
         uint64_t device_io_addr = 0;
@@ -97,10 +119,15 @@ private:
         uint64_t next_arena_offset = 0;
     };
 
+    // Releases the hugepage-channel mapping without touching the registry, so grow_host_mem_channels
+    // can remap while it holds registry_->mutex.
+    void unmap_system_memory();
+
     // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);
 
-    // Assigns an arena address, registers the buffer and wraps it. Shared by the allocate and map
+    // Caller holds registry_->mutex. Assigns an arena address, registers the buffer and wraps it.
+    // Shared by the allocate and map
     // paths, which differ only in who owns the memory: allocate passes a release callable that frees
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
     std::unique_ptr<SysmemBuffer> register_and_wrap(

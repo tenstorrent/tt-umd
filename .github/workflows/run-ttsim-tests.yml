@@ -247,18 +247,19 @@ jobs:
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x32/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x32/soc_descriptor.yaml
 
-      - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
+      - name: Build UMD api_tests, microbenchmark, sim_server and Python bindings with simulation support
         # Build presets are looked up in the current directory, so run from the UMD checkout.
         working-directory: tt-metal/tt_metal/third_party/umd
         run: |
           cmake --preset simulation
           # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
           # builds the tools with simulation OFF, which excludes it).
-          cmake --build --preset simulation --target api_tests umd_microbenchmark sim_server
+          cmake --build --preset simulation --target api_tests umd_microbenchmark sim_server nanobind_tt_umd
 
       # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
       # which is the case where a host with no chips would serve no sockets and still look like it started.
-      # `list` must report the chip as live, and `kill` must be able to reach it over that socket.
+      # `list` must name the arch and the simulator the host is running -- both come from probing
+      # the socket, so either appearing also proves the chip is live -- and `kill` must reach it there.
       - name: Run sim_server start / list / kill / prune on tt-sim blackhole
         timeout-minutes: 2
         run: |
@@ -268,7 +269,8 @@ jobs:
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
           ./sim_server start --detach "$simulator"
           ./sim_server list | tee /tmp/sim_server_list.txt
-          grep -q "live" /tmp/sim_server_list.txt
+          grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
+          grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
 
@@ -287,6 +289,20 @@ jobs:
         run: |
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+
+      # Python mirror of the C++ SimulationConnector coverage above: nanobind/tests only runs in the
+      # pytest lane (no simulator) elsewhere, so its host/client test against a real simulator has
+      # never run anywhere. Only the simulator-gated test file runs here -- the rest of nanobind/tests
+      # talks to real silicon and has no chip to find in this container.
+      - name: Run UMD Python bindings SimulationConnector tests on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          export PYTHONPATH=$(pwd)/tt-metal/tt_metal/third_party/umd/build/nanobind
+          # unittest rather than pytest: this file sits inside tt-metal's tree, and pytest would
+          # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
+          cd tt-metal/tt_metal/third_party/umd/nanobind/tests
+          python3 -m unittest -v test_py_simulation_connector
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.

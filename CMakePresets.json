@@ -52,9 +52,15 @@
         {
             "name": "simulation",
             "inherits": "tests",
-            "description": "Tests and tools with simulation support",
+            "description": "Tests and tools with simulation support and Python bindings",
             "cacheVariables": {
                 "TT_UMD_BUILD_SIMULATION": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_PIP": {
                     "value": "ON"
                 }
             }
@@ -62,9 +68,15 @@
         {
             "name": "simulation-no-tools",
             "inherits": "simulation",
-            "description": "Tests with simulation support, without tools",
+            "description": "Tests with simulation support, without tools and Python bindings",
             "cacheVariables": {
                 "TT_UMD_BUILD_TOOLS": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_PIP": {
                     "value": "OFF"
                 }
             }
@@ -112,6 +124,9 @@
             "cacheVariables": {
                 "TT_UMD_BUILD_PIP": {
                     "value": "OFF"
+                },
+                "TT_UMD_ENABLE_TRACY": {
+                    "value": "OFF"
                 }
             }
         },
@@ -131,6 +146,12 @@
                 },
                 "TT_UMD_ENABLE_CLANG_TIDY": {
                     "value": "ON"
+                },
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_PIP": {
+                    "value": "OFF"
                 }
             }
         }

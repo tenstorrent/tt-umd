@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -31,10 +32,15 @@
 #include "umd/device/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
+#include <dlfcn.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <exception>
 
+#include "device/simulation/eth_ipc.hpp"
+#include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
@@ -478,4 +484,138 @@ TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
     }
 }
 
+// Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
+// serves exists, so it sizes their sysmem provisionally and the cluster corrects it afterwards. Left
+// to auto-detect, every MMIO chip ends up with one channel per chip the busiest gateway serves --
+// on wh_x2 that is 2, the channel the remote chip needs, which the provisional count lacks.
+TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    // MAX_HOST_MEM_CHANNELS lives in a private header; the auto-detect caps at it.
+    constexpr size_t max_host_mem_channels = 4;
+    size_t max_chips_per_mmio = 0;
+    for (const auto& [_, chips] : cluster_desc->get_chips_grouped_by_closest_mmio()) {
+        max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
+    }
+    const size_t expected_channels = std::min(max_host_mem_channels, max_chips_per_mmio);
+    ASSERT_GT(expected_channels, 0u);
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected_channels)
+            << "MMIO chip " << chip << " kept the provisional channel count discovery built it with";
+    }
+}
+
+// The correction is for the auto-detected count only: a caller that names a count gets exactly it,
+// even where the topology would have auto-detected more (wh_x2 would pick 2).
+TEST_F(TTSimDiscoveryTest, ExplicitHostMemChannelsAreHonoured) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_FALSE(cluster_desc->get_chips_with_mmio().empty());
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), 1u)
+            << "MMIO chip " << chip << " did not keep the explicitly requested channel count";
+    }
+}
+
 #endif  // TT_UMD_BUILD_SIMULATION
+
+#ifdef TT_UMD_BUILD_SIMULATION
+TEST_F(TTSimCommunicatorTest, EthernetDescriptorsDetachBeforeOwnerClosesThem) {
+    auto first_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 0, 2);
+    first_comm->initialize();
+    first_comm->start_sim();
+    if (!first_comm->supports_eth_link_fd()) {
+        GTEST_SKIP() << "Simulator lacks checked Ethernet FD attach/detach capability";
+    }
+    auto second_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 1, 2);
+    second_comm->initialize();
+    second_comm->start_sim();
+    ASSERT_TRUE(second_comm->supports_eth_link_fd());
+
+    struct Session {
+        char path[32] = "/tmp/umd-eth-owner-XXXXXX";
+
+        ~Session() {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } session;
+
+    ASSERT_NE(mkdtemp(session.path), nullptr);
+    auto first = std::make_unique<EthIpcEndpoint>(session.path, "first", "second");
+    auto second = std::make_unique<EthIpcEndpoint>(session.path, "second", "first");
+    const auto deadline = EthIpcEndpoint::Clock::now() + std::chrono::seconds(2);
+    first->connect(deadline);
+    second->connect(deadline);
+    EthIpcEndpoint::handshake({first.get(), second.get()}, deadline);
+    const int read_fd = first->read_fd();
+    const int write_fd = first->write_fd();
+    void* device = first_comm->get_dev_handle();
+    first_comm->configure_eth_link_fd(0, std::move(first));
+    second_comm->configure_eth_link_fd(0, std::move(second));
+    EXPECT_GE(fcntl(read_fd, F_GETFD), 0);
+    EXPECT_GE(fcntl(write_fd, F_GETFD), 0);
+
+    auto rejected = std::make_unique<EthIpcEndpoint>(session.path, "rejected", "second");
+    const int rejected_fd = rejected->read_fd();
+    EXPECT_THROW(first_comm->configure_eth_link_fd(0, std::move(rejected)), std::exception);
+    EXPECT_EQ(fcntl(rejected_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/rejected"));
+
+    // A second communicator keeps the shared simulator and device registry alive.
+    first_comm.reset();
+    EXPECT_EQ(fcntl(read_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_EQ(fcntl(write_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/first"));
+
+    // Reattaching to that surviving device proves its old borrowed descriptors
+    // were detached, rather than merely closed while still stored in libttsim.
+    void* handle = dlopen(simulator_path_, RTLD_NOW | RTLD_NOLOAD);
+    ASSERT_NE(handle, nullptr);
+    auto close_library = [](void* value) { dlclose(value); };
+    std::unique_ptr<void, decltype(close_library)> library(handle, close_library);
+    auto attach = reinterpret_cast<int (*)(void*, uint32_t, int, int)>(dlsym(handle, "libttsim_attach_eth_link_fd"));
+    auto detach = reinterpret_cast<int (*)(void*, uint32_t)>(dlsym(handle, "libttsim_detach_eth_link_fd"));
+    ASSERT_NE(attach, nullptr);
+    ASSERT_NE(detach, nullptr);
+
+    struct Pipe {
+        int fd[2] = {-1, -1};
+
+        ~Pipe() {
+            if (fd[0] >= 0) {
+                close(fd[0]);
+            }
+            if (fd[1] >= 0) {
+                close(fd[1]);
+            }
+        }
+    } pipe;
+
+    ASSERT_EQ(pipe2(pipe.fd, O_NONBLOCK | O_CLOEXEC), 0);
+    ASSERT_EQ(attach(device, 0, pipe.fd[1], pipe.fd[0]), 0);
+    ASSERT_EQ(detach(device, 0), 0);
+    second_comm.reset();
+}
+#endif

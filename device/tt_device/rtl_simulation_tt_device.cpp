@@ -167,6 +167,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
+                if (mgr->write_mapped_buffer(address, data, size)) {
+                    return;
+                }
+                UMD_ASSERT(
+                    address < pcie_base + mgr->get_mapped_arena_offset(),
+                    error::RuntimeError,
+                    "RAM callback mapped-buffer address is not registered.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
                 UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
@@ -177,6 +184,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
+                if (mgr->read_mapped_buffer(address, data_out, size)) {
+                    return;
+                }
+                UMD_ASSERT(
+                    address < pcie_base + mgr->get_mapped_arena_offset(),
+                    error::RuntimeError,
+                    "RAM callback mapped-buffer address is not registered.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
                 UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
@@ -258,7 +272,8 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     return false;
 }
 
-void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void RtlSimulationTTDevice::assert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, [[maybe_unused]] NocId noc_id) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
@@ -301,7 +316,8 @@ void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType sel
     }
 }
 
-void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationTTDevice::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, [[maybe_unused]] NocId noc_id) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);

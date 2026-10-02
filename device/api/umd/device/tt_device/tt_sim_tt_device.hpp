@@ -77,11 +77,22 @@ public:
     // now a detail of this backend.
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
+    // Grows this chip's host-memory channels to num_host_mem_channels and re-programs the outbound
+    // iATU to match. The channel count a simulated MMIO chip needs is one per chip it gateways for,
+    // which is only known after topology discovery -- and discovery needs the device alive to walk
+    // the ethernet links that reveal those chips. So the device is built with a provisional count
+    // and the cluster corrects it here. A no-op when the device already has enough channels.
+    void grow_host_mem_channels(uint32_t num_host_mem_channels);
+
     void close_device();
     void start_device();
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void deassert_risc_reset(
+        CoreCoord core,
+        const RiscType selected_riscs,
+        bool staggered_start,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void advance_device_execution() override;
 
@@ -108,6 +119,8 @@ protected:
     void after_read() override;
 
 private:
+    void configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size);
+
     // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
     // coordinate; returns true when the access was serviced against the backend DRAM model. These
     // back handle_special_read/write and can grow to dispatch additional special cases later.
@@ -125,6 +138,10 @@ private:
 
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();
+
+    // Programs one outbound-iATU region per host-mem channel this device's sysmem manager holds, plus
+    // the mapped-buffer arena region that sits after them.
+    void program_iatu_for_host_mem_channels();
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process .so backend (communicator_), client mode

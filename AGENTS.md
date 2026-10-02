@@ -53,5 +53,7 @@
 - Do not use dynamic logic or programmatic calculations to compute expected test outcomes. Hardcode all assertion values as literal constants. 
 
 ## Reviewing PRs workflow
+- If a PR stack is being reviewed, you can take a brief look at whole stack, but process PRs one by one. Provide comments that you think are relevant for one of the PRs, argue and discuss with the user, and upon confirming post the comments for that single PR.
+- Any suggested comments should be presented through a git unstaged text file for user to review.
 
 ## External knowledge

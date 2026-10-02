@@ -34,6 +34,7 @@
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/arch/architecture_tlbs.hpp"
+#include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
@@ -840,6 +841,10 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     const std::array<uint32_t, 3> config_words = {
         static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
     const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
+    // EXPERIMENT E2 (tt-metal#58148): drain any stores still sitting in the host's write-combining buffers
+    // before the window is retargeted. Data written through a WC-mapped window can otherwise still be in
+    // flight when its TLB is reprogrammed, and land at the new target instead of the old one.
+    tt_driver_atomics::sfence();
     for (size_t i = 0; i < num_config_words; i++) {
         tlb_reg_ptr[i] = config_words[i];
     }

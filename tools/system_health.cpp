@@ -51,7 +51,12 @@ const std::unordered_map<ConnectorType, LinkingBoardType> linking_board_types = 
 
 UbbId get_ubb_id(Cluster* cluster, const ChipId chip_id, const unsigned long unique_chip_id) {
     const auto& tray_bus_ids = ubb_bus_ids.at(cluster->get_soc_descriptor(chip_id).arch);
-    const auto bus_id = cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus;
+    const auto& chip_to_bus_id = cluster->get_cluster_description()->get_chip_to_bus_id();
+    auto bus_id_it = chip_to_bus_id.find(chip_id);
+    if (bus_id_it == chip_to_bus_id.end()) {
+        return UbbId{0, 0};
+    }
+    const auto bus_id = bus_id_it->second;
     auto tray_bus_id_it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(), bus_id & 0xF0);
     if (tray_bus_id_it != tray_bus_ids.end()) {
         auto ubb_asic_id = bus_id & 0x0F;

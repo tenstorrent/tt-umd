@@ -20,8 +20,9 @@ class TestTTDevice(unittest.TestCase):
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
             )
-            pci_dev = dev.get_pci_device()
-            pci_info = pci_dev.get_device_info().pci_bdf
+            pci_info = tt_umd.PCIDevice.enumerate_devices_info()[
+                dev.get_communication_device_id()
+            ].pci_bdf
             print("pci bdf is ", pci_info)
 
             soc_descriptor = tt_umd.SocDescriptor(dev)
@@ -435,8 +436,9 @@ class TestTTDevice(unittest.TestCase):
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
             )
-            pci_dev = dev.get_pci_device()
-            pci_info = pci_dev.get_device_info().pci_bdf
+            pci_info = tt_umd.PCIDevice.enumerate_devices_info()[
+                dev.get_communication_device_id()
+            ].pci_bdf
             print("pci bdf is ", pci_info)
 
             soc_descriptor = tt_umd.SocDescriptor(dev)

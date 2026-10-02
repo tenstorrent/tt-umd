@@ -8,6 +8,8 @@
 #include <nng/nng.h>
 #include <uv.h>
 
+#include <algorithm>
+#include <limits>
 #include <set>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -68,7 +70,7 @@ RtlSimSession::RtlSimSession(
     }
 }
 
-void RtlSimSession::start() {
+void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
     UMD_ASSERT(!started_, error::RuntimeError, "RtlSimSession::start() called twice.");
     started_ = true;
     for (size_t i = 0; i < sockets_.size(); i++) {
@@ -84,12 +86,24 @@ void RtlSimSession::start() {
     for (size_t i = 0; i < sockets_.size(); i++) {
         log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote on socket '{}'...", sockets_[i]);
         void *buf_ptr = nullptr;
-        size_t buf_size = hosts_[i]->recv_from_device(&buf_ptr);
+        // NNG takes the timeout as an int of milliseconds.
+        const int timeout_ms = static_cast<int>(
+            std::clamp<std::chrono::milliseconds::rep>(ack_timeout.count(), 0, std::numeric_limits<int>::max()));
+        size_t buf_size = hosts_[i]->recv_from_device(&buf_ptr, timeout_ms);
         UMD_ASSERT(
-            buf_size != 0 && GetDeviceRequestResponse(buf_ptr)->command() == DEVICE_COMMAND_EXIT,
+            buf_size != 0,
+            error::RuntimeError,
+            fmt::format(
+                "No ack from remote on socket '{}' (timed out after {} ms, or the receive failed); check the "
+                "simulator log.",
+                sockets_[i],
+                timeout_ms));
+        const bool is_ack = GetDeviceRequestResponse(buf_ptr)->command() == DEVICE_COMMAND_EXIT;
+        nng_free(buf_ptr, buf_size);
+        UMD_ASSERT(
+            is_ack,
             error::RuntimeError,
             fmt::format("Did not receive expected ack from remote on socket '{}'.", sockets_[i]));
-        nng_free(buf_ptr, buf_size);
     }
 }
 

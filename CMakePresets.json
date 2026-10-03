@@ -2,121 +2,236 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "default",
-            "displayName": "Default Config",
-            "description": "Default build using Ninja",
-            "generator": "Ninja Multi-Config",
-            "binaryDir": "${sourceDir}/.build/default",
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "Release"
+                },
+                "TT_UMD_BUILD_TESTS": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_PIP": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_EXAMPLES": {
+                    "value": "OFF"
+                },
+                "TT_UMD_BUILD_TOOLS": {
+                    "value": "OFF"
+                },
+                "TT_UMD_ENABLE_CLANG_TIDY": {
+                    "value": "OFF"
+                },
+                "TT_UMD_ENABLE_TRACY": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "with-tests",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_TESTS": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-simulation",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-python",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-pip",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_PIP": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-tools",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_TOOLS": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-clang-tidy",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_ENABLE_CLANG_TIDY": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-tracy",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_ENABLE_TRACY": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "with-all",
+            "hidden": true,
+            "cacheVariables": {
+                "TT_UMD_BUILD_ALL": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "tests",
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "base"
+            ],
+            "description": "Tests and tools, without simulation, Python or clang-tidy"
+        },
+        {
+            "name": "simulation",
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "with-simulation",
+                "with-python",
+                "with-pip",
+                "base"
+            ],
+            "description": "Tests and tools with simulation support and Python bindings"
+        },
+        {
+            "name": "simulation-no-tools",
+            "inherits": [
+                "with-tests",
+                "with-simulation",
+                "base"
+            ],
+            "description": "Tests with simulation support, without tools and Python bindings"
+        },
+        {
+            "name": "release",
+            "inherits": [
+                "with-python",
+                "with-tools",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "Library and Python bindings, as shipped in release packages"
+        },
+        {
+            "name": "release-no-clang-tidy",
+            "inherits": [
+                "with-python",
+                "with-tools",
+                "base"
+            ],
+            "description": "Release build without clang-tidy"
+        },
+        {
+            "name": "all",
+            "inherits": [
+                "with-all",
+                "with-pip",
+                "with-tracy",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "All components, including the pip package and Tracy"
+        },
+        {
+            "name": "all-no-pip",
+            "inherits": [
+                "with-all",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "All components, without the pip package"
+        },
+        {
+            "name": "code-analysis",
+            "inherits": [
+                "with-tests",
+                "with-tools",
+                "with-simulation",
+                "with-clang-tidy",
+                "base"
+            ],
+            "description": "Run Clang Static Analyzer",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "Debug"
+                },
                 "CMAKE_C_COMPILER": {
                     "value": "clang-20"
                 },
                 "CMAKE_CXX_COMPILER": {
                     "value": "clang++-20"
-                },
-                "TT_UMD_BUILD_TESTS": {
-                    "value": "TRUE"
-                },
-                "TT_UMD_BUILD_SIMULATION": {
-                    "value": "TRUE"
-                },
-                "CMAKE_EXPORT_COMPILE_COMMANDS": {
-                    "value": "TRUE"
-                }
-            }
-        },
-        {
-            "name": "clang-tidy",
-            "inherits": "default",
-            "description": "Run Clang Tidy checks during build",
-            "binaryDir": "${sourceDir}/.build/clang-tidy",
-            "cacheVariables": {
-                "TT_UMD_ENABLE_CLANG_TIDY": {
-                    "value": "OFF"
-                },
-                "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--warnings-as-errors=*"
-                },
-                "CMAKE_EXPORT_COMPILE_COMMANDS": {
-                    "value": "TRUE"
-                },
-                "CMAKE_DISABLE_PRECOMPILE_HEADERS": {
-                    "value": "TRUE"
-                }
-            }
-        },
-        {
-            "name": "clang-tidy-fix",
-            "inherits": "clang-tidy",
-            "description": "Run Clang Tidy and apply fixes",
-            "binaryDir": "${sourceDir}/.build/clang-tidy-fix",
-            "cacheVariables": {
-                "CMAKE_CXX_CLANG_TIDY": {
-                    "value": "clang-tidy-20;--config-file=${sourceDir}/.clang-tidy;--fix"
-                }
-            }
-        },
-        {
-            "name": "clang-tidy-fix-parallel",
-            "inherits": "clang-tidy",
-            "description":
-                "Run Clang Tidy in parallel and export fixes to YAML files (apply with clang-apply-replacements)",
-            "binaryDir": "${sourceDir}/.build/clang-tidy-fix-parallel",
-            "cacheVariables": {
-                "CMAKE_CXX_CLANG_TIDY": {
-                    "value":
-                        "${sourceDir}/cmake/clang-tidy-export-fixes-wrapper.sh;${sourceDir}/.build/clang-tidy-fix-parallel/fixes;--config-file=${sourceDir}/.clang-tidy"
-                }
-            }
-        },
-        {
-            "name": "code-analysis",
-            "inherits": "default",
-            "description": "Run Clang Static Analyzer",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/.build/code-analysis",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": {
-                    "value": "Debug"
                 }
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "default",
-            "configurePreset": "default",
-            "configuration": "Release"
+            "name": "tests",
+            "configurePreset": "tests"
         },
         {
-            "name": "debug",
-            "configurePreset": "default",
-            "configuration": "Debug"
+            "name": "simulation",
+            "configurePreset": "simulation"
         },
         {
-            "name": "clang-tidy",
-            "configurePreset": "clang-tidy",
-            "configuration": "Release",
-            "nativeToolOptions": [
-                "-k0"
-            ]
+            "name": "simulation-no-tools",
+            "configurePreset": "simulation-no-tools"
         },
         {
-            "name": "clang-tidy-fix",
-            "configurePreset": "clang-tidy-fix",
-            "configuration": "Release",
-            "nativeToolOptions": [
-                "-j1",
-                "-k0"
-            ]
+            "name": "release",
+            "configurePreset": "release"
         },
         {
-            "name": "clang-tidy-fix-parallel",
-            "configurePreset": "clang-tidy-fix-parallel",
-            "configuration": "Release",
-            "nativeToolOptions": [
-                "-k0"
-            ]
+            "name": "release-no-clang-tidy",
+            "configurePreset": "release-no-clang-tidy"
+        },
+        {
+            "name": "all",
+            "configurePreset": "all"
+        },
+        {
+            "name": "all-no-pip",
+            "configurePreset": "all-no-pip"
+        },
+        {
+            "name": "code-analysis",
+            "configurePreset": "code-analysis"
         }
     ]
 }

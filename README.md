@@ -62,10 +62,34 @@ cmake --build build
 ```
 
 To build all components (some are turned off by default, like tests), you can run these commands:
+<!-- TODO: Cannot be replaced with `all` preset, check the comment on BUILD_ALL in CMake -->
 ```
 cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
 cmake --build build
 ```
+
+#### CMake presets
+
+`CMakePresets.json` defines presets for common configurations. All of them use Ninja and build into `build/`:
+
+| Preset | Description |
+|--------|-------------|
+| `tests` | Tests and tools, without simulation, Python or clang-tidy |
+| `simulation` | `tests` with simulation support |
+| `simulation-no-tools` | `simulation` without tools |
+| `release` | Library and Python bindings, as shipped in release packages |
+| `release-no-clang-tidy` | `release` without clang-tidy |
+| `all` | All components, including the pip package and Tracy |
+| `all-no-pip` | `all` without the pip package |
+| `code-analysis` | Debug `simulation` build with clang-20 and clang-tidy, used by the code-analysis CI job |
+
+Each configure preset has a build preset of the same name:
+```
+cmake --preset tests
+cmake --build --preset tests
+```
+
+Run `cmake --list-presets` to see the available presets.
 
 To build with GCC, set these environment variables before invoking `cmake`:
 ```

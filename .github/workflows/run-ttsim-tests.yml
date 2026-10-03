@@ -248,21 +248,13 @@ jobs:
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x32/soc_descriptor.yaml
 
       - name: Build UMD api_tests, microbenchmark, sim_server and Python bindings with simulation support
+        # Build presets are looked up in the current directory, so run from the UMD checkout.
+        working-directory: tt-metal/tt_metal/third_party/umd
         run: |
-          cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
-            -S tt-metal/tt_metal/third_party/umd \
-            -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=ON \
-            -DTT_UMD_BUILD_PYTHON=ON \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=ON \
-            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-            -DTT_UMD_ENABLE_TRACY=OFF \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake --preset simulation
           # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
           # builds the tools with simulation OFF, which excludes it).
-          cmake --build tt-metal/tt_metal/third_party/umd/build \
-            --target api_tests umd_microbenchmark sim_server nanobind_tt_umd
+          cmake --build --preset simulation --target api_tests umd_microbenchmark sim_server nanobind_tt_umd
 
       # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
       # which is the case where a host with no chips would serve no sockets and still look like it started.
@@ -653,17 +645,8 @@ jobs:
 
       - name: Build UMD api_tests with simulation support
         run: |
-          cmake -B build -G Ninja \
-            -S . \
-            -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=ON \
-            -DTT_UMD_BUILD_PYTHON=OFF \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
-            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-            -DTT_UMD_ENABLE_TRACY=OFF \
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target api_tests
+          cmake --preset simulation-no-tools
+          cmake --build --preset simulation-no-tools --target api_tests
 
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1

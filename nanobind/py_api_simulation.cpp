@@ -10,6 +10,7 @@
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/vector.h>
 
@@ -50,8 +51,8 @@ void bind_simulation(nb::module_ &m) {
         .def_rw(
             "cluster_descriptor",
             &SimulationConnectorOptions::cluster_descriptor,
-            "Connectivity/topology used to configure the simulator on the host path. Optional; a client takes the "
-            "topology from the host instead.")
+            "Not used: a host reports and serves the simulator's own topology (and warns when this is set); a "
+            "client takes the topology from the host.")
         .def_rw("num_host_mem_channels", &SimulationConnectorOptions::num_host_mem_channels);
 
     nb::class_<SimulationServerInfo>(m, "SimulationServerInfo")
@@ -126,12 +127,14 @@ void bind_simulation(nb::module_ &m) {
             "discover",
             [](const SimulationConnectorOptions &options) {
                 SimulationConnector::Result result = SimulationConnector::discover(options);
-                return std::make_pair(std::move(result.connection), std::move(result.devices));
+                return std::make_tuple(
+                    std::move(result.connection), std::move(result.devices), std::move(result.cluster_descriptor));
             },
             nb::arg("options"),
             release_gil(),
-            "Opens the simulated devices for these options. Returns (connection, {chip_id: TTDevice}) -- the "
-            "connection says which role this process took and what simulator is behind it.")
+            "Opens the simulated devices for these options. Returns (connection, {chip_id: TTDevice}, "
+            "cluster_descriptor) -- the connection says which role this process took and what simulator is behind "
+            "it, and the cluster descriptor is the topology those devices sit in.")
         .def_static(
             "allocate_server_directory",
             &SimulationConnector::allocate_server_directory,

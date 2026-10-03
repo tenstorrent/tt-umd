@@ -51,8 +51,11 @@ void SimulationTTDevice::detach_client() {
 }
 
 void SimulationTTDevice::adopt_socket(
-    std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler) {
+    std::unique_ptr<SimulationServerSocket> socket,
+    std::string cluster_descriptor_yaml,
+    std::function<void()> shutdown_handler) {
     socket_ = std::move(socket);
+    served_cluster_descriptor_yaml_ = std::move(cluster_descriptor_yaml);
     // Begin serving remote clients now that the backend is up. The shutdown handler is captured into
     // the request handler here, before serving starts, so it is fixed for the socket's lifetime and
     // the serving threads read it without synchronization.
@@ -78,17 +81,13 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
         }
     }
 
-    // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
-    // YAML (empty when the build ships none) so a client can rebuild the full topology.
+    // GetClusterDescriptor also returns its own wire message; serve the topology the host was handed
+    // in adopt_socket(), rather than re-deriving one here, so every client sees the host's cluster.
     if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
-        try {
-            return encode(describe_cluster(simulator_directory_));
-        } catch (const std::exception& e) {
-            log_warning(tt::LogUMD, "Simulation host failed to serve cluster descriptor: {}", e.what());
-            SimulationServerClusterDescriptor cluster_descriptor;
-            cluster_descriptor.status = -1;
-            return encode(cluster_descriptor);
-        }
+        SimulationServerClusterDescriptor cluster_descriptor;
+        cluster_descriptor.status = 0;
+        cluster_descriptor.yaml = served_cluster_descriptor_yaml_;
+        return encode(cluster_descriptor);
     }
 
     // Shutdown: invoke the opt-in handler (a dedicated server passes one to adopt_socket() to signal

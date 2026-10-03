@@ -32,7 +32,12 @@ target_link_libraries(baremetal_tests PRIVATE test_common)
 # ATT map fidelity test parses the vendored tables itself. Take the include path alone: linking
 # the library would place a second copy of it in this binary beside the one already inside
 # libtt-umd.so, which ASan reports as an ODR violation on YAML::Exception's typeinfo.
+# When yaml-cpp is a shared system library, it is not inside libtt-umd.so, so link it.
 target_include_directories(baremetal_tests PRIVATE $<TARGET_PROPERTY:yaml-cpp::yaml-cpp,INTERFACE_INCLUDE_DIRECTORIES>)
+get_target_property(YAML_CPP_TYPE yaml-cpp::yaml-cpp TYPE)
+if(YAML_CPP_TYPE STREQUAL "SHARED_LIBRARY")
+    target_link_libraries(baremetal_tests PRIVATE yaml-cpp::yaml-cpp)
+endif()
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
     target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)

@@ -12,6 +12,7 @@
 
 #include "tracy.hpp"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -53,7 +54,14 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // before passing to configure_tlb.
     tlb_data cfg_data = new_config;
     cfg_data.local_offset = cfg_data.local_offset / get_size();
+
+    // EXPERIMENT (tt-metal#58148): drain earlier WC payload before retargeting this TLB.
+    tt_driver_atomics::sfence();
+
     pci_device_.configure_tlb(tlb_id_, cfg_data, get_verify_config());
+
+    // EXPERIMENT (tt-metal#58148): prevent following WC accesses from crossing the retarget.
+    tt_driver_atomics::sfence();
 
     tlb_config_ = new_config;
 }

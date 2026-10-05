@@ -37,8 +37,8 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
         communicator_->tile_write_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size));
         return;
     }
-    // Flat addresses: the address names the destination and the simulator moves whole words, so a
-    // partial first or last word is read, merged and written back (see word_access.hpp).
+    // In flat-address mode the address alone names the destination, and the simulator moves whole
+    // words, so a partial first or last word is read, merged and written back (see word_access.hpp).
     const uint64_t flat_addr = att::resolve_translated(*resolver_, *soc_descriptor_, core, device_addr, size);
     write_bytes_as_words(
         flat_addr,

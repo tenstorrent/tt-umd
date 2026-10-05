@@ -134,9 +134,8 @@ TEST(TlbWindowFlags, PartiallySupportedFlagSetIsRejected) {
     EXPECT_EQ(window.get_target_config().flags, WindowFlags::None);
 }
 
-// The _reconfigure family drives the window with the tlb_data overload of configure(), which knows
-// nothing about flags. Flags are window state, so they have to survive it -- otherwise a transfer
-// large enough to be split into chunks would lose snoop partway through.
+// The tlb_data overload of configure() only moves the mapping and knows nothing about flags. Flags
+// are window state, so they have to survive it -- otherwise retargeting a window would lose snoop.
 TEST(TlbWindowFlags, FlagsSurviveTlbDataReconfigure) {
     FakeTlbWindow window(WindowFlags::Snoop);
 

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -47,7 +49,7 @@ struct DmaStatus {
     uint64_t magic;          // KERNEL_MAGIC once the kernel is up.
     uint64_t state;          // One of the STATE_ values below.
     uint64_t txn_id;         // Request that state refers to; 0 before the first one.
-    uint64_t detail;         // DMA_DONE: the ROUTE_ taken. INVALID: why. DMA_ERROR / DMA_TIMEOUT: DMAC status.
+    uint64_t detail;         // DMA_STARTED: bytes done. DMA_DONE: the ROUTE_ taken. INVALID: why. Else DMAC status.
     uint64_t elapsed_ticks;  // mtime ticks (50 MHz) from doorbell seen to transfer done.
     uint64_t mcause;         // These three only when state is STATE_TRAP.
     uint64_t mepc;
@@ -58,7 +60,7 @@ static_assert(sizeof(DmaStatus) == CACHE_LINE);
 constexpr uint64_t STATUS = MAILBOX + sizeof(DmaRequest);
 
 // Low 16 bits are the mailbox ABI version. A kernel with another version must not be driven by this test.
-constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0002;
+constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0003;
 
 constexpr uint64_t STATE_READY = 1;        // Up and waiting for a doorbell.
 constexpr uint64_t STATE_RECEIVED = 2;     // Saw the doorbell, checking the request.
@@ -111,38 +113,44 @@ bool is_terminal(uint64_t state) {
 // from L2CPU0 over the NOC (tt-llm-engine src/test_noc.c); untested targets risk a hang that needs `tt-smi -r`.
 const tt_xy_pair REMOTE_DRAM = {9, 8};
 
-// Source block, at this offset in whichever DRAM tile is the source. 16 MiB in: far from the kernel and the mailbox,
-// and inside the first 256 MiB, which the DMAC's direct route reaches through DMA_TLB[0] = 0
-// (x280_experiments/02_dmac/DMAC_GUIDE.md section 3).
+// Source block, at this offset in whichever DRAM tile is the source. 16 MiB in: far from the kernel and the mailbox.
 constexpr uint64_t SRC_OFFSET = 0x0100'0000;
 
-// The transfer lands in the middle of a one-page host buffer. The bytes before and after it stay poisoned, so a copy
-// that is too long, too short or misplaced shows up. One page also works without an IOMMU, where KMD maps at most a
-// page to the NOC.
-constexpr size_t HOST_BUFFER_SIZE = 4096;
-constexpr size_t DST_OFFSET = 1024;
-constexpr size_t DMA_SIZE = 2048;
+// Both fixtures copy the same 1 GiB, so their times compare directly. At this size the kernel's per-chunk setup and
+// the host's 1 ms polling are small next to the transfer.
+constexpr size_t DMA_SIZE = 1ULL << 30;
+
+// The transfer lands one page into the pinned host buffer, with a poisoned page before and after it, so a copy that
+// is too long, too short or misplaced shows up.
+constexpr size_t GUARD_SIZE = 4096;
+constexpr size_t DST_OFFSET = GUARD_SIZE;
+constexpr size_t HOST_BUFFER_SIZE = GUARD_SIZE + DMA_SIZE + GUARD_SIZE;
 constexpr uint32_t POISON = 0xBAAD'F00D;
 
-// The kernel's TLB windows are 2 MiB; neither source nor destination may cross one.
-constexpr uint64_t NOC_WINDOW_SIZE = 2ULL << 20;
+// The source is written in pieces, so the pattern never exists in full on the host. Only both ends are read back:
+// host MMIO reads run at tens of MiB/s, which would make a full read-back take most of a minute.
+constexpr size_t PLANT_CHUNK = 64ULL << 20;
+constexpr size_t SRC_CHECK_SIZE = 64 * 1024;
 
 constexpr auto READY_TIMEOUT = std::chrono::seconds(5);
-constexpr auto DMA_TIMEOUT = std::chrono::seconds(5);
 constexpr auto POLL_INTERVAL = std::chrono::milliseconds(1);
 
-// After DMA_DONE, how long to keep re-reading a host buffer that does not match yet. Posted PCIe writes could still
-// be in flight when the done flag lands, so a late match is reported rather than failed.
-constexpr auto LATE_DATA_GRACE = std::chrono::milliseconds(100);
+// The kernel gives up on any 2 MiB chunk after 2 s and reports bytes done while it runs, so the host fails a request
+// only when that count stops moving, or when the whole request takes absurdly long.
+constexpr auto STALL_TIMEOUT = std::chrono::seconds(10);
+constexpr auto DMA_TIMEOUT = std::chrono::minutes(10);
+constexpr auto PROGRESS_INTERVAL = std::chrono::seconds(5);
 
-// Distinct per word and per request, so stale data from an earlier run cannot pass.
-std::vector<uint32_t> make_pattern(size_t bytes, uint64_t txn_id) {
-    std::vector<uint32_t> words(bytes / sizeof(uint32_t));
-    for (size_t i = 0; i < words.size(); i++) {
-        words[i] = static_cast<uint32_t>(i * 0x9E37'79B9U) ^ static_cast<uint32_t>(txn_id << 24);
-    }
-    return words;
+// After DMA_DONE, how long to keep re-checking a host buffer that does not match yet. Posted PCIe writes could still
+// be in flight when the done flag lands, so a late match is reported rather than failed.
+constexpr auto LATE_DATA_GRACE = std::chrono::seconds(1);
+
+// Word i of the source block for a request: distinct per word and per request, so stale data cannot pass.
+uint32_t pattern_word(size_t i, uint64_t txn_id) {
+    return static_cast<uint32_t>(i * 0x9E37'79B9U) ^ static_cast<uint32_t>(txn_id << 24);
 }
+
+double gb_per_s(size_t bytes, double seconds) { return seconds > 0 ? bytes / seconds / 1e9 : 0; }
 
 // Boots the DMA kernel on L2CPU tile IDX, or attaches to it when an earlier test or run already booted it: a tile
 // can leave reset only once per chip reset, and the kernel stays resident between requests. Then copies one block to
@@ -156,6 +164,10 @@ protected:
         L2CPUDeviceTest::SetUp();
         if (IsSkipped()) {
             return;
+        }
+        // Without an IOMMU, KMD maps at most one page of host memory to the NOC.
+        if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
+            GTEST_SKIP() << "A " << (DMA_SIZE >> 20) << " MiB pinned host buffer needs the IOMMU, which is off.";
         }
         // No hugepage or IOMMU channels: the tests only need their own buffers.
         sysmem_manager_ = std::make_unique<SiliconSysmemManager>(tt_device_.get(), 0);
@@ -202,7 +214,7 @@ protected:
                 state_name(status.state),
                 status.txn_id);
             ASSERT_EQ(status.magic, KERNEL_MAGIC)
-                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v2). Run `tt-smi -r` first.";
+                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v3). Run `tt-smi -r` first.";
             if (status.state == STATE_TRAP) {
                 log_trap(status);
             }
@@ -257,47 +269,63 @@ protected:
         next_txn_id_ = 1;
     }
 
-    // Plants DMA_SIZE bytes at src_dram SRC_OFFSET, has the kernel copy them into a fresh pinned host buffer, and
-    // checks the buffer and the route the kernel reports. Call through ASSERT_NO_FATAL_FAILURE after boot_or_attach.
+    // Plants DMA_SIZE bytes at src_dram SRC_OFFSET, has the kernel copy them into a fresh pinned host buffer, checks
+    // the buffer and the route the kernel reports, and logs and records the times. Call through
+    // ASSERT_NO_FATAL_FAILURE after boot_or_attach.
     void dram_to_host(const CoreCoord& src_dram, uint64_t expected_route) {
         const SocDescriptor& soc_desc = tt_device_->get_soc_descriptor();
         ASSERT_TRUE(soc_desc.is_core_of_type(src_dram, CoreType::DRAM, CoordSystem::NOC0))
             << src_dram.str() << " is not a live DRAM tile on this chip.";
 
-        // A pinned host buffer with a NOC address that one TLB window covers.
+        // A pinned host buffer with a NOC address.
         std::unique_ptr<SysmemBuffer> host_buffer = sysmem_manager_->allocate_sysmem_buffer(HOST_BUFFER_SIZE, true);
         ASSERT_TRUE(host_buffer->get_noc_address().has_value()) << "KMD gave the host buffer no NOC address.";
         const uint64_t dst_noc_addr = host_buffer->get_noc_address().value() + DST_OFFSET;
-        ASSERT_LE(dst_noc_addr % NOC_WINDOW_SIZE + DMA_SIZE, NOC_WINDOW_SIZE)
-            << "Destination 0x" << std::hex << dst_noc_addr << " + 0x" << DMA_SIZE << " crosses a 2 MiB window.";
+        uint32_t* const host_words = static_cast<uint32_t*>(host_buffer->get_va());
 
         const CoreCoord pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::NOC0).at(0);
         log_info(
             tt::LogUMD,
-            "Host buffer: {} B, IOVA 0x{:x}, NOC address 0x{:x} at PCIe tile {} (TRANSLATED {}); IOMMU {}.",
-            HOST_BUFFER_SIZE,
+            "Host buffer: {} MiB, IOVA 0x{:x}, NOC address 0x{:x} at PCIe tile {} (TRANSLATED {}).",
+            HOST_BUFFER_SIZE >> 20,
             host_buffer->get_iova(),
             host_buffer->get_noc_address().value(),
             pcie_core.str(),
-            soc_desc.translate_coord_to(pcie_core, CoordSystem::TRANSLATED).str(),
-            tt_device_->get_pci_device()->is_iommu_enabled() ? "on" : "off");
+            soc_desc.translate_coord_to(pcie_core, CoordSystem::TRANSLATED).str());
 
-        // Plant the source block and read it back. Poison the whole host buffer.
+        // Plant the source block piece by piece, then read back both ends. Poison the whole host buffer.
         const uint64_t txn_id = next_txn_id_++;
-        const std::vector<uint32_t> pattern = make_pattern(DMA_SIZE, txn_id);
-        tt_device_->write_to_device(pattern.data(), src_dram, SRC_OFFSET, DMA_SIZE);
-        std::vector<uint32_t> src_readback(pattern.size());
-        tt_device_->read_from_device(src_readback.data(), src_dram, SRC_OFFSET, DMA_SIZE);
-        ASSERT_EQ(src_readback, pattern) << "Source block at DRAM " << src_dram.str() << " reads back wrong.";
+        const auto plant_start = std::chrono::steady_clock::now();
+        std::vector<uint32_t> piece(PLANT_CHUNK / sizeof(uint32_t));
+        for (size_t offset = 0; offset < DMA_SIZE; offset += PLANT_CHUNK) {
+            const size_t first_word = offset / sizeof(uint32_t);
+            for (size_t i = 0; i < piece.size(); i++) {
+                piece[i] = pattern_word(first_word + i, txn_id);
+            }
+            tt_device_->write_to_device(piece.data(), src_dram, SRC_OFFSET + offset, PLANT_CHUNK);
+        }
+        const double plant_s =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - plant_start).count();
 
-        const std::vector<uint32_t> poison(HOST_BUFFER_SIZE / sizeof(uint32_t), POISON);
-        host_buffer->write_to_sysmem(poison.data(), HOST_BUFFER_SIZE, 0);
+        for (const size_t offset : {size_t{0}, DMA_SIZE - SRC_CHECK_SIZE}) {
+            std::vector<uint32_t> readback(SRC_CHECK_SIZE / sizeof(uint32_t));
+            tt_device_->read_from_device(readback.data(), src_dram, SRC_OFFSET + offset, SRC_CHECK_SIZE);
+            for (size_t i = 0; i < readback.size(); i++) {
+                ASSERT_EQ(readback[i], pattern_word(offset / sizeof(uint32_t) + i, txn_id))
+                    << "Source block at DRAM " << src_dram.str() << " reads back wrong at +0x" << std::hex
+                    << offset + i * sizeof(uint32_t) << ".";
+            }
+        }
+
+        std::fill(host_words, host_words + HOST_BUFFER_SIZE / sizeof(uint32_t), POISON);
         log_info(
             tt::LogUMD,
-            "Planted {} B at DRAM {} 0x{:x}, poisoned the host buffer.",
-            DMA_SIZE,
+            "Planted {} MiB at DRAM {} 0x{:x} in {:.2f} s ({:.2f} GB/s host to device), poisoned the host buffer.",
+            DMA_SIZE >> 20,
             src_dram.str(),
-            SRC_OFFSET);
+            SRC_OFFSET,
+            plant_s,
+            gb_per_s(DMA_SIZE, plant_s));
 
         // Fill the request, read it back, then ring the doorbell. The read-back makes sure the request is in DRAM
         // before the doorbell write is sent.
@@ -322,41 +350,66 @@ protected:
         const auto rung_at = std::chrono::steady_clock::now();
         log_info(
             tt::LogUMD,
-            "Rang doorbell for txn {}: {} B from DRAM {} 0x{:x} to NOC 0x{:x} at {}.",
+            "Rang doorbell for txn {}: {} MiB from DRAM {} 0x{:x} to NOC 0x{:x} at {}.",
             txn_id,
-            DMA_SIZE,
+            DMA_SIZE >> 20,
             src_dram.str(),
             SRC_OFFSET,
             dst_noc_addr,
             pcie_core.str());
 
         // Poll the status line until this request reaches a terminal state or the kernel traps. Log every state
-        // seen on the way; with 1 ms polling the short ones may be missed.
+        // change and, while the copy runs, its progress. Fail if the bytes-done count stops moving.
         DmaStatus status = read_status();
         bool finished = false;
         uint64_t last_state = status.state;
-        const auto deadline = rung_at + DMA_TIMEOUT;
-        while (std::chrono::steady_clock::now() < deadline) {
+        uint64_t last_progress = 0;
+        auto progress_at = rung_at;
+        auto logged_at = rung_at;
+        const char* stop_reason = "the request deadline passed";
+        while (std::chrono::steady_clock::now() < rung_at + DMA_TIMEOUT) {
             status = read_status();
+            const auto now = std::chrono::steady_clock::now();
             if (status.state != last_state) {
                 log_info(
                     tt::LogUMD, "Kernel state {} ({}), txn {}.", status.state, state_name(status.state), status.txn_id);
                 last_state = status.state;
+                progress_at = now;
             }
             if (status.txn_id == txn_id && (status.state == STATE_TRAP || is_terminal(status.state))) {
                 finished = true;
                 break;
             }
+            if (status.txn_id == txn_id && status.state == STATE_DMA_STARTED) {
+                if (status.detail != last_progress) {
+                    last_progress = status.detail;
+                    progress_at = now;
+                }
+                if (now - logged_at >= PROGRESS_INTERVAL) {
+                    log_info(
+                        tt::LogUMD,
+                        "Txn {}: {} of {} MiB copied after {:.1f} s.",
+                        txn_id,
+                        last_progress >> 20,
+                        DMA_SIZE >> 20,
+                        std::chrono::duration<double>(now - rung_at).count());
+                    logged_at = now;
+                }
+            }
+            if (now - progress_at >= STALL_TIMEOUT) {
+                stop_reason = "the kernel stopped making progress";
+                break;
+            }
             std::this_thread::sleep_for(POLL_INTERVAL);
         }
-        const auto host_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - rung_at);
+        const double host_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - rung_at).count();
 
         if (!finished) {
             // The DMAC may still write into the buffer later, so it must stay pinned: leak it on purpose.
             static_cast<void>(host_buffer.release());
-            FAIL() << "No terminal state for txn " << txn_id << " within " << DMA_TIMEOUT.count() << " s; last state "
-                   << state_name(status.state) << " for txn " << status.txn_id << ". Host buffer left pinned.";
+            FAIL() << "No terminal state for txn " << txn_id << ": " << stop_reason << " after " << host_s
+                   << " s; last state " << state_name(status.state) << " for txn " << status.txn_id << ", "
+                   << (last_progress >> 20) << " MiB copied. Host buffer left pinned.";
         }
         if (status.state == STATE_TRAP) {
             log_trap(status);
@@ -364,66 +417,81 @@ protected:
         ASSERT_EQ(status.state, STATE_DMA_DONE)
             << "Txn " << txn_id << " ended " << state_name(status.state) << ", detail 0x" << std::hex << status.detail
             << ".";
-        log_info(
-            tt::LogUMD,
-            "Txn {} DMA_DONE via {} read: kernel {} ticks ({:.1f} us at 50 MHz), host saw it after {} us.",
-            txn_id,
-            route_name(status.detail),
-            status.elapsed_ticks,
-            status.elapsed_ticks / 50.0,
-            host_us.count());
         EXPECT_EQ(status.detail, expected_route) << "The kernel read the source by the " << route_name(status.detail)
                                                  << " route, expected " << route_name(expected_route) << ".";
 
-        // Check the host buffer: the pattern at DST_OFFSET, poison everywhere else. If it does not match at once,
-        // keep re-reading for LATE_DATA_GRACE to tell data that arrived after the done flag from data that never
-        // arrived.
-        std::vector<uint32_t> expected = poison;
-        std::copy(pattern.begin(), pattern.end(), expected.begin() + DST_OFFSET / sizeof(uint32_t));
-        std::vector<uint32_t> received(expected.size());
-        auto read_host_buffer = [&] {
-            host_buffer->read_from_sysmem(received.data(), HOST_BUFFER_SIZE, 0);
-            return received == expected;
+        // Times: the kernel's, from doorbell seen to transfer done (mtime, 50 MHz), and the host's, from the doorbell
+        // write to seeing DMA_DONE (1 ms polling).
+        const double kernel_s = static_cast<double>(status.elapsed_ticks) / 50e6;
+        log_info(
+            tt::LogUMD,
+            "D2H {} read, {} MiB from DRAM {}: kernel {:.3f} ms ({:.3f} GB/s), host {:.3f} ms ({:.3f} GB/s).",
+            route_name(status.detail),
+            DMA_SIZE >> 20,
+            src_dram.str(),
+            kernel_s * 1e3,
+            gb_per_s(DMA_SIZE, kernel_s),
+            host_s * 1e3,
+            gb_per_s(DMA_SIZE, host_s));
+        RecordProperty("route", route_name(status.detail));
+        RecordProperty("bytes", std::to_string(DMA_SIZE));
+        RecordProperty("kernel_ticks", std::to_string(status.elapsed_ticks));
+        RecordProperty("kernel_ms", fmt::format("{:.3f}", kernel_s * 1e3));
+        RecordProperty("kernel_gb_per_s", fmt::format("{:.3f}", gb_per_s(DMA_SIZE, kernel_s)));
+        RecordProperty("host_ms", fmt::format("{:.3f}", host_s * 1e3));
+        RecordProperty("host_gb_per_s", fmt::format("{:.3f}", gb_per_s(DMA_SIZE, host_s)));
+
+        // Check the host buffer in place: the pattern at DST_OFFSET, poison in the guard pages. If it does not match
+        // at once, keep re-checking for LATE_DATA_GRACE to tell data that arrived after the done flag from data that
+        // never arrived.
+        const size_t total_words = HOST_BUFFER_SIZE / sizeof(uint32_t);
+        const size_t first_transfer_word = DST_OFFSET / sizeof(uint32_t);
+        const size_t end_transfer_word = first_transfer_word + DMA_SIZE / sizeof(uint32_t);
+        auto expected_word = [&](size_t i) {
+            return i >= first_transfer_word && i < end_transfer_word ? pattern_word(i - first_transfer_word, txn_id)
+                                                                      : POISON;
         };
-
-        const auto done_seen_at = std::chrono::steady_clock::now();
-        bool matches = read_host_buffer();
-        while (!matches && std::chrono::steady_clock::now() < done_seen_at + LATE_DATA_GRACE) {
-            std::this_thread::sleep_for(POLL_INTERVAL);
-            matches = read_host_buffer();
-        }
-        const auto late_us =
-            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - done_seen_at);
-        if (matches && late_us >= POLL_INTERVAL) {
-            log_warning(
-                tt::LogUMD,
-                "Host buffer matched only {} us after DMA_DONE was seen: the done flag overtook the data.",
-                late_us.count());
-        }
-
-        if (!matches) {
+        auto count_mismatches = [&](bool log_first) {
             size_t mismatches = 0;
-            for (size_t i = 0; i < expected.size(); i++) {
-                if (received[i] == expected[i]) {
+            for (size_t i = 0; i < total_words; i++) {
+                const uint32_t expected = expected_word(i);
+                if (host_words[i] == expected) {
                     continue;
                 }
-                if (mismatches < 8) {
-                    const bool in_transfer =
-                        i * sizeof(uint32_t) >= DST_OFFSET && i * sizeof(uint32_t) < DST_OFFSET + DMA_SIZE;
+                if (log_first && mismatches < 8) {
+                    const bool in_transfer = i >= first_transfer_word && i < end_transfer_word;
                     log_warning(
                         tt::LogUMD,
                         "Host buffer +0x{:x} ({}): 0x{:08x}, expected 0x{:08x}.",
                         i * sizeof(uint32_t),
                         in_transfer ? "transfer" : "guard",
-                        received[i],
-                        expected[i]);
+                        host_words[i],
+                        expected);
                 }
                 mismatches++;
             }
-            log_warning(tt::LogUMD, "{} of {} words differ.", mismatches, expected.size());
+            return mismatches;
+        };
+
+        const auto done_seen_at = std::chrono::steady_clock::now();
+        size_t mismatches = count_mismatches(false);
+        const bool matched_at_once = mismatches == 0;
+        while (mismatches != 0 && std::chrono::steady_clock::now() < done_seen_at + LATE_DATA_GRACE) {
+            std::this_thread::sleep_for(POLL_INTERVAL);
+            mismatches = count_mismatches(false);
         }
-        EXPECT_TRUE(matches) << "The host buffer does not hold the source block at +0x" << std::hex << DST_OFFSET
-                             << " with poison around it; see the log.";
+        if (mismatches == 0 && !matched_at_once) {
+            log_warning(
+                tt::LogUMD,
+                "Host buffer matched only {:.1f} ms after DMA_DONE was seen: the done flag overtook the data.",
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - done_seen_at).count());
+        }
+        if (mismatches != 0) {
+            count_mismatches(true);
+            log_warning(tt::LogUMD, "{} of {} words differ.", mismatches, total_words);
+        }
+        EXPECT_EQ(mismatches, 0U) << "The host buffer does not hold the source block at +0x" << std::hex << DST_OFFSET
+                                  << " with poison around it; see the log.";
     }
 
     std::unique_ptr<SiliconSysmemManager> sysmem_manager_;

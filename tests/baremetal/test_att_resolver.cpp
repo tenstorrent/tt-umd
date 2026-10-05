@@ -237,6 +237,18 @@ TEST(AttResolveCore, ResolvesATypedCoreCoord) {
     EXPECT_EQ(att::resolve_core(resolver, soc_descriptor, core, 0x1000, 4), 0x10000001000ULL);
 }
 
+TEST(AttResolveCore, ResolvesATranslatedCoordinateThroughTheDescriptorFrame) {
+    const SocDescriptor soc_descriptor = quasar_soc_descriptor();
+    const att::EndpointResolver resolver(att::GRENDEL_QSR1_MAP);
+
+    // A translated (2, 2) is converted to the descriptor's frame before the lookup. Quasar's
+    // translated mapping is the identity today, so it reaches the same tile as NOC0 (2, 2).
+    const CoreCoord typed(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    EXPECT_EQ(
+        att::resolve_translated(resolver, soc_descriptor, tt_xy_pair(2, 2), 0x1000, 4),
+        att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
+}
+
 TEST(AttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) {
     const SocDescriptor soc_descriptor = quasar_soc_descriptor();
     const att::EndpointResolver resolver(att::GRENDEL_QSR1_MAP);

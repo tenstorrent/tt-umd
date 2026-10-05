@@ -178,7 +178,7 @@ void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, co
         return;
     }
     if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+        addr = att::resolve_translated(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
@@ -196,7 +196,7 @@ void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, voi
         return;
     }
     if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+        addr = att::resolve_translated(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());

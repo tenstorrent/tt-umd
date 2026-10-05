@@ -154,4 +154,14 @@ uint64_t resolve_core(
     return resolver.resolve(descriptor_core, core_type, offset, size);
 }
 
+uint64_t resolve_translated(
+    const EndpointResolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    tt_xy_pair core,
+    uint64_t offset,
+    uint64_t size) {
+    const CoreCoord core_coord = soc_descriptor.get_coord_at(core, CoordSystem::TRANSLATED);
+    return resolve_core(resolver, soc_descriptor, core_coord, offset, size);
+}
+
 }  // namespace tt::umd::att

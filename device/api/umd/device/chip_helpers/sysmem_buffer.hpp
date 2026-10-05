@@ -93,14 +93,18 @@ public:
      * Returns the virtual address of the buffer in the process address space.
      * Both in case of aligned and unaligned buffers, this will return the original buffer address.
      */
-    void* get_buffer_va() const;
+    void* get_va() const;
+
+    [[deprecated("Use get_va() instead.")]] void* get_buffer_va() const { return get_va(); }
 
     /**
      * Returns the size of the buffer passed by the user.
      *
      * @return Size of the buffer passed by the user.
      */
-    size_t get_buffer_size() const;
+    size_t get_size() const;
+
+    [[deprecated("Use get_size() instead.")]] size_t get_buffer_size() const { return get_size(); }
 
     /**
      * Returns device IOVA (IO virtual address) of the buffer on the offset from the start of the buffer.
@@ -108,9 +112,21 @@ public:
      * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
      * @return Device IOVA of the buffer on the offset from the start of the buffer.
      */
-    uint64_t get_device_io_addr(const size_t offset = 0) const;
+    uint64_t get_iova(const size_t offset = 0) const;
 
-    std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+    [[deprecated("Use get_iova() instead.")]] uint64_t get_device_io_addr(const size_t offset = 0) const {
+        return get_iova(offset);
+    }
+
+    /**
+     * Returns the NOC address through which every tile on the device can reach this buffer, or std::nullopt
+     * until the buffer is bound, either at pin time or by bind_noc_address().
+     */
+    std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
+
+    [[deprecated("Use get_noc_address() instead.")]] std::optional<uint64_t> get_noc_addr() const {
+        return get_noc_address();
+    }
 
     /**
      * Binds a NOC address to this buffer, so every tile on the device can reach it rather than only the
@@ -161,9 +177,9 @@ private:
     /**
      * Constructs a buffer over host memory the allocator has already pinned for the device.
      *
-     * Alignment stays invisible to the user: get_buffer_va() and get_buffer_size() report what was
-     * passed in, and offsets are bounded by that size. The allocator must pin the same aligned range,
-     * which it computes with page_align().
+     * Alignment stays invisible to the user: get_va() and get_size() report what was passed in, and
+     * offsets are bounded by that size. The allocator must pin the same aligned range, which it
+     * computes with page_align().
      *
      * @param tt_device Device this buffer belongs to, used for the zero-copy DMA helpers. May be null for
      * buffers never used for DMA, such as the simulator's.

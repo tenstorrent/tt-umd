@@ -20,12 +20,13 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
-#include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "common/utils.hpp"
+#include "firmware/erisc_firmware.hpp"
+#include "topology/topology_discovery_blackhole.hpp"
+#include "topology/topology_discovery_wormhole.hpp"
+#include "topology/topology_utils.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -36,7 +37,6 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"

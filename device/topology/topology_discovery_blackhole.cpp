@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "topology/topology_discovery_blackhole.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -12,9 +12,9 @@
 #include <utility>
 #include <vector>
 
+#include "firmware/erisc_firmware.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"

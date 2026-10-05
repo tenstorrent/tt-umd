@@ -7,25 +7,28 @@
 
 #include <cstdint>
 
+#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
-#include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class DeviceProtocol;
 enum class NocId : uint8_t;
 
-// Wormhole variant: reads BAR and NOC node ID from the ARC tile.
-class WormholeHangDetector : public HangDetectorImplementation {
+// Blackhole variant: reads BAR and NOC node ID from the PCIe tile.
+// NOC1 hang detection requires knowing whether NOC translation is enabled,
+// because the PCIe tile y-coordinate differs (0 vs 11).
+class BlackholeHangDetector : public HangDetectorImplementation {
 public:
-    WormholeHangDetector(DeviceProtocol* protocol);
+    BlackholeHangDetector(DeviceProtocol* protocol, bool noc_translation_enabled);
 
 private:
     uint32_t read_hang_check_reg_via_bar() override;
     uint32_t read_hang_check_reg_via_noc(NocId noc) override;
 
-    static tt_xy_pair get_hang_check_core(NocId noc);
+    tt_xy_pair get_hang_check_core(NocId noc) const;
 
+    bool noc_translation_enabled_;
     const ArchitectureRegisters registers_;
 };
 

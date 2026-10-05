@@ -11,10 +11,12 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
+#include "umd/device/simulation/rtl_sim_session.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -39,6 +41,17 @@ public:
         ChipId chip_id,
         int num_host_mem_channels = 0);
 
+    /**
+     * Talk over @p socket, one access point of a started RtlSimSession. The socket keeps the session
+     * alive; several devices can share one session, each on its own socket.
+     */
+    RtlSimulationTTDevice(
+        const RtlSimSocket& socket,
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
+
     ~RtlSimulationTTDevice();
 
     static std::unique_ptr<RtlSimulationTTDevice> create(
@@ -51,8 +64,12 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info);
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void deassert_risc_reset(
+        CoreCoord core,
+        const RiscType selected_riscs,
+        bool staggered_start,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
@@ -65,8 +82,14 @@ protected:
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
     bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
 
 private:
+    // Install the flat-address resolver when the environment names an ATT map. Host mode only: a
+    // client hands the host a translated coordinate and a core-local address, and the host resolves
+    // it, so resolving here as well would fold the coordinate in twice.
+    void setup_noc_address_resolver();
+
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
     // the access was routed over the system NOC. These back handle_special_read/write and can grow to
     // dispatch additional special cases later.
@@ -78,6 +101,14 @@ private:
     // arguments before construction.
     RtlSimulationTTDevice(
         const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+    // Host mode over @p communicator; @p socket is empty when the communicator owns its socket.
+    RtlSimulationTTDevice(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels,
+        std::optional<RtlSimSocket> socket,
+        std::unique_ptr<RtlSimCommunicator> communicator);
 
     // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
     // host-mem channel count because the RAM callbacks need it.
@@ -89,6 +120,9 @@ private:
     // SimulationTTDevice base (pulled up there), not declared in this class.
     std::function<void()> setup_;
     std::function<void()> teardown_;
+
+    // Declared before communicator_ so the session outlives the communicator using its socket.
+    std::optional<RtlSimSocket> session_socket_;
 
     std::unique_ptr<RtlSimCommunicator> communicator_;
 };

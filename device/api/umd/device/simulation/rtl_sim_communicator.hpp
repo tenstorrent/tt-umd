@@ -10,10 +10,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 
+#include "umd/device/simulation/rtl_sim_session.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 
 namespace tt::umd {
@@ -35,6 +37,12 @@ public:
     explicit RtlSimCommunicator(const std::filesystem::path &simulator_directory);
 
     /**
+     * Communicate over @p host, one socket of an RtlSimSession that has already been started.
+     * initialize() then only starts the notification thread; the caller keeps the session alive.
+     */
+    explicit RtlSimCommunicator(SimulationHost &host);
+
+    /**
      * Destructor that properly cleans up simulation host.
      */
     ~RtlSimCommunicator();
@@ -42,7 +50,7 @@ public:
     /**
      * Initialize the simulator and establish communication.
      * Must be called before using any communication methods.
-     * This spawns the simulator process and starts the host.
+     * With the directory constructor this spawns the simulator process and waits for its ack.
      */
     void initialize();
 
@@ -72,6 +80,26 @@ public:
      * @param size Number of bytes to write
      */
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
+     * Read whole words of device memory addressed by a flat global address, for a NOC that resolves
+     * the destination from the address itself. No coordinate is sent. The simulator moves only whole
+     * words: @p addr and @p size must be multiples of 4.
+     *
+     * @param addr Global address to read from
+     * @param data Buffer to store read data
+     * @param size Number of bytes to read
+     */
+    void global_read_words(uint64_t addr, void *data, uint32_t size);
+
+    /**
+     * Write whole words of device memory addressed by a flat global address. @see global_read_words().
+     *
+     * @param addr Global address to write to
+     * @param data Data to write
+     * @param size Number of bytes to write
+     */
+    void global_write_words(uint64_t addr, const void *data, uint32_t size);
 
     /**
      * Read data from a tile core via SMN.
@@ -176,7 +204,7 @@ public:
      *
      * @return Reference to the SimulationHost
      */
-    SimulationHost &get_host() { return host_; }
+    SimulationHost &get_host() { return *host_; }
 
     // Callback for AXI RAM write: (address, data, size) -> write data into host memory.
     using RamWriteCallback = std::function<void(uint64_t address, const void *data, uint32_t size)>;
@@ -224,8 +252,11 @@ private:
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
 
+    // Single-socket session, when constructed from a simulator directory.
+    std::unique_ptr<RtlSimSession> owned_session_;
+
     // Simulation host for communication.
-    SimulationHost host_;
+    SimulationHost *host_ = nullptr;
 
     // Thread safety for send operations.
     mutable std::mutex device_lock_;

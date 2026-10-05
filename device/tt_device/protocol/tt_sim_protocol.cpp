@@ -7,9 +7,9 @@
 #include <fmt/format.h>
 #include <unistd.h>
 
+#include "tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/simulation_tt_device.hpp"
-#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 

@@ -10,7 +10,7 @@
 #include <string>
 #include <tuple>
 
-#include "umd/device/firmware/erisc_firmware.hpp"
+#include "firmware/erisc_firmware.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"

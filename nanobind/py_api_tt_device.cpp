@@ -797,6 +797,7 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -805,6 +806,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -832,6 +834,7 @@ void bind_tt_device(nb::module_ &m) {
             &RtlSimulationTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -840,6 +843,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(

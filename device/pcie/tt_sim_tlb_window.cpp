@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/pcie/tt_sim_tlb_window.hpp"
+#include "pcie/tt_sim_tlb_window.hpp"
 
 #include <functional>
 #include <memory>
 #include <utility>
 
+#include "pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"

@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <tt-logger/tt-logger.hpp>
@@ -14,20 +15,20 @@
 #include <utility>
 #include <vector>
 
+#include "pcie/tt_sim_tlb_handle.hpp"
+#include "pcie/tt_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-kmd-lib/pci_ids.h"
+#include "tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
-#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
-#include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/protocol/tt_sim_protocol.hpp"
-#include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -198,13 +199,39 @@ void TTSimTTDevice::initialize_backend() {
     // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
     // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
     // of the multichip work), which is the behaviour of the stable simulator release.
-    if (get_arch() == tt::ARCH::WORMHOLE_B0 || get_arch() == tt::ARCH::BLACKHOLE) {
-        size_t nch = sysmem_manager_->get_num_host_mem_channels();
-        for (size_t ch = 0; ch < nch; ch++) {
-            HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
-            TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
-        }
+    program_iatu_for_host_mem_channels();
+}
+
+void TTSimTTDevice::program_iatu_for_host_mem_channels() {
+    if (get_arch() != tt::ARCH::WORMHOLE_B0 && get_arch() != tt::ARCH::BLACKHOLE) {
+        return;
     }
+    size_t nch = sysmem_manager_->get_num_host_mem_channels();
+    for (size_t ch = 0; ch < nch; ch++) {
+        HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
+        TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
+    }
+    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
+    const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
+    if (arena_size > 0) {
+        // Keep the arena above channels 0..3 and WH's silicon channel-3 slot 4.
+        constexpr size_t MAPPED_ARENA_REGION = 5;
+        configure_iatu_region_at(
+            MAPPED_ARENA_REGION, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+    }
+}
+
+void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
+    auto* sim_mgr = dynamic_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    if (sim_mgr == nullptr || !sim_mgr->grow_host_mem_channels(num_host_mem_channels)) {
+        return;
+    }
+    // The added channels need new regions, and the mapped-buffer arena moves up to start after them, so
+    // its region must be re-programmed too. An existing channel's target is host_base_ + ch * 1 GiB,
+    // which does not depend on where the mapping landed, so re-programming it is harmless and keeps one
+    // path for programming the iATU.
+    program_iatu_for_host_mem_channels();
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -313,7 +340,7 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     return true;
 }
 
-void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, [[maybe_unused]] NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
@@ -332,7 +359,8 @@ void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_ri
     }
 }
 
-void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimTTDevice::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, [[maybe_unused]] NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
@@ -364,6 +392,14 @@ void TTSimTTDevice::advance_device_execution() {
 }
 
 void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    constexpr uint64_t CHANNEL_STRIDE = 1ULL << 30;
+    configure_iatu_region_at(region, uint64_t(region) * CHANNEL_STRIDE, target, region_size);
+}
+
+void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size) {
+    // CRAQ models 16 outbound regions, interleaved with 16 inbound regions in BAR2.
+    constexpr size_t OUTBOUND_IATU_REGION_COUNT = 16;
+    UMD_ASSERT(region < OUTBOUND_IATU_REGION_COUNT, error::RuntimeError, "Invalid simulator iATU region index.");
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
     // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the
@@ -373,12 +409,14 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
-    // Channels sit on a fixed 1 GiB NOC-window grid (matching SimulationSysmemManager's placement),
-    // independent of region_size. region_size is the channel's actual mapping size and only bounds the
-    // limit: keeping base on the grid means a sub-1-GiB channel (WH channel 3 = 768 MiB) still starts at
-    // the right NOC offset (region * 1 GiB) while mapping only its backed range.
-    constexpr uint64_t CHANNEL_STRIDE = 1ULL << 30;
-    const uint64_t base = uint64_t(region) * CHANNEL_STRIDE;  // region offset within the NOC sysmem window
+    // The standard channel helper places channels on a fixed 1 GiB NOC-window grid. This lower-level
+    // helper also accepts an arbitrary base for the mapped-buffer arena. In both cases region_size
+    // bounds the backed range.
+    UMD_ASSERT(region_size > 0, error::RuntimeError, "Cannot configure an empty iATU region.");
+    UMD_ASSERT(
+        base <= std::numeric_limits<uint64_t>::max() - (region_size - 1),
+        error::RuntimeError,
+        "iATU base plus region size overflows uint64_t.");
     const uint64_t limit = base + region_size - 1;
     // limit and base are written as 32-bit registers (limit hi shares base hi). This holds only while the
     // top of the region stays within 4 GiB; assert rather than silently truncate if stride/channel count
@@ -400,8 +438,9 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     // history), we do NOT write limit_hi (0x1c) or
     // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
     // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
-    // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not
-    // reprogrammed, so there is no stale-high-bits hazard.
+    // asserted to stay within 4 GiB, so limit_hi is never anything but 0. Regions are re-programmed when
+    // grow_host_mem_channels() adds channels, but since no write ever sets the high bits, re-programming
+    // cannot leave stale high bits behind.
     wr(0x04, 1u << 31);  // region_ctrl_2 = REGION_EN, written last so the sim validates a complete region
 }
 

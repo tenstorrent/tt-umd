@@ -81,11 +81,10 @@ TEST_P(RtlSimTlbWindowFlags, ConfigureAcceptsAndReportsSnoopFlag) {
     EXPECT_EQ(window->get_target_config().flags, WindowFlags::None);
 }
 
-// The _reconfigure family walks the window over a transfer using the tlb_data overload of
-// configure(). That overload knows nothing about flags, so a snoop request must survive it --
-// otherwise a multi-chunk transfer would silently drop snoop after the first chunk. This is the
-// path SimulationTTDevice::host_read/host_write take through cached_tlb_window_, which is how
-// Quasar reaches the RTL sim for ordinary NOC traffic.
+// The tlb_data overload of configure() only moves the mapping and knows nothing about flags, so a
+// snoop request must survive it -- otherwise retargeting a Snoop window would silently drop snoop.
+// (The read/write_block_reconfigure helpers go through the TargetIoWindowConfig overload instead,
+// with direction-only flags, so they never carry Snoop.)
 TEST_P(RtlSimTlbWindowFlags, SnoopFlagSurvivesTlbDataReconfigure) {
     std::unique_ptr<RtlSimTlbWindow> window = make_window();
 

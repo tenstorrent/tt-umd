@@ -44,7 +44,7 @@ enum class IoSafety : bool {
  * against supported_window_flags() and, if accepted, stored as window state
  * that applies to every subsequent access through the window. A TLB mapping has
  * no field for them, so they live alongside the tlb_data rather than in it and
- * survive the tlb_data-based configure() done by the _reconfigure family.
+ * survive a tlb_data-based configure().
  */
 class TlbWindow : public IoWindow {
 public:

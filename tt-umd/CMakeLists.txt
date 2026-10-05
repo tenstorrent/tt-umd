@@ -335,6 +335,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinates/att/att_resolver.hpp
                 api/umd/device/coordinates/att/att_window.hpp
                 api/umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp
+                api/umd/device/coordinates/att/configs/horizon_2x3_att_map.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
@@ -351,6 +352,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/tlb_window.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
+                api/umd/device/simulation/rtl_sim_session.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/simulation_client.hpp
                 api/umd/device/simulation/simulation_connector.hpp
@@ -360,6 +362,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
+                api/umd/device/topology/ip_layout.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_discovery_error.hpp
                 api/umd/device/topology/topology_discovery_options.hpp

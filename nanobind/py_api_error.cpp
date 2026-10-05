@@ -11,9 +11,9 @@
 
 #include <chrono>
 
-#include "umd/device/topology/topology_discovery_error.hpp"
-#include "umd/device/tt_device/tt_device_error.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/topology/topology_discovery_error.hpp"
+#include "tt-umd/tt_device/tt_device_error.hpp"
+#include "tt-umd/utils/error.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

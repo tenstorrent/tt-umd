@@ -9,9 +9,9 @@
 #include <cstdint>
 
 #include "tests/test_utils/protocol_mocks.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/firmware/wormhole_arc_window.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/tt_device/firmware/wormhole_arc_window.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
 using namespace tt::umd::test_utils;

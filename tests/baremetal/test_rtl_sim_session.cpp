@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "simulation_device_generated.h"
-#include "umd/device/simulation/rtl_sim_communicator.hpp"
-#include "umd/device/simulation/rtl_sim_session.hpp"
+#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "tt-umd/simulation/rtl_sim_session.hpp"
 
 using namespace tt::umd;
 

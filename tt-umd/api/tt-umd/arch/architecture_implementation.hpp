@@ -1,0 +1,54 @@
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/semver.hpp"
+
+namespace tt {
+enum class CoreType;
+}  // namespace tt
+
+namespace tt::umd {
+
+class ArchitectureImplementation {
+public:
+    virtual ~ArchitectureImplementation() = default;
+
+    virtual tt::ARCH get_architecture() const = 0;
+    virtual uint32_t get_firmware_message_go_busy() const = 0;
+    virtual uint32_t get_firmware_message_go_idle() const = 0;
+    virtual uint64_t get_reset_unit_refclk_low_offset() const = 0;
+    virtual uint64_t get_reset_unit_refclk_high_offset() const = 0;
+    virtual uint32_t get_dram_banks_number() const = 0;
+    // AICLK frequency the chip parks at when idle, in MHz.
+    virtual uint32_t get_min_clock_freq() const = 0;
+    virtual uint32_t get_num_eth_channels() const = 0;
+    virtual uint64_t get_tensix_soft_reset_addr() const = 0;
+    virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
+    virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
+    virtual uint32_t get_soft_reset_staggered_start() const = 0;
+    // Maps the harvesting indexes firmware reports onto NOC coordinates along the harvesting axis,
+    // rows for Wormhole and columns for Blackhole.
+    // Replace with std::span once we enable C++20.
+    virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
+
+    virtual DeviceL1AddressParams get_l1_address_params() const = 0;
+
+    static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
+};
+
+}  // namespace tt::umd

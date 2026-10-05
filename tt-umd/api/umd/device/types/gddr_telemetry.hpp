@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/types/gddr_telemetry.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/types/gddr_telemetry.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/types/gddr_telemetry.hpp"

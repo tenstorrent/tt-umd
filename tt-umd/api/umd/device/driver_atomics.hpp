@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/driver_atomics.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/driver_atomics.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/driver_atomics.hpp"

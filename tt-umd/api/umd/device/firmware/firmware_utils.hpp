@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/firmware/firmware_utils.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/firmware/firmware_utils.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/firmware/firmware_utils.hpp"

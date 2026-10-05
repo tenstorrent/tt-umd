@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/simulation/tt_sim_communicator.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/simulation/tt_sim_communicator.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/simulation/tt_sim_communicator.hpp"

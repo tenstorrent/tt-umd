@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/types/io_window_config.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/types/io_window_config.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/types/io_window_config.hpp"

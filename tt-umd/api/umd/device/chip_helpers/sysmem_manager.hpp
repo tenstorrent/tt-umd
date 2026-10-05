@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/chip_helpers/sysmem_manager.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/chip_helpers/sysmem_manager.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"

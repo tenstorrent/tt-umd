@@ -4,7 +4,5 @@
 
 #pragma once
 
-// Backward-compat forwarding header: kept so existing consumers that still
-// #include "umd/device/arc/blackhole_arc_message_queue.hpp" keep building after the tt-umd naming rename
-// (see #2751). New code should include "tt-umd/arc/blackhole_arc_message_queue.hpp" directly.
+// Deprecated forwarding header, see #2751.
 #include "tt-umd/arc/blackhole_arc_message_queue.hpp"

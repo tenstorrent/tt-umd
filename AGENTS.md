@@ -56,9 +56,10 @@
 
 ## Writing tests
 - Tests follow same rule as code. Don't overkill with tests. Try to write concise tests which test the essence of components.
-- Tests are not there to fix the implementation details. Tests should not reimplement internal implementation details.
-- Tests are there to fix the API and its expected behavior. Tests should often look like good usage examples.
-- Do not use dynamic logic or programmatic calculations to compute expected test outcomes. Hardcode all assertion values as literal constants. 
+- Tests are not there to pin down implementation details. Tests should not reimplement internal implementation details.
+- Tests are there to pin down the API and its expected behavior. Tests should often look like good usage examples.
+- Do not use dynamic logic or programmatic calculations to compute expected test outcomes. Hardcode all assertion values as literal constants.
+- Each test should cover one scenario, so that a failure names the case that broke. When the same behavior has to be checked across several inputs, use a parameterized test instead of looping over the cases inside a single test.
 
 ## Reviewing PRs workflow
 

@@ -37,6 +37,7 @@
 - Keep the description very brief and up to the point. For smaller PRs they can be one sentence. For larger ones keep them up to 15 lines.
 - In both description and list of changes, avoid mentioning many items (files or function names) if there's more than 3 or 4 to be named, rather use a description for that whole category.
 - If you need to explain the current state of code, those comments have no place in PR description, those should be commented directly in source files.
+- Write the description in GitHub Markdown, not as a hard-wrapped text file. GitHub renders a single newline inside a paragraph as a line break, so a sentence wrapped across several lines shows up broken in the rendered description. Keep each paragraph on one line and separate paragraphs with a blank line.
 
 ## Commenting
 

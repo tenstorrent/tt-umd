@@ -147,7 +147,7 @@ void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t a
         }
     }
 
-    // Get the response from the command queue (populated by the notification thread).
+    // Take the response from the command queue, which the notification thread fills.
     auto msg = wait_for_command_response();
     if (msg.data == nullptr || msg.size == 0) {
         UMD_THROW(

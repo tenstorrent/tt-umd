@@ -35,7 +35,7 @@ class RemoteInterface;
  * to pass the NOC0 coordinate itself. Routing is otherwise unchanged.
  *
  * The interfaces are non-owning and must outlive this object. This is the only copy of the APB
- * routing; the firmware component and the SPI device reach it directly.
+ * routing; the firmware component reaches it directly.
  */
 class WormholeArcWindow {
 public:

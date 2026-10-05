@@ -4,23 +4,30 @@
 
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 
+#include <fmt/ranges.h>
+
+#include <algorithm>
 #include <array>
 #include <filesystem>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "common/utils.hpp"
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "simulation/word_access.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_chip.hpp"
@@ -43,7 +50,17 @@ namespace {
 // unset, no coordinate is folded into an address: architecture alone cannot say whether a model
 // carries an ATT, and the Quasar models that do not would be sent addresses they cannot route.
 constexpr const char* NOC_ATT_MAP_ENV_VAR = "TT_UMD_NOC_ATT";
-constexpr const char* GRENDEL_QSR1_MAP_NAME = "grendel_qsr1";
+
+// The maps this build carries, by the name TT_UMD_NOC_ATT gives them.
+struct NamedAttMap {
+    const char* name;
+    const att::MapData* map;
+};
+
+constexpr NamedAttMap ATT_MAPS[] = {
+    {"grendel_qsr1", &att::GRENDEL_QSR1_MAP},
+    {"horizon_2x3", &att::HORIZON_2X3_MAP},
+};
 
 }  // namespace
 
@@ -104,11 +121,42 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels,
+        std::nullopt,
+        std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const RtlSimSocket& socket,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels,
+        socket,
+        std::make_unique<RtlSimCommunicator>(socket.get_host())) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels,
+    std::optional<RtlSimSocket> socket,
+    std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
         simulator_directory,
-        std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
-    communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
+        std::make_unique<SimulationSysmemManager>(
+            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
+    session_socket_(std::move(socket)),
+    communicator_(std::move(communicator)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();
@@ -138,16 +186,22 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
         return;
     }
 
+    const auto* const known = std::find_if(
+        std::begin(ATT_MAPS), std::end(ATT_MAPS), [&](const NamedAttMap& map) { return *map_name == map.name; });
+    std::vector<std::string> names;
+    for (const NamedAttMap& map : ATT_MAPS) {
+        names.emplace_back(map.name);
+    }
     UMD_ASSERT(
-        map_name == GRENDEL_QSR1_MAP_NAME,
+        known != std::end(ATT_MAPS),
         error::RuntimeError,
         fmt::format(
             "{} names ATT map '{}', which this build does not carry. Known maps: {}.",
             NOC_ATT_MAP_ENV_VAR,
             *map_name,
-            GRENDEL_QSR1_MAP_NAME));
+            fmt::join(names, ", ")));
 
-    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(att::GRENDEL_QSR1_MAP);
+    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(*known->map);
     global_address_mode_ = true;
 }
 
@@ -227,7 +281,10 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
 
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
     if (global_address_mode_) {
-        communicator_->global_read_bytes(addr, mem_ptr, size);
+        // The simulator moves whole words; see word_access.hpp. Callers hold device_lock.
+        read_bytes_as_words(addr, mem_ptr, static_cast<uint32_t>(size), [this](uint64_t a, void* d, uint32_t n) {
+            communicator_->global_read_words(a, d, n);
+        });
         return;
     }
     communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
@@ -237,7 +294,15 @@ void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, con
     // In this mode addr already names the destination, so the coordinate is not sent: the
     // simulator has nothing to translate and cannot resolve a resolved address again.
     if (global_address_mode_) {
-        communicator_->global_write_bytes(addr, mem_ptr, size);
+        // The simulator moves whole words, so a partial first or last word is read, merged and
+        // written back; see word_access.hpp. Callers hold device_lock, so no other host access to
+        // this device runs in between.
+        write_bytes_as_words(
+            addr,
+            mem_ptr,
+            static_cast<uint32_t>(size),
+            [this](uint64_t a, void* d, uint32_t n) { communicator_->global_read_words(a, d, n); },
+            [this](uint64_t a, const void* d, uint32_t n) { communicator_->global_write_words(a, d, n); });
         return;
     }
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);

@@ -28,8 +28,10 @@ jobs:
           tt-ubuntu-2204-n300-llmbox-viommu-stable,
           tt-ubuntu-2204-p150b-stable,
           tt-ubuntu-2204-p150b-viommu-stable,
-          P300-viommu,
-          BH-Quietbox-2]
+          # Runners outside the tt-ubuntu-*-stable pool need in-service, which their pool uses to
+          # mark the machines that may take general CI jobs.
+          [P300-viommu, in-service],
+          [BH-Quietbox-2, in-service]]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -91,8 +93,8 @@ jobs:
           tt-ubuntu-2204-n300-llmbox-viommu-stable,
           tt-ubuntu-2204-p150b-stable,
           tt-ubuntu-2204-p150b-viommu-stable,
-          P300-viommu,
-          BH-Quietbox-2]
+          [P300-viommu, in-service],
+          [BH-Quietbox-2, in-service]]
         image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
 
     name: Check runner docker

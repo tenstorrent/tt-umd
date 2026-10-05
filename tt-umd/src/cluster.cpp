@@ -38,7 +38,9 @@
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "simulation/eth_ipc.hpp"
+#include "simulation/rtl_sim_ip_layout.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -491,6 +493,47 @@ Cluster::Cluster(ClusterOptions options) {
 #endif
             if (options.cluster_descriptor == nullptr) {
 #ifdef TT_UMD_BUILD_SIMULATION
+                // An RTL build with an ip_layout.yaml states its devices: one TTDevice per device of the
+                // layout, each on its own socket of one shared simulator run.
+                const bool is_rtl_build_with_ip_layout =
+                    options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() != ".so" &&
+                    std::filesystem::exists(options.simulator_directory / RtlSimIpLayout::FILE_NAME);
+                if (is_rtl_build_with_ip_layout) {
+                    const RtlSimIpLayout layout(options.simulator_directory);
+                    std::unordered_set<ChipId> layout_chips;
+                    for (const auto& [device, access_points] : layout.get_devices()) {
+                        layout_chips.insert(static_cast<ChipId>(device));
+                    }
+                    const IpDeviceId first_device = layout.get_devices().begin()->first;
+                    const tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(
+                        layout.get_soc_descriptor(first_device).string());
+
+                    // The descriptor picks the devices this process opens (target_devices, else
+                    // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
+                    // layout device id, so it maps each chip back to its device.
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        ClusterDescriptor::create_mock_cluster(layout_chips, arch, false).get(),
+                        options.target_devices);
+                    std::map<ChipId, uint32_t> chips;
+                    for (const auto& [chip_id, unique_id] : cluster_desc->get_chip_unique_ids()) {
+                        chips[chip_id] = static_cast<uint32_t>(unique_id);
+                    }
+
+                    // Serve only this process's devices. Another process may serve the rest of the
+                    // layout; TT_UMD_SIMULATOR_LAUNCH=0 leaves launching run.sh to it.
+                    const char* launch_env = std::getenv("TT_UMD_SIMULATOR_LAUNCH");
+                    const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
+                    tt_devices = create_rtl_sim_ip_layout_tt_devices(
+                        options.simulator_directory,
+                        chips,
+                        static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
+                        launch);
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path = layout.get_soc_descriptor(first_device).string();
+                    }
+                    break;
+                }
+
                 // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
                 // topology, mirroring the soc_descriptor.yaml convention. When present, use it; otherwise fall
                 // through to the mock single-chip descriptor below (unchanged behaviour).

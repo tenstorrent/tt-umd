@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <random>
@@ -45,9 +47,19 @@ SimulationHost::SimulationHost() {
     host_listener = std::make_unique<nng_listener>();
 }
 
-void SimulationHost::init() {
-    // Check if NNG_SOCKET_LOCAL_PORT is set.
-    const char *local_socket_port_str = std::getenv("NNG_SOCKET_LOCAL_PORT");
+void SimulationHost::init(const std::string &suffix) {
+    UMD_ASSERT(
+        std::all_of(
+            suffix.begin(),
+            suffix.end(),
+            [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; }),
+        error::RuntimeError,
+        fmt::format("Socket name '{}' must be [A-Za-z0-9_]+: it names the NNG_SOCKET_ADDR_<name> variable.", suffix));
+    const std::string env_suffix = suffix.empty() ? "" : "_" + suffix;
+    const std::string local_port_var = "NNG_SOCKET_LOCAL_PORT" + env_suffix;
+    const std::string addr_var = "NNG_SOCKET_ADDR" + env_suffix;
+
+    const char *local_socket_port_str = std::getenv(local_port_var.c_str());
     std::string nng_socket_addr_str;
 
     // Generate socket address with hostname and random port.
@@ -60,7 +72,7 @@ void SimulationHost::init() {
 
     if (local_socket_port_str) {
         port = atoi(local_socket_port_str);
-        log_info(tt::LogEmulationDriver, "Using specified NNG_SOCKET_LOCAL_PORT: {}", port);
+        log_info(tt::LogEmulationDriver, "Using specified {}: {}", local_port_var, port);
     } else {
         // Generate random port in range 50000-59999.
         std::random_device rd;
@@ -78,9 +90,9 @@ void SimulationHost::init() {
     nng_socket_addr_str = ss.str();
 
     // Export the address for client to use.
-    if (std::getenv("NNG_SOCKET_ADDR") == nullptr) {
-        setenv("NNG_SOCKET_ADDR", nng_socket_addr_str.c_str(), 1);
-        log_info(tt::LogEmulationDriver, "Generated NNG_SOCKET_ADDR: {}", nng_socket_addr_str);
+    if (std::getenv(addr_var.c_str()) == nullptr) {
+        setenv(addr_var.c_str(), nng_socket_addr_str.c_str(), 1);
+        log_info(tt::LogEmulationDriver, "Generated {}: {}", addr_var, nng_socket_addr_str);
     }
 
     const char *nng_socket_addr = nng_socket_addr_str.c_str();

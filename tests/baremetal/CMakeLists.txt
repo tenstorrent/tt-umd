@@ -3,6 +3,7 @@ set(BAREMETAL_TESTS_SRCS
     test_att_window.cpp
     test_att_resolver.cpp
     test_grendel_att_map.cpp
+    test_ip_layout.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp
     test_core_coord_translation_wh.cpp
@@ -37,7 +38,15 @@ if(TT_UMD_BUILD_EMULE)
     target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 if(TT_UMD_BUILD_SIMULATION)
-    target_sources(baremetal_tests PRIVATE test_simulation_tlb_allocator.cpp)
+    target_sources(
+        baremetal_tests
+        PRIVATE
+            test_simulation_tlb_allocator.cpp
+            test_rtl_sim_att_program.cpp
+            test_rtl_sim_ip_layout.cpp
+            test_rtl_sim_session.cpp
+            test_word_access.cpp
+    )
 endif()
 set_target_properties(
     baremetal_tests

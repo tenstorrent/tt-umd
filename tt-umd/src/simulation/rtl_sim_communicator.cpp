@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "common/utils.hpp"
+#include "simulation/word_access.hpp"
 #include "simulation_device_generated.h"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -133,16 +134,20 @@ void RtlSimCommunicator::shutdown() {
     send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
-void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size) {
+    const char *name = kind == AccessKind::kGlobal ? "global" : (kind == AccessKind::kSmn ? "SMN" : "tile");
     {
         std::lock_guard<std::mutex> lock(device_lock_);
-        tt_xy_pair core = {x, y};
-
-        // Send read request.
-        send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+        if (kind == AccessKind::kGlobal) {
+            send_command_to_simulation_host(
+                *host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
+        } else {
+            const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
+            send_command_to_simulation_host(*host_, create_flatbuffer(command, {0}, core, addr, size));
+        }
     }
 
-    // Get read response from the command queue (populated by notification thread).
+    // Get the response from the command queue (populated by the notification thread).
     auto msg = wait_for_command_response();
     if (msg.data == nullptr || msg.size == 0) {
         UMD_THROW(
@@ -150,115 +155,108 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     }
 
     auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
+    if (rd_resp_buf->data() == nullptr || rd_resp_buf->data()->size() == 0) {
+        // The remote answers a failed read with an EMPTY payload (its exception path); it is not a
+        // response we can consume, and memcpy from a zero-length vector would fault on nullptr.
+        const int resp_cmd = static_cast<int>(rd_resp_buf->command());
+        const uint64_t resp_addr = rd_resp_buf->address();
+        nng_free(msg.data, msg.size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "{} read: the simulator returned an empty read response (command {}, address {:#x}) "
+                "for a {} byte read at {:#x} - the simulator raised on this access; its own log has the details.",
+                name,
+                resp_cmd,
+                resp_addr,
+                size,
+                addr));
+    }
 
-    log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
-
-    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
-    UMD_ASSERT(
-        response_bytes >= size,
-        error::RuntimeError,
-        fmt::format("tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
+    const uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
+    if (response_bytes < size) {
+        nng_free(msg.data, msg.size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "{} read response size {} is smaller than requested size {} (address {:#x}).",
+                name,
+                response_bytes,
+                size,
+                addr));
+    }
     std::memcpy(data, rd_resp_buf->data()->data(), size);
     nng_free(msg.data, msg.size);
 }
 
-void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::write_words(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size) {
+    // Copied, since the caller's buffer need not be word-aligned.
+    std::vector<uint32_t> words(size / sizeof(uint32_t));
+    std::memcpy(words.data(), data, size);
+
     std::lock_guard<std::mutex> lock(device_lock_);
+    if (kind == AccessKind::kGlobal) {
+        send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr));
+    } else {
+        const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
+        send_command_to_simulation_host(*host_, create_flatbuffer(command, words, core, addr));
+    }
+}
+
+void RtlSimCommunicator::read_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size) {
+    // The wire format carries whole words and some remotes drop a partial tail word when they turn
+    // the bytes they read into words, so read the whole words covering the range; see word_access.hpp.
+    read_bytes_as_words(addr, data, size, [&](uint64_t a, void *d, uint32_t n) { read_words(kind, core, a, d, n); });
+}
+
+void RtlSimCommunicator::write_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size) {
+    // The wire format carries whole words and not every remote honours the byte count, so a partial
+    // first or last word is read, merged and written back whole; see word_access.hpp.
+    write_bytes_as_words(
+        addr,
+        data,
+        size,
+        [&](uint64_t a, void *d, uint32_t n) { read_words(kind, core, a, d, n); },
+        [&](uint64_t a, const void *d, uint32_t n) { write_words(kind, core, a, d, n); });
+}
+
+void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    std::lock_guard<std::mutex> request_lock(request_lock_);
+    log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
+    read_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
+}
+
+void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
-
-    tt_xy_pair core = {x, y};
-    const uint32_t num_elements = size / sizeof(uint32_t);
-    const auto *data_ptr = static_cast<const uint32_t *>(data);
-    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
-
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
+    write_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {
     validate_register_access(addr, size);
-
-    {
-        std::lock_guard<std::mutex> lock(device_lock_);
-        send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
-    }
-
-    auto msg = wait_for_command_response();
-    if (msg.data == nullptr || msg.size == 0) {
-        UMD_THROW(
-            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
-    }
-
-    auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
-
+    std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from global address {:#x}", size, addr);
-
-    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
-    UMD_ASSERT(
-        response_bytes >= size,
-        error::RuntimeError,
-        fmt::format("global_read_words response size {} is smaller than requested size {}.", response_bytes, size));
-    std::memcpy(data, rd_resp_buf->data()->data(), size);
-    nng_free(msg.data, msg.size);
+    read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
 }
 
 void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock_);
-    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
-
     // The payload travels as words, so a partial word could only be dropped or written short.
     validate_register_access(addr, size);
-
-    // Copied, since the caller's buffer need not be word-aligned.
-    std::vector<uint32_t> data_vec(size / sizeof(uint32_t));
-    std::memcpy(data_vec.data(), data, size);
-
-    send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, data_vec, addr));
+    std::lock_guard<std::mutex> request_lock(request_lock_);
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
+    write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
-    {
-        std::lock_guard<std::mutex> lock(device_lock_);
-        tt_xy_pair core = {x, y};
-
-        // Send SMN read request.
-        send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_SMN_READ, {0}, core, addr, size));
-    }
-
-    // Get read response from the command queue (populated by notification thread).
-    auto msg = wait_for_command_response();
-    if (msg.data == nullptr || msg.size == 0) {
-        UMD_THROW(
-            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
-    }
-
-    auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
-
+    std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
-
-    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
-    UMD_ASSERT(
-        response_bytes >= size,
-        error::RuntimeError,
-        fmt::format("smn_tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
-    std::memcpy(data, rd_resp_buf->data()->data(), size);
-    nng_free(msg.data, msg.size);
+    read_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock_);
+    std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
-
-    UMD_ASSERT(
-        size % sizeof(uint32_t) == 0,
-        error::RuntimeError,
-        fmt::format("smn_tile_write_bytes size {} must be a multiple of {} bytes.", size, sizeof(uint32_t)));
-
-    tt_xy_pair core = {x, y};
-    const uint32_t num_elements = size / sizeof(uint32_t);
-    const auto *data_ptr = static_cast<const uint32_t *>(data);
-    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
-
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_SMN_WRITE, data_vec, core, addr));
+    write_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {

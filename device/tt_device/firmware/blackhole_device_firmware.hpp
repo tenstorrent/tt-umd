@@ -109,20 +109,18 @@ public:
 
     std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId noc_id = NocId::DEFAULT_NOC) override;
 
+private:
     /**
      * @brief Raw access to the ARC APB register window.
      *
-     * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_.
-     * Deliberately concrete-class methods rather than part of DeviceFirmware: the window is an
-     * implementation detail of this component, exposed only for the SPI device, which is
-     * architecture-committed and so holds this concrete type. They go away when SPI moves onto
-     * components of its own.
+     * Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_. Used
+     * internally for ARC register accesses such as the boot-status and refclk counter reads; the
+     * window is an implementation detail of this component, so it stays off the public API.
      */
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
     void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
 
-private:
     /**
      * @brief Blocks until the management firmware reports it has booted.
      *

@@ -44,9 +44,15 @@
 - Comments follow same rule as code. You should not overkill with comments. Try to write concise comments providing a lot of info.
 - Code comments should explain the underlying reasoning or intent ("why"). Comments should not restate the implementation mechanics ("what" or "how"), code should be readable enough to do that.
 - Never write comments referencing past code states (e.g., "no longer uses X"). Historical changes belong in PR descriptions. Focus here is on explaining the current state of code the best way.
-- Add logs where it makes sense for tracking execution flow. log_info should be used for only if useful for an external user. log_warning should warn about unexpected states, but only if actionable. If you think log would be useful but is not useful for external user or not actionable, then add it as log_debug. If a log would be hit many times during execution such that it bogs down the console output, then use log_trace.
 - Interface headers must explain contract and purpose only. Never leak internal implementation details into header comments. It is fine to comment on guarantees that implementation provides or assumes.
 - Don't write same comments on multiple different items.
+
+## Logging
+- Add logs where it makes sense for tracking execution flow.
+- Use log_info only if the message is useful to an external user.
+- Use log_warning for unexpected states, but only if the user can act on them.
+- Use log_debug when a log is useful but is not useful to an external user, or is not actionable.
+- Use log_trace when a log would be hit often enough to bog down the console output.
 
 ## Writing tests
 

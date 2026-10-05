@@ -7,7 +7,7 @@
 #include <map>
 #include <vector>
 
-#include "umd/device/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_layout.hpp"
 
 using namespace tt::umd;
 

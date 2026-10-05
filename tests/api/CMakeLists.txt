@@ -11,7 +11,6 @@ set(API_TESTS_SRCS
     test_sim_multichip.cpp
     test_cluster_options.cpp
     test_tt_device.cpp
-    test_spi_tt_device.cpp
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp

@@ -12,12 +12,12 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/blackhole_arc.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
 

@@ -42,8 +42,10 @@ if(TT_UMD_BUILD_SIMULATION)
         baremetal_tests
         PRIVATE
             test_simulation_tlb_allocator.cpp
+            test_rtl_sim_att_program.cpp
             test_rtl_sim_ip_layout.cpp
             test_rtl_sim_session.cpp
+            test_word_access.cpp
     )
 endif()
 set_target_properties(

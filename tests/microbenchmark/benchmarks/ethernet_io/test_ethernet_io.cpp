@@ -18,10 +18,10 @@
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/device_test_utils.hpp"
 #include "test_utils/test_api_common.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

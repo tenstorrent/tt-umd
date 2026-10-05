@@ -22,7 +22,8 @@
 #include <vector>
 
 #include "simulation_device_generated.h"
-#include "umd/device/simulation/rtl_sim_session.hpp"
+#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "tt-umd/simulation/rtl_sim_session.hpp"
 
 using namespace tt::umd;
 
@@ -192,4 +193,33 @@ TEST_F(RtlSimSessionTest, HandsOutHostsOnlyAfterStart) {
     EXPECT_EQ(&socket.get_host(), &session->get_host(0));
     EXPECT_THROW(RtlSimSocket(session, 1), std::exception);
     EXPECT_THROW(RtlSimSocket(nullptr, 0), std::exception);
+}
+
+TEST_F(RtlSimSessionTest, ServesWithoutLaunching) {
+    const std::string address = add_socket("ut_a");
+    RtlSimSession session(dir_, {"ut_a"}, /*launch_simulator=*/false);
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session.start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    EXPECT_FALSE(std::filesystem::exists(dir_ / "launched_with"));
+}
+
+// The flat-address functions move only what the simulator moves: whole, aligned words.
+TEST_F(RtlSimSessionTest, GlobalAccessRejectsPartialWords) {
+    const std::string address = add_socket("ut_a");
+    RtlSimSession session(dir_, {"ut_a"});
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session.start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    RtlSimCommunicator communicator(session.get_host(0));
+    uint32_t word = 0;
+    EXPECT_THROW(communicator.global_write_words(0x1000, &word, 1), std::exception);
+    EXPECT_THROW(communicator.global_write_words(0x1001, &word, 4), std::exception);
+    EXPECT_THROW(communicator.global_read_words(0x1000, &word, 2), std::exception);
+    EXPECT_THROW(communicator.global_read_words(0x1002, &word, 4), std::exception);
 }

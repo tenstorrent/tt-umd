@@ -7,8 +7,10 @@
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
+#include <nanobind/stl/unique_ptr.h>
 
 #include <chrono>
+#include <memory>
 
 #include "umd/device/utils/kmd_mutex.hpp"
 #include "umd/device/utils/mutex_interface.hpp"
@@ -24,6 +26,15 @@ using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt::umd;
 
+// Builds a ready-to-use lock, so that Python callers can neither use an uninitialized one nor initialize one twice.
+// Owning it through unique_ptr until it is handed to Python keeps the destructor's cleanup if initialize() throws.
+template <typename Mutex, typename... Args>
+std::unique_ptr<Mutex> make_initialized(Args... args) {
+    auto mutex = std::make_unique<Mutex>(args...);
+    mutex->initialize();
+    return mutex;
+}
+
 void bind_mutex(nb::module_ &m) {
     // The base is bound so that the methods both backends share are defined once and so that a Python
     // caller can treat either backend as a lock without knowing which one it holds.
@@ -33,11 +44,6 @@ void bind_mutex(nb::module_ &m) {
         "Common interface of UMD's cross-process locks. The lock is not recursive, and misuse (taking it twice from "
         "one thread, unlocking from a thread that does not hold it, unlocking twice) is not diagnosed: it may throw, "
         "be ignored, or block forever. Use the object as a context manager to avoid all three.")
-        .def(
-            "initialize",
-            &MutexInterface::initialize,
-            release_gil(),
-            "Sets up the underlying OS resource. Must be called before any locking operation.")
         .def("lock", &MutexInterface::lock, release_gil(), "Blocks until the lock is acquired.")
         .def("unlock", &MutexInterface::unlock, release_gil(), "Releases the lock.")
         .def(
@@ -73,7 +79,7 @@ void bind_mutex(nb::module_ &m) {
         "RobustMutex",
         "A cross-process lock backed by a robust pthread mutex in a /dev/shm file. All participants must see the "
         "same /dev/shm. If the owning process dies, the next acquirer recovers the lock.");
-    robust_mutex.def(nb::init<std::string_view>(), nb::arg("mutex_name"), release_gil());
+    robust_mutex.def(nb::new_(&make_initialized<RobustMutex, std::string_view>), nb::arg("mutex_name"), release_gil());
 
     // Exposed so that callers can find (or clean up) the /dev/shm file backing a named mutex.
     robust_mutex.attr("SHM_FILE_PREFIX") = std::string(RobustMutex::SHM_FILE_PREFIX);
@@ -86,7 +92,7 @@ void bind_mutex(nb::module_ &m) {
         "Threads of one process exclude each other even when they share a single KmdMutex. KMD does not report an "
         "owner, so probe_lock() reports (0, 0) on contention.")
         .def(
-            nb::init<int, uint8_t>(),
+            nb::new_(&make_initialized<KmdMutex, int, uint8_t>),
             nb::arg("pci_device_num"),
             nb::arg("lock_index"),
             release_gil(),

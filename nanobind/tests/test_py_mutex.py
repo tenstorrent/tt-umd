@@ -10,8 +10,8 @@ expose them, and double as usage examples.
 """
 
 import os
-import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import tt_umd
@@ -41,27 +41,22 @@ def probe_from_contender(mutex, timeout_s=0):
     A probe that succeeds leaves the caller holding the lock, so it is released again in the same
     thread that took it.
     """
-    result = []
 
     def probe():
         owner = mutex.probe_lock(timeout_s)
         if owner is None:
             mutex.unlock()
-        result.append(owner)
+        return owner
 
-    thread = threading.Thread(target=probe)
-    thread.start()
-    thread.join()
-    return result[0]
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(probe).result()
 
 
 def test_robust_mutex(mutex_name):
     mutex = tt_umd.RobustMutex(mutex_name)
-    mutex.initialize()
 
     # A second object over the same name is another view of the same lock, as another process has.
     contender = tt_umd.RobustMutex(mutex_name)
-    contender.initialize()
 
     with mutex:
         owner = probe_from_contender(contender)
@@ -79,11 +74,9 @@ def test_kmd_mutex():
         pytest.skip("No /dev/tenstorrent device present")
 
     mutex = tt_umd.KmdMutex(devices[0], TEST_KMD_LOCK_INDEX)
-    mutex.initialize()
 
     # A second handle on the same device lock is what another process looks like to KMD.
     contender = tt_umd.KmdMutex(devices[0], TEST_KMD_LOCK_INDEX)
-    contender.initialize()
 
     with mutex:
         assert (
@@ -97,7 +90,6 @@ def test_kmd_mutex():
 
 def test_context_manager_releases_on_exception(mutex_name):
     mutex = tt_umd.RobustMutex(mutex_name)
-    mutex.initialize()
 
     with pytest.raises(ValueError):
         with mutex:

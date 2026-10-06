@@ -247,19 +247,25 @@ constexpr off_t PCI_CONFIG_COMMAND_OFFSET = 4;
 // in-progress reset marker: set while a warm reset is ongoing, cleared once it completes.
 constexpr uint8_t PCI_COMMAND_RESET_MARKER_BIT = 6;
 
-bool is_reset_marker_cleared(const std::string& bdf) {
+// Reads the low byte of the PCI Command register through sysfs, or std::nullopt if it can't be read.
+std::optional<uint8_t> read_pci_command_byte(const std::string& bdf) {
     const std::string config_path = fmt::format("/sys/bus/pci/devices/{}/config", bdf);
 
-    bool marker_cleared = false;
+    std::optional<uint8_t> command_byte;
     int cfd = open(config_path.c_str(), O_RDONLY);
     if (cfd >= 0) {
         uint8_t cmd;
-        if (pread(cfd, &cmd, 1, PCI_CONFIG_COMMAND_OFFSET) == 1 && ((cmd >> PCI_COMMAND_RESET_MARKER_BIT) & 1) == 0) {
-            marker_cleared = true;
+        if (pread(cfd, &cmd, 1, PCI_CONFIG_COMMAND_OFFSET) == 1) {
+            command_byte = cmd;
         }
         close(cfd);
     }
-    return marker_cleared;
+    return command_byte;
+}
+
+bool is_reset_marker_cleared(const std::string& bdf) {
+    const auto cmd = read_pci_command_byte(bdf);
+    return cmd && ((*cmd >> PCI_COMMAND_RESET_MARKER_BIT) & 1) == 0;
 }
 
 bool wait_for_reset_marker(
@@ -274,7 +280,14 @@ bool wait_for_reset_marker(
         fmt::format("reset marker to clear for device {}", bdf));
 
     if (!reset_complete) {
-        log_warning(tt::LogUMD, "Timeout waiting for reset marker to clear for device {}.", bdf);
+        // 0xff means the device isn't responding on the link; the marker bit set otherwise means the
+        // device never went through reset.
+        const auto cmd = read_pci_command_byte(bdf);
+        log_warning(
+            tt::LogUMD,
+            "Timeout waiting for reset marker to clear for device {} (PCI command byte: {}).",
+            bdf,
+            cmd ? fmt::format("{:#04x}", *cmd) : std::string("unreadable"));
     }
 
     return reset_complete;
@@ -327,21 +340,24 @@ bool WarmReset::warm_reset_arch_agnostic(
     std::this_thread::sleep_for(post_reset_wait);
     log_debug(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
+    // Check every device and send POST_RESET even if one of them failed: skipping POST_RESET leaves all
+    // devices unusable (ENODEV) until the next successful reset.
+    bool reset_success = true;
     for (auto& pci_bdf : pci_bdfs) {
-        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
-        if (new_id == -1) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
+        if (wait_for_pci_bdf_to_reappear(pci_bdf.second) == -1) {
+            log_error(tt::LogUMD, "Reset failed for device {}: device did not reappear.", pci_bdf.second);
+            reset_success = false;
+            continue;
         }
 
         if (!wait_for_reset_marker(pci_bdf.second)) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
+            log_error(tt::LogUMD, "Reset failed for device {}: reset marker did not clear.", pci_bdf.second);
+            reset_success = false;
         }
     }
 
     PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
-    return true;
+    return reset_success;
 }
 
 bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {

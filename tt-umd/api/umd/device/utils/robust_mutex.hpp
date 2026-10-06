@@ -4,5 +4,5 @@
 
 #pragma once
 
-// Deprecated forwarding header, see #2751.
+// Deprecated forwarding header, see #2750.
 #include "tt-umd-utils/robust_mutex.hpp"

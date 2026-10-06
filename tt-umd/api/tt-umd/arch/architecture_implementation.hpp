@@ -11,12 +11,12 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 namespace tt {
 enum class CoreType;

@@ -18,12 +18,12 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/pcie/silicon_tlb_handle.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/host_memory.hpp"
 #include "tt-umd/types/tlb.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
 

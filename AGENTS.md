@@ -40,6 +40,19 @@
 - Write the description in GitHub Markdown, not as a hard-wrapped text file. GitHub renders a single newline inside a paragraph as a line break, so a sentence wrapped across several lines shows up broken in the rendered description. Keep each paragraph on one line and separate paragraphs with a blank line.
 
 ## Commenting
+- Comments are generally a good thing in code, try to comment on code if it leads to faster readability. Comment all non-trivial code concisely.
+- Comments follow same rule as code. You should not overkill with comments. Try to write concise comments providing a lot of info.
+- Code comments should explain the underlying reasoning or intent ("why"). Comments should not restate the implementation mechanics ("what" or "how"), code should be readable enough to do that.
+- Never write comments referencing past code states (e.g., "no longer uses X"). Historical changes belong in PR descriptions. Focus here is on explaining the current state of code the best way.
+- Interface headers must explain contract and purpose only. Never leak internal implementation details into header comments. It is fine to comment on guarantees that implementation provides or assumes.
+- Don't write same comments on multiple different items.
+
+## Logging
+- Add logs where it makes sense for tracking execution flow.
+- Use log_info only if the message is useful to an external user.
+- Use log_warning for unexpected states, but only if the user can act on them.
+- Use log_debug when a log is useful but is not useful to an external user, or is not actionable.
+- Use log_trace when a log would be hit often enough to bog down the console output.
 
 ## Writing tests
 

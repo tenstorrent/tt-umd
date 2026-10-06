@@ -104,6 +104,7 @@ target_sources(
         src/tt_device/firmware/wormhole_arc_window.cpp
         src/tt_device/firmware/wormhole_device_firmware.cpp
         src/tt_device/protocol/pcie_protocol.cpp
+        src/tt_device/protocol/kmd_scalar_noc_access.cpp
         src/tt_device/protocol/jtag_protocol.cpp
         src/tt_device/protocol/remote_protocol.cpp
         src/tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp

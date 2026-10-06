@@ -90,6 +90,7 @@ target_sources(
         src/arch/wormhole_implementation.cpp
         src/arch/blackhole_implementation.cpp
         src/arch/grendel_implementation.cpp
+        src/arch/keraunos_tlb_discovery.cpp
         src/hugepage.cpp
         src/logging/config.cpp
         src/pcie/pci_device.cpp

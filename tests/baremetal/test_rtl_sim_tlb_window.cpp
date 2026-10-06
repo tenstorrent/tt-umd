@@ -24,9 +24,8 @@ namespace {
 // Arbitrary nonzero base; nothing here dereferences a TLB, so the value only feeds address math.
 constexpr uint64_t TEST_BAR0_BASE = 0x10000000ULL;
 
-// Quasar has no real TLBs -- empty allocator pools, dummy auto-incrementing indices, and a 4GB
-// dummy window size in SimulationTTDevice::setup_cached_tlb_window(). Sizing the window per arch
-// the way the product code does keeps the Quasar case on its real code path.
+// The Quasar simulation has no TLBs, so it uses a 4GB dummy window; size per arch like the product
+// code so the Quasar case stays on its real path.
 size_t window_size_for(tt::ARCH arch) { return arch == tt::ARCH::QUASAR ? (4ULL * 1024 * 1024 * 1024) : (1 << 21); }
 
 TargetIoWindowConfig make_target() {

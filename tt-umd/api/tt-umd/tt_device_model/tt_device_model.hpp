@@ -12,6 +12,10 @@
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 
+namespace tt::umd::att {
+class EndpointResolver;
+}
+
 namespace tt::umd {
 class DeviceFirmware;
 class RiscReset;
@@ -86,6 +90,12 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
+
+    // Folds a target coordinate into the address, for an architecture whose NOC carries no
+    // coordinate out of band. Null for every architecture that routes by coordinate, which is why
+    // this is an optional component rather than a step in the I/O path: a model that returns null
+    // is saying "my addresses already name their target", and TTDevice leaves them alone.
+    virtual att::EndpointResolver *get_endpoint_resolver() { return nullptr; }
 
     /**
      * @brief Creates an I/O window mapping host memory to device address space.

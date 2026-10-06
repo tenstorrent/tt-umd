@@ -16,24 +16,23 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/io_window/io_window.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/io_window_config.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/kmd_versions.hpp"
-#include "umd/device/utils/mmio_timeout_config.hpp"
-#include "umd/device/utils/semver.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/tlb.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
+#include "tt-umd/utils/mmio_timeout_config.hpp"
+#include "tt-umd/utils/semver.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -717,27 +716,27 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     }
 }
 
-TEST_F(TestTlb, TLBStaticTensix) {
+TEST_F(TestTlb, IoWindowTensixRoundTrip) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
-
     const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-    std::vector<uint32_t> zero_out(1024, 0);
-    std::vector<uint32_t> readback_zeros(1024, 0xFFFFFFFF);
+    const int num_writes = 1024;
+    std::vector<uint32_t> zero_out(num_writes, 0);
+    std::vector<uint32_t> readback_zeros(num_writes, 0xFFFFFFFF);
     cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
     cluster->read_from_device(readback_zeros.data(), 0, tensix_core_0, 0, readback_zeros.size() * sizeof(uint32_t));
 
     EXPECT_EQ(readback_zeros, zero_out);
 
-    for (const CoreCoord tensix_core :
-         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-        cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
-    }
+    // Owned window, released at scope exit -- unlike the old static-TLB lookup, which was borrowed
+    // from a manager that outlived the call and mapped every Tensix at once.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(0, tensix_core_0, 0, {.size = num_writes * sizeof(uint32_t)});
+    ASSERT_NE(window, nullptr);
 
-    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
-
-    const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {
         window->write32(4 * i, i);
     }

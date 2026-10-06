@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -14,16 +15,16 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
 
@@ -44,6 +45,51 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
         EXPECT_EQ(
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0)),
             harvesting_mask_cluster_desc.tensix_harvesting_mask);
+    }
+}
+
+// Verifies the firmware info provider's telemetry-backed AICLK matches the value the GET_AICLK
+// firmware command reports, at both settled clock states. This gates deleting the temporary
+// Wormhole branch in TTDevice::get_clock(): the provider reads the smbus telemetry word, which the
+// firmware publishes on a refresh interval, so each comparison polls the provider until it
+// converges to the command's value or times out. If this fails, the provider needs per-arch
+// handling for Wormhole instead.
+TEST(WormholeArcMessages, WormholeFirmwareInfoProviderAiclkParity) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (uint32_t chip_id : cluster->get_target_device_ids()) {
+        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+
+        auto read_aiclk_via_command = [&tt_device]() {
+            DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
+                {0xFFFF, 0xFFFF},
+                timeout::ARC_MESSAGE_TIMEOUT);
+            EXPECT_EQ(result.exit_code, 0u);
+            return result.return_values.at(0);
+        };
+
+        // BUSY last, so the device is left at full speed for whatever runs next.
+        for (ClockState state : {ClockState::IDLE, ClockState::BUSY}) {
+            // Drives AICLK through the firmware and waits for it to settle near the target.
+            tt_device->set_clock_state(state);
+
+            const uint32_t command_aiclk = read_aiclk_via_command();
+            std::optional<uint32_t> provider_aiclk;
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (true) {
+                provider_aiclk = tt_device->get_firmware_info_provider()->get_clock_freq();
+                if (provider_aiclk == command_aiclk || std::chrono::steady_clock::now() >= deadline) {
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+
+            ASSERT_TRUE(provider_aiclk.has_value());
+            EXPECT_EQ(provider_aiclk.value(), command_aiclk)
+                << "Telemetry AICLK never converged to the GET_AICLK value at "
+                << (state == ClockState::BUSY ? "BUSY" : "IDLE") << " on chip " << chip_id;
+        }
     }
 }
 

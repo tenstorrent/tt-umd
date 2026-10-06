@@ -8,8 +8,8 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/set.h>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

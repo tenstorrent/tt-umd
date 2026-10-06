@@ -1,0 +1,143 @@
+# Authoritative Quasar NOC ATT tables for qsr.s1, as the firmware programs them.
+#
+# Extracted from models/qsr.s1/att/grendel_address_map_template.yaml in the grendelemulation
+# repo -- its `mask_table` and `noc_endpoint_table`, restricted to the windows UMD resolves
+# through -- and cross-checked against the live register readback in
+# models/qsr.s1/docs/qmk_att_dump.md, sections 3 and 4. Field names are unchanged, so a
+# refresh is a copy of the corresponding upstream entries.
+#
+# `translate_addr` is taken from the dump's Quasar column rather than the template. They
+# disagree on entry 5, where the template says 1 but Quasar and Mimir are programmed with 0
+# and the generated att/address_map.md calls that window pass-through. What the hardware is
+# programmed with wins.
+#
+# This file is what test_grendel_att_map.cpp checks GRENDEL_QSR1_MAP against. It is a
+# snapshot: refreshing it is what surfaces a POR move, and the test then says exactly which
+# window or endpoint row disagrees.
+#
+# Coordinates are the POR package frame.
+
+mask_table:
+  - index: 4
+    compare: '0x10000000000'
+    mask: 30
+    ep_idx: 24
+    ep_id_size: 6
+    table_offset: 128
+    translate_addr: 1
+  - index: 5
+    compare: '0x1000000000000'
+    mask: 38
+    ep_idx: 33
+    ep_id_size: 5
+    table_offset: 96
+    translate_addr: 0
+  - index: 14
+    compare: '0x1800000000'
+    mask: 33
+    ep_idx: 27
+    ep_id_size: 6
+    table_offset: 256
+    translate_addr: 1
+
+noc_endpoint_table:
+  - { index: 96, x: 6, y: 9 }
+  - { index: 97, x: 10, y: 9 }
+  - { index: 98, x: 9, y: 2 }
+  - { index: 99, x: 5, y: 2 }
+  - { index: 112, x: 7, y: 9 }
+  - { index: 113, x: 11, y: 9 }
+  - { index: 114, x: 8, y: 2 }
+  - { index: 115, x: 4, y: 2 }
+  - { index: 128, x: 4, y: 4 }
+  - { index: 129, x: 5, y: 4 }
+  - { index: 130, x: 6, y: 4 }
+  - { index: 131, x: 7, y: 4 }
+  - { index: 132, x: 8, y: 4 }
+  - { index: 133, x: 9, y: 4 }
+  - { index: 134, x: 10, y: 4 }
+  - { index: 135, x: 11, y: 4 }
+  - { index: 136, x: 4, y: 5 }
+  - { index: 137, x: 5, y: 5 }
+  - { index: 138, x: 6, y: 5 }
+  - { index: 139, x: 7, y: 5 }
+  - { index: 140, x: 8, y: 5 }
+  - { index: 141, x: 9, y: 5 }
+  - { index: 142, x: 10, y: 5 }
+  - { index: 143, x: 11, y: 5 }
+  - { index: 144, x: 4, y: 6 }
+  - { index: 145, x: 5, y: 6 }
+  - { index: 146, x: 6, y: 6 }
+  - { index: 147, x: 7, y: 6 }
+  - { index: 148, x: 8, y: 6 }
+  - { index: 149, x: 9, y: 6 }
+  - { index: 150, x: 10, y: 6 }
+  - { index: 151, x: 11, y: 6 }
+  - { index: 152, x: 4, y: 7 }
+  - { index: 153, x: 5, y: 7 }
+  - { index: 154, x: 6, y: 7 }
+  - { index: 155, x: 7, y: 7 }
+  - { index: 156, x: 8, y: 7 }
+  - { index: 157, x: 9, y: 7 }
+  - { index: 158, x: 10, y: 7 }
+  - { index: 159, x: 11, y: 7 }
+  - { index: 256, x: 4, y: 4 }
+  - { index: 257, x: 5, y: 4 }
+  - { index: 258, x: 6, y: 4 }
+  - { index: 259, x: 7, y: 4 }
+  - { index: 260, x: 8, y: 4 }
+  - { index: 261, x: 9, y: 4 }
+  - { index: 262, x: 10, y: 4 }
+  - { index: 263, x: 11, y: 4 }
+  - { index: 264, x: 4, y: 5 }
+  - { index: 265, x: 5, y: 5 }
+  - { index: 266, x: 6, y: 5 }
+  - { index: 267, x: 7, y: 5 }
+  - { index: 268, x: 8, y: 5 }
+  - { index: 269, x: 9, y: 5 }
+  - { index: 270, x: 10, y: 5 }
+  - { index: 271, x: 11, y: 5 }
+  - { index: 272, x: 4, y: 6 }
+  - { index: 273, x: 5, y: 6 }
+  - { index: 274, x: 6, y: 6 }
+  - { index: 275, x: 7, y: 6 }
+  - { index: 276, x: 8, y: 6 }
+  - { index: 277, x: 9, y: 6 }
+  - { index: 278, x: 10, y: 6 }
+  - { index: 279, x: 11, y: 6 }
+  - { index: 280, x: 4, y: 7 }
+  - { index: 281, x: 5, y: 7 }
+  - { index: 282, x: 6, y: 7 }
+  - { index: 283, x: 7, y: 7 }
+  - { index: 284, x: 8, y: 7 }
+  - { index: 285, x: 9, y: 7 }
+  - { index: 286, x: 10, y: 7 }
+  - { index: 287, x: 11, y: 7 }
+  - { index: 288, x: 3, y: 4 }
+  - { index: 289, x: 3, y: 5 }
+  - { index: 290, x: 3, y: 6 }
+  - { index: 291, x: 3, y: 7 }
+  - { index: 292, x: 4, y: 8 }
+  - { index: 293, x: 5, y: 8 }
+  - { index: 294, x: 6, y: 8 }
+  - { index: 295, x: 7, y: 8 }
+  - { index: 296, x: 8, y: 8 }
+  - { index: 297, x: 9, y: 8 }
+  - { index: 298, x: 10, y: 8 }
+  - { index: 299, x: 11, y: 8 }
+  - { index: 300, x: 12, y: 7 }
+  - { index: 301, x: 12, y: 6 }
+  - { index: 302, x: 12, y: 5 }
+  - { index: 303, x: 12, y: 4 }
+  - { index: 304, x: 11, y: 3 }
+  - { index: 305, x: 10, y: 3 }
+  - { index: 306, x: 9, y: 3 }
+  - { index: 307, x: 8, y: 3 }
+  - { index: 308, x: 7, y: 3 }
+  - { index: 309, x: 6, y: 3 }
+  - { index: 310, x: 5, y: 3 }
+  - { index: 311, x: 4, y: 3 }
+  - { index: 312, x: 12, y: 8 }
+  - { index: 313, x: 12, y: 3 }
+  - { index: 314, x: 3, y: 8 }
+  - { index: 315, x: 3, y: 3 }

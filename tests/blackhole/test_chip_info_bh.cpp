@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -29,7 +29,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
         EXPECT_TRUE(
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
             chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE ||
-            chip_info.board_type == BoardType::UBB_BLACKHOLE_BIN6);
+            chip_info.board_type == BoardType::UBB_BLACKHOLE_CF);
 
         switch (chip_info.board_type) {
             case BoardType::P100:
@@ -42,7 +42,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
                 break;
             }
             case BoardType::UBB_BLACKHOLE:
-            case BoardType::UBB_BLACKHOLE_BIN6: {
+            case BoardType::UBB_BLACKHOLE_CF: {
                 EXPECT_TRUE(chip_info.asic_location <= 8);
                 break;
             }

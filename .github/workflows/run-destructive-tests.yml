@@ -83,8 +83,11 @@ jobs:
           "P300-viommu",
           "tt-ubuntu-2204-wh-glx-6u-stable"
           ]' || format('["{0}"]', github.event.inputs.card)) }}
-    runs-on:
-      - ${{ matrix.card }}
+    # Runners outside the tt-ubuntu-*-stable pool need in-service, which their pool uses to mark the
+    # machines that may take general CI jobs.
+    runs-on: >-
+      ${{ startsWith(matrix.card, 'tt-ubuntu-') && fromJSON(format('["{0}"]', matrix.card))
+      || fromJSON(format('["{0}", "in-service"]', matrix.card)) }}
     container:
       image: >-
         ghcr.io/${{ github.repository }}/tt-umd-ci-${{

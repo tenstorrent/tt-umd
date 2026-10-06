@@ -25,6 +25,7 @@
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -451,22 +452,26 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->read_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->read_ctrl(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->write_ctrl(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
@@ -840,6 +845,31 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
         UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
     }
     soc_descriptor_ = soc_descriptor;
+}
+
+std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const {
+    att::EndpointResolver *resolver = model_->get_endpoint_resolver();
+
+    // No resolver, or an address the caller states is already device-ready: nothing to fold.
+    if (resolver == nullptr || core.coord_system == CoordSystem::LITERAL) {
+        return {resolve_coordinate(core, noc_id), addr};
+    }
+
+    // The fold consumes the coordinate, so what travels is the origin: a Quasar address names its
+    // own target and the protocol below refuses a coordinate that claims otherwise.
+    //
+    // The descriptor is only consulted to translate a coordinate into NOC0, or to look up a core
+    // type the caller left unspecified. A caller supplying both has already said everything the
+    // resolver asks for, and reaching for the descriptor anyway would make every folded access
+    // depend on init_tt_device() having run -- a precondition the I/O path should not carry, and
+    // one an architecture whose firmware cannot report chip info may never satisfy.
+    if (core.coord_system == CoordSystem::NOC0 && core.core_type != CoreType::UNSPECIFIED) {
+        return {xy_pair(0, 0), resolver->resolve(tt_xy_pair(core.x, core.y), core.core_type, addr, size)};
+    }
+
+    // Anything else needs translating, and translating a LOGICAL coordinate without the harvesting
+    // the descriptor carries would be quietly wrong rather than merely unavailable.
+    return {xy_pair(0, 0), att::resolve_core(*resolver, get_soc_descriptor(), core, addr, size)};
 }
 
 xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {

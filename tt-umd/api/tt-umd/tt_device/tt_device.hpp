@@ -527,6 +527,20 @@ private:
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
+    /**
+     * The (coordinate, address) pair to put on the wire for @p core at @p addr.
+     *
+     * Wormhole and Blackhole carry the destination out of band, so the pair is the resolved
+     * coordinate and the caller's address unchanged. Quasar is the opposite: its NOC decodes a
+     * flat address into a destination, so the coordinate is folded into the address and the
+     * coordinate on the wire becomes the origin.
+     *
+     * A LITERAL coordinate is never folded. It already means "device-ready by contract" to both
+     * resolve_coordinate() and att::resolve_core(), which is what lets a caller address a system
+     * physical range directly on an architecture that otherwise resolves by coordinate.
+     */
+    std::pair<xy_pair, uint64_t> resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const;
+
     DmaInterface *get_dma_interface();
 
     std::unique_ptr<TTDeviceModel> model_;

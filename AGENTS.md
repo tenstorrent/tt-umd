@@ -33,10 +33,7 @@
 - If, when working on a PR change, there is some or several minor cleanup/rename to do in the same context, try to separate those in a different PR which would land right before or right after the current PR.
 
 ## PR description
-- PR Description should follow PR template defined in this repo.
-- Keep the description very brief and up to the point. For smaller PRs they can be one sentence. For larger ones keep them up to 15 lines.
-- In both description and list of changes, avoid mentioning many items (files or function names) if there's more than 3 or 4 to be named, rather use a description for that whole category.
-- If you need to explain the current state of code, those comments have no place in PR description, those should be commented directly in source files.
+- PR description should follow the PR template defined in this repo, including the guidance written in the comments inside it. Read `.github/pull_request_template.md` before writing a description, since creating a PR with `gh pr create --body` never surfaces the template on its own.
 - Write the description in GitHub Markdown, not as a hard-wrapped text file. GitHub renders a single newline inside a paragraph as a line break, so a sentence wrapped across several lines shows up broken in the rendered description. Keep each paragraph on one line and separate paragraphs with a blank line.
 
 ## Commenting
@@ -62,5 +59,8 @@
 - Each test should cover one scenario, so that a failure names the case that broke. When the same behavior has to be checked across several inputs, use a parameterized test instead of looping over the cases inside a single test.
 
 ## Reviewing PRs workflow
+- If a PR stack is being reviewed, you can take a brief look at whole stack, but process PRs one by one. Provide comments that you think are relevant for one of the PRs, argue and discuss with the user, and upon confirming post the comments for that single PR.
+- Any suggested comments should be presented through a git unstaged text file for user to review.
+- Post the confirmed comments as inline comments anchored to the lines they are about, submitted together as one review. Do not put everything into a single PR level comment: inline comments can be resolved one thread at a time and sit next to the code they refer to.
 
 ## External knowledge

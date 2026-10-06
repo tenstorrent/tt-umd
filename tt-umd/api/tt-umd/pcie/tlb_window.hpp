@@ -38,6 +38,7 @@ enum class IoSafety : bool {
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
+ * WindowFlags outside supported_window_flags() are rejected by configure().
  */
 class TlbWindow : public IoWindow {
 public:
@@ -75,6 +76,11 @@ public:
     uint64_t get_base_address() const;
 
 protected:
+    // WindowFlags this implementation can actually honor. The base class rejects anything outside
+    // this set in configure() rather than silently dropping it. Default: none, since a plain TLB
+    // mapping cannot express any of them.
+    virtual WindowFlags supported_window_flags() const { return WindowFlags::None; }
+
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
 
@@ -90,6 +96,7 @@ protected:
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
     const IoSafety io_safety_;
+    WindowFlags window_flags_ = WindowFlags::None;
 };
 
 }  // namespace tt::umd

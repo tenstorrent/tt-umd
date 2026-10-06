@@ -67,8 +67,17 @@ public:
      * @param addr Address to read from
      * @param data Buffer to store read data
      * @param size Number of bytes to read
+     * @param user_bits_low Low 64 bits of AXI aruser (bit 8 is cce_cmd_snoop). Defaults to 0.
+     * @param user_bits_high Upper bits of AXI aruser (bits 64..127). Defaults to 0.
      */
-    void tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+    void tile_read_bytes(
+        uint32_t x,
+        uint32_t y,
+        uint64_t addr,
+        void *data,
+        uint32_t size,
+        uint64_t user_bits_low = 0,
+        uint64_t user_bits_high = 0);
 
     /**
      * Write data to a tile core.
@@ -78,8 +87,17 @@ public:
      * @param addr Address to write to
      * @param data Data to write
      * @param size Number of bytes to write
+     * @param user_bits_low Low 64 bits of AXI awuser (bit 8 is cce_cmd_snoop). Defaults to 0.
+     * @param user_bits_high Upper bits of AXI awuser (bits 64..127). Defaults to 0.
      */
-    void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+    void tile_write_bytes(
+        uint32_t x,
+        uint32_t y,
+        uint64_t addr,
+        const void *data,
+        uint32_t size,
+        uint64_t user_bits_low = 0,
+        uint64_t user_bits_high = 0);
 
     /**
      * Read whole words of device memory addressed by a flat global address, for a NOC that resolves

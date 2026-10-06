@@ -6,8 +6,8 @@
 
 #include <fmt/format.h>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd::att {
 

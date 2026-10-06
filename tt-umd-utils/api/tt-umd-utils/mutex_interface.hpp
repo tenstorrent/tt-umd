@@ -13,7 +13,7 @@
 namespace tt::umd {
 
 // Common interface of UMD's cross-process locking backends, so that a lock can be guarded by whichever
-// backend suits it without its users having to know which one. See device/utils/README.md for how the
+// backend suits it without its users having to know which one. See tt-umd/src/utils/README.md for how the
 // backends compare.
 // Implementations meet the C++ BasicLockable requirement, so they work with std::lock_guard and
 // std::unique_lock.

@@ -14,6 +14,7 @@
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -24,7 +25,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/tlb.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

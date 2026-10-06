@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

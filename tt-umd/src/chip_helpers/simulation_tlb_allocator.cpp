@@ -9,8 +9,8 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

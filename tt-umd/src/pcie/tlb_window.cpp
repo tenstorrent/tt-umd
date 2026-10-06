@@ -9,13 +9,13 @@
 #include <stdexcept>
 #include <utility>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/utils/robust_mutex.hpp"
+#include "tt-umd-utils/robust_mutex.hpp"
 
 #include <fcntl.h>  // O_RDWR, O_CREATE
 #include <fmt/format.h>
@@ -22,7 +22,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.

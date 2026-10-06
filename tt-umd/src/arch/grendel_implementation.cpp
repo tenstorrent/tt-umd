@@ -9,11 +9,11 @@
 #include <cstdint>
 #include <tuple>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/types/blackhole_l1.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/risc_type.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -18,6 +18,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
@@ -33,7 +34,6 @@
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/telemetry.hpp"
-#include "tt-umd/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;

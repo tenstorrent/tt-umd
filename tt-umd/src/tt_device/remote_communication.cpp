@@ -9,11 +9,11 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/tt_device/remote_communication_legacy_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 
 namespace tt::umd {

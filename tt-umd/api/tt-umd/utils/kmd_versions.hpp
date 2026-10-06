@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "tt-umd/utils/semver.hpp"
+#include "tt-umd-utils/semver.hpp"
 
 namespace tt::umd {
 

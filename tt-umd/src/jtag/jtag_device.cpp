@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/jtag/jtag.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;

@@ -13,6 +13,7 @@
 
 #include "tests/rdma/rdma_loopback.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -20,7 +21,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
-#include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
 

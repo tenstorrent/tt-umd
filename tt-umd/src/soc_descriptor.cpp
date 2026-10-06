@@ -23,11 +23,11 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -6,10 +6,10 @@
 
 #include <optional>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/cluster_types.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

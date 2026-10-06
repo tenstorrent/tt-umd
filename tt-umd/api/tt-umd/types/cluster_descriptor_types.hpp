@@ -11,9 +11,9 @@
 #include <optional>
 #include <unordered_map>
 
+#include "tt-umd-utils/error.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/utils/common.hpp"
-#include "tt-umd/utils/error.hpp"
-#include "tt-umd/utils/semver.hpp"
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {

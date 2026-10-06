@@ -21,8 +21,8 @@
 #include <utility>
 
 #include "eth_ipc.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/simulation/simulation_chip.hpp"
-#include "tt-umd/utils/error.hpp"
 
 // NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                                           \

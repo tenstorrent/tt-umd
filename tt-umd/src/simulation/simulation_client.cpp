@@ -14,7 +14,7 @@
 #include <system_error>
 
 #include "simulation/simulation_server_transport.hpp"
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 using namespace tt::umd;
 

@@ -21,6 +21,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip/chip.hpp"
 #include "tt-umd/cluster.hpp"
@@ -31,7 +32,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/wormhole_l1.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/semver.hpp"
 
 using namespace tt::umd;
 

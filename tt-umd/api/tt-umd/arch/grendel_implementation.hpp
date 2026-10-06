@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -20,7 +21,6 @@
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

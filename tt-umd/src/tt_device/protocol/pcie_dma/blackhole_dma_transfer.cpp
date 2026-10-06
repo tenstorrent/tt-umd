@@ -9,8 +9,8 @@
 #include <chrono>
 #include <string>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

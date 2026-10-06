@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "tt-umd-utils/robust_mutex.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/kmd_mutex.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
-#include "tt-umd/utils/robust_mutex.hpp"
 
 using namespace tt::umd;
 

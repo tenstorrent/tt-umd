@@ -10,9 +10,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
+#include "tt-umd-utils/robust_mutex.hpp"
 #include "tt-umd/utils/kmd_mutex.hpp"
-#include "tt-umd/utils/robust_mutex.hpp"
 
 namespace tt::umd {
 

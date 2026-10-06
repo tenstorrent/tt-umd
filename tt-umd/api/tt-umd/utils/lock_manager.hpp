@@ -12,8 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
-#include "tt-umd/utils/mutex_interface.hpp"
 
 namespace tt::umd {
 

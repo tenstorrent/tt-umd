@@ -11,9 +11,9 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -13,7 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

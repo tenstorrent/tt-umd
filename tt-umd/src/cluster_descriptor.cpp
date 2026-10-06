@@ -28,12 +28,12 @@
 
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 namespace tt::umd {

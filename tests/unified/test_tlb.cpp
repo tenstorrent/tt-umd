@@ -468,6 +468,40 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     }
 }
 
+// A read that runs off the end of one TLB window has to continue in the next mapping. DRAM is the target because the
+// boundary sits a whole window into the core's address space, beyond the end of Tensix L1.
+TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
+    const ChipId chip = 0;
+    const size_t window_size = 1 << 21;
+    // A multiple of the window size, so the window has to end exactly here.
+    const uint64_t boundary_addr = 0x30000000;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const CoreCoord dram_core =
+        cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
+    SiliconTlbWindow window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+
+    // Covers both reads below, [boundary_addr - 4, boundary_addr + 32).
+    std::vector<uint8_t> pattern(36);
+    for (size_t i = 0; i < pattern.size(); ++i) {
+        pattern[i] = static_cast<uint8_t>(i + 1);
+    }
+    cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, boundary_addr - 4);
+
+    // A read that wraps back to the start of the window instead of moving on would return these bytes.
+    std::vector<uint8_t> window_start(32, 0xFF);
+    cluster->write_to_device(window_start.data(), window_start.size(), chip, dram_core, boundary_addr - window_size);
+
+    std::vector<uint8_t> straddling(32, 0);
+    read_block_reconfigure(window, straddling.data(), dram_core, boundary_addr - 4, straddling.size(), NocId::NOC0);
+    EXPECT_EQ(straddling, std::vector<uint8_t>(pattern.begin(), pattern.begin() + 32));
+
+    std::vector<uint8_t> past_boundary(32, 0);
+    read_block_reconfigure(window, past_boundary.data(), dram_core, boundary_addr, past_boundary.size(), NocId::NOC0);
+    EXPECT_EQ(past_boundary, std::vector<uint8_t>(pattern.begin() + 4, pattern.end()));
+}
+
 TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";

@@ -223,7 +223,8 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
-    const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
+    const CoreCoord dram_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM, CoordSystem::TRANSLATED)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core.to_pair(), ADDRESS);
@@ -258,7 +259,8 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
@@ -293,7 +295,8 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     void* mapping =
         mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);

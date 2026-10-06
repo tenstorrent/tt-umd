@@ -99,7 +99,8 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     const uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // Zero out 1MB of Tensix L1.
     std::vector<uint8_t> data_write(one_mb, 0);
@@ -163,7 +164,8 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // Zero out 1MB of Tensix L1.
     std::vector<uint8_t> data_write(one_mb, 0);
@@ -490,7 +492,8 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
 
     // Device reads the read-only mapping and writes it into Tensix L1 -- the direction read-only pinning exists to
     // serve. Reading it back independently confirms the mapping is genuinely usable, not merely accepted.
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     std::vector<uint8_t> zeros(mapping_size, 0);
     cluster->write_to_device(zeros.data(), mapping_size, mmio_chip, tensix_core, 0);
     sysmem_buffer->dma_write_to_device(0, mapping_size, tensix_core.to_pair(), 0);

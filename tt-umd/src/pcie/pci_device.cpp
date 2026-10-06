@@ -234,6 +234,10 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
+std::optional<uint32_t> PciDeviceInfo::current_link_width() const {
+    return try_read_sysfs<uint32_t>(*this, "current_link_width");
+}
+
 std::vector<int> PCIDevice::enumerate_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> device_ids;

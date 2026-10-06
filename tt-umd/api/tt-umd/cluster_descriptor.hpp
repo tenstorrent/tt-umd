@@ -272,6 +272,12 @@ public:
 
     const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
 
+    /*
+     * Returns the number of PCIe lanes each MMIO chip's link trained to, as captured at topology
+     * discovery. Chips whose width could not be read have no entry.
+     */
+    const std::unordered_map<ChipId, uint32_t> &get_chip_pci_link_widths() const;
+
     std::optional<uint8_t> get_tray_id(ChipId chip_id) const;
 
     const std::vector<ChipId> &get_unhealthy_devices() const { return unhealthy_devices; }
@@ -357,6 +363,7 @@ private:
     std::map<ChipId, uint8_t> asic_locations;
     std::unordered_map<ChipId, uint64_t> chip_to_board_id;
     std::unordered_map<ChipId, std::string> chip_pci_bdfs;
+    std::unordered_map<ChipId, uint32_t> chip_pci_link_widths;
 
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 

@@ -228,6 +228,7 @@ void ClusterDescriptor::apply_chip_id_remapping(
     remap_map_keys(remapped->noc_translation_enabled, desc->noc_translation_enabled, old_to_new);
     remap_map_keys(remapped->chip_to_bus_id, desc->chip_to_bus_id, old_to_new);
     remap_map_keys(remapped->chip_pci_bdfs, desc->chip_pci_bdfs, old_to_new);
+    remap_map_keys(remapped->chip_pci_link_widths, desc->chip_pci_link_widths, old_to_new);
     remap_map_keys(remapped->harvesting_masks_map, desc->harvesting_masks_map, old_to_new);
     remap_map_keys(remapped->asic_locations, desc->asic_locations, old_to_new);
     remap_map_keys(remapped->active_eth_channels, desc->active_eth_channels, old_to_new);
@@ -432,6 +433,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     }
 
     desc->chip_pci_bdfs = filter_chip_collection(full_cluster_desc->chip_pci_bdfs, visible_chips);
+    desc->chip_pci_link_widths = filter_chip_collection(full_cluster_desc->chip_pci_link_widths, visible_chips);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
@@ -877,6 +879,18 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             chip_pci_bdfs.insert({chip, bdf_str});
         }
     }
+
+    if (yaml["chip_pci_link_widths"]) {
+        for (const auto &[chip, width] : yaml["chip_pci_link_widths"].as<std::map<int, uint32_t>>()) {
+            if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Chip {} has PCI link width specified but is not MMIO mapped.", chip));
+            }
+
+            chip_pci_link_widths.insert({chip, width});
+        }
+    }
 }
 
 void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
@@ -1163,6 +1177,13 @@ std::string ClusterDescriptor::serialize() const {
     }
     out << YAML::EndMap;
 
+    out << YAML::Key << "chip_pci_link_widths" << YAML::Value << YAML::BeginMap;
+    std::map<ChipId, uint32_t> pci_link_widths_map(chip_pci_link_widths.begin(), chip_pci_link_widths.end());
+    for (const auto &[chip_id, width] : pci_link_widths_map) {
+        out << YAML::Key << chip_id << YAML::Value << width;
+    }
+    out << YAML::EndMap;
+
     out << YAML::EndMap;
 
     return out.c_str();
@@ -1388,6 +1409,10 @@ uint8_t ClusterDescriptor::get_asic_location(ChipId chip_id) const {
 }
 
 const std::unordered_map<ChipId, std::string> &ClusterDescriptor::get_chip_pci_bdfs() const { return chip_pci_bdfs; }
+
+const std::unordered_map<ChipId, uint32_t> &ClusterDescriptor::get_chip_pci_link_widths() const {
+    return chip_pci_link_widths;
+}
 
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
 

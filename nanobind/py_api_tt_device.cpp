@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -172,7 +173,8 @@ void bind_tt_device(nb::module_ &m) {
         .def_ro("pci_device", &PciDeviceInfo::pci_device)
         .def_ro("pci_function", &PciDeviceInfo::pci_function)
         .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
-        .def("get_arch", &PciDeviceInfo::get_arch, release_gil());
+        .def("get_arch", &PciDeviceInfo::get_arch, release_gil())
+        .def("current_link_width", &PciDeviceInfo::current_link_width, release_gil());
 
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>(), release_gil())

@@ -46,8 +46,9 @@ struct PciDeviceInfo {
     std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
-    // TODO: does it make sense to move attributes that we can read from sysfs
-    // onto this struct as methods?  e.g. current_link_width etc.
+
+    // Number of PCIe lanes the link trained to. Read live from sysfs; nullopt if unavailable.
+    std::optional<uint32_t> current_link_width() const;
 };
 
 struct DmaBuffer {

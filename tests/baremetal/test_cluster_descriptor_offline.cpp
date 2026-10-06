@@ -452,3 +452,20 @@ TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
     Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});
     EXPECT_THROW(cluster.refresh_cluster_description(), std::runtime_error);
 }
+
+TEST(ApiClusterDescriptorOfflineTest, PciLinkWidthsRoundTrip) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N300_pci_bdf.yaml"));
+    const std::unordered_map<ChipId, uint32_t> expected = {{0, 16}};
+    EXPECT_EQ(cluster_desc->get_chip_pci_link_widths(), expected);
+
+    std::unique_ptr<ClusterDescriptor> reloaded =
+        ClusterDescriptor::create_from_yaml_content(cluster_desc->serialize());
+    EXPECT_EQ(reloaded->get_chip_pci_link_widths(), expected);
+}
+
+TEST(ApiClusterDescriptorOfflineTest, PciLinkWidthsAbsentFromYaml) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P150.yaml"));
+    EXPECT_TRUE(cluster_desc->get_chip_pci_link_widths().empty());
+}

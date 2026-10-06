@@ -266,4 +266,14 @@ properties:
         description: PCI BDF in format DDDD:BB:DD.F
     additionalProperties: false
 
+  # Trained PCIe link width of each MMIO chip
+  chip_pci_link_widths:
+    type: object
+    description: Maps Chip ID to the number of PCIe lanes its link trained to
+    patternProperties:
+      "^[0-9]+$":
+        type: integer
+        minimum: 1
+    additionalProperties: false
+
 additionalProperties: false

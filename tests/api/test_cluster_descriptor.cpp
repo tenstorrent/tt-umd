@@ -77,6 +77,21 @@ TEST(TestClusterDescriptor, DetectArch) {
     }
 }
 
+TEST(TestClusterDescriptor, PciLinkWidths) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+    if (cluster_desc->get_io_device_type() != IODeviceType::PCIe) {
+        GTEST_SKIP() << "PCIe link width is only recorded for PCIe-attached chips.";
+    }
+
+    std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
+    const auto& link_widths = cluster_desc->get_chip_pci_link_widths();
+    for (auto [chip, pci_device_number] : cluster_desc->get_chips_with_mmio()) {
+        ASSERT_TRUE(link_widths.count(chip)) << "No PCIe link width for chip " << chip;
+        EXPECT_EQ(link_widths.at(chip), pci_device_infos.at(pci_device_number).current_link_width());
+        EXPECT_GT(link_widths.at(chip), 0u);
+    }
+}
+
 TEST(TestClusterDescriptor, BasicFunctionality) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 

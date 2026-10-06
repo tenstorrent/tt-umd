@@ -1,4 +1,7 @@
 #!/bin/bash
+set -euo pipefail
+
+UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
 
 # Install essential packages first (required for HTTPS and GPG operations)
 apt-get update && apt-get install -y \
@@ -24,9 +27,6 @@ apt-get update && apt-get install -y \
     libboost-all-dev \
     wget \
     yamllint \
-    python3-dev \
-    python3-pip \
-    python3-venv \
     patchelf \
     xxd \
     rpm \
@@ -34,7 +34,20 @@ apt-get update && apt-get install -y \
     fakeroot
 
 # Install Python dependencies
-python3 -m pip install --no-cache-dir pytest pyyaml
+apt-get update && apt-get install -y \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    python3-yaml \
+    python3-pytest \
+    python3-typing-extensions
+
+# nanobind's stubgen.py requires typing_extensions on Python < 3.11 and needs TypeVarTuple (>= 4.1).
+# Ubuntu 22.04's apt package is 3.10.0.2, which is too old, so install a newer one via pip.
+# Ubuntu 24.04 uses Python 3.12 (stubgen doesn't need it, and pip is externally managed), so skip there.
+if [ "${UBUNTU_VERSION}" = "22.04" ]; then
+    python3 -m pip install --upgrade "typing_extensions>=4.6"
+fi
 
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then
@@ -55,7 +68,6 @@ run_llvm_sh() {
 }
 
 # Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
-UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
 if [ "${UBUNTU_VERSION}" = "22.04" ]; then
     echo "Installing clang-13 for minimum compiler version testing..."
     run_llvm_sh 13 && apt install -y libc++-13-dev libc++abi-13-dev

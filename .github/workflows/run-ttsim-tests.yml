@@ -28,9 +28,37 @@ jobs:
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
+    env:
+      # Shared Garage ccache, same bucket and endpoint tt-metal's own CI uses
+      # (see tt-metal's .github/workflows/build-artifact.yaml).
+      #
+      # The prefix is "tt-metal-for-umd": the compilation this job caches *is* a
+      # tt-metal build, but it is built against UMD's tip rather than the pinned
+      # submodule, so it gets its own namespace instead of sharing (and evicting
+      # from) the "tt-metal" one that tt-metal's CI owns. This job is both the
+      # reader and the writer of that namespace, so it warms itself run over run.
+      CCACHE_S3_BUCKET: ccache
+      CCACHE_S3_PREFIX: tt-metal-for-umd
+      CCACHE_S3_DEBUG: "false"
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
+        # NOTE: CCACHE_REMOTE_ONLY is deliberately NOT set here (tt-metal sets it at this level).
+        # It is exported by the configure step below instead, so that when that step is skipped or
+        # bails out (forks, missing secrets) ccache is not left with neither a remote nor a local
+        # cache — it just falls back to plain local ccache, exactly as before this wiring.
+        CCACHE_TEMPDIR: /tmp/ccache
+        CCACHE_COMPRESS: "true"
+        CCACHE_COMPRESSLEVEL: "3"
+        # Log ccache operations to a file so remote storage errors are visible in CI.
+        # Errors (storage helper failures, S3 timeouts) would otherwise be silent.
+        CCACHE_LOGFILE: /tmp/ccache.log
+        # NOTE: CCACHE_BASEDIR is deliberately NOT set here. Expressions in this block are
+        # evaluated on the *host*, so ${{ github.workspace }} expands to the runner path
+        # (/opt/runner/_work/tt-umd/tt-umd), while the container only has /opt/runner/_work
+        # bind-mounted at /__w. A host path never prefixes any path the compiler sees inside
+        # the container, so ccache's basedir rewriting would silently never fire. It is
+        # computed from the in-container workspace by the configure step below instead.
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
         TRACY_NO_ISA_EXTENSIONS: 1
@@ -91,6 +119,66 @@ jobs:
           fileName: "libttsim_wh_x2.so"
           out-file-path: /tmp/ttsim-wh-x2
 
+      - name: Download ttsim binary (wh_x32)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_wh_x32.so"
+          out-file-path: /tmp/ttsim-wh-x32
+
+      - name: Download ttsim binary (bh_x32)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_bh_x32.so"
+          out-file-path: /tmp/ttsim-bh-x32
+
+      # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
+      # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
+      # there because a cold cache in its own CI is a real regression; here the remote cache is pure
+      # upside, so a build that cannot reach it should still succeed exactly as it did before this
+      # wiring.
+      - name: Configure S3 ccache storage
+        # Forks never have secrets; don't fail or warn noisily for them, they just build uncached.
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        run: |
+          mkdir -p /tmp/ccache
+          # Strip the tt-metal checkout prefix from hashed paths, so entries stay reusable if the
+          # workspace ever lands at a different absolute path (a differently-mounted runner, or this
+          # workflow being called from another repo's workspace) instead of being invalidated
+          # wholesale. tt-metal does the same thing with a hardcoded CCACHE_BASEDIR=/work.
+          #
+          # This MUST be computed at runtime inside the container, exactly like TT_METAL_HOME in
+          # the "Build tt-metal" step below. The ${{ github.workspace }} expression is evaluated on
+          # the host and yields /opt/runner/_work/tt-umd/tt-umd; inside the container that tree is
+          # mounted at /__w, so the compiler only ever sees /__w/... paths. A host-path basedir
+          # matches no prefix, ccache's path rewriting never fires, and every translation unit is
+          # hashed with its full /__w/... path.
+          echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}/tt-metal" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR: ${GITHUB_WORKSPACE}/tt-metal"
+          if [ -z "${{ secrets.GARAGE_S3_ACCESS_KEY }}" ] || [ -z "${{ secrets.GARAGE_S3_SECRET_KEY }}" ]; then
+            echo "::warning::Garage S3 credentials are missing (need 'secrets: inherit' and the" \
+              "GARAGE_S3_ACCESS_KEY / GARAGE_S3_SECRET_KEY secrets). Building without a remote ccache."
+            exit 0
+          fi
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.GARAGE_S3_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.GARAGE_S3_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=garage" >> $GITHUB_ENV
+          CCACHE_REMOTE_STORAGE="s3://${CCACHE_S3_BUCKET}|region=garage|prefix=${CCACHE_S3_PREFIX}|endpoint_url=http://garage.garage.svc.cluster.local:3900"
+          echo "CCACHE_REMOTE_STORAGE=${CCACHE_REMOTE_STORAGE}" >> $GITHUB_ENV
+          echo "CCACHE_REMOTE_STORAGE: ${CCACHE_REMOTE_STORAGE}"
+          # Only meaningful now that a remote is actually configured: writes go straight to the
+          # remote and skip the local cache, which is worthless on this ephemeral runner.
+          echo "CCACHE_REMOTE_ONLY=true" >> $GITHUB_ENV
+          if [ "${CCACHE_S3_DEBUG}" = "true" ]; then
+            echo "CRSH_LOGFILE=/tmp/ccache-storage-s3.log" >> $GITHUB_ENV
+          fi
+          echo "AWS_ENDPOINT_URL_S3=http://garage.garage.svc.cluster.local:3900" >> $GITHUB_ENV
+          # Zero the stats so the summary below reflects only this build.
+          ccache -z
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -103,38 +191,69 @@ jobs:
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
+      # Surfaces the remote hit rate, which is the only way to tell whether the remote cache is
+      # actually helping. always() so a failed build still reports why it was slow.
+      - name: Publish ccache summary
+        if: ${{ always() }}
+        run: |
+          CCACHE_STATS=$(ccache -sv)
+          echo "$CCACHE_STATS"
+          echo '## CCache Summary' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$CCACHE_STATS" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Remote storage errors are otherwise silent; surface them from the ccache log.
+          # tt-metal filters this with .github/scripts/ccache_log_filter.sh, which UMD does not
+          # have — grep for the same signal directly and cap the output.
+          if [ -f /tmp/ccache.log ]; then
+            REMOTE_ERRORS=$(grep -iE 'remote|s3|storage' /tmp/ccache.log \
+              | grep -iE 'error|fail|timeout' | head -50 || true)
+            if [ -n "$REMOTE_ERRORS" ]; then
+              echo '## CCache Remote Storage Errors' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$REMOTE_ERRORS" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2
+          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2 sim_wh_x32 sim_bh_x32
           mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
           mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
           mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
           mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
           mv /tmp/ttsim-bh-x2/libttsim_bh_x2.so sim_bh_x2/libttsim.so
+          mv /tmp/ttsim-wh-x32/libttsim_wh_x32.so sim_wh_x32/libttsim.so
+          mv /tmp/ttsim-bh-x32/libttsim_bh_x32.so sim_bh_x32/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # wh_x2 is two Wormhole chips; reuse the per-chip Wormhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x2/soc_descriptor.yaml
-          # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
-          # and enumerates both the MMIO gateway and the remote chip. Without it, the sim is a single MMIO chip.
-          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
-            sim_wh_x2/cluster_descriptor.yaml
+          # Deliberately no cluster_descriptor.yaml: discovery walks the ethernet links from the MMIO
+          # gateway to the remote chip, which has no PCI endpoint of its own, and reproduces this image's
+          # N300 topology from the devices themselves. TTSimDiscoveryTest below asserts that it did.
           # bh_x2 is two Blackhole chips; reuse the per-chip Blackhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x2/soc_descriptor.yaml
-          # Place the P300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
-          # and enumerates both MMIO chips. Without it, the sim is a single MMIO chip.
-          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
-            sim_bh_x2/cluster_descriptor.yaml
+          # Deliberately no cluster_descriptor.yaml: with nothing declaring the topology, UMD discovers it
+          # from the image and enumerates both MMIO chips the way it does on silicon. TTSimDiscoveryTest
+          # below asserts that it found them.
+          # x32 is the 6U Galaxy simulator (32 chips, all MMIO). Its topology is baked into the .so,
+          # and the tt-metal tests below supply the matching cluster descriptor through
+          # TT_METAL_MOCK_CLUSTER_DESC_PATH, so no cluster_descriptor.yaml is placed beside it.
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x32/soc_descriptor.yaml
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x32/soc_descriptor.yaml
 
-      - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
+      - name: Build UMD api_tests, microbenchmark, sim_server and Python bindings with simulation support
         run: |
           cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
             -S tt-metal/tt_metal/third_party/umd \
             -DTT_UMD_BUILD_TESTS=ON \
             -DTT_UMD_BUILD_SIMULATION=ON \
-            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_PYTHON=ON \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
@@ -142,22 +261,33 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
           # builds the tools with simulation OFF, which excludes it).
-          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark sim_server
+          cmake --build tt-metal/tt_metal/third_party/umd/build \
+            --target api_tests umd_microbenchmark sim_server nanobind_tt_umd
 
       # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
       # which is the case where a host with no chips would serve no sockets and still look like it started.
-      # `list` must report the chip as live, and `kill` must be able to reach it over that socket.
-      - name: Run sim_server start / list / kill on tt-sim blackhole
+      # `list` must name the arch and the simulator the host is running -- both come from probing
+      # the socket, so either appearing also proves the chip is live -- and `kill` must reach it there.
+      - name: Run sim_server start / list / kill / prune on tt-sim blackhole
         timeout-minutes: 2
         run: |
           # Resolve the simulator before cd'ing: this job runs in a container, where github.workspace
           # is the *host* path, so use the working directory the sim paths were prepared in instead.
           simulator=$(pwd)/sim_bh/libttsim.so
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
-          ./sim_server.sh start "$simulator"
-          ./sim_server.sh list | tee /tmp/sim_server_list.txt
-          grep -q "live" /tmp/sim_server_list.txt
-          ./sim_server.sh kill 0
+          ./sim_server start --detach "$simulator"
+          ./sim_server list | tee /tmp/sim_server_list.txt
+          grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
+          grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
+          ./sim_server kill 0
+          sleep 2  # let the host finish tearing down before the next one claims a directory
+
+          # prune clears up after a host that was killed rather than asked to stop, so it needs one
+          # that died: start a second host and SIGKILL it.
+          ./sim_server start --detach "$simulator" | tee /tmp/sim_server_start.txt
+          kill -9 "$(sed -n 's/^sim_server up: pid \([0-9]*\),.*/\1/p' /tmp/sim_server_start.txt)"
+          ./sim_server prune | grep -q "pruned server"
+          ./sim_server list | grep -q "No simulation servers running."
 
       # The point of the server: a second process attaches to a hosted simulation and device I/O
       # crosses the socket. SimulationConnector covers exactly that at the Cluster level (a host
@@ -167,6 +297,20 @@ jobs:
         run: |
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+
+      # Python mirror of the C++ SimulationConnector coverage above: nanobind/tests only runs in the
+      # pytest lane (no simulator) elsewhere, so its host/client test against a real simulator has
+      # never run anywhere. Only the simulator-gated test file runs here -- the rest of nanobind/tests
+      # talks to real silicon and has no chip to find in this container.
+      - name: Run UMD Python bindings SimulationConnector tests on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          export PYTHONPATH=$(pwd)/tt-metal/tt_metal/third_party/umd/build/nanobind
+          # unittest rather than pytest: this file sits inside tt-metal's tree, and pytest would
+          # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
+          cd tt-metal/tt_metal/third_party/umd/nanobind/tests
+          python3 -m unittest -v test_py_simulation_connector
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -203,6 +347,81 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
+      # TTSimCommunicatorTest covers the simulator-facing plumbing rather than device IO: the shared
+      # dlopen, endpoint enumeration, the closed-device guard, and independent IO across two chips of
+      # one image. The multi-chip case skips on single-endpoint images, so the same filter is useful
+      # on every variant below.
+      - name: Run UMD TTSimCommunicatorTest on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
+      - name: Run UMD TTSimCommunicatorTest on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
+      - name: Run UMD TTSimCommunicatorTest on tt-sim blackhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimCommunicatorTest.*"
+
+      # TTSimDiscoveryTest checks the topology UMD derived against the image it came from: one MMIO chip
+      # per host-visible PCI endpoint, chips beyond those reached over ethernet, and harvesting read from
+      # telemetry rather than assumed. It skips itself on any image with a cluster_descriptor.yaml beside
+      # it, and on Quasar, which TTSim models without ARC or Ethernet.
+      #
+      # TT_UMD_SIM_EXPECTED_CHIPS is how many chips each image models, which only the job staging it
+      # knows. Without it the remote half of the test passes vacuously on a discovery that found the MMIO
+      # chip and nothing else -- the regression wh_x2 is here to catch.
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 1
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 2
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 32
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 1
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
+      # wh_x2 is the case the remote half of the test is for: one PCI endpoint, two chips, the second
+      # reached only over ethernet.
+      - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 2
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
@@ -210,11 +429,10 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
-      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The
-      # cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths") makes UMD
-      # enumerate both chips, so the standard device-IO fixtures run across both MMIO chips and the
-      # simulated inter-chip eth links. The P300 host-DMA routing programs the outbound iATU via BAR2,
-      # which the stable ttsim release models.
+      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). Its topology is
+      # discovered rather than declared (see "Prepare sim paths"), so the standard device-IO fixtures
+      # run across both MMIO chips and the simulated inter-chip eth links. The P300 host-DMA routing
+      # programs the outbound iATU via BAR2, which the stable ttsim release models.
       - name: Run UMD TestDeviceIOFixture on tt-sim blackhole x2
         timeout-minutes: 1
         env:
@@ -243,10 +461,9 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
-      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
-      # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
-      # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
-      # the remote chip.
+      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
+      # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
+      # device-IO fixtures run across the gateway and the remote chip.
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1
         env:
@@ -324,12 +541,16 @@ jobs:
           if-no-files-found: error
 
       # Galaxy tests can be a bit longer, should run on the order of minutes.
+      # These mirror tt-metal's own runtime_sim_galaxy_cpp_unit_tests legs one-for-one (same x32
+      # simulator, same env, same filters), so a failure here is a real regression rather than a
+      # difference in how this workflow drives the simulator.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         timeout-minutes: 5
         env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh_x32
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_DISABLE_SFPLOADMACRO: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/wormhole/6u_cluster_desc
         run: |
@@ -342,9 +563,10 @@ jobs:
       - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
         timeout-minutes: 5
         env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh_x32
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_DISABLE_SFPLOADMACRO: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/blackhole/bh_6u_cluster_desc
         run: |

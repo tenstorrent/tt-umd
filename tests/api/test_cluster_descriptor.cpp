@@ -21,16 +21,16 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -242,6 +242,30 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
                 BoardType board_type = cluster_desc->get_board_type(chip);
                 EXPECT_TRUE(board_type == BoardType::N300 || board_type == BoardType::P300)
                     << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers Quietbox 2/Quietbox GE (2 P300 cards = 4 chips).
+        case 4: {
+            switch (cluster_desc->get_arch()) {
+                case tt::ARCH::BLACKHOLE: {
+                    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+                    EXPECT_EQ(chips_with_mmio.size(), 4);
+
+                    auto eth_connections = cluster_desc->get_ethernet_connections();
+                    EXPECT_EQ(count_connections(eth_connections), 16);
+
+                    for (auto chip : all_chips) {
+                        BoardType board_type = cluster_desc->get_board_type(chip);
+                        EXPECT_TRUE(board_type == BoardType::P300)
+                            << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                    }
+                    break;
+                }
+                default: {
+                    throw std::runtime_error("Unexpected architecture for 4-chip cluster descriptor.");
+                }
             }
             break;
         }

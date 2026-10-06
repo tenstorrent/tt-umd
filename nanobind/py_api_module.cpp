@@ -16,6 +16,8 @@ void bind_warm_reset(nb::module_ &m);
 void bind_soc_descriptor(nb::module_ &m);
 void bind_logging(nb::module_ &m);
 void bind_error(nb::module_ &m);
+void bind_simulation(nb::module_ &m);
+void bind_mutex(nb::module_ &m);
 
 // Main module entry point.
 NB_MODULE(tt_umd, m) {
@@ -28,4 +30,6 @@ NB_MODULE(tt_umd, m) {
     bind_soc_descriptor(m);
     bind_logging(m);
     bind_error(m);
+    bind_simulation(m);
+    bind_mutex(m);
 }

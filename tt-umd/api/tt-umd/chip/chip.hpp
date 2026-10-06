@@ -1,0 +1,149 @@
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <unordered_set>
+#include <vector>
+
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/utils/lock_manager.hpp"
+#include "tt-umd/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
+namespace tt::umd {
+
+class TTDevice;
+class SysmemManager;
+struct CoreCoord;
+
+// An abstract class that represents a chip.
+class Chip {
+public:
+    Chip(tt::ARCH arch);
+
+    Chip(const ChipInfo chip_info, tt::ARCH arch);
+
+    virtual ~Chip() = default;
+
+    virtual void start_device(uint32_t dram_membar_subchannel = 0) = 0;
+    virtual void close_device() = 0;
+
+    virtual const SocDescriptor& get_soc_descriptor() const = 0;
+
+    virtual bool is_mmio_capable() const = 0;
+
+    void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
+
+    const ChipInfo& get_chip_info();
+
+    virtual TTDevice* get_tt_device() = 0;
+    virtual SysmemManager* get_sysmem_manager() = 0;
+
+    virtual int get_num_host_channels() = 0;
+    virtual int get_host_channel_size(std::uint32_t channel) = 0;
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) = 0;
+
+    virtual void write_to_device(
+        CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering = IoOrdering::Strict) = 0;
+    virtual void read_from_device(
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) = 0;
+    virtual void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
+    virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
+    virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_multicast_write(
+        void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
+    virtual void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(const void* src, size_t size, uint64_t addr);
+
+    virtual void wait_for_non_mmio_flush() = 0;
+
+    virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) = 0;
+
+    virtual void deassert_risc_resets() = 0;
+
+    /**
+    Returns a set of riscs which have soft reset signal raised (these riscs are in reset state).
+    */
+    virtual RiscType get_risc_reset_state(CoreCoord core);
+
+    /**
+    Assert the soft reset signal for specified riscs on the specified core.
+    Raising this signal will put those riscs in the reset state and stop their execution.
+    */
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+
+    /**
+    Deassert the soft reset signal for specified riscs on the specified core.
+    Lowering this signal will put those riscs in the running state and start their execution.
+    */
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+
+    /**
+    Assert the soft reset signal for specified riscs on all cores.
+    Raising this signal will put those riscs in the reset state and stop their execution.
+    */
+    virtual void assert_risc_reset(const RiscType selected_riscs);
+
+    /**
+    Deassert the soft reset signal for specified riscs on all cores.
+    Lowering this signal will put those riscs in the running state and start their execution.
+    */
+    virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
+
+    void set_clock_state(DevicePowerState state);
+    virtual int get_clock() = 0;
+    virtual int get_numa_node() = 0;
+
+    // Advance the chip by one clock cycle. Delegates to the underlying TTDevice, which
+    // is a no-op for chips without a controllable clock and drives the simulator clock
+    // synchronously (no background thread) for deterministic simulation.
+    void advance_device_execution();
+
+    virtual int arc_msg(
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        const std::vector<uint32_t>& args = {},
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr);
+
+    virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
+    virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
+
+    // TODO: This should be private, once enough stuff is moved inside chip.
+    // Probably also moved to LocalChip.
+    DeviceDramAddressParams dram_address_params;
+    DeviceL1AddressParams l1_address_params;
+
+protected:
+    void wait_chip_to_be_ready();
+
+    virtual void wait_eth_cores_training(const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+
+    virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+
+    void set_default_params(ARCH arch);
+
+    ChipInfo chip_info_;
+};
+
+}  // namespace tt::umd

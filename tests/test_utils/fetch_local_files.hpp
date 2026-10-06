@@ -11,7 +11,7 @@
 #include <iostream>
 #include <string>
 
-#include "umd/device/types/arch.hpp"
+#include "tt-umd/types/arch.hpp"
 
 namespace tt::umd::test_utils {
 

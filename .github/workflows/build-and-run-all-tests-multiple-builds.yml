@@ -38,6 +38,21 @@ on:
   push:
     branches: ["main"]
 
+# Cancel a PR's previous run when a new commit is pushed to it - the old run is testing
+# a commit nobody will merge, and it holds hardware runners while doing so.
+#
+# Only pull_request runs are grouped together. Every other event falls through to run_id, which
+# is unique per run, so nothing can cancel it:
+#   merge_group - queue entries are independent merge candidates over different commit sets;
+#                 dequeuing them is the merge queue's job. Early kill on failure is handled by
+#                 the fail-fast-* watchers in build-and-run-all-tests.yml.
+#   push to main - every commit on main gets its own run, for a per-commit baseline.
+#   workflow_dispatch - manual runs never cancel each other.
+# The github.workflow prefix keeps the gate workflows from cancelling each other on the same PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Granted to all jobs that don't declare their own `permissions:` block.
 # `actions: write` is required so the merge-queue fail-fast watchers (inside
 # build-and-run-all-tests.yml) can call the cancel-workflow API.
@@ -66,7 +81,7 @@ jobs:
   ensure-image:
     name: Ensure Docker image
     needs: gatekeeper
-    if: always()  # Don't skip if gatekeeper is skipped.
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
     permissions:
       packages: write
     secrets: inherit
@@ -83,7 +98,7 @@ jobs:
   build-exalens-kernels:
     name: Build tt-exalens kernels
     needs: gatekeeper
-    if: always()  # Don't skip if gatekeeper is skipped.
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
     secrets: inherit
     uses: ./.github/workflows/build-exalens-kernels.yml
 
@@ -101,16 +116,22 @@ jobs:
   # On main we also run only Release to maintain a consistent baseline, but don't want to spend resources
   # on extensive testing at this point.
   #
-  # Note that each of the following jobs has to have the always(), because default behavior of Github Actions is to
-  # skip all downstream jobs if one job is skipped, so when gatekeeper is skipped it would end up skipping all jobs.
-  # But we do want it to run only if ensure-image succeeded, so we need to add that condition to all downstream jobs.
+  # Each of the following jobs needs a status check function in its if-condition, because the default
+  # behavior of GitHub Actions is to skip all downstream jobs if one job is skipped, so a skipped
+  # gatekeeper would end up skipping all jobs. Any status check function suppresses that implicit
+  # needs-succeeded gate, which is why the explicit ensure-image condition is spelled out as well.
+  #
+  # The function must be !cancelled() and not always(): always() evaluates true even in a run that
+  # has been cancelled, so GitHub keeps starting these jobs (and the hardware matrices underneath
+  # them) after the run is cancelled, making the run effectively uncancellable. !cancelled() keeps
+  # the skip-propagation override but returns false once the run is cancelled.
 
   build-release:
     name: "Build and Test (Release)"
     needs: [ensure-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ensure-image.result == 'success' &&
       (
         github.event_name == 'pull_request' ||
@@ -136,7 +157,7 @@ jobs:
     needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ensure-image.result == 'success' &&
       (
         github.event_name == 'merge_group' ||
@@ -160,7 +181,7 @@ jobs:
     needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ensure-image.result == 'success' &&
       (
         github.event_name == 'merge_group' ||
@@ -184,7 +205,7 @@ jobs:
     needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ensure-image.result == 'success' &&
       (
         github.event_name == 'workflow_dispatch' &&
@@ -209,7 +230,7 @@ jobs:
     needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ensure-image.result == 'success' &&
       (
         github.event_name == 'workflow_dispatch' &&
@@ -229,6 +250,11 @@ jobs:
 
   # Single leaf check that can be required in branch rulesets.
   # Treats skipped jobs as passing (expected on pull_request), fails on failure or cancellation.
+  #
+  # This is the one job that keeps always() rather than !cancelled(). A skipped job counts as
+  # passing for branch protection, so under !cancelled() a cancelled run would report this
+  # required check as green. always() makes it run and report the cancellation as a failure, and
+  # being a trivial ubuntu job it does not hold the cancellation up.
   all-builds-passed:
     name: All builds and tests passed
     runs-on: ubuntu-latest

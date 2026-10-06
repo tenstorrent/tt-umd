@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Define DNF command with the common flags
 DNFC="dnf install -y --setopt=tsflags=nodocs"

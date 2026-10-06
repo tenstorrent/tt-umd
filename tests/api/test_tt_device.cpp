@@ -17,18 +17,18 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_registers.hpp"
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_device/tt_device_error.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/arch/architecture_registers.hpp"
+#include "tt-umd/chip/chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_error.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -128,7 +128,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
             board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
-            board_type == BoardType::UBB_BLACKHOLE);
+            board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
@@ -347,7 +347,6 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         using err = error::UmdException<error::UninitializedDeviceError>;
         EXPECT_THROW(tt_device->get_chip_info(), err);
         EXPECT_THROW(tt_device->get_soc_descriptor(), err);
-        EXPECT_THROW(tt_device->get_arc_messenger(), err);
         EXPECT_THROW(tt_device->get_firmware_telemetry_reader(), err);
         EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
         EXPECT_THROW(tt_device->get_board_id(), err);
@@ -364,7 +363,6 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         // These methods should work only after successful initialization.
         EXPECT_NO_THROW(tt_device->get_chip_info());
         EXPECT_NO_THROW(tt_device->get_soc_descriptor());
-        EXPECT_NO_THROW(tt_device->get_arc_messenger());
         EXPECT_NO_THROW(tt_device->get_firmware_telemetry_reader());
         EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
         EXPECT_NO_THROW(tt_device->get_board_id());

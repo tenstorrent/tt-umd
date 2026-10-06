@@ -9,29 +9,30 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <vector>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/io_window/io_window.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/io_window_config.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/kmd_versions.hpp"
-#include "umd/device/utils/mmio_timeout_config.hpp"
-#include "umd/device/utils/semver.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/tlb.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
+#include "tt-umd/utils/mmio_timeout_config.hpp"
+#include "tt-umd/utils/semver.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -467,6 +468,40 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     }
 }
 
+// A read that runs off the end of one TLB window has to continue in the next mapping. DRAM is the target because the
+// boundary sits a whole window into the core's address space, beyond the end of Tensix L1.
+TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
+    const ChipId chip = 0;
+    const size_t window_size = 1 << 21;
+    // A multiple of the window size, so the window has to end exactly here.
+    const uint64_t boundary_addr = 0x30000000;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const CoreCoord dram_core =
+        cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
+    SiliconTlbWindow window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+
+    // Covers both reads below, [boundary_addr - 4, boundary_addr + 32).
+    std::vector<uint8_t> pattern(36);
+    for (size_t i = 0; i < pattern.size(); ++i) {
+        pattern[i] = static_cast<uint8_t>(i + 1);
+    }
+    cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, boundary_addr - 4);
+
+    // A read that wraps back to the start of the window instead of moving on would return these bytes.
+    std::vector<uint8_t> window_start(32, 0xFF);
+    cluster->write_to_device(window_start.data(), window_start.size(), chip, dram_core, boundary_addr - window_size);
+
+    std::vector<uint8_t> straddling(32, 0);
+    read_block_reconfigure(window, straddling.data(), dram_core, boundary_addr - 4, straddling.size(), NocId::NOC0);
+    EXPECT_EQ(straddling, std::vector<uint8_t>(pattern.begin(), pattern.begin() + 32));
+
+    std::vector<uint8_t> past_boundary(32, 0);
+    read_block_reconfigure(window, past_boundary.data(), dram_core, boundary_addr, past_boundary.size(), NocId::NOC0);
+    EXPECT_EQ(past_boundary, std::vector<uint8_t>(pattern.begin() + 4, pattern.end()));
+}
+
 TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
@@ -596,27 +631,146 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_ANY_THROW(window.configure(target));
 }
 
-TEST_F(TestTlb, TLBStaticTensix) {
+// The Base API factory: a caller asks for the bytes it needs on a core and gets a window that
+// covers them, without naming a window size the architecture happens to provide.
+TEST_F(TestTlb, CreateIoWindow) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t l1_addr = 0x100;
+    // Not a size class on any architecture, so it can only be served by rounding up.
+    const size_t requested_size = 4096;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    TTDevice* tt_device = cluster->get_tt_device(chip);
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    // No NOC named, so the window is routed over the one selected for this thread.
+    TargetIoWindowConfig target;
+    target.core_start = tt_xy_pair(tensix_core.x, tensix_core.y);
+    target.addr = l1_addr;
+
+    std::unique_ptr<IoWindow> window =
+        tt_device->create_io_window(target, {.mapping = HostMemoryCaching::WC, .size = requested_size});
+
+    EXPECT_GE(window->get_size(), requested_size);
+    EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
+    // Ordering defaults to Strict when the caller does not ask for one.
+    EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
+
+    const TargetIoWindowConfig readback = window->get_target_config();
+    EXPECT_EQ(readback.core_start, target.core_start);
+    EXPECT_EQ(readback.addr, l1_addr);
+    EXPECT_EQ(readback.noc, get_selected_noc_id());
+
+    window->write32(0, 0x5a5a5a5a);
+    EXPECT_EQ(window->read32(0), 0x5a5a5a5au);
+
+    // No architecture has a window this large, so the request cannot be served.
+    EXPECT_ANY_THROW(tt_device->create_io_window(target, {.size = std::numeric_limits<size_t>::max()}));
+
+    // A caller that needs another ordering mode gets it applied to the mapping it is handed, rather
+    // than having to reconfigure the window itself once it has one.
+    for (const IoOrdering ordering : {IoOrdering::Relaxed, IoOrdering::Posted}) {
+        std::unique_ptr<IoWindow> ordered_window =
+            tt_device->create_io_window(target, {.size = requested_size}, ordering);
+        EXPECT_EQ(ordered_window->get_io_ordering(), ordering);
+        EXPECT_EQ(ordered_window->get_target_config().addr, l1_addr) << "Ordering should not disturb the target";
+    }
+
+    // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
+    // TTDevice nor translated coordinates ask for a window.
+    std::unique_ptr<IoWindow> chip_window =
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
+    ASSERT_NE(chip_window, nullptr);
+    EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
+    EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
+    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::Relaxed);
+
+    chip_window->write32(0, 0xa5a5a5a5);
+    EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
+}
+
+// A target naming two corners is a multicast grid, and the window comes back already programmed for
+// it -- the caller never reconfigures to reach every core in the rectangle.
+TEST_F(TestTlb, CreateMulticastIoWindow) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t l1_addr = 0x100;
+    const uint32_t pattern = 0xc0ffee00;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (!cluster->get_soc_descriptor(chip).noc_translation_enabled) {
+        GTEST_SKIP() << "Multicast requires NOC translation.";
+    }
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_GE(tensix_cores.size(), 2u);
+
+    // The two ends of one row bound a rectangle a row tall. The corners have to be ordered, since a
+    // grid is named upper-left first and get_cores() promises no particular order.
+    std::vector<CoreCoord> row;
+    for (const CoreCoord& core : tensix_cores) {
+        if (core.y == tensix_cores[0].y) {
+            row.push_back(core);
+        }
+    }
+    ASSERT_GE(row.size(), 2u);
+    const auto [left, right] =
+        std::minmax_element(row.begin(), row.end(), [](const CoreCoord& a, const CoreCoord& b) { return a.x < b.x; });
+    const CoreCoord grid_start = *left;
+    const CoreCoord grid_end = *right;
+
+    // Clear the targets first, so the readback can only be explained by the multicast.
+    const uint32_t zero = 0;
+    for (const CoreCoord& core : {grid_start, grid_end}) {
+        cluster->write_to_device(&zero, sizeof(zero), chip, core, l1_addr);
+    }
+
+    std::unique_ptr<IoWindow> window = cluster->create_io_window(
+        chip,
+        grid_start,
+        l1_addr,
+        {.size = sizeof(pattern)},
+        IoOrdering::Strict,
+        grid_end,
+        WindowFlags::MulticastWrite);
+    ASSERT_NE(window, nullptr);
+
+    window->write32(0, pattern);
+
+    for (const CoreCoord& core : {grid_start, grid_end}) {
+        uint32_t readback = 0;
+        cluster->read_from_device(&readback, chip, core, l1_addr, sizeof(readback));
+        EXPECT_EQ(readback, pattern) << "Core " << core.str() << " was not covered by the multicast grid";
+    }
+}
+
+TEST_F(TestTlb, IoWindowTensixRoundTrip) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
-
     const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-    std::vector<uint32_t> zero_out(1024, 0);
-    std::vector<uint32_t> readback_zeros(1024, 0xFFFFFFFF);
+    const int num_writes = 1024;
+    std::vector<uint32_t> zero_out(num_writes, 0);
+    std::vector<uint32_t> readback_zeros(num_writes, 0xFFFFFFFF);
     cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
     cluster->read_from_device(readback_zeros.data(), 0, tensix_core_0, 0, readback_zeros.size() * sizeof(uint32_t));
 
     EXPECT_EQ(readback_zeros, zero_out);
 
-    for (const CoreCoord tensix_core :
-         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-        cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
-    }
+    // Owned window, released at scope exit -- unlike the old static-TLB lookup, which was borrowed
+    // from a manager that outlived the call and mapped every Tensix at once.
+    std::unique_ptr<IoWindow> window =
+        cluster->create_io_window(0, tensix_core_0, 0, {.size = num_writes * sizeof(uint32_t)});
+    ASSERT_NE(window, nullptr);
 
-    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
-
-    const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {
         window->write32(4 * i, i);
     }
@@ -653,10 +807,10 @@ TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
 
         auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
 
-        tlb_window->write_register_reconfigure(pattern.data(), xy, l1_start, test_size, NocId::NOC0);
+        write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0);
 
         std::vector<uint32_t> readback(num_words, 0);
-        tlb_window->read_register_reconfigure(readback.data(), xy, l1_start, test_size, NocId::NOC0);
+        read_register_reconfigure(*tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0);
 
         EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }

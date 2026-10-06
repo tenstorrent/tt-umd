@@ -15,13 +15,13 @@
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -60,6 +60,13 @@ void bind_topology_discovery(nb::module_& m) {
         .def("get_ethernet_connections", &ClusterDescriptor::get_ethernet_connections, release_gil())
         .def("get_chip_unique_ids", &ClusterDescriptor::get_chip_unique_ids, release_gil())
         .def("get_io_device_type", &ClusterDescriptor::get_io_device_type, release_gil())
+        .def(
+            "get_cluster_id",
+            &ClusterDescriptor::get_cluster_id,
+            release_gil(),
+            "Unique id of the group of accelerators attached to a common host / controller / root complex. "
+            "Currently that machine's hostname. "
+            "None when the YAML omitted the key and discovery did not stamp one.")
         .def(
             "serialize_to_file",
             [](const ClusterDescriptor& self, const std::string& dest_file) -> std::string {
@@ -125,6 +132,17 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("target_chip_ids") = std::unordered_set<ChipId>{},
             "Create a constrained cluster descriptor filtered to the given chip IDs");
 
+    nb::class_<SimulationDiscoveryOptions>(m, "SimulationDiscoveryOptions")
+        .def(nb::init<>(), release_gil())
+        .def_rw(
+            "simulator_path",
+            &SimulationDiscoveryOptions::simulator_path,
+            "Path to the simulator (a libttsim .so) whose chips are discovered.")
+        .def_rw(
+            "num_host_mem_channels",
+            &SimulationDiscoveryOptions::num_host_mem_channels,
+            "Number of host memory channels to give each simulated device.");
+
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 
     nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
@@ -143,7 +161,18 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)
         // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
         .def_rw("low_power", &TopologyDiscoveryOptions::low_power)
-        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api);
+        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api)
+        .def_rw(
+            "cluster_id",
+            &TopologyDiscoveryOptions::cluster_id,
+            "Cluster id to stamp on the discovered cluster descriptor. Defaults to the OS hostname, which is "
+            "only correct on bare metal; supply one when running in a container or a VM. Discovery raises if it "
+            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].")
+        .def_rw(
+            "simulation",
+            &TopologyDiscoveryOptions::simulation,
+            "SimulationDiscoveryOptions selecting a simulator whose chips are discovered instead of the "
+            "host's. None means discover the host's own devices.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

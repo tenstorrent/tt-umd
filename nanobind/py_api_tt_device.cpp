@@ -15,23 +15,23 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arc/spi_tt_device.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
-#include "umd/device/tt_device/simulation_device_factory.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/risc_type.hpp"
-#include "umd/device/utils/error.hpp"
-#include "umd/device/utils/mmio_timeout_config.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/tt_device/simulation_device_factory.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/utils/error.hpp"
+#include "tt-umd/utils/mmio_timeout_config.hpp"
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
 // allowing other Python threads to run in parallel while this binding executes. Pass
@@ -479,6 +479,10 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soft_reset_raw_value"),
             release_gil(),
             "Set the raw soft reset register value for a core in translated coordinates. ")
+        // TODO: rename dma_read_from_device/dma_write_to_device to dma_read/dma_write to match
+        // TTDevice. tt-exalens vendors a UMD version and uplifts on its own schedule, so there's no
+        // atomic flip: register the new name as an additional alias here, let tt-exalens's
+        // umd_device.py migrate to it, then drop the old name once nothing calls it.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -486,7 +490,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(buffer.data(), size, core, addr, get_selected_noc_id());
+                    self.dma_read(buffer.data(), addr, size, core, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -495,6 +499,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_write_to_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
@@ -502,7 +507,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr, get_selected_noc_id());
+                    self.dma_write(buffer.readable_data(), addr, buffer.size(), core, get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -528,14 +533,16 @@ void bind_tt_device(nb::module_ &m) {
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -564,14 +571,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -600,14 +609,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout * 1000), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -645,6 +656,7 @@ void bind_tt_device(nb::module_ &m) {
                     "memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
             "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
@@ -658,7 +670,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(data_ptr, data_size, core, addr, get_selected_noc_id());
+                    self.dma_read(data_ptr, addr, data_size, core, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -756,52 +768,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("value"),
             "Broadcast a 32-bit value to all cores on the chip at the specified address. noc_id must be 0 for now.");
 
-    nb::class_<SPITTDevice>(m, "SPITTDevice")
-        .def_static(
-            "create",
-            [](TTDevice &device) { return SPITTDevice::create(&device); },
-            nb::arg("device"),
-            nb::rv_policy::take_ownership,
-            release_gil(),
-            "Create an SPITTDevice for the given TTDevice (factory method that returns architecture-specific "
-            "implementation)")
-        .def(
-            "read",
-            [](SPITTDevice &self, uint32_t addr, nb::bytearray data) -> void {
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
-                size_t data_size = data.size();
-                {
-                    nb::gil_scoped_release release;
-                    self.read(addr, data_ptr, data_size);
-                }
-            },
-            nb::arg("addr"),
-            nb::arg("data"),
-            "Read data from SPI flash memory")
-        .def(
-            "write",
-            [](SPITTDevice &self, uint32_t addr, nb::handle data, bool skip_write_to_spi = false) -> void {
-                PyBufferView buffer(data);
-                {
-                    nb::gil_scoped_release release;
-                    self.write(
-                        addr, static_cast<const uint8_t *>(buffer.readable_data()), buffer.size(), skip_write_to_spi);
-                }
-            },
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::arg("skip_write_to_spi") = false,
-            nb::sig("def write(self, addr: int, data: bytes | bytearray | memoryview, skip_write_to_spi: bool = False) "
-                    "-> None"),
-            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
-            "SPI. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
-        .def(
-            "get_spi_fw_bundle_version",
-            &SPITTDevice::get_spi_fw_bundle_version,
-            release_gil(),
-            "Get firmware bundle version from SPI (Blackhole only). "
-            "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
-
 #ifdef TT_UMD_BUILD_SIMULATION
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
@@ -831,6 +797,7 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -839,6 +806,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -866,6 +834,7 @@ void bind_tt_device(nb::module_ &m) {
             &RtlSimulationTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -874,6 +843,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(

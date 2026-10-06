@@ -4,28 +4,50 @@
 
 // Tests for the simulation multichip core infrastructure:
 // - SocDescriptor::is_core_of_type (moved from a local helper in tt_sim_tt_device.cpp)
+// - TTSimProtocol's process-qualified MMIO id
 // - TTSimCommunicator shared dlopen / select_chip_if_needed patterns
 //
-// The SocDescriptor tests run on any CI host (no hardware required).
+// The SocDescriptor and MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
+#include <filesystem>
+#include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <tuple>
+#include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
-#include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <exception>
+
+#include "simulation/eth_ipc.hpp"
+#include "tt-umd/chip/chip.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
+#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/utils/error.hpp"
 #endif
 
 using namespace tt;
@@ -130,6 +152,39 @@ INSTANTIATE_TEST_SUITE_P(
 
 #ifdef TT_UMD_BUILD_SIMULATION
 
+// ---------------------------------------------------------------------------
+// TTSimProtocol's MMIO id
+// ---------------------------------------------------------------------------
+
+// A simulated endpoint exists only inside the process that brought its image up, so the id UMD
+// addresses and locks it by carries the process as well as the endpoint. These are the properties
+// the lock names depend on: the endpoint is still in there, two chips of one image stay apart, and
+// two processes never agree.
+TEST(TTSimProtocolMmioId, CarriesTheEndpointAndTheProcess) {
+    const int chip0 = TTSimProtocol::process_local_mmio_id(0);
+    const int chip1 = TTSimProtocol::process_local_mmio_id(1);
+
+    // The endpoint survives in the low bits, and the process in the rest.
+    EXPECT_EQ(chip0 & 31, 0);
+    EXPECT_EQ(chip1 & 31, 1);
+    EXPECT_EQ(chip0 >> 5, static_cast<int>(getpid()));
+
+    // Each chip of a multi-endpoint image keeps its own lock, and nothing claims a PCI device number
+    // silicon could also be using.
+    EXPECT_NE(chip0, chip1);
+    EXPECT_GT(chip0, 31);
+
+    // Stable for the process, so a lock initialized under this name is found again when acquired.
+    EXPECT_EQ(chip0, TTSimProtocol::process_local_mmio_id(0));
+}
+
+// The 5 bits reserved for the endpoint are the same 5 bits the BDF device field has, so a chip id
+// that does not fit would silently land in the process part instead of overflowing visibly.
+TEST(TTSimProtocolMmioId, RefusesAChipIdThatDoesNotFitTheBdfField) {
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(32), std::exception);
+    EXPECT_THROW(TTSimProtocol::process_local_mmio_id(-1), std::exception);
+}
+
 class TTSimCommunicatorTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -149,6 +204,29 @@ TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     // The device should have a valid soc descriptor.
     const auto& soc = device->get_soc_descriptor();
     EXPECT_NE(soc.arch, ARCH::Invalid);
+}
+
+// The endpoint count must come from the image itself: it is what tells UMD how many chips a
+// multichip build models without a cluster descriptor to declare it.
+TEST_F(TTSimCommunicatorTest, EnumerateMmioDeviceBdfs) {
+    // Enumeration stands on its own: no device is constructed first, as on silicon.
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+
+    // Every image exposes at least one endpoint, at bus 0 device 0. The count is a property of the
+    // image, so it is reported rather than asserted.
+    ASSERT_FALSE(bdfs.empty());
+    EXPECT_EQ(bdfs.front(), 0u);
+    EXPECT_LE(bdfs.size(), 32u);
+    std::cout << "simulator exposes " << bdfs.size() << " host-visible PCI endpoint(s)" << std::endl;
+
+    // Endpoints live on bus 0, device field in bits [7:3], function 0, ascending and unique.
+    for (size_t i = 0; i < bdfs.size(); ++i) {
+        EXPECT_EQ(bdfs[i] & 0xFF00u, 0u) << "endpoint " << i << " is not on bus 0";
+        EXPECT_EQ(bdfs[i] & 0x7u, 0u) << "endpoint " << i << " is not function 0";
+        if (i > 0) {
+            EXPECT_GT(bdfs[i], bdfs[i - 1]) << "endpoints are not ascending";
+        }
+    }
 }
 
 // Verify that write_to_device after close_device() is a no-op (closed_ guard).
@@ -184,17 +262,32 @@ TEST_F(TTSimCommunicatorTest, WriteAfterCloseIsNoOp) {
 // Two TTSimTTDevice instances with distinct chip_ids writing and reading back
 // independently. Exercises select_chip_if_needed for each I/O call.
 TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
-    // Use the chip_id overload so the two devices target different simulated chips.
-    auto dev_0 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(0));
-    ASSERT_NE(dev_0, nullptr);
-
-    // If the simulator binary is single-chip, we cannot open a second device.
-    std::unique_ptr<TTSimTTDevice> dev_1;
-    try {
-        dev_1 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(1));
-    } catch (const std::exception&) {
-        GTEST_SKIP() << "Simulator does not support multiple devices; skipping multi-device I/O test.";
+    // Enumerate before bringing anything up: the simulator aborts the process rather than throwing
+    // when asked to start twice, so a single-endpoint image has to be detected up front.
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    if (bdfs.size() < 2) {
+        GTEST_SKIP() << "Simulator image exposes " << bdfs.size()
+                     << " endpoint(s); multi-device I/O needs at least two.";
     }
+    const size_t num_chips = bdfs.size();
+    const auto endpoint_count = static_cast<uint32_t>(bdfs.size());
+
+    // The endpoint count selects shared-BDF addressing: the two devices share one image.
+    auto dev_0 = TTSimTTDevice::create_for_chip(
+        simulator_path_,
+        static_cast<ChipId>(0),
+        /*num_host_mem_channels=*/0,
+        /*copy_sim_binary=*/false,
+        num_chips,
+        endpoint_count);
+    ASSERT_NE(dev_0, nullptr);
+    auto dev_1 = TTSimTTDevice::create_for_chip(
+        simulator_path_,
+        static_cast<ChipId>(1),
+        /*num_host_mem_channels=*/0,
+        /*copy_sim_binary=*/false,
+        num_chips,
+        endpoint_count);
     ASSERT_NE(dev_1, nullptr);
 
     const auto& soc_0 = dev_0->get_soc_descriptor();
@@ -227,4 +320,302 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
     dev_1->close_device();
 }
 
+// ---------------------------------------------------------------------------
+// Topology discovery against a simulator image
+// ---------------------------------------------------------------------------
+
+// A simulator with no cluster_descriptor.yaml beside it has its topology discovered rather than
+// declared, so what the descriptor says is a property of the image. These are the invariants.
+class TTSimDiscoveryTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+        if (simulator_path == nullptr) {
+            GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping discovery tests.";
+        }
+        simulator_path_ = simulator_path;
+
+        if (std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path_))) {
+            GTEST_SKIP() << "A cluster_descriptor.yaml sits beside this simulator, so its topology is declared "
+                            "rather than discovered.";
+        }
+
+        arch_ = SocDescriptor::get_arch_from_soc_descriptor_path(
+            SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path_));
+        if (arch_ == ARCH::QUASAR) {
+            GTEST_SKIP() << "TTSim models neither ARC nor Ethernet for Quasar, so there is no firmware to discover "
+                            "a topology from.";
+        }
+
+        // How many chips this image models, which only whoever staged it knows -- the assertions
+        // below are otherwise satisfied by a topology that lost a chip, since a discovery that
+        // returns the MMIO chip alone has nothing for the remote half of the test to look at. CI
+        // names it per image; a developer running against an image by hand need not.
+        if (const char* expected_chips = std::getenv("TT_UMD_SIM_EXPECTED_CHIPS"); expected_chips != nullptr) {
+            expected_chips_ = static_cast<size_t>(std::stoul(expected_chips));
+        }
+    }
+
+    std::string simulator_path_;
+    ARCH arch_ = ARCH::Invalid;
+    std::optional<size_t> expected_chips_;
+};
+
+TEST_F(TTSimDiscoveryTest, ChipCountMatchesEnumeratedEndpoints) {
+    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_);
+    ASSERT_FALSE(bdfs.empty());
+
+    // target_devices is deliberately left unset, so every chip discovery finds stays visible.
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    // One MMIO chip per host-visible endpoint: every chip an image exposes to the host is reached
+    // over its own BDF, so a different count means discovery either missed one or invented one.
+    EXPECT_EQ(cluster_desc->get_chips_with_mmio().size(), bdfs.size());
+
+    // Chips beyond those are reached over ethernet -- wh_x2's second chip has no endpoint of its
+    // own -- so the totals coincide only where every chip is MMIO. Where the image's chip count is
+    // known, that is what the total has to be: >= bdfs.size() alone passes at 1 == 1 for wh_x2,
+    // which is the image whose remote chip this exists to notice.
+    EXPECT_GE(cluster_desc->get_number_of_chips(), bdfs.size());
+    if (expected_chips_.has_value()) {
+        EXPECT_EQ(cluster_desc->get_number_of_chips(), *expected_chips_)
+            << "discovery found " << cluster_desc->get_number_of_chips() << " chip(s) in an image modelling "
+            << *expected_chips_;
+    }
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        const bool is_mmio = cluster_desc->get_chips_with_mmio().count(chip) != 0;
+        EXPECT_EQ(cluster_desc->is_chip_mmio_capable(chip), is_mmio)
+            << "chip " << chip << " disagrees with the MMIO set it is or is not in";
+    }
+}
+
+// A chip with no PCI endpoint of its own is reached over ethernet, so discovery finding it at all
+// means it walked the links. wh_x2 models exactly that: one endpoint, two chips.
+TEST_F(TTSimDiscoveryTest, RemoteChipsAreReachedOverEthernet) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    const auto& mmio_chips = cluster_desc->get_chips_with_mmio();
+    const auto& eth_connections = cluster_desc->get_ethernet_connections();
+
+    // Every chip the image models beyond its endpoints was reached over ethernet. Asserting that
+    // count before walking the links is what makes the walk mean something: a discovery that missed
+    // the remote chip entirely leaves nothing to iterate over, and every expectation inside the
+    // loop below then holds vacuously.
+    if (expected_chips_.has_value()) {
+        ASSERT_GE(*expected_chips_, mmio_chips.size());
+        const size_t expected_remote = *expected_chips_ - mmio_chips.size();
+        ASSERT_EQ(cluster_desc->get_number_of_chips() - mmio_chips.size(), expected_remote)
+            << "discovery reached " << cluster_desc->get_number_of_chips() - mmio_chips.size()
+            << " chip(s) over ethernet in an image modelling " << expected_remote;
+    }
+
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        if (mmio_chips.count(chip) != 0) {
+            continue;
+        }
+
+        // Every link this chip reports has to land on a chip in the same cluster, and at least one
+        // of them is what discovery arrived over.
+        const auto links = eth_connections.find(chip);
+        ASSERT_NE(links, eth_connections.end()) << "remote chip " << chip << " reports no ethernet links";
+        EXPECT_FALSE(links->second.empty()) << "remote chip " << chip << " reports no ethernet links";
+        for (const auto& [channel, remote] : links->second) {
+            const ChipId peer = std::get<0>(remote);
+            EXPECT_NE(cluster_desc->get_all_chips().count(peer), 0u)
+                << "chip " << chip << " channel " << channel << " links to unknown chip " << peer;
+        }
+    }
+}
+
+TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
+    if (arch_ != ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Harvesting expectations below are Blackhole's.";
+    }
+
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_FALSE(cluster_desc->get_all_chips().empty());
+
+    for (const ChipId chip : cluster_desc->get_all_chips()) {
+        // TTSim models ETH tiles 12 and 13 as harvested, so its ENABLED_ETH telemetry reads 0x0FFF
+        // and the mask UMD derives from it is 0x3000. Asserting the derived value is what keeps
+        // discovery honest about reading harvesting from the device instead of assuming it.
+        EXPECT_EQ(cluster_desc->get_harvesting_masks(chip).eth_harvesting_mask, 0x3000u)
+            << "chip " << chip << " ETH harvesting did not come from telemetry";
+
+        // Whatever the image harvests, the descriptor and the SoC descriptor built from it have to
+        // tell the same story about how many Tensix columns survived. The mask is what discovery
+        // read off the device; the harvested grid is what the SoC descriptor built from it actually
+        // took out, one column per set bit on Blackhole. A regression that reads the mask and then
+        // drops it leaves a full grid behind a nonzero mask, which a nonempty core set cannot see.
+        const SocDescriptor& soc_desc = cluster.get_soc_descriptor(chip);
+        const size_t harvested_columns =
+            CoordinateManager::get_num_harvested(cluster_desc->get_harvesting_masks(chip).tensix_harvesting_mask);
+        const tt_xy_pair harvested_grid = soc_desc.get_harvested_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(harvested_grid.x, harvested_columns)
+            << "chip " << chip << ": SoC descriptor harvested " << harvested_grid.x
+            << " Tensix column(s), discovered mask names " << harvested_columns;
+
+        // And the cores that survived are exactly the grid that survived.
+        const tt_xy_pair live_grid = soc_desc.get_grid_size(CoreType::TENSIX);
+        EXPECT_EQ(soc_desc.get_cores(CoreType::TENSIX).size(), live_grid.x * live_grid.y)
+            << "chip " << chip << " Tensix core count disagrees with its " << live_grid.x << "x" << live_grid.y
+            << " grid";
+    }
+}
+
+// Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
+// serves exists, so it sizes their sysmem provisionally and the cluster corrects it afterwards. Left
+// to auto-detect, every MMIO chip ends up with one channel per chip the busiest gateway serves --
+// on wh_x2 that is 2, the channel the remote chip needs, which the provisional count lacks.
+TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+
+    // MAX_HOST_MEM_CHANNELS lives in a private header; the auto-detect caps at it.
+    constexpr size_t max_host_mem_channels = 4;
+    size_t max_chips_per_mmio = 0;
+    for (const auto& [_, chips] : cluster_desc->get_chips_grouped_by_closest_mmio()) {
+        max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
+    }
+    const size_t expected_channels = std::min(max_host_mem_channels, max_chips_per_mmio);
+    ASSERT_GT(expected_channels, 0u);
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected_channels)
+            << "MMIO chip " << chip << " kept the provisional channel count discovery built it with";
+    }
+}
+
+// The correction is for the auto-detected count only: a caller that names a count gets exactly it,
+// even where the topology would have auto-detected more (wh_x2 would pick 2).
+TEST_F(TTSimDiscoveryTest, ExplicitHostMemChannelsAreHonoured) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
+    ASSERT_NE(cluster_desc, nullptr);
+    ASSERT_FALSE(cluster_desc->get_chips_with_mmio().empty());
+
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
+        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), 1u)
+            << "MMIO chip " << chip << " did not keep the explicitly requested channel count";
+    }
+}
+
 #endif  // TT_UMD_BUILD_SIMULATION
+
+#ifdef TT_UMD_BUILD_SIMULATION
+TEST_F(TTSimCommunicatorTest, EthernetDescriptorsDetachBeforeOwnerClosesThem) {
+    auto first_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 0, 2);
+    first_comm->initialize();
+    first_comm->start_sim();
+    if (!first_comm->supports_eth_link_fd()) {
+        GTEST_SKIP() << "Simulator lacks checked Ethernet FD attach/detach capability";
+    }
+    auto second_comm = std::make_unique<TTSimCommunicator>(simulator_path_, false, 1, 2);
+    second_comm->initialize();
+    second_comm->start_sim();
+    ASSERT_TRUE(second_comm->supports_eth_link_fd());
+
+    struct Session {
+        char path[32] = "/tmp/umd-eth-owner-XXXXXX";
+
+        ~Session() {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    } session;
+
+    ASSERT_NE(mkdtemp(session.path), nullptr);
+    auto first = std::make_unique<EthIpcEndpoint>(session.path, "first", "second");
+    auto second = std::make_unique<EthIpcEndpoint>(session.path, "second", "first");
+    const auto deadline = EthIpcEndpoint::Clock::now() + std::chrono::seconds(2);
+    first->connect(deadline);
+    second->connect(deadline);
+    EthIpcEndpoint::handshake({first.get(), second.get()}, deadline);
+    const int read_fd = first->read_fd();
+    const int write_fd = first->write_fd();
+    void* device = first_comm->get_dev_handle();
+    first_comm->configure_eth_link_fd(0, std::move(first));
+    second_comm->configure_eth_link_fd(0, std::move(second));
+    EXPECT_GE(fcntl(read_fd, F_GETFD), 0);
+    EXPECT_GE(fcntl(write_fd, F_GETFD), 0);
+
+    auto rejected = std::make_unique<EthIpcEndpoint>(session.path, "rejected", "second");
+    const int rejected_fd = rejected->read_fd();
+    EXPECT_THROW(first_comm->configure_eth_link_fd(0, std::move(rejected)), std::exception);
+    EXPECT_EQ(fcntl(rejected_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/rejected"));
+
+    // A second communicator keeps the shared simulator and device registry alive.
+    first_comm.reset();
+    EXPECT_EQ(fcntl(read_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_EQ(fcntl(write_fd, F_GETFD), -1);
+    EXPECT_EQ(errno, EBADF);
+    EXPECT_FALSE(std::filesystem::exists(std::string(session.path) + "/first"));
+
+    // Reattaching to that surviving device proves its old borrowed descriptors
+    // were detached, rather than merely closed while still stored in libttsim.
+    void* handle = dlopen(simulator_path_, RTLD_NOW | RTLD_NOLOAD);
+    ASSERT_NE(handle, nullptr);
+    auto close_library = [](void* value) { dlclose(value); };
+    std::unique_ptr<void, decltype(close_library)> library(handle, close_library);
+    auto attach = reinterpret_cast<int (*)(void*, uint32_t, int, int)>(dlsym(handle, "libttsim_attach_eth_link_fd"));
+    auto detach = reinterpret_cast<int (*)(void*, uint32_t)>(dlsym(handle, "libttsim_detach_eth_link_fd"));
+    ASSERT_NE(attach, nullptr);
+    ASSERT_NE(detach, nullptr);
+
+    struct Pipe {
+        int fd[2] = {-1, -1};
+
+        ~Pipe() {
+            if (fd[0] >= 0) {
+                close(fd[0]);
+            }
+            if (fd[1] >= 0) {
+                close(fd[1]);
+            }
+        }
+    } pipe;
+
+    ASSERT_EQ(pipe2(pipe.fd, O_NONBLOCK | O_CLOEXEC), 0);
+    ASSERT_EQ(attach(device, 0, pipe.fd[1], pipe.fd[0]), 0);
+    ASSERT_EQ(detach(device, 0), 0);
+    second_comm.reset();
+}
+#endif

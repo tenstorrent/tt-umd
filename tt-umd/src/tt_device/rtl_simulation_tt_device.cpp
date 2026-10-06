@@ -262,7 +262,14 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
     int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
     auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, size, mapping);
-    return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
+    // Static TLB windows resolve addresses like every other host access: through the resolver in
+    // flat-address mode, as raw coordinates otherwise.
+    return std::make_unique<RtlSimTlbWindow>(
+        std::move(handle),
+        communicator_.get(),
+        global_address_mode_ ? noc_address_resolver_.get() : nullptr,
+        &get_soc_descriptor(),
+        config);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {

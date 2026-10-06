@@ -1,0 +1,113 @@
+# TEMPORARY - do not merge. Stress the warm reset on BH-Quietbox-2 to catch the intermittent
+# "Timeout waiting for reset marker" failure. Runs api_tests repeatedly on several runners in
+# parallel while tracing the PCI Command byte of every card, and uploads all logs.
+name: Warm reset stress (temporary)
+
+on:
+  push:
+    branches:
+      - nbuncic/warm-reset-marker-fix
+  workflow_dispatch:
+
+env:
+  TEST_OUTPUT_DIR: ./build/test
+  ARTIFACT_NAME: build-artifacts-ubuntu-22.04-Release
+  ITERATIONS: 3
+
+jobs:
+  build:
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ubuntu-22.04
+      build-type: Release
+      timeout: 45
+      build-targets: api_tests
+      build-wheel: false
+
+  run:
+    name: Stress (shard ${{ matrix.shard }})
+    needs: build
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Several shards so the jobs land on different BH-Quietbox-2 machines.
+        shard: [1, 2, 3, 4]
+    runs-on: ["BH-Quietbox-2", "in-service"]
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    env:
+      LD_LIBRARY_PATH: ./build/lib
+
+    steps:
+      - name: Cleanup workspace directory from previous runs
+        run: rm -rf *
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Untar build artifacts
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run api_tests in a loop with PCI command byte tracing
+        shell: bash
+        run: |
+          echo "Runner: ${RUNNER_NAME}"
+          mkdir -p stress_logs
+
+          # Trace the PCI Command byte (bit 6 = reset marker, 0xff = device not responding).
+          mapfile -t bdfs < <(for d in /sys/bus/pci/devices/*; do
+            [ -d "$d/tenstorrent" ] && basename "$d"
+          done)
+          echo "Tracing: ${bdfs[*]}"
+          (
+            declare -A last
+            while true; do
+              for b in "${bdfs[@]}"; do
+                v=$(od -An -tx1 -j4 -N1 "/sys/bus/pci/devices/$b/config" 2>/dev/null | tr -d ' ')
+                [ -z "$v" ] && v=NA
+                if [ "$v" != "${last[$b]}" ]; then
+                  echo "$(date +%T.%N | cut -c1-12) $b cmd=0x$v"
+                  last[$b]=$v
+                fi
+              done
+              sleep 0.05
+            done
+          ) > stress_logs/cmd_trace.log 2>&1 &
+          trace_pid=$!
+
+          reproduced=0
+          for i in $(seq 1 ${ITERATIONS}); do
+            echo "=== iter $i $(date +%T)"
+            ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests > stress_logs/api_tests_$i.log 2>&1 || true
+            grep -E "Starting reset|reset marker|Reset failed|WarmReset.*\(" stress_logs/api_tests_$i.log \
+              | sed 's/\x1b\[[0-9;]*m//g' || true
+            if grep -q "Timeout waiting for reset marker" stress_logs/api_tests_$i.log; then
+              echo "::error::Reset marker timeout reproduced on ${RUNNER_NAME} in iteration $i"
+              reproduced=1
+            fi
+          done
+
+          kill $trace_pid || true
+          dmesg -T > stress_logs/dmesg.log 2>&1 || true
+          echo "Runner: ${RUNNER_NAME}, reproduced: ${reproduced}" | tee stress_logs/summary.txt
+          exit $reproduced
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: warm-reset-stress-shard-${{ matrix.shard }}
+          path: stress_logs/

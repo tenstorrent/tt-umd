@@ -789,28 +789,54 @@ SemVer PCIDevice::read_kernel_version() {
     return SemVer(uts.release);
 }
 
+std::string PCIDevice::describe_in_use_pids() const {
+    // The KMD's per-device PID list: every process holding this device open
+    // (/proc/driver/tenstorrent/N/pids, one line per holding process).
+    // Best-effort diagnostics only: unreadable (permissions, older KMD) -> say so; never throws.
+    const std::string pids_path = fmt::format("/proc/driver/tenstorrent/{}/pids", pci_device_num);
+    std::ifstream pids_file(pids_path);
+    if (!pids_file.is_open()) {
+        return fmt::format(" (holder process list unavailable: could not open {})", pids_path);
+    }
+    std::string lines;
+    std::string line;
+    while (std::getline(pids_file, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        lines += fmt::format("\n    holder pid {}", line);
+    }
+    if (lines.empty()) {
+        return fmt::format("\n    /proc/driver/tenstorrent/{}/pids lists no holding processes", pci_device_num);
+    }
+    return lines;
+}
+
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
         return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
+        const std::string holders = describe_in_use_pids();
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
                     "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung "
-                    "process. "
+                    "process.{}"
                     "Error: {}",
+                    holders,
                     e.what()));
         }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/{}/mappings and "
-                "/proc/driver/tenstorrent/{}/pids for more information. Error: {}",
+                "/proc/driver/tenstorrent/{}/pids for more information. Current holders:{} Error: {}",
                 pci_device_num,
                 pci_device_num,
+                holders,
                 e.what()));
     }
 }

@@ -35,13 +35,13 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     tt_xy_pair core_,
     uint64_t addr,
     uint64_t size_ = 0,
-    uint64_t user_bits = 0,
-    uint64_t user_bits_hi = 0) {
+    uint64_t user_bits_low = 0,
+    uint64_t user_bits_high = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
     uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size, user_bits, user_bits_hi);
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size, user_bits_low, user_bits_high);
     builder.Finish(device_cmd);
     return builder;
 }
@@ -140,14 +140,14 @@ void RtlSimCommunicator::shutdown() {
 }
 
 void RtlSimCommunicator::tile_read_bytes(
-    uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
+    uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size, uint64_t user_bits_low, uint64_t user_bits_high) {
     {
         std::lock_guard<std::mutex> lock(device_lock_);
         tt_xy_pair core = {x, y};
 
         // Send read request.
         send_command_to_simulation_host(
-            *host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size, user_bits, user_bits_hi));
+            *host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size, user_bits_low, user_bits_high));
     }
 
     // Get read response from the command queue (populated by notification thread).
@@ -171,7 +171,13 @@ void RtlSimCommunicator::tile_read_bytes(
 }
 
 void RtlSimCommunicator::tile_write_bytes(
-    uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
+    uint32_t x,
+    uint32_t y,
+    uint64_t addr,
+    const void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
 
@@ -181,7 +187,7 @@ void RtlSimCommunicator::tile_write_bytes(
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
     send_command_to_simulation_host(
-        *host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr, 0, user_bits, user_bits_hi));
+        *host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr, 0, user_bits_low, user_bits_high));
 }
 
 void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {

@@ -38,13 +38,7 @@ enum class IoSafety : bool {
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
- *
- * The direction field of WindowFlags is encoded into the TLB mapping. Any other
- * WindowFlags requested through configure(TargetIoWindowConfig) are validated
- * against supported_window_flags() and, if accepted, stored as window state
- * that applies to every subsequent access through the window. A TLB mapping has
- * no field for them, so they live alongside the tlb_data rather than in it and
- * survive a tlb_data-based configure().
+ * WindowFlags outside supported_window_flags() are rejected by configure().
  */
 class TlbWindow : public IoWindow {
 public:

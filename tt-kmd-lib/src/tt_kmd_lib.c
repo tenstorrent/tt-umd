@@ -23,26 +23,40 @@
         fprintf(stderr, "%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
     } while (0)
 
-static uint64_t TLB_COUNT_1M[] = {
+/* One past the largest architecture value, so the tables below cover every one of them. */
+#define TT_DEVICE_ARCH_COUNT (TT_DEVICE_ARCH_QUASAR + 1)
+
+/*
+ * Quasar rows are zero because the kernel keeps its inbound apertures to itself there: the TLB
+ * allocation ioctls refuse the request, so there is no window count to report.
+ */
+static uint64_t TLB_COUNT_1M[TT_DEVICE_ARCH_COUNT] = {
     [TT_DEVICE_ARCH_UNKNOWN] = 0,
     [TT_DEVICE_ARCH_WORMHOLE] = 156,
     [TT_DEVICE_ARCH_BLACKHOLE] = 0,
+    [TT_DEVICE_ARCH_QUASAR] = 0,
 };
 
-static uint64_t TLB_COUNT_2M[] = {
+static uint64_t TLB_COUNT_2M[TT_DEVICE_ARCH_COUNT] = {
     [TT_DEVICE_ARCH_UNKNOWN] = 0,
     [TT_DEVICE_ARCH_WORMHOLE] = 10,
     [TT_DEVICE_ARCH_BLACKHOLE] = 202,
+    [TT_DEVICE_ARCH_QUASAR] = 0,
 };
 
-static uint64_t TLB_COUNT_16M[] = {
+static uint64_t TLB_COUNT_16M[TT_DEVICE_ARCH_COUNT] = {
     [TT_DEVICE_ARCH_UNKNOWN] = 0,
     [TT_DEVICE_ARCH_WORMHOLE] = 20,
     [TT_DEVICE_ARCH_BLACKHOLE] = 0,
+    [TT_DEVICE_ARCH_QUASAR] = 0,
 };
 
-static uint64_t TLB_COUNT_4G[] = {
-    [TT_DEVICE_ARCH_UNKNOWN] = 0, [TT_DEVICE_ARCH_WORMHOLE] = 0, [TT_DEVICE_ARCH_BLACKHOLE] = 8};
+static uint64_t TLB_COUNT_4G[TT_DEVICE_ARCH_COUNT] = {
+    [TT_DEVICE_ARCH_UNKNOWN] = 0,
+    [TT_DEVICE_ARCH_WORMHOLE] = 0,
+    [TT_DEVICE_ARCH_BLACKHOLE] = 8,
+    [TT_DEVICE_ARCH_QUASAR] = 0,
+};
 
 struct tt_device_t {
     int fd;
@@ -103,6 +117,8 @@ int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs) {
         arch = TT_DEVICE_ARCH_BLACKHOLE;
     } else if (get_device_info.out.device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         arch = TT_DEVICE_ARCH_WORMHOLE;
+    } else if (get_device_info.out.device_id == TT_QUASAR_PCI_DEVICE_ID) {
+        arch = TT_DEVICE_ARCH_QUASAR;
     }
 
     out_attrs->pci_domain = get_device_info.out.pci_domain;
@@ -260,6 +276,73 @@ int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappin
     }
 
     return 0;
+}
+
+/*
+ * The kernel enforces these same rules. Checking them here means a malformed request is reported
+ * where the caller can see it, rather than as an EINVAL from an ioctl it did not issue directly.
+ */
+static int validate_scalar_noc_access(uint64_t addr, uint32_t width, uint32_t flags) {
+    /* The inbound translation table's target-address field is 52 bits wide. */
+    const uint64_t address_limit = (uint64_t)1 << 52;
+
+    if (width != 1 && width != 2 && width != 4 && width != 8) {
+        return -EINVAL;
+    }
+
+    if (addr % width != 0) {
+        return -EINVAL;
+    }
+
+    if (addr > address_limit - width) {
+        return -EINVAL;
+    }
+
+    if ((flags & ~(uint32_t)TT_NOC_FLAG_KLA) != 0) {
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+static int scalar_noc_access(
+    tt_device_t* dev, unsigned long request, uint64_t addr, uint64_t* value, uint32_t width, uint32_t flags) {
+    struct tenstorrent_noc_io noc_io = {0};
+    int ret = validate_scalar_noc_access(addr, width, flags);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    if (dev == NULL) {
+        return -EINVAL;
+    }
+
+    noc_io.argsz = sizeof(noc_io);
+    noc_io.flags = flags & TT_NOC_FLAG_KLA ? TENSTORRENT_NOC_FLAG_KLA : 0;
+    noc_io.width = (uint8_t)width;
+    noc_io.addr = addr;
+    noc_io.value = *value;
+
+    if (ioctl(dev->fd, request, &noc_io) != 0) {
+        return -errno;
+    }
+
+    *value = noc_io.value;
+    return 0;
+}
+
+int tt_noc_read_scalar(tt_device_t* dev, uint64_t addr, uint64_t* value, uint32_t width, uint32_t flags) {
+    if (value == NULL) {
+        return -EINVAL;
+    }
+
+    *value = 0;
+    return scalar_noc_access(dev, TENSTORRENT_IOCTL_NOC_READ, addr, value, width, flags);
+}
+
+int tt_noc_write_scalar(tt_device_t* dev, uint64_t addr, uint64_t value, uint32_t width, uint32_t flags) {
+    return scalar_noc_access(dev, TENSTORRENT_IOCTL_NOC_WRITE, addr, &value, width, flags);
 }
 
 int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_t* value) {

@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Device I/O against a real Quasar device, over the kernel driver's scalar accesses.
+// Device I/O against a real Grendel device, over the kernel driver's scalar accesses.
 //
-// These need a Quasar device bound to the driver and skip when there is none, so they run on the
+// These need a Grendel device bound to the driver and skip when there is none, so they run on the
 // emulator and on silicon and are inert everywhere else.
 //
 // SAFETY. On the emulator every access is real seconds over the transactor and a touch of an
@@ -90,12 +90,12 @@ constexpr uint64_t cold_scratch(uint32_t index) { return COLD_SCRATCH_BASE + ind
 /** The same register named as a chiplet-local address instead of a system physical one. */
 constexpr uint64_t as_local_address(uint64_t spa) { return spa - SMC_SPA_BASE + SMC_LOCAL_BASE; }
 
-// An address is flat on Quasar and carries its own target, so every access names the origin.
+// An address is flat on Grendel and carries its own target, so every access names the origin.
 // LITERAL is what keeps TTDevice::resolve_coordinate from translating it through the descriptor:
 // there is nothing to translate, and the coordinate is only along for the ride.
 constexpr CoreCoord ORIGIN{0, 0, tt::CoreType::UNSPECIFIED, tt::CoordSystem::LITERAL};
 
-class QuasarDeviceIOTest : public ::testing::Test {
+class GrendelDeviceIOTest : public ::testing::Test {
 protected:
     void SetUp() override {
         for (int device_id : PCIDevice::enumerate_devices()) {
@@ -104,7 +104,7 @@ protected:
                 return;
             }
         }
-        GTEST_SKIP() << "No Quasar device is bound to the driver.";
+        GTEST_SKIP() << "No Grendel device is bound to the driver.";
     }
 
     uint32_t read32(uint64_t addr, NocId noc = NocId::NOC0) {
@@ -143,26 +143,26 @@ protected:
 
 // The cheapest proof that the whole path works: driver open, ioctl, and a register that answers
 // with something other than all-ones or zero.
-TEST_F(QuasarDeviceIOTest, ReadsTheFirmwareInitSentinel) {
+TEST_F(GrendelDeviceIOTest, ReadsTheFirmwareInitSentinel) {
     const uint32_t sentinel = read32(CPUCTRL_SCRATCH_BASE);
 
     EXPECT_NE(sentinel, 0xffffffffu) << "All-ones is what a refused or unmodelled access returns.";
 }
 
-TEST_F(QuasarDeviceIOTest, RoundTripsAScratchRegister) {
+TEST_F(GrendelDeviceIOTest, RoundTripsAScratchRegister) {
     expect_round_trip(cold_scratch(FIRST_WRITABLE_COLD_SCRATCH), 0xa5a5a5a5);
 }
 
 // A stride that is wrong by a power of two still round-trips at one register and only shows up at
 // the ends of the bank, so both ends are touched rather than one address.
-TEST_F(QuasarDeviceIOTest, RoundTripsBothEndsOfTheScratchBank) {
+TEST_F(GrendelDeviceIOTest, RoundTripsBothEndsOfTheScratchBank) {
     expect_round_trip(cold_scratch(FIRST_WRITABLE_COLD_SCRATCH), 0x11111111);
     expect_round_trip(cold_scratch(LAST_WRITABLE_COLD_SCRATCH), 0x77777777);
 }
 
 // Writing distinct values everywhere before reading any of them back means a device that ignored
 // the address and drove one register returns the last value written at every offset.
-TEST_F(QuasarDeviceIOTest, ScratchRegistersAreDistinctStorage) {
+TEST_F(GrendelDeviceIOTest, ScratchRegistersAreDistinctStorage) {
     std::vector<uint32_t> originals;
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
         originals.push_back(read32(cold_scratch(i)));
@@ -184,7 +184,7 @@ TEST_F(QuasarDeviceIOTest, ScratchRegistersAreDistinctStorage) {
 // The two apertures are the only thing that differs between these reads. Reaching the same
 // register through both is what shows the system-NOC path is wired to the driver's local-address
 // flag rather than quietly falling back to the default one.
-TEST_F(QuasarDeviceIOTest, BothAperturesReachTheSameRegister) {
+TEST_F(GrendelDeviceIOTest, BothAperturesReachTheSameRegister) {
     const uint64_t addr = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const uint32_t original = read32(addr);
 
@@ -197,7 +197,7 @@ TEST_F(QuasarDeviceIOTest, BothAperturesReachTheSameRegister) {
 
 // A write through the local-address aperture must reach the same storage the default one reads,
 // or the two are addressing different things and only one of them is right.
-TEST_F(QuasarDeviceIOTest, AWriteThroughTheLocalApertureIsSeenByTheDefaultOne) {
+TEST_F(GrendelDeviceIOTest, AWriteThroughTheLocalApertureIsSeenByTheDefaultOne) {
     const uint64_t addr = cold_scratch(LAST_WRITABLE_COLD_SCRATCH);
     const uint32_t original = read32(addr);
 
@@ -207,9 +207,9 @@ TEST_F(QuasarDeviceIOTest, AWriteThroughTheLocalApertureIsSeenByTheDefaultOne) {
     write32(addr, original);
 }
 
-// Quasar addresses carry their own target, so a caller still passing a coordinate is asking for
+// Grendel addresses carry their own target, so a caller still passing a coordinate is asking for
 // something this path cannot do and must be told rather than silently served at the origin.
-TEST_F(QuasarDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
+TEST_F(GrendelDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
     constexpr CoreCoord elsewhere{1, 1, tt::CoreType::UNSPECIFIED, tt::CoordSystem::LITERAL};
     uint32_t value = 0;
 
@@ -225,7 +225,7 @@ TEST_F(QuasarDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
 // tests above have already established. A stride or offset wrong in the loop then shows up as
 // values landing at the wrong words rather than as a transfer that fails.
 
-TEST_F(QuasarDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
+TEST_F(GrendelDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
     require_range_reachable(base, bytes);
@@ -248,7 +248,7 @@ TEST_F(QuasarDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
     }
 }
 
-TEST_F(QuasarDeviceIOTest, WritesTheScratchBankInOneTransfer) {
+TEST_F(GrendelDeviceIOTest, WritesTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
     require_range_reachable(base, bytes);
@@ -278,7 +278,7 @@ TEST_F(QuasarDeviceIOTest, WritesTheScratchBankInOneTransfer) {
 // allocates a hardware mapping this architecture does not expose -- so the model serves the window
 // from the same scalar accesses as everything above, and these check it arrives and addresses
 // correctly rather than that it is fast.
-TEST_F(QuasarDeviceIOTest, ServesAWindowOverTheScratchBank) {
+TEST_F(GrendelDeviceIOTest, ServesAWindowOverTheScratchBank) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
     require_range_reachable(base, bytes);
@@ -318,7 +318,7 @@ TEST_F(QuasarDeviceIOTest, ServesAWindowOverTheScratchBank) {
 
 // A sized window refuses an offset past its end rather than issuing the access, which is the only
 // thing bounding it: there is no mapping whose extent would catch the overrun.
-TEST_F(QuasarDeviceIOTest, ASizedWindowRefusesAnOffsetPastItsEnd) {
+TEST_F(GrendelDeviceIOTest, ASizedWindowRefusesAnOffsetPastItsEnd) {
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
 
     TargetIoWindowConfig target{};

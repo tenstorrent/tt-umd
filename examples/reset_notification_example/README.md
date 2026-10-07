@@ -6,10 +6,10 @@ This example set demonstrates the **Inter-Process Communication (IPC)** mechanis
 
 ```bash
 # Configure with examples enabled
-cmake -B build -DTT_UMD_BUILD_EXAMPLES=ON
+cmake --preset examples
 
 # Build
-cmake --build ./build
+cmake --build --preset examples
 
 # Executables will be located at:
 # ./build/examples/warm_reset/notifier_example

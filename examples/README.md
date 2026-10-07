@@ -16,10 +16,10 @@ Examples are not built by default. To build them:
 
 ```bash
 # Configure with examples enabled
-cmake -B build -DTT_UMD_BUILD_EXAMPLES=ON
+cmake --preset examples
 
 # Build
-cmake --build build
+cmake --build --preset examples
 ```
 
 `rdma_dmabuf_p2p` additionally needs `-DTT_UMD_BUILD_RDMA=ON`, since it requires libibverbs at build

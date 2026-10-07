@@ -57,15 +57,40 @@ pip install .
 
 To build `libtt-umd.so`:
 ```
-cmake -B build -G Ninja
-cmake --build build
+cmake --preset default
+cmake --build --preset default
 ```
 
 To build all components (some are turned off by default, like tests), you can run these commands:
 ```
-cmake -B build -G Ninja -DTT_UMD_BUILD_ALL=ON
-cmake --build build
+cmake --preset default -DTT_UMD_BUILD_ALL=ON
+cmake --build --preset default
 ```
+
+#### CMake presets
+
+`CMakePresets.json` defines presets for common configurations. All of them use Ninja and build into `build/`:
+
+| Preset | Description |
+|--------|-------------|
+| `default` | Library and tools with the CMake option defaults (clang-tidy enabled) |
+| `examples` | `default` with examples |
+| `tests` | Tests and tools, without simulation, Python or clang-tidy |
+| `simulation` | `tests` with simulation support, without tools |
+| `simulation-tools-python` | `tests` with simulation support and Python bindings |
+| `release` | Library and Python bindings, as shipped in release packages |
+| `release-no-clang-tidy` | `release` without clang-tidy |
+| `all-no-pip` | All components, without the pip package |
+| `all-tracy` | All components with the pip package and Tracy |
+| `code-analysis` | Debug `simulation` build with tools, clang-20 and clang-tidy, used by the code-analysis CI job |
+
+Each configure preset has a build preset of the same name:
+```
+cmake --preset tests
+cmake --build --preset tests
+```
+
+Run `cmake --list-presets` to see the available presets.
 
 To build with GCC, set these environment variables before invoking `cmake`:
 ```
@@ -82,8 +107,8 @@ Systems with recent libc may cause the python package building to fail due pytho
 to higher versions and GCC has no mean to disable the macro redefinition diagnostic.
 
 ```bash
-# Plain CMake
-cmake -B build -G Ninja -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+# CMake
+cmake --preset default -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
 
 # Python build (scikit-build-core passes CMAKE_ARGS through to CMake)
 CMAKE_ARGS="-DCMAKE_COMPILE_WARNING_AS_ERROR=OFF" pip install .
@@ -106,14 +131,14 @@ By default, `log_debug` and `log_trace` statements are compiled out of release b
 
 **Option 1: Enable logging explicitly**
 ```bash
-cmake -B build -G Ninja -DTT_UMD_ENABLE_LOGGING=ON
-cmake --build build
+cmake --preset default -DTT_UMD_ENABLE_LOGGING=ON
+cmake --build --preset default
 ```
 
 **Option 2: Use Debug build type** (enables logging automatically)
 ```bash
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
+cmake --preset default -DCMAKE_BUILD_TYPE=Debug
+cmake --build --preset default
 ```
 
 #### Runtime Logging Control
@@ -138,8 +163,8 @@ Available log levels (from most to least verbose):
 **Example: Running with debug logging**
 ```bash
 # Build with logging enabled
-cmake -B build -G Ninja -DTT_UMD_ENABLE_LOGGING=ON
-cmake --build build
+cmake --preset default -DTT_UMD_ENABLE_LOGGING=ON
+cmake --build --preset default
 
 # Run with debug level
 TT_LOGGER_LEVEL=debug ./build/bin/your_program
@@ -152,8 +177,8 @@ UMD supports [Tracy](https://github.com/tenstorrent/tracy) profiling via the `TT
 #### Building with Tracy
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_ENABLE_TRACY=ON
-cmake --build build
+cmake --preset default -DTT_UMD_ENABLE_TRACY=ON
+cmake --build --preset default
 ```
 
 #### Capturing a trace

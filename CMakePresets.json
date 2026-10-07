@@ -2,9 +2,9 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "default",
-            "displayName": "Default Config",
-            "description": "Default build using Ninja",
+            "name": "clang",
+            "displayName": "Clang Default Config",
+            "description": "clang-20 base for clang-tidy and code-analysis",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/.build/default",
             "cacheVariables": {
@@ -27,7 +27,7 @@
         },
         {
             "name": "clang-tidy",
-            "inherits": "default",
+            "inherits": "clang",
             "description": "Run Clang Tidy checks during build",
             "binaryDir": "${sourceDir}/.build/clang-tidy",
             "cacheVariables": {
@@ -71,7 +71,7 @@
         },
         {
             "name": "code-analysis",
-            "inherits": "default",
+            "inherits": "clang",
             "description": "Run Clang Static Analyzer",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/.build/code-analysis",
@@ -84,13 +84,13 @@
     ],
     "buildPresets": [
         {
-            "name": "default",
-            "configurePreset": "default",
+            "name": "clang",
+            "configurePreset": "clang",
             "configuration": "Release"
         },
         {
-            "name": "debug",
-            "configurePreset": "default",
+            "name": "clang-debug",
+            "configurePreset": "clang",
             "configuration": "Debug"
         },
         {

@@ -6,9 +6,8 @@
 
 #include <memory>
 
-// IoWindow is a complete type here, not a forward declaration: create_io_window's default body
-// returns a unique_ptr<IoWindow>, which instantiates the deleter and so needs the definition in
-// every translation unit that includes this.
+// Complete type, not a forward declaration: unique_ptr<IoWindow> is the public return type, so
+// every implementer and caller needs the definition that instantiates its deleter.
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/io_window_config.hpp"
@@ -91,17 +90,13 @@ public:
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
      *
-     * Required, so every model states its own answer rather than inheriting one.
-     *
-     * A model whose architecture has no mappable aperture builds the window itself. A model still
-     * served by TTDevice's TLB path returns nullptr, which is how it says so: the machinery for
-     * that path -- the architecture's size classes, the allocator behind the virtual
-     * get_io_window() -- has not moved off TTDevice yet, and cannot be reached from here. Once it
-     * has, those models build their own windows and nullptr stops being a legal answer.
+     * A model whose architecture has no mappable aperture builds the window itself. Returning
+     * nullptr instead asks TTDevice to serve the window from its TLB path, which is temporary:
+     * that path cannot be reached from here until its machinery moves off TTDevice.
      *
      * @param target Device-side target (core, address, NOC).
      * @param host Host-side properties (caching, size).
-     * @return std::unique_ptr<IoWindow> Exclusively owned window handle, or nullptr for the TLB path.
+     * @return Exclusively owned window handle, or nullptr for the TLB path.
      */
     virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 

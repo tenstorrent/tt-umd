@@ -74,8 +74,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
 // complete type where the destructor is instantiated.
 BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 
-// TTDevice still serves this architecture's windows from its TLB path; nullptr is how a required
-// component says the answer is not here. See TTDeviceModel::create_io_window.
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host) {
     return nullptr;

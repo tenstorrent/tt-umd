@@ -447,6 +447,10 @@ private:
 
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
+    // Non-posted read of the PCIe tile's NOC_NODE_ID register through BAR0. It cannot pass earlier
+    // posted writes on the link, so it returns only after they have landed.
+    void flush_posted_writes() const;
+
     tt_device_t *tt_device_handle = nullptr;
 
     // TLB configuration registers mapped space.

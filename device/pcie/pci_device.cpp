@@ -6,6 +6,9 @@
 
 #include <fcntl.h>  // for ::open
 #include <fmt/format.h>
+#if defined(__x86_64__)
+#include <immintrin.h>  // for _mm_lfence
+#endif
 #include <sys/mman.h>     // for mmap, munmap
 #include <sys/utsname.h>  // for uname
 #include <unistd.h>       // for ::close
@@ -33,6 +36,7 @@
 #include "tracy.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -815,6 +819,11 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     }
 }
 
+void PCIDevice::flush_posted_writes() const {
+    const uint32_t offset = get_architecture_registers(arch).noc_node_id_bar_offset - bar0_mapping_offset;
+    (void)*reinterpret_cast<volatile uint32_t *>(static_cast<char *>(bar0) + offset);
+}
+
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
     auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
@@ -840,8 +849,20 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     const std::array<uint32_t, 3> config_words = {
         static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
     const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
+    const bool flush = (arch == tt::ARCH::BLACKHOLE);
+    if (flush) {
+        flush_posted_writes();  // Writes through the old mapping land before the retarget.
+    }
+
     for (size_t i = 0; i < num_config_words; i++) {
         tlb_reg_ptr[i] = config_words[i];
+    }
+
+    if (flush) {
+        flush_posted_writes();  // The new config lands before any access through the window.
+#if defined(__x86_64__)
+        _mm_lfence();  // No load through the window is issued before the flush read returns.
+#endif
     }
 
     // MMIO writes are posted, so read the low 64 bits back to prove the mapping is live before

@@ -13,6 +13,7 @@
 #include <cstring>
 #include <filesystem>
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
@@ -560,4 +561,86 @@ TEST(SimulationConnector, KeepsAServerWithALiveHost) {
     EXPECT_EQ(count_directory(SimulationConnector::list_servers(), server_directory.path()), 1);
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), server_directory.path()), 0);
     EXPECT_TRUE(std::filesystem::exists(SimulationServerSocket::default_socket_path(server_directory.path(), 0)));
+}
+
+// Opening devices is only half of what a caller needs: how they are wired together is the other
+// half. A build that ships a cluster descriptor is reported as that topology; for a descriptor-less
+// one the chips actually opened are the whole topology. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ReportsTheTopologyOfAHost) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;  // private in-process host; no socket needed here
+    const SimulationConnector::Result result = SimulationConnector::discover(options);
+
+    ASSERT_NE(result.cluster_descriptor, nullptr);
+    const std::filesystem::path shipped =
+        SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path);
+    if (std::filesystem::exists(shipped)) {
+        // The build's topology may name more chips than the host opens.
+        EXPECT_EQ(
+            result.cluster_descriptor->get_all_chips(),
+            ClusterDescriptor::create_from_yaml(shipped.string())->get_all_chips());
+        return;
+    }
+    std::unordered_set<tt::ChipId> opened;
+    for (const auto& [chip_id, device] : result.devices) {
+        opened.insert(chip_id);
+    }
+    EXPECT_EQ(result.cluster_descriptor->get_all_chips(), opened);
+}
+
+// A host reports the topology it serves, which is the simulator build's own: a descriptor the caller
+// hands in configures nothing, so it must not change what the host -- or its clients -- see.
+// Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, IgnoresATopologyTheCallerSupplies) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    // Scoped so the first host is torn down before the second opens: one simulator per process.
+    std::unordered_set<tt::ChipId> own_chips;
+    tt::ARCH arch = tt::ARCH::Invalid;
+    {
+        const SimulationConnector::Result own = SimulationConnector::discover(options);
+        own_chips = own.cluster_descriptor->get_all_chips();
+        arch = own.connection.arch;
+    }
+
+    options.cluster_descriptor = ClusterDescriptor::create_mock_cluster({0, 1, 2}, arch, false);
+    const SimulationConnector::Result result = SimulationConnector::discover(options);
+
+    EXPECT_NE(result.cluster_descriptor, options.cluster_descriptor);
+    EXPECT_EQ(result.cluster_descriptor->get_all_chips(), own_chips);
+}
+
+// A client runs no simulator of its own, so the only place its topology can come from is the host
+// over the wire -- and it must describe the same cluster. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ClientTakesTheTopologyFromTheHost) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
+
+    SimulationConnectorOptions host_options;
+    host_options.simulator_directory = simulator_path;
+    host_options.serve_over_sockets = true;
+    host_options.server_directory = server_directory.path();
+    const SimulationConnector::Result host = SimulationConnector::discover(host_options);
+    ASSERT_NE(host.cluster_descriptor, nullptr);
+
+    SimulationConnectorOptions client_options;
+    client_options.simulator_directory = server_directory.path();
+    const SimulationConnector::Result client = SimulationConnector::discover(client_options);
+
+    ASSERT_NE(client.cluster_descriptor, nullptr);
+    EXPECT_EQ(client.cluster_descriptor->get_all_chips(), host.cluster_descriptor->get_all_chips());
 }

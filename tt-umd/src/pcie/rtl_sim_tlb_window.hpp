@@ -14,18 +14,35 @@
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class SocDescriptor;
 class TlbHandle;
 struct tlb_data;
 
+namespace att {
+class EndpointResolver;
+}
+
 /**
  * RTL simulation TlbWindow implementation that translates TLB-based memory access
- * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
+ * into read/write calls on RtlSimCommunicator.
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:
-    RtlSimTlbWindow(std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config = {});
+    /**
+     * @param resolver When set, the device uses flat addresses: every access is resolved through
+     *        it exactly like the device's own host accesses, so a window never sends a raw
+     *        (x, y, addr) the simulator would interpret in another coordinate frame. Null for a
+     *        device that sends coordinates.
+     * @param soc_descriptor The device's descriptor, used with @p resolver.
+     */
+    RtlSimTlbWindow(
+        std::unique_ptr<TlbHandle> handle,
+        RtlSimCommunicator* communicator,
+        const att::EndpointResolver* resolver,
+        const SocDescriptor* soc_descriptor,
+        const tlb_data config = {});
 
     void write16(uint64_t offset, uint16_t value) override;
     uint16_t read16(uint64_t offset) override;
@@ -48,6 +65,8 @@ private:
     void translate_and_read(uint64_t offset, void* data, size_t size);
 
     RtlSimCommunicator* communicator_;
+    const att::EndpointResolver* resolver_;
+    const SocDescriptor* soc_descriptor_;
 };
 
 }  // namespace tt::umd

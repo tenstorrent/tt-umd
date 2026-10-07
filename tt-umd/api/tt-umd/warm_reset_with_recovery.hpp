@@ -13,14 +13,12 @@
 namespace tt::umd {
 
 // Wraps WarmReset entry points with a follow-up TopologyDiscovery::discover() and retries
-// the whole sequence if discovery fails. This works around transient post-reset states
-// (e.g. an ETH core that never recovers its heartbeat) which can leave the board in a
-// state that only another reset can clear.
+// the whole sequence if the reset or discovery fails. This works around transient states
+// that only another reset can clear (e.g. a device that didn't go through reset, or an
+// ETH core that never recovers its heartbeat).
 //
 // Each method returns true if a (reset, discovery) attempt eventually succeeds, false
-// otherwise. If the underlying warm reset itself fails, the methods bail immediately
-// without retrying because such failures (no devices, ARM platform) do not recover by
-// retrying.
+// otherwise.
 class WarmResetWithRecovery {
 public:
     static bool warm_reset(

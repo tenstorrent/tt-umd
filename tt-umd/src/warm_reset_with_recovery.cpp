@@ -22,9 +22,10 @@ bool reset_then_discover(int max_attempts, const std::function<bool()>& do_reset
     for (int attempt = 1; attempt <= max_attempts; ++attempt) {
         log_info(tt::LogUMD, "Warm reset attempt {} of {}.", attempt, max_attempts);
 
+        // A device can intermittently fail to go through reset, while the next attempt succeeds.
         if (!do_reset()) {
-            log_error(tt::LogUMD, "Warm reset failed on attempt {} of {}.", attempt, max_attempts);
-            return false;
+            log_warning(tt::LogUMD, "Warm reset failed on attempt {} of {}.", attempt, max_attempts);
+            continue;
         }
 
         try {

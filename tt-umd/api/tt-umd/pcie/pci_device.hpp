@@ -287,17 +287,6 @@ public:
     static SemVer read_kernel_version();
 
     /**
-     * Best-effort description of the processes currently holding this device open, read from the
-     * KMD's per-device list (/proc/driver/tenstorrent/N/pids, one line per holding process).
-     *
-     * Returns an empty-ended readable string always: either the holder lines (each prefixed and
-     * indented for direct inclusion in an error message) or a short note naming the read failure
-     * (permissions, pre-1.31 KMD without the file).  Never throws — diagnostics must not turn a
-     * resource error into a second failure.
-     */
-    std::string describe_in_use_pids() const;
-
-    /**
      * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.

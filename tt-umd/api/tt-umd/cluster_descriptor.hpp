@@ -273,10 +273,10 @@ public:
     const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
 
     /*
-     * Returns the number of PCIe lanes each MMIO chip's link trained to, as captured at topology
-     * discovery. Chips whose width could not be read have no entry.
+     * Returns the number of lanes each PCIe-attached MMIO chip's link trained to, as captured at
+     * topology discovery. Every such chip has an entry; it is std::nullopt if the count couldn't be read.
      */
-    const std::unordered_map<ChipId, uint32_t> &get_chip_pci_link_widths() const;
+    const std::unordered_map<ChipId, std::optional<uint32_t>> &get_chip_pcie_lane_counts() const;
 
     std::optional<uint8_t> get_tray_id(ChipId chip_id) const;
 
@@ -363,7 +363,7 @@ private:
     std::map<ChipId, uint8_t> asic_locations;
     std::unordered_map<ChipId, uint64_t> chip_to_board_id;
     std::unordered_map<ChipId, std::string> chip_pci_bdfs;
-    std::unordered_map<ChipId, uint32_t> chip_pci_link_widths;
+    std::unordered_map<ChipId, std::optional<uint32_t>> chip_pcie_lane_counts;
 
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 

@@ -107,6 +107,11 @@ bool PCIDevice::detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
+// Read on each call rather than cached, since the link can retrain to a different width.
+std::optional<uint32_t> PCIDevice::get_current_link_width() const {
+    return try_read_sysfs<uint32_t>(info, "current_link_width");
+}
+
 static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
     const auto config_path = fmt::format("/sys/bus/pci/devices/{}/config", device_info.pci_bdf);
 
@@ -232,10 +237,6 @@ tt::ARCH PciDeviceInfo::get_arch() const {
         return tt::ARCH::BLACKHOLE;
     }
     return tt::ARCH::Invalid;
-}
-
-std::optional<uint32_t> PciDeviceInfo::current_link_width() const {
-    return try_read_sysfs<uint32_t>(*this, "current_link_width");
 }
 
 std::vector<int> PCIDevice::enumerate_devices() {

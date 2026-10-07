@@ -28,6 +28,8 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -77,18 +79,17 @@ TEST(TestClusterDescriptor, DetectArch) {
     }
 }
 
-TEST(TestClusterDescriptor, PciLinkWidths) {
-    std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+TEST(TestClusterDescriptor, PcieLaneCounts) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
     if (cluster_desc->get_io_device_type() != IODeviceType::PCIe) {
-        GTEST_SKIP() << "PCIe link width is only recorded for PCIe-attached chips.";
+        GTEST_SKIP() << "PCIe lane counts are only recorded for PCIe-attached chips.";
     }
 
-    std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
-    const auto& link_widths = cluster_desc->get_chip_pci_link_widths();
-    for (auto [chip, pci_device_number] : cluster_desc->get_chips_with_mmio()) {
-        ASSERT_TRUE(link_widths.count(chip)) << "No PCIe link width for chip " << chip;
-        EXPECT_EQ(link_widths.at(chip), pci_device_infos.at(pci_device_number).current_link_width());
-        EXPECT_GT(link_widths.at(chip), 0u);
+    const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
+        EXPECT_EQ(lane_counts.at(chip), cluster->get_tt_device(chip)->get_pcie_interface()->get_lane_count());
     }
 }
 

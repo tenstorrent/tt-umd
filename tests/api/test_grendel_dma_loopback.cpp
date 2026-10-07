@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// The device reaching host memory, which is the reverse of everything in test_quasar_device_io.cpp.
+// The device reaching host memory, which is the reverse of everything in test_grendel_device_io.cpp.
 //
 // A host page is pinned so the driver can give the device an address for it, and the device then
 // reads and writes that page through the outbound window. This is the UMD counterpart of tt-kmd's
@@ -79,7 +79,7 @@ private:
     uint64_t dma_address_ = 0;
 };
 
-class QuasarDmaLoopbackTest : public ::testing::Test {
+class GrendelDmaLoopbackTest : public ::testing::Test {
 protected:
     void SetUp() override {
         for (int device_id : PCIDevice::enumerate_devices()) {
@@ -92,7 +92,7 @@ protected:
             device_ = TTDevice::create(device_id, IODeviceType::PCIe);
             return;
         }
-        GTEST_SKIP() << "No Quasar device is bound to the driver.";
+        GTEST_SKIP() << "No Grendel device is bound to the driver.";
     }
 
     size_t page_size() const { return static_cast<size_t>(sysconf(_SC_PAGESIZE)); }
@@ -118,7 +118,7 @@ protected:
 
 // The device reading what the host wrote. One word is enough to show the route exists; the point
 // is which memory answers, not how much of it.
-TEST_F(QuasarDmaLoopbackTest, DeviceReadsWhatTheHostWrote) {
+TEST_F(GrendelDmaLoopbackTest, DeviceReadsWhatTheHostWrote) {
     PinnedPage page(handle_, page_size());
     ASSERT_TRUE(page.mapped()) << "Could not map a host page.";
     ASSERT_EQ(page.pin_result(), 0) << "Could not pin the host page: " << std::strerror(-page.pin_result());
@@ -134,7 +134,7 @@ TEST_F(QuasarDmaLoopbackTest, DeviceReadsWhatTheHostWrote) {
 
 // The reverse: the host reading what the device wrote. A path that only worked one way would pass
 // the test above on its own.
-TEST_F(QuasarDmaLoopbackTest, HostSeesWhatTheDeviceWrote) {
+TEST_F(GrendelDmaLoopbackTest, HostSeesWhatTheDeviceWrote) {
     PinnedPage page(handle_, page_size());
     ASSERT_TRUE(page.mapped()) << "Could not map a host page.";
     ASSERT_EQ(page.pin_result(), 0) << "Could not pin the host page: " << std::strerror(-page.pin_result());
@@ -151,7 +151,7 @@ TEST_F(QuasarDmaLoopbackTest, HostSeesWhatTheDeviceWrote) {
 
 // Distinct values at distinct offsets, written before any is read back, so a route that ignored
 // the offset and landed on one word returns the last value written everywhere.
-TEST_F(QuasarDmaLoopbackTest, OffsetsWithinThePageAreDistinct) {
+TEST_F(GrendelDmaLoopbackTest, OffsetsWithinThePageAreDistinct) {
     PinnedPage page(handle_, page_size());
     ASSERT_TRUE(page.mapped()) << "Could not map a host page.";
     ASSERT_EQ(page.pin_result(), 0) << "Could not pin the host page: " << std::strerror(-page.pin_result());

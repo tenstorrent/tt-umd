@@ -51,8 +51,11 @@ void SimulationTTDevice::detach_client() {
 }
 
 void SimulationTTDevice::adopt_socket(
-    std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler) {
+    std::unique_ptr<SimulationServerSocket> socket,
+    std::string cluster_descriptor_yaml,
+    std::function<void()> shutdown_handler) {
     socket_ = std::move(socket);
+    served_cluster_descriptor_yaml_ = std::move(cluster_descriptor_yaml);
     // Begin serving remote clients now that the backend is up. The shutdown handler is captured into
     // the request handler here, before serving starts, so it is fixed for the socket's lifetime and
     // the serving threads read it without synchronization.
@@ -78,17 +81,13 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
         }
     }
 
-    // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
-    // YAML (empty when the build ships none) so a client can rebuild the full topology.
+    // GetClusterDescriptor also returns its own wire message; serve the topology the host was handed
+    // in adopt_socket(), rather than re-deriving one here, so every client sees the host's cluster.
     if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
-        try {
-            return encode(describe_cluster(simulator_directory_));
-        } catch (const std::exception& e) {
-            log_warning(tt::LogUMD, "Simulation host failed to serve cluster descriptor: {}", e.what());
-            SimulationServerClusterDescriptor cluster_descriptor;
-            cluster_descriptor.status = -1;
-            return encode(cluster_descriptor);
-        }
+        SimulationServerClusterDescriptor cluster_descriptor;
+        cluster_descriptor.status = 0;
+        cluster_descriptor.yaml = served_cluster_descriptor_yaml_;
+        return encode(cluster_descriptor);
     }
 
     // Shutdown: invoke the opt-in handler (a dedicated server passes one to adopt_socket() to signal
@@ -178,7 +177,7 @@ void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, co
         return;
     }
     if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+        addr = att::resolve_translated(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
@@ -196,7 +195,7 @@ void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, voi
         return;
     }
     if (global_address_mode_) {
-        addr = att::resolve_core(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
+        addr = att::resolve_translated(*noc_address_resolver_, get_soc_descriptor(), core, addr, size);
     }
     if (should_use_cached_tlb_window()) {
         read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
@@ -276,8 +275,8 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
     }
 }
 
-void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch());
+void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base, uint64_t bar4_base) {
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), bar4_base);
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {

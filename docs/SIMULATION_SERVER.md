@@ -238,8 +238,10 @@ assert (
     == tt_umd.SimulationConnector.Role.CLIENT
 )
 
-connection, devices = tt_umd.SimulationConnector.discover(options)  # devices: {chip_id: TTDevice}
+# devices: {chip_id: TTDevice}; cluster: the topology those devices sit in.
+connection, devices, cluster = tt_umd.SimulationConnector.discover(options)
 print(connection.role, connection.simulator, connection.arch, connection.server_directory)
+print(cluster.get_all_chips())
 ```
 
 To host instead, name a simulator rather than a server directory, and set

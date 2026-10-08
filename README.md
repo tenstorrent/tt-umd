@@ -82,6 +82,7 @@ cmake --build --preset default
 | `release-no-clang-tidy` | `release` without clang-tidy |
 | `all-no-pip` | All components, without the pip package |
 | `all-tracy` | All components with the pip package and Tracy |
+| `code-analysis` | Debug tests and simulation build with clang-20, used by the code-analysis CI job |
 
 The clang-20 presets build tests and simulation, each into its own directory under `.build/`:
 

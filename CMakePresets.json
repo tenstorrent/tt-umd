@@ -92,6 +92,42 @@
             }
         },
         {
+            "name": "all",
+            "inherits": [
+                "default"
+            ],
+            "description": "All components",
+            "cacheVariables": {
+                "TT_UMD_BUILD_ALL": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "all-debug",
+            "inherits": [
+                "all"
+            ],
+            "description": "all in Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "Debug"
+                }
+            }
+        },
+        {
+            "name": "all-asan",
+            "inherits": [
+                "all"
+            ],
+            "description": "all with ASan, LSan and UBSan",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "value": "ASan"
+                }
+            }
+        },
+        {
             "name": "all-no-pip",
             "inherits": [
                 "default"
@@ -174,6 +210,18 @@
         {
             "name": "release-no-clang-tidy",
             "configurePreset": "release-no-clang-tidy"
+        },
+        {
+            "name": "all",
+            "configurePreset": "all"
+        },
+        {
+            "name": "all-debug",
+            "configurePreset": "all-debug"
+        },
+        {
+            "name": "all-asan",
+            "configurePreset": "all-asan"
         },
         {
             "name": "all-no-pip",

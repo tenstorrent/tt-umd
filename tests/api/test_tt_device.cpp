@@ -135,6 +135,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
 }
 
 TEST(ApiTTDeviceTest, TTDeviceEthCoreSpeed) {
+    const std::set<uint32_t> valid_speeds_gbps = {0, 40, 100, 200, 330, 350, 370, 400};
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
@@ -145,8 +146,12 @@ TEST(ApiTTDeviceTest, TTDeviceEthCoreSpeed) {
             std::optional<uint32_t> train_speed = tt_device->read_eth_core_train_speed(eth_core);
             std::optional<uint32_t> target_speed = tt_device->read_eth_core_target_speed(eth_core);
             if (tt_device->get_arch() == tt::ARCH::BLACKHOLE) {
-                EXPECT_TRUE(target_speed.has_value());
+                ASSERT_TRUE(target_speed.has_value());
+                EXPECT_TRUE(valid_speeds_gbps.count(target_speed.value()));
                 if (train_speed.has_value()) {
+                    EXPECT_TRUE(valid_speeds_gbps.count(train_speed.value()));
+                    EXPECT_NE(train_speed.value(), 0u);
+                    EXPECT_LE(train_speed.value(), target_speed.value());
                     EXPECT_EQ(tt_device->read_eth_core_training_status(eth_core), EthTrainingStatus::SUCCESS);
                 }
             } else {

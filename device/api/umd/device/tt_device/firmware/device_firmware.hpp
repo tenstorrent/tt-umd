@@ -145,24 +145,6 @@ public:
         tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
-     * @brief Reads the trained link speed of an Ethernet core. Units are not documented.
-     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
-     * @param noc_id NOC to route through.
-     * @return Speed if the port is up and training passed; nullopt otherwise or if not supported.
-     */
-    virtual std::optional<uint32_t> get_eth_core_train_speed(
-        tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
-
-    /**
-     * @brief Reads the target link speed from the Ethernet core boot params. Units are not documented.
-     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
-     * @param noc_id NOC to route through.
-     * @return Target speed; nullopt if not supported.
-     */
-    virtual std::optional<uint32_t> get_eth_core_target_speed(
-        tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
-
-    /**
      * @brief Waits for a DRAM channel to complete training.
      * @param dram_channel The DRAM channel index to wait on.
      * @param timeout_ms Maximum time to wait.
@@ -200,6 +182,25 @@ public:
      * @return uint64_t The current reference clock tick count.
      */
     virtual uint64_t get_refclk_counter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Reads the trained link speed of an Ethernet core, in Gbps.
+     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
+     * @param noc_id NOC to route through.
+     * @return Speed if the port is up and training passed; nullopt otherwise or if not supported.
+     */
+    virtual std::optional<uint32_t> get_eth_core_train_speed(
+        tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Reads the target link speed from the Ethernet core boot params, in Gbps.
+     * Valid in any port state, including down or unused.
+     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
+     * @param noc_id NOC to route through.
+     * @return Target speed; nullopt if not supported.
+     */
+    virtual std::optional<uint32_t> get_eth_core_target_speed(
+        tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

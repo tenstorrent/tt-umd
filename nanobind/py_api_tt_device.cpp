@@ -312,8 +312,8 @@ void bind_tt_device(nb::module_ &m) {
             &TTDevice::read_eth_core_target_speed,
             nb::arg("eth_core"),
             release_gil(),
-            "Read the target link speed in Gbps from the ETH core boot params. None if not "
-            "supported")
+            "Read the target link speed in Gbps from the ETH core boot params. Valid in any "
+            "port state. None if not supported")
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)

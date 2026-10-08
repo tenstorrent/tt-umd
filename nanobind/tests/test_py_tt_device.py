@@ -423,6 +423,7 @@ class TestTTDevice(unittest.TestCase):
             print("No PCI devices found. Skipping test.")
             return
 
+        valid_speeds_gbps = {0, 40, 100, 200, 330, 350, 370, 400}
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
             dev.init_tt_device()
@@ -437,8 +438,12 @@ class TestTTDevice(unittest.TestCase):
                 self.assertIsInstance(status, tt_umd.EthTrainingStatus)
                 if is_bh:
                     self.assertIsInstance(target_speed, int)
+                    self.assertIn(target_speed, valid_speeds_gbps)
                     if train_speed is not None:
                         self.assertIsInstance(train_speed, int)
+                        self.assertIn(train_speed, valid_speeds_gbps)
+                        self.assertNotEqual(train_speed, 0)
+                        self.assertLessEqual(train_speed, target_speed)
                         self.assertEqual(status, tt_umd.EthTrainingStatus.SUCCESS)
                 else:
                     self.assertIsNone(train_speed)

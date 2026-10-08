@@ -90,13 +90,14 @@ flowchart TB
    sim_server list
    ```
 
-   Lists the open servers. Each row is one chip of one server: the server index, the chip id,
-   whether it is reachable, its arch/backend, and the socket it is served on.
+   Lists the open servers. Each row is one chip of one server: the server index, the chip id, its
+   arch/backend, the socket it is served on, and the simulator its host is running — so two servers
+   of the same arch are told apart by what they are actually simulating.
 
    ```
-   SERVER   CHIP   STATE   ARCH             SOCKET
-   0        0      live    blackhole/ttsim  /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock
-   1        0      live    blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
+   SERVER   CHIP   ARCH               SOCKET                                           SIMULATOR
+   0        0      blackhole/ttsim    /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock       /path/to/simulator.so
+   1        0      blackhole/ttsim    /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock       /path/to/other_simulator.so
    ```
 
 3. **Use it from your program.** Point UMD at the server *directory* (the `SOCKET`'s parent above,
@@ -166,8 +167,8 @@ directory; UMD sees the live sockets, attaches to each as a client, and hands yo
 exactly as you would silicon.
 
 ```cpp
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -196,8 +197,8 @@ host serves. Enter here when you want the devices directly rather than a full cl
 simulation's discovery entry point; the silicon `TopologyDiscovery` path is not involved.)
 
 ```cpp
-#include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 using namespace tt::umd;
 
@@ -237,8 +238,10 @@ assert (
     == tt_umd.SimulationConnector.Role.CLIENT
 )
 
-connection, devices = tt_umd.SimulationConnector.discover(options)  # devices: {chip_id: TTDevice}
+# devices: {chip_id: TTDevice}; cluster: the topology those devices sit in.
+connection, devices, cluster = tt_umd.SimulationConnector.discover(options)
 print(connection.role, connection.simulator, connection.arch, connection.server_directory)
+print(cluster.get_all_chips())
 ```
 
 To host instead, name a simulator rather than a server directory, and set

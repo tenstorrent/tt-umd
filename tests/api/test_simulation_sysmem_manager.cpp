@@ -4,11 +4,14 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -16,13 +19,13 @@
 #include <thread>
 #include <vector>
 
-#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/chip_helpers/system_memory_allocator.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/host_memory.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/host_memory.hpp"
 
 using namespace tt::umd;
 
@@ -57,6 +60,27 @@ TEST(ApiSimulationSysmemManager, BasicIOSingleChannel) {
 
     for (int i = 0; i < data_write.size(); i++) {
         EXPECT_EQ(static_cast<uint8_t*>(channel_0_mapping)[i], data_write[i]);
+    }
+}
+
+TEST(ApiSimulationSysmemManager, GalaxyMappedArenasAreBoundedAndPerChip) {
+    constexpr uint32_t galaxy_chip_count = 8;
+    constexpr uint64_t mapped_size = 4096;
+    for (uint32_t chip_id = 0; chip_id < galaxy_chip_count; ++chip_id) {
+        SimulationSysmemManager sysmem(1, tt::ARCH::BLACKHOLE, chip_id);
+        EXPECT_EQ(sysmem.get_host_base(), chip_id * SimulationSysmemManager::PER_CHIP_HOST_STRIDE);
+        EXPECT_EQ(sysmem.get_hugepage_mapping(0).physical_address, sysmem.get_host_base());
+        EXPECT_EQ(sysmem.get_mapped_arena_offset(), HUGEPAGE_REGION_SIZE);
+        EXPECT_EQ(
+            sysmem.get_mapped_arena_offset() + sysmem.get_mapped_arena_size(),
+            SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
+
+        auto buffer = sysmem.allocate_sysmem_buffer(mapped_size, /*map_to_noc=*/true);
+        ASSERT_NE(buffer, nullptr);
+        EXPECT_EQ(buffer->get_iova(), sysmem.get_pcie_base() + sysmem.get_mapped_arena_offset());
+        EXPECT_LE(
+            buffer->get_iova() - sysmem.get_pcie_base() + buffer->get_size(),
+            SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
     }
 }
 
@@ -671,4 +695,92 @@ TEST_P(ApiSimulationSysmemManagerByArch, ManagerDestroyedBeforeBuffer) {
     // This must not crash.
     buffer.reset();
     SUCCEED();
+}
+
+// Reserve virtual address space without populating it; boundary tests need no large resident allocation.
+namespace {
+struct AnonymousMapping {
+    void* pointer;
+    size_t size;
+
+    explicit AnonymousMapping(size_t length) :
+        pointer(mmap(nullptr, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)), size(length) {
+        if (pointer == MAP_FAILED) {
+            throw std::runtime_error("test mmap failed");
+        }
+    }
+
+    ~AnonymousMapping() { munmap(pointer, size); }
+};
+}  // namespace
+
+TEST_P(ApiSimulationSysmemManagerByArch, UnalignedExternalMappingPreservesUserRange) {
+    const size_t page = sysconf(_SC_PAGESIZE);
+    AnonymousMapping memory(3 * page);
+    auto* start = static_cast<uint8_t*>(memory.pointer) + 1;
+    const size_t length = page + 7;
+    SimulationSysmemManager sysmem(0, GetParam());
+    auto buffer = sysmem.map_sysmem_buffer(start, length, true);
+    const uint64_t address = buffer->get_iova();
+    EXPECT_EQ(address, sysmem.get_pcie_base() + 1);
+    EXPECT_EQ(buffer->get_noc_address(), std::optional<uint64_t>(address));
+    EXPECT_EQ(sysmem.get_mapped_host_ptr(address), start);
+    EXPECT_EQ(sysmem.get_mapped_host_ptr(address + length - 1), start + length - 1);
+    uint8_t first = 0x37;
+    uint8_t last = 0xA9;
+    ASSERT_TRUE(sysmem.write_mapped_buffer(address, &first, 1));
+    ASSERT_TRUE(sysmem.write_mapped_buffer(address + length - 1, &last, 1));
+    EXPECT_EQ(start[0], first);
+    EXPECT_EQ(start[length - 1], last);
+    EXPECT_EQ(start[-1], 0);
+    EXPECT_EQ(start[length], 0);
+    EXPECT_FALSE(sysmem.write_mapped_buffer(address - 1, &first, 1));
+    EXPECT_FALSE(sysmem.write_mapped_buffer(address + length, &last, 1));
+    auto next = sysmem.map_sysmem_buffer(static_cast<uint8_t*>(memory.pointer) + 2 * page, page);
+    EXPECT_EQ(next->get_iova(), sysmem.get_pcie_base() + 2 * page);
+    buffer.reset();
+    EXPECT_EQ(sysmem.get_mapped_host_ptr(address), nullptr);
+    EXPECT_NE(sysmem.get_mapped_host_ptr(next->get_iova()), nullptr);
+}
+
+TEST_P(ApiSimulationSysmemManagerByArch, ArenaRejectsOverflowAndExhaustionWithoutConsumingSpace) {
+    const size_t page = sysconf(_SC_PAGESIZE);
+    SimulationSysmemManager sysmem(4, GetParam());
+    EXPECT_EQ(sysmem.get_mapped_arena_size(), 0x0FFE0000ULL);
+    AnonymousMapping memory(sysmem.get_mapped_arena_size());
+    const uint64_t first_address = sysmem.get_pcie_base() + sysmem.get_mapped_arena_offset();
+    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 0), std::exception);
+    EXPECT_THROW(sysmem.map_sysmem_buffer(nullptr, page), std::exception);
+    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, std::numeric_limits<size_t>::max()), std::exception);
+    EXPECT_THROW(sysmem.allocate_sysmem_buffer(0), std::exception);
+    EXPECT_THROW(sysmem.allocate_sysmem_buffer(std::numeric_limits<size_t>::max()), std::exception);
+    auto main = sysmem.map_sysmem_buffer(memory.pointer, memory.size - page);
+    ASSERT_EQ(main->get_iova(), first_address);
+    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 2 * page), std::exception);
+    EXPECT_THROW(sysmem.allocate_sysmem_buffer(2 * page), std::exception);
+    auto tail = sysmem.map_sysmem_buffer(static_cast<uint8_t*>(memory.pointer) + memory.size - page, page);
+    EXPECT_EQ(tail->get_iova(), first_address + memory.size - page);
+    EXPECT_EQ((tail->get_iova() - sysmem.get_pcie_base()) % page, 0);
+    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 1), std::exception);
+    EXPECT_THROW(sysmem.allocate_sysmem_buffer(1), std::exception);
+    uint8_t value = 0x5C;
+    ASSERT_TRUE(sysmem.write_mapped_buffer(tail->get_iova() + page - 1, &value, 1));
+    EXPECT_EQ(static_cast<uint8_t*>(memory.pointer)[memory.size - 1], value);
+    EXPECT_FALSE(sysmem.read_mapped_buffer(std::numeric_limits<uint64_t>::max(), &value, 2));
+}
+
+TEST_P(ApiSimulationSysmemManagerByArch, SimultaneousChipMappingsHaveDistinctHostTargets) {
+    SimulationSysmemManager first(0, GetParam(), 0);
+    SimulationSysmemManager second(0, GetParam(), 7);
+    auto a = first.allocate_sysmem_buffer(4096, true);
+    auto b = second.allocate_sysmem_buffer(4096, true);
+    EXPECT_EQ(a->get_iova(), b->get_iova());
+    EXPECT_EQ(first.get_host_base(), 0);
+    EXPECT_EQ(second.get_host_base(), 7 * SimulationSysmemManager::PER_CHIP_HOST_STRIDE);
+    uint8_t first_value = 0x19;
+    uint8_t second_value = 0xE4;
+    ASSERT_TRUE(first.write_mapped_buffer(a->get_iova(), &first_value, 1));
+    ASSERT_TRUE(second.write_mapped_buffer(b->get_iova(), &second_value, 1));
+    EXPECT_EQ(*static_cast<uint8_t*>(a->get_va()), first_value);
+    EXPECT_EQ(*static_cast<uint8_t*>(b->get_va()), second_value);
 }

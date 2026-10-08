@@ -15,13 +15,13 @@
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

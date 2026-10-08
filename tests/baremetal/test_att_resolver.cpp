@@ -10,13 +10,14 @@
 #include <stdexcept>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/coordinates/att/att_resolver.hpp"
-#include "umd/device/coordinates/att/att_window.hpp"
-#include "umd/device/coordinates/att/configs/grendel_qsr1_att_map.hpp"
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
+#include "tt-umd/coordinates/att/att_window.hpp"
+#include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -158,6 +159,42 @@ TEST(AttResolver, RejectsATransferThatRunsPastTheSlot) {
     EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0x100, 1), std::runtime_error);
 }
 
+// three_window_map() with a full-tile window whose slots are 4 KiB instead of 256 bytes, so the
+// full-tile window can carry Tensix offsets the L1 window cannot.
+att::MapData tall_full_tile_map() {
+    att::MapData map = three_window_map();
+    att::Window& tile_window = map.windows[static_cast<size_t>(att::WindowClass::FULL_TILE)];
+    tile_window.mask_bits = 16;
+    tile_window.endpoint_shift = 12;
+    return map;
+}
+
+TEST(AttResolver, ReachesTensixRegistersThroughTheFullTileWindow) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    // L1 offsets keep resolving through the worker window.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0xfc, 4), 0x100fcu);
+    // The first offset past L1 is a register: it resolves through the full-tile window, whose
+    // selector 0 names the same tile.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0x100, 4), 0x40100u);
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::TENSIX, 0xffc, 4), 0x40ffcu);
+}
+
+TEST(AttResolver, RejectsATensixTransferThatRunsOutOfL1) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    // A transfer that starts in L1 and crosses its end is not a register access even though the
+    // full-tile window could hold it.
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0xfc, 8), std::runtime_error);
+}
+
+TEST(AttResolver, RejectsATensixOffsetPastTheFullTile) {
+    const att::EndpointResolver resolver(tall_full_tile_map());
+
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0x1000, 1), std::runtime_error);
+    EXPECT_THROW(resolver.resolve({1, 1}, CoreType::TENSIX, 0xffc, 8), std::runtime_error);
+}
+
 TEST(AttResolver, RejectsACoordinateThatWouldNotFitAnEndpointWord) {
     const att::EndpointResolver resolver(three_window_map());
 
@@ -200,6 +237,18 @@ TEST(AttResolveCore, ResolvesATypedCoreCoord) {
     EXPECT_EQ(att::resolve_core(resolver, soc_descriptor, core, 0x1000, 4), 0x10000001000ULL);
 }
 
+TEST(AttResolveCore, ResolvesATranslatedCoordinateThroughTheDescriptorFrame) {
+    const SocDescriptor soc_descriptor = quasar_soc_descriptor();
+    const att::EndpointResolver resolver(att::GRENDEL_QSR1_MAP);
+
+    // A translated (2, 2) is converted to the descriptor's frame before the lookup. Quasar's
+    // translated mapping is the identity today, so it reaches the same tile as NOC0 (2, 2).
+    const CoreCoord typed(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    EXPECT_EQ(
+        att::resolve_translated(resolver, soc_descriptor, tt_xy_pair(2, 2), 0x1000, 4),
+        att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
+}
+
 TEST(AttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) {
     const SocDescriptor soc_descriptor = quasar_soc_descriptor();
     const att::EndpointResolver resolver(att::GRENDEL_QSR1_MAP);
@@ -212,4 +261,47 @@ TEST(AttResolveCore, ResolvesAnUntypedLiteralCoordinateLikeItsTypedForm) {
     EXPECT_EQ(
         att::resolve_core(resolver, soc_descriptor, literal, 0x1000, 4),
         att::resolve_core(resolver, soc_descriptor, typed, 0x1000, 4));
+}
+
+// The Horizon 2x3 map sends a tile's selector in address bits 51:40, the encoding tt-metal's
+// horizon_2x3 map gives kernels, so the host and the kernels address a tile identically.
+TEST(AttHorizonMap, ResolvesEachTileToItsSelectorAtBit40) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    // Tensix (0,0), selector 1: 0x0000'0100'0000'1000.
+    EXPECT_EQ(resolver.resolve({0, 0}, CoreType::TENSIX, 0x1000, 4), (uint64_t{1} << 40) | 0x1000);
+    // Tensix (1,0), selector 2: 0x0000'0200'0000'1000.
+    EXPECT_EQ(resolver.resolve({1, 0}, CoreType::TENSIX, 0x1000, 4), (uint64_t{2} << 40) | 0x1000);
+    // Dispatch (0,1), selector 3: 0x0000'0300'0000'0020.
+    EXPECT_EQ(resolver.resolve({0, 1}, CoreType::DISPATCH, 0x20, 4), (uint64_t{3} << 40) | 0x20);
+    // Dispatch (1,1), selector 4: 0x0000'0400'0000'0020.
+    EXPECT_EQ(resolver.resolve({1, 1}, CoreType::DISPATCH, 0x20, 4), (uint64_t{4} << 40) | 0x20);
+    // NOC2AXI (0,2) as DRAM, selector 5: 0x0000'0500'016f'd880.
+    EXPECT_EQ(resolver.resolve({0, 2}, CoreType::DRAM, 0x16fd880, 4), (uint64_t{5} << 40) | 0x16fd880);
+    // NOC2AXI (1,2) as DRAM, selector 6: 0x0000'0600'016f'e880.
+    EXPECT_EQ(resolver.resolve({1, 2}, CoreType::DRAM, 0x16fe880, 4), (uint64_t{6} << 40) | 0x16fe880);
+    // The same NOC2AXI tiles' own registers (ROUTER_ONLY) resolve to the same selectors.
+    // NOC2AXI (0,2), selector 5: 0x0000'0500'0000'0000.
+    EXPECT_EQ(resolver.resolve({0, 2}, CoreType::ROUTER_ONLY, 0x0, 4), uint64_t{5} << 40);
+    // NOC2AXI (1,2), selector 6: 0x0000'0600'0000'0000.
+    EXPECT_EQ(resolver.resolve({1, 2}, CoreType::ROUTER_ONLY, 0x0, 4), uint64_t{6} << 40);
+}
+
+// Selector 0 is the issuing tile itself, so a bare address never names another core.
+TEST(AttHorizonMap, LeavesSelectorZeroToTheTileItself) {
+    for (const auto& words : att::HORIZON_2X3_MAP.endpoint_words) {
+        ASSERT_FALSE(words.empty());
+        EXPECT_EQ(words[0], att::ENDPOINT_UNPOPULATED);
+    }
+}
+
+TEST(AttHorizonMap, RejectsATileOutsideTheIp) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    EXPECT_THROW(resolver.resolve({2, 0}, CoreType::TENSIX, 0, 4), std::exception);
+    EXPECT_THROW(resolver.resolve({0, 1}, CoreType::TENSIX, 0, 4), std::exception);
+}
+
+TEST(AttHorizonMap, CarriesAFortyBitLocalAddress) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    EXPECT_NO_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 4, 4));
+    EXPECT_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 2, 4), std::exception);
 }

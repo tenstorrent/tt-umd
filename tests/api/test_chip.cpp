@@ -9,9 +9,9 @@
 #include <memory>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;

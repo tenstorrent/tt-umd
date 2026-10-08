@@ -121,6 +121,8 @@ jobs:
         run: |
           # TODO: tt-ubuntu-2204-p100a-stable to be added when available
           # P300-viommu is a P300 runner
+          # runs-on defaults to [card]. Runners outside the tt-ubuntu-*-stable pool need in-service,
+          # which their pool uses to mark the machines that may take general CI jobs.
           CARDS=$(cat <<'EOF'
           [
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
@@ -132,17 +134,17 @@ jobs:
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p100a-viommu-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
-            {"arch": "wormhole_b0", "card": "wh-glx-6u"},
+            {"arch": "wormhole_b0", "card": "wh-glx-6u", "runs-on": ["wh-glx-6u", "in-service"]},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
-            {"arch": "blackhole",   "card": "P300-viommu"},
-            {"arch": "blackhole",   "card": "bh-glx-6u"},
-            {"arch": "blackhole",   "card": "BH-Quietbox-2"},
+            {"arch": "blackhole",   "card": "P300-viommu", "runs-on": ["P300-viommu", "in-service"]},
+            {"arch": "blackhole",   "card": "bh-glx-6u", "runs-on": ["bh-glx-6u", "in-service"]},
+            {"arch": "blackhole",   "card": "BH-Quietbox-2", "runs-on": ["BH-Quietbox-2", "in-service"]},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
           ]
           EOF
           )
-          echo "entries=$(echo "$CARDS" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "entries=$(echo "$CARDS" | jq -c 'map({"runs-on": [.card]} + .)')" >> $GITHUB_OUTPUT
 
   # Central blacklist for matrix entries that should not run under certain conditions.
   # Each entry is a pipe-delimited "triggering-event|build-type|card" triple.
@@ -314,6 +316,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
+      runs-on: ${{ toJSON(matrix.test-group.runs-on) }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}

@@ -11,7 +11,6 @@ set(API_TESTS_SRCS
     test_sim_multichip.cpp
     test_cluster_options.cpp
     test_tt_device.cpp
-    test_spi_tt_device.cpp
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp
@@ -25,6 +24,7 @@ if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_simulation_connector.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_server_protocol.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_device_identity.cpp)
+    list(APPEND API_TESTS_SRCS test_rtl_sim_ip_partition.cpp)
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})

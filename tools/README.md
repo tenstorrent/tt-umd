@@ -159,7 +159,7 @@ pointing at a specific server's directory. It has four subcommands:
   directory and runs until stopped, printing `server directory: <dir>` once the sockets are up.
   Other UMD processes then attach to it as clients (e.g. a `Cluster` pointed at that directory).
 - `list` — lists the currently-open simulation servers, showing each server's index, and for each
-  of its chips the chip id, liveness, arch/backend, and socket path.
+  of its chips the chip id, arch/backend, socket path, and which simulator its host is running.
 - `kill <server>` — asks a server (by its index from `list`) to shut down in-band over its socket
   (a `SHUTDOWN` request), which tears the host down gracefully; attached clients then fail their
   next request with a clear "server stopped" error. Shutdown goes over the socket rather than by
@@ -195,9 +195,9 @@ $ ./build/tools/umd/sim_server start --detach /path/to/other_simulator.so
 sim_server up: pid 12346, serving /tmp/tt-umd-sim-server-1, log /tmp/sim_server-tt-umd-sim-server-1.log
 
 $ ./build/tools/umd/sim_server list
-SERVER   CHIP   STATE        ARCH             SOCKET
-0        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock
-1        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
+SERVER   CHIP   ARCH               SOCKET                                           SIMULATOR
+0        0      blackhole/ttsim    /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock       /path/to/simulator.so
+1        0      blackhole/ttsim    /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock       /path/to/other_simulator.so
 
 $ ./build/tools/umd/sim_server kill 0
 Requested shutdown of simulation server 0.

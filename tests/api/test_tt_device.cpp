@@ -151,7 +151,10 @@ TEST(ApiTTDeviceTest, TTDeviceEthCoreSpeed) {
                 if (train_speed.has_value()) {
                     EXPECT_TRUE(valid_speeds_gbps.count(train_speed.value()));
                     EXPECT_NE(train_speed.value(), 0u);
-                    EXPECT_LE(train_speed.value(), target_speed.value());
+                    // Target 0 requests auto-train, so it does not bound the trained speed.
+                    if (target_speed.value() != 0) {
+                        EXPECT_LE(train_speed.value(), target_speed.value());
+                    }
                     EXPECT_EQ(tt_device->read_eth_core_training_status(eth_core), EthTrainingStatus::SUCCESS);
                 }
             } else {

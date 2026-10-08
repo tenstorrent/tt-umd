@@ -443,7 +443,9 @@ class TestTTDevice(unittest.TestCase):
                         self.assertIsInstance(train_speed, int)
                         self.assertIn(train_speed, valid_speeds_gbps)
                         self.assertNotEqual(train_speed, 0)
-                        self.assertLessEqual(train_speed, target_speed)
+                        # Target 0 requests auto-train, so it does not bound the trained speed.
+                        if target_speed != 0:
+                            self.assertLessEqual(train_speed, target_speed)
                         self.assertEqual(status, tt_umd.EthTrainingStatus.SUCCESS)
                 else:
                     self.assertIsNone(train_speed)

@@ -5,14 +5,15 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "common/cpp_compat.hpp"
 #include "common/enum_array.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
 
@@ -34,13 +35,6 @@ struct StaticCount {
 };
 
 }  // namespace
-
-// to_underlying yields the underlying type, for scoped and unscoped enums alike.
-static_assert(to_underlying(Rgb::BLUE) == 2);
-static_assert(std::is_same_v<decltype(to_underlying(Rgb::BLUE)), uint8_t>);
-static_assert(std::is_same_v<decltype(to_underlying(Leaky::A)), int>);
-static_assert(to_underlying(Unscoped::Y) == 1);
-static_assert(noexcept(to_underlying(Rgb::RED)));
 
 // The trait admits exactly: an enum class with a COUNT enumerator.
 static_assert(is_enum_array_index_v<Rgb>);
@@ -168,9 +162,9 @@ TEST(EnumArray, AtThrowsForEnumeratorPastCount) {
     EnumArray<int, Leaky> values{1, 2};
     EXPECT_EQ(values.at(Leaky::A), 1);
     EXPECT_EQ(values.at(Leaky::B), 2);
-    EXPECT_THROW(values.at(Leaky::COUNT), std::out_of_range);
-    EXPECT_THROW(values.at(Leaky::PAST_COUNT), std::out_of_range);
-    EXPECT_THROW(std::as_const(values).at(Leaky::PAST_COUNT), std::out_of_range);
+    EXPECT_THROW(values.at(Leaky::COUNT), error::UmdException<error::RuntimeError>);
+    EXPECT_THROW(values.at(Leaky::PAST_COUNT), error::UmdException<error::RuntimeError>);
+    EXPECT_THROW(std::as_const(values).at(Leaky::PAST_COUNT), error::UmdException<error::RuntimeError>);
 }
 
 // CoreType is the one enum in the codebase with a COUNT sentinel, and it declares UNSPECIFIED after it.
@@ -182,5 +176,5 @@ TEST(EnumArray, WorksWithCoreType) {
     EXPECT_EQ(per_core_type[tt::CoreType::TENSIX], 140);
     EXPECT_EQ(per_core_type.at(tt::CoreType::DRAM), 8);
     EXPECT_EQ(per_core_type[tt::CoreType::WORKER], 0);
-    EXPECT_THROW(per_core_type.at(tt::CoreType::UNSPECIFIED), std::out_of_range);
+    EXPECT_THROW(per_core_type.at(tt::CoreType::UNSPECIFIED), error::UmdException<error::RuntimeError>);
 }

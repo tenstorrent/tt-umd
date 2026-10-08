@@ -6,25 +6,21 @@
 
 #include <array>
 #include <cstddef>
-#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
 
-namespace tt::umd {
+#include "cpp_compat.hpp"
+#include "tt-umd/utils/error.hpp"
 
-// std::to_underlying from C++23, for the places that need an enum as a number: bit operations, message ids,
-// logging, serialisation. Not for indexing, that is what EnumArray is for. Non-enums fail to substitute
-// the return type, so there is no overload to call.
-template <typename Enum>
-constexpr std::underlying_type_t<Enum> to_underlying(Enum value) noexcept {
-    return static_cast<std::underlying_type_t<Enum>>(value);
-}
+namespace tt::umd {
 
 namespace detail {
 
-// C++17 stand-in for std::is_scoped_enum (C++23). An unscoped enum converts implicitly to its underlying
-// type, a scoped one does not. The bool parameter keeps underlying_type_t from being named for non-enums.
+// C++17 stand-in for std::is_scoped_enum (C++23), spelled as a primary template and one specialization
+// so that underlying_type_t is never named for a non-enum: the bool parameter resolves first, and only
+// the enum case reaches the specialization. The specialization is the test itself -- an unscoped enum
+// converts implicitly to its underlying type, a scoped one does not.
 template <typename E, bool = std::is_enum_v<E>>
 struct is_scoped_enum : std::false_type {};
 
@@ -64,14 +60,15 @@ class EnumArray {
 
 public:
     using value_type = T;
+    using key_type = Enum;
     using size_type = std::size_t;
+    using reference = value_type&;
+    using const_reference = const value_type&;
 
-    static constexpr size_type SIZE = static_cast<size_type>(Enum::COUNT);
+    static constexpr size_type SIZE = static_cast<size_type>(key_type::COUNT);
 
-    using reference = T&;
-    using const_reference = const T&;
-    using iterator = typename std::array<T, SIZE>::iterator;
-    using const_iterator = typename std::array<T, SIZE>::const_iterator;
+    using iterator = typename std::array<value_type, SIZE>::iterator;
+    using const_iterator = typename std::array<value_type, SIZE>::const_iterator;
 
     constexpr EnumArray() = default;
 
@@ -80,24 +77,25 @@ public:
     // is part of the constraint so that this never competes with the copy and move constructors.
     template <
         typename... Args,
-        std::enable_if_t<sizeof...(Args) == SIZE && std::conjunction_v<std::is_convertible<Args, T>...>, int> = 0>
+        std::enable_if_t<sizeof...(Args) == SIZE && std::conjunction_v<std::is_convertible<Args, value_type>...>, int> =
+            0>
     constexpr EnumArray(Args&&... args) : data_{{std::forward<Args>(args)...}} {}
 
-    constexpr reference operator[](Enum key) noexcept { return data_[to_index(key)]; }
+    constexpr reference operator[](key_type key) noexcept { return data_[to_index(key)]; }
 
-    constexpr const_reference operator[](Enum key) const noexcept { return data_[to_index(key)]; }
+    constexpr const_reference operator[](key_type key) const noexcept { return data_[to_index(key)]; }
 
     // Bounds-checked access. Only reachable with an enumerator that breaks the contract (declared after
     // COUNT, or given an explicit value), so it is a way to catch such enums rather than a hot-path API.
-    constexpr reference at(Enum key) { return data_[checked_index(key)]; }
+    constexpr reference at(key_type key) { return data_[checked_index(key)]; }
 
-    constexpr const_reference at(Enum key) const { return data_[checked_index(key)]; }
+    constexpr const_reference at(key_type key) const { return data_[checked_index(key)]; }
 
     static constexpr size_type size() noexcept { return SIZE; }
 
     // Every enumerator in declaration order, for loops that need the key as well as the value:
     //   for (const Enum key : array.keys()) { use(key, array[key]); }
-    static constexpr std::array<Enum, SIZE> keys() noexcept { return make_keys(std::make_index_sequence<SIZE>{}); }
+    static constexpr std::array<key_type, SIZE> keys() noexcept { return make_keys(std::make_index_sequence<SIZE>{}); }
 
     constexpr iterator begin() noexcept { return data_.begin(); }
 
@@ -108,8 +106,8 @@ public:
     constexpr const_iterator end() const noexcept { return data_.end(); }
 
     // Not std::array::fill, which is constexpr only from C++20.
-    constexpr void fill(const T& value) {
-        for (T& element : data_) {
+    constexpr void fill(const_reference value) {
+        for (reference element : data_) {
             element = value;
         }
     }
@@ -128,24 +126,25 @@ public:
 
 private:
     template <std::size_t... Indices>
-    static constexpr std::array<Enum, SIZE> make_keys(std::index_sequence<Indices...>) noexcept {
-        return {{static_cast<Enum>(Indices)...}};
+    static constexpr std::array<key_type, SIZE> make_keys(std::index_sequence<Indices...>) noexcept {
+        return {{static_cast<key_type>(Indices)...}};
     }
 
     // A negative enumerator wraps to a huge index here, which at() then rejects.
-    static constexpr size_type to_index(Enum key) noexcept { return static_cast<size_type>(to_underlying(key)); }
+    static constexpr size_type to_index(key_type key) noexcept { return static_cast<size_type>(to_underlying(key)); }
 
-    static constexpr size_type checked_index(Enum key) {
+    static constexpr size_type checked_index(key_type key) {
         const size_type index = to_index(key);
         if (index >= SIZE) {
-            throw std::out_of_range(
+            UMD_THROW(
+                error::RuntimeError,
                 "EnumArray: enumerator with value " + std::to_string(to_underlying(key)) + " is not below COUNT (" +
-                std::to_string(SIZE) + ").");
+                    std::to_string(SIZE) + ").");
         }
         return index;
     }
 
-    std::array<T, SIZE> data_{};
+    std::array<value_type, SIZE> data_{};
 };
 
 }  // namespace tt::umd

@@ -144,7 +144,7 @@ read-completion concurrency and latency rather than raw link bandwidth.
   of the nominal `DRAM_BANK_SIZE` — keep clear of the tail when picking large `--size`/`--addr`.
 - The underlying TLB window size is chosen by `tt_tlb_alloc()`, which accepts only specific size
   classes — on Blackhole exactly 2 MiB or 4 GiB (see the size class tables in
-  `device/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class
+  `tt-umd/src/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class
   that fits, so no manual adjustment is needed. This is why the default is 2 MiB: anything larger
   consumes one of the few 4 GiB windows.
 - `--size` is capped at 4 GiB minus one byte by the `uint32_t` length of a single RDMA work request,

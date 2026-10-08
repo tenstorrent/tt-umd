@@ -27,17 +27,17 @@
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt::umd;
 
@@ -857,6 +857,30 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
 
         ASSERT_EQ(write_data_l1[i], readback_value);
     }
+}
+
+// The register accessors on the TTDevice itself, rather than through Cluster. The two are not the
+// same path: a Chip may answer register access without ever entering TTDevice's register accessors
+// (SimulationChip delegates them to the bulk path a layer above), so only a direct call exercises
+// the TTDevice-level implementation -- the shared one on silicon, the simulation override on a
+// simulation backend.
+TEST_F(TestDeviceIOFixture, TTDeviceRegReadWrite) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+
+    constexpr uint32_t written_value = 0xABCD1234;
+    tt_device->write_to_device_reg(&written_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(written_value));
+
+    uint32_t reg_readback = 0;
+    tt_device->read_from_device_reg(&reg_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(reg_readback));
+    EXPECT_EQ(written_value, reg_readback);
+
+    // The bulk path must observe the same memory, whether or not it is the same transport.
+    uint32_t bulk_readback = 0;
+    tt_device->read_from_device(&bulk_readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(bulk_readback));
+    EXPECT_EQ(written_value, bulk_readback);
 }
 
 INSTANTIATE_TEST_SUITE_P(

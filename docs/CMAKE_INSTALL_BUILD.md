@@ -63,9 +63,7 @@ When you install UMD to `/path/to/install`, it creates:
 │           ├── umdConfigVersion.cmake
 │           └── umdTargets.cmake
 ├── include/
-│   └── umd/                            # Public headers
-│       ├── device/
-│       └── common/
+│   └── tt-umd/                          # Public headers
 └── bin/                                # (if tools are installed)
 ```
 

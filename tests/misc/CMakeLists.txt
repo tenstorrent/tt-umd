@@ -5,6 +5,8 @@ set(UMD_MISC_TESTS_SRCS
     test_kmd_mutex.cpp
     test_lock_manager.cpp
     test_op_timeout_guard.cpp
+    test_wait_progress_logger.cpp
+    test_poll_until.cpp
     test_enum_array.cpp
 )
 

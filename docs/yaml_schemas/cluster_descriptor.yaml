@@ -228,6 +228,7 @@ properties:
                   - p300
                   - ubb
                   - ubb_blackhole
+                  - ubb_blackhole_cf
                   - ubb_wormhole
                   - quasar
                 description: Type of the board

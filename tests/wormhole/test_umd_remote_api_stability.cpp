@@ -17,8 +17,8 @@
 
 #include "test_wh_common.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 
 namespace tt::umd::test::utils {
 class WormholeNebulaX2TestFixture : public WormholeTestFixture {

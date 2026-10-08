@@ -4,14 +4,14 @@ This benchmark contains tests that are measuring performance of multiple usages 
 
 To get a better understanding of what TLBs are, you can look at [Tenstorrent ISA documentation](https://github.com/tenstorrent/tt-isa-documentation/blob/main/WormholeB0/PCIExpressTile/TLBs.md).
 
-Each case measures three row families over the same batch sizes:
+Each case measures four row families over the same batch sizes:
 
-- `Cluster Strict` goes through `Cluster::write_to_device` / `read_from_device`, which reconfigures a window per chunk, takes the chip wide window lock, translates coordinates, and uses `IoOrdering::Strict`.
-- `IoWindow Relaxed` and `IoWindow Strict` drive one caller-owned window, mapped once with no lock and no reconfigure between transfers. The pair isolates the cost of the ordering mode, and the gap from `IoWindow Strict` to `Cluster Strict` isolates what the `Cluster` path adds on top of the same ordering.
+- `Cluster Relaxed` and `Cluster Strict` go through `Cluster::write_to_device` / `read_from_device`, which reconfigures a window per chunk, takes the chip wide window lock and translates coordinates. Both take the ordering as an argument, so the pair isolates what the ordering mode costs on that path with everything else held equal.
+- `IoWindow Relaxed` and `IoWindow Strict` drive one caller-owned window, mapped once with no lock and no reconfigure between transfers. The gap from `IoWindow Strict` to `Cluster Strict` isolates what the `Cluster` path adds on top of the same ordering.
 
 ## Example results
 
-Measured on a Wormhole n150 (bgd-lab-06 machine), from the benchmark workflow run on [#3454](https://github.com/tenstorrent/tt-umd/pull/3454).
+Measured on a Wormhole n150 (bgd-lab-06 machine), from the benchmark workflow run on [#3454](https://github.com/tenstorrent/tt-umd/pull/3454). That run predates the `Cluster Relaxed` rows, so they are absent below; the `Cluster Strict` numbers are unaffected, since that is what the path did unconditionally at the time.
 
 ### DRAM
 ```

@@ -13,6 +13,10 @@ on:
       card:
         required: true
         type: string
+      runs-on:
+        required: true
+        type: string
+        description: 'JSON array of runner labels the job must match.'
       timeout:
         required: true
         type: number
@@ -33,8 +37,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Run benchmarks for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
-    runs-on:
-      - ${{ inputs.card }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       # Set dummy var for baremetal, as options has to have some value

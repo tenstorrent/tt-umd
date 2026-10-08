@@ -416,6 +416,39 @@ class TestTTDevice(unittest.TestCase):
             )
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
+    def test_eth_core_speed(self):
+        """Test read_eth_core_train_speed, read_eth_core_target_speed, read_eth_core_training_status."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found. Skipping test.")
+            return
+
+        valid_speeds_gbps = {0, 40, 100, 200, 330, 350, 370, 400}
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+            is_bh = dev.get_arch() == tt_umd.ARCH.BLACKHOLE
+            soc_descriptor = dev.get_soc_descriptor()
+            for eth_core in soc_descriptor.get_cores(
+                tt_umd.CoreType.ETH, tt_umd.CoordSystem.NOC0
+            ):
+                train_speed = dev.read_eth_core_train_speed(eth_core)
+                target_speed = dev.read_eth_core_target_speed(eth_core)
+                status = dev.read_eth_core_training_status(eth_core)
+                self.assertIsInstance(status, tt_umd.EthTrainingStatus)
+                if is_bh:
+                    self.assertIsInstance(target_speed, int)
+                    self.assertIn(target_speed, valid_speeds_gbps)
+                    if train_speed is not None:
+                        self.assertIsInstance(train_speed, int)
+                        self.assertIn(train_speed, valid_speeds_gbps)
+                        self.assertNotEqual(train_speed, 0)
+                        self.assertLessEqual(train_speed, target_speed)
+                        self.assertEqual(status, tt_umd.EthTrainingStatus.SUCCESS)
+                else:
+                    self.assertIsNone(train_speed)
+                    self.assertIsNone(target_speed)
+
     def test_use_noc1(self):
         """Test use_noc1 static method."""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()

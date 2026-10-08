@@ -7,6 +7,8 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <array>
+#include <optional>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -382,6 +384,27 @@ EthTrainingStatus BlackholeDeviceFirmware::get_eth_core_training_status(tt_xy_pa
     uint32_t port_status_val = 0;
     device_protocol_->read_data(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val), noc_id);
     return static_cast<EthTrainingStatus>(port_status_val);
+}
+
+std::optional<uint32_t> BlackholeDeviceFirmware::get_eth_core_train_speed(tt_xy_pair eth_core, NocId noc_id) {
+    // Read port_status, train_status and train_speed in one go; they are adjacent words.
+    constexpr uint32_t first = offsetof(blackhole::eth_status_t, port_status);
+    constexpr uint32_t last = offsetof(blackhole::eth_status_t, train_speed);
+    static_assert(last - first == 2 * sizeof(uint32_t));
+    std::array<uint32_t, 3> words{};
+    device_protocol_->read_data(words.data(), eth_core, blackhole::BOOT_RESULTS_ADDR + first, sizeof(words), noc_id);
+    if (words[0] != blackhole::PORT_UP || words[1] != blackhole::LINK_TRAIN_PASS) {
+        return std::nullopt;
+    }
+    return words[2];
+}
+
+std::optional<uint32_t> BlackholeDeviceFirmware::get_eth_core_target_speed(tt_xy_pair eth_core, NocId noc_id) {
+    uint32_t addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::boot_results_t, serdes_results) +
+                    offsetof(blackhole::serdes_results_t, target_speed);
+    uint32_t target_speed = 0;
+    device_protocol_->read_data(&target_speed, eth_core, addr, sizeof(target_speed), noc_id);
+    return target_speed;
 }
 
 bool BlackholeDeviceFirmware::wait_dram_channel_training(

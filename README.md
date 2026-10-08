@@ -61,7 +61,7 @@ cmake --preset default
 cmake --build --preset default
 ```
 
-To build all components (some are turned off by default, like tests), you can run these commands:
+To build basic set of components (tools, examples), you can run these commands:
 ```
 cmake --preset default -DTT_UMD_BUILD_ALL=ON
 cmake --build --preset default

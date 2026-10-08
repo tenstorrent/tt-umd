@@ -494,6 +494,22 @@ public:
      */
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
+    /**
+     * Read the trained link speed of the given ETH core. Units are not documented.
+     *
+     * @param eth_core ETH core to read the speed for.
+     * @return Speed if the link is up and trained; nullopt otherwise or if not supported.
+     */
+    std::optional<uint32_t> read_eth_core_train_speed(CoreCoord eth_core);
+
+    /**
+     * Read the target link speed of the given ETH core from its boot params. Units are not documented.
+     *
+     * @param eth_core ETH core to read the target speed for.
+     * @return Target speed; nullopt if not supported.
+     */
+    std::optional<uint32_t> read_eth_core_target_speed(CoreCoord eth_core);
+
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:

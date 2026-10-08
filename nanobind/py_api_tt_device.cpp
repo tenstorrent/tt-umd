@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -30,6 +31,7 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/eth_training_status.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -228,6 +230,12 @@ void bind_tt_device(nb::module_ &m) {
             },
             release_gil());
 
+    nb::enum_<EthTrainingStatus>(m, "EthTrainingStatus")
+        .value("IN_PROGRESS", EthTrainingStatus::IN_PROGRESS)
+        .value("SUCCESS", EthTrainingStatus::SUCCESS)
+        .value("FAIL", EthTrainingStatus::FAIL)
+        .value("NOT_CONNECTED", EthTrainingStatus::NOT_CONNECTED);
+
     auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
 
     nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
@@ -286,6 +294,26 @@ void bind_tt_device(nb::module_ &m) {
                 }
             })
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
+        .def(
+            "read_eth_core_training_status",
+            &TTDevice::read_eth_core_training_status,
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the training status of the given ETH core")
+        .def(
+            "read_eth_core_train_speed",
+            &TTDevice::read_eth_core_train_speed,
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the trained link speed in Gbps of the given ETH core. None if link not up "
+            "or not supported")
+        .def(
+            "read_eth_core_target_speed",
+            &TTDevice::read_eth_core_target_speed,
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the target link speed in Gbps from the ETH core boot params. None if not "
+            "supported")
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)

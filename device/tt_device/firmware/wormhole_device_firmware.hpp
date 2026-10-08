@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
@@ -74,6 +75,10 @@ public:
         tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     EthTrainingStatus get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_eth_core_train_speed(tt_xy_pair eth_core, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_eth_core_target_speed(tt_xy_pair eth_core, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     bool wait_dram_channel_training(
         uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;

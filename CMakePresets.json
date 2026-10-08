@@ -130,13 +130,10 @@
         {
             "name": "all-no-pip",
             "inherits": [
-                "default"
+                "all"
             ],
             "description": "All components, without the pip package and Tracy",
             "cacheVariables": {
-                "TT_UMD_BUILD_ALL": {
-                    "value": "ON"
-                },
                 "TT_UMD_BUILD_PIP": {
                     "value": "OFF"
                 }
@@ -145,13 +142,10 @@
         {
             "name": "all-tracy",
             "inherits": [
-                "default"
+                "all"
             ],
             "description": "all with the pip package and Tracy",
             "cacheVariables": {
-                "TT_UMD_BUILD_ALL": {
-                    "value": "ON"
-                },
                 "TT_UMD_ENABLE_TRACY": {
                     "value": "ON"
                 }

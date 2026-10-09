@@ -739,7 +739,7 @@ int tt_device_reset(tt_device_t* dev, uint32_t reset_flags) {
         return -errno;
     }
 
-    return tt_device_close(dev);
+    return reset_info.out.result;
 }
 
 /* All three lock operations issue the same ioctl, differing only in the flag they pass and in how

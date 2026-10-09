@@ -15,13 +15,13 @@
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -105,6 +105,12 @@ void bind_topology_discovery(nb::module_& m) {
             "Map of ChipId -> PCI BDF string (e.g. \"0000:41:00.0\"). "
             "Only contains entries for MMIO-capable chips.")
         .def(
+            "get_chip_pcie_lane_counts",
+            &ClusterDescriptor::get_chip_pcie_lane_counts,
+            release_gil(),
+            "Map of ChipId -> number of lanes the chip's PCIe link trained to, or None if unknown. "
+            "Contains an entry for every PCIe-attached MMIO chip.")
+        .def(
             "get_chip_to_bus_id",
             &ClusterDescriptor::get_chip_to_bus_id,
             release_gil(),
@@ -132,6 +138,17 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("target_chip_ids") = std::unordered_set<ChipId>{},
             "Create a constrained cluster descriptor filtered to the given chip IDs");
 
+    nb::class_<SimulationDiscoveryOptions>(m, "SimulationDiscoveryOptions")
+        .def(nb::init<>(), release_gil())
+        .def_rw(
+            "simulator_path",
+            &SimulationDiscoveryOptions::simulator_path,
+            "Path to the simulator (a libttsim .so) whose chips are discovered.")
+        .def_rw(
+            "num_host_mem_channels",
+            &SimulationDiscoveryOptions::num_host_mem_channels,
+            "Number of host memory channels to give each simulated device.");
+
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 
     nb::enum_<TopologyDiscoveryOptions::Action>(topology_discovery_options, "Action")
@@ -155,7 +172,12 @@ void bind_topology_discovery(nb::module_& m) {
             &TopologyDiscoveryOptions::cluster_id,
             "Cluster id to stamp on the discovered cluster descriptor. Defaults to the OS hostname, which is "
             "only correct on bare metal; supply one when running in a container or a VM. Discovery raises if it "
-            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].");
+            "is empty, longer than 128 characters, or contains anything outside [A-Za-z0-9._-].")
+        .def_rw(
+            "simulation",
+            &TopologyDiscoveryOptions::simulation,
+            "SimulationDiscoveryOptions selecting a simulator whose chips are discovered instead of the "
+            "host's. None means discover the host's own devices.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

@@ -68,10 +68,10 @@ flowchart TB
 
 ## The flow
 
-1. **Start a server.** Launch a host in the background with the `sim_server.sh` wrapper:
+1. **Start a server.** Launch a host in the background with `--detach`:
 
    ```
-   sim_server.sh start <simulator>
+   sim_server start --detach <simulator>
    ```
 
    It brings the simulation up in a freshly allocated server directory and returns once the sockets
@@ -80,11 +80,9 @@ flowchart TB
    Other processes can now attach. Start another server the same way and it gets its own directory
    (`.../tt-umd-sim-server-1`).
 
-   The `sim_server` binary itself runs in the foreground: `sim_server start <simulator>` serves until
-   you stop it with `Ctrl-C`, `SIGTERM`, or `sim_server kill`. That is handy when you want the host
-   in a terminal you are watching. The wrapper is what adds the backgrounding, the per-server log,
-   and the check that startup actually succeeded; every other subcommand it forwards to the binary
-   untouched, so `sim_server.sh list` and `sim_server list` are the same thing.
+   Without `--detach` the host runs in the foreground and serves until you stop it with `Ctrl-C`,
+   `SIGTERM`, or `sim_server kill`. That is handy when you want the host in a terminal you are
+   watching.
 
 2. **See what's running.**
 
@@ -92,13 +90,14 @@ flowchart TB
    sim_server list
    ```
 
-   Lists the open servers. Each row is one chip of one server: the server index, the chip id,
-   whether it is reachable, its arch/backend, and the socket it is served on.
+   Lists the open servers. Each row is one chip of one server: the server index, the chip id, its
+   arch/backend, the socket it is served on, and the simulator its host is running — so two servers
+   of the same arch are told apart by what they are actually simulating.
 
    ```
-   SERVER   CHIP   STATE   ARCH             SOCKET
-   0        0      live    blackhole/ttsim  /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock
-   1        0      live    blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
+   SERVER   CHIP   ARCH               SOCKET                                           SIMULATOR
+   0        0      blackhole/ttsim    /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock       /path/to/simulator.so
+   1        0      blackhole/ttsim    /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock       /path/to/other_simulator.so
    ```
 
 3. **Use it from your program.** Point UMD at the server *directory* (the `SOCKET`'s parent above,
@@ -127,10 +126,11 @@ flowchart TB
    clients.
 
    A host that shuts down this way removes its own directory. One that was killed or crashed cannot,
-   so it leaves a directory behind — `list` shows it as `unreachable`. Clear those out with:
+   so it leaves a directory behind — `list` stops reporting it, and clears it away as it goes, since
+   nothing can attach to it any more. To run that sweep without listing, and be told what it took:
 
    ```
-   sim_server.sh prune
+   sim_server prune
    ```
 
    It removes the directories and logs of servers that no longer answer, and leaves live ones alone.
@@ -139,7 +139,7 @@ At a glance, over the life of one server:
 
 ```mermaid
 sequenceDiagram
-  participant Tool as sim_server.sh
+  participant Tool as sim_server
   participant Host as host (sim_server start)
   participant Dir as server directory
   participant Client as client (Cluster)
@@ -167,8 +167,8 @@ directory; UMD sees the live sockets, attaches to each as a client, and hands yo
 exactly as you would silicon.
 
 ```cpp
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -197,8 +197,8 @@ host serves. Enter here when you want the devices directly rather than a full cl
 simulation's discovery entry point; the silicon `TopologyDiscovery` path is not involved.)
 
 ```cpp
-#include "umd/device/simulation/simulation_connector.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 using namespace tt::umd;
 
@@ -226,7 +226,8 @@ and behaves exactly as it does in C++ — including deciding the role from the p
 ```python
 import tt_umd
 
-# What is running on this machine, without connecting to any of it.
+# What is running on this machine. Listing opens no devices, but it does probe each
+# socket for a listener, and clears up after the hosts that turn out to be gone.
 for server in tt_umd.SimulationConnector.list_servers():
     print(server.index, server.directory, server.sockets)
 
@@ -237,13 +238,16 @@ assert (
     == tt_umd.SimulationConnector.Role.CLIENT
 )
 
-connection, devices = tt_umd.SimulationConnector.discover(options)  # devices: {chip_id: TTDevice}
+# devices: {chip_id: TTDevice}; cluster: the topology those devices sit in.
+connection, devices, cluster = tt_umd.SimulationConnector.discover(options)
 print(connection.role, connection.simulator, connection.arch, connection.server_directory)
+print(cluster.get_all_chips())
 ```
 
 To host instead, name a simulator rather than a server directory, and set
 `options.serve_over_sockets = True` to publish it. `SimulationConnector.allocate_server_directory()`
-claims a directory up front when you want to report where you are about to serve.
+claims a directory up front when you want to report where you are about to serve, and
+`SimulationConnector.prune_dead_servers()` runs the clear-up on its own, returning what it removed.
 
 In all cases the target is the server directory, and pointing at it is what makes your process a
 client — there is no separate "connect" call.
@@ -257,10 +261,10 @@ client — there is no separate "connect" call.
   server directory *is* what a client points at, and what `sim_server list` scans — there is no
   central registry, just the directories present on disk. When a server shuts down it removes its
   sockets and its (now-empty) directory.
-- **Server logs.** Started through `sim_server.sh`, a host is detached from your terminal and its
-  output goes to a per-server log in the temporary directory, named after the server directory:
-  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started directly
-  with `sim_server start`, the host runs in the foreground and logs to your terminal.
+- **Server logs.** Started with `--detach`, a host is detached from your terminal and its output
+  goes to a per-server log in the temporary directory, named after the server directory:
+  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started without
+  it, the host runs in the foreground and logs to your terminal.
 
 ## What happens under the hood
 

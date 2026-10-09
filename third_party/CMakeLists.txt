@@ -128,7 +128,7 @@ CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FI
 # nanobench (for uBenchmarking)
 ###################################################################################################################
 if(MASTER_PROJECT)
-    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11 SYSTEM YES)
+    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.6.0 SYSTEM YES)
 endif()
 
 ####################################################################################################################

@@ -121,6 +121,8 @@ jobs:
         run: |
           # TODO: tt-ubuntu-2204-p100a-stable to be added when available
           # P300-viommu is a P300 runner
+          # runs-on defaults to [card]. Runners outside the tt-ubuntu-*-stable pool need in-service,
+          # which their pool uses to mark the machines that may take general CI jobs.
           CARDS=$(cat <<'EOF'
           [
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
@@ -132,17 +134,17 @@ jobs:
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p100a-viommu-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
-            {"arch": "wormhole_b0", "card": "wh-glx-6u"},
+            {"arch": "wormhole_b0", "card": "wh-glx-6u", "runs-on": ["wh-glx-6u", "in-service"]},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
-            {"arch": "blackhole",   "card": "P300-viommu"},
-            {"arch": "blackhole",   "card": "bh-glx-6u"},
-            {"arch": "blackhole",   "card": "BH-Quietbox-2"},
+            {"arch": "blackhole",   "card": "P300-viommu", "runs-on": ["P300-viommu", "in-service"]},
+            {"arch": "blackhole",   "card": "bh-glx-6u", "runs-on": ["bh-glx-6u", "in-service"]},
+            {"arch": "blackhole",   "card": "BH-Quietbox-2", "runs-on": ["BH-Quietbox-2", "in-service"]},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
           ]
           EOF
           )
-          echo "entries=$(echo "$CARDS" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "entries=$(echo "$CARDS" | jq -c 'map({"runs-on": [.card]} + .)')" >> $GITHUB_OUTPUT
 
   # Central blacklist for matrix entries that should not run under certain conditions.
   # Each entry is a pipe-delimited "triggering-event|build-type|card" triple.
@@ -170,10 +172,8 @@ jobs:
         #   machine; re-enable once it is stable (see #3413).
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
-        # - bh-glx-6u is the Blackhole Galaxy machine, a single machine and a merge queue bottleneck,
-        #   so in the merge queue it runs on one build type only. Release is dropped because the PR
-        #   gate already covers it, and of the two sanitizer builds ASan is kept over TSan as the
-        #   more valuable of the two.
+        # - bh-glx-6u is fully disabled on all events for now due to temporary issues on the
+        #   machine; re-enable once it is stable (see #3413, possibly related #3458).
         # - ubuntu-22.04 is the baremetal (no device) entry. TSan builds run only the unified tests,
         #   which don't run on baremetal, so a baremetal TSan job would have nothing to do.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
@@ -185,8 +185,7 @@ jobs:
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             '*|*|wh-glx-6u' \
-            'merge_group|Release|bh-glx-6u' \
-            'merge_group|TSan|bh-glx-6u' \
+            '*|*|bh-glx-6u' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|TSan|ubuntu-22.04' \

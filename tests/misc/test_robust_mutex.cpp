@@ -18,7 +18,7 @@
 #include <string>
 #include <thread>
 
-#include "umd/device/utils/robust_mutex.hpp"
+#include "tt-umd/utils/robust_mutex.hpp"
 
 using namespace tt::umd;
 using namespace std::chrono_literals;

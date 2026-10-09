@@ -1,0 +1,8 @@
+access_points:
+  - host_access: col0
+  - host_access: col1
+devices:
+  - access_points: [0]
+    soc_descriptor: ../../soc_descs/quasar_simulation_1x3.yaml
+  - access_points: [1]
+    soc_descriptor: ../../soc_descs/quasar_simulation_1x3.yaml

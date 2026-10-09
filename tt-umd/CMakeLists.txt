@@ -317,6 +317,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/architecture_registers.hpp
                 api/umd/device/arch/architecture_tlbs.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
+                api/umd/device/arch/configs/keraunos_address_map.hpp
                 api/umd/device/arch/grendel_implementation.hpp
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/chip/chip.hpp

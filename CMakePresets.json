@@ -126,7 +126,7 @@
             "inherits": [
                 "default"
             ],
-            "description": "Run Clang Static Analyzer",
+            "description": "Debug build of tests and simulation with clang-20",
             "cacheVariables": {
                 "TT_UMD_BUILD_TESTS": {
                     "value": "ON"

@@ -82,19 +82,9 @@ cmake --build --preset default
 | `release-no-clang-tidy` | `release` without clang-tidy |
 | `all-no-pip` | All components, without the pip package |
 | `all-tracy` | All components with the pip package and Tracy |
-| `code-analysis` | Debug tests and simulation build with clang-20, used by the code-analysis CI job |
+| `code-analysis` | Debug build of tests and simulation with clang-20 |
 
-The clang-20 presets build tests and simulation, each into its own directory under `.build/`:
-
-| Preset | Description |
-|--------|-------------|
-| `clang` | Ninja Multi-Config build into `.build/default`, with build presets `clang` (Release) and `clang-debug` (Debug) |
-| `clang-tidy` | `clang` with clang-tidy-20 checks run during the build, warnings as errors |
-| `clang-tidy-fix` | `clang-tidy` applying the fixes in place |
-| `clang-tidy-fix-parallel` | `clang-tidy` exporting the fixes to YAML files, to apply with `clang-apply-replacements` |
-| `code-analysis` | Debug `clang` build with Ninja, used by the code-analysis CI job |
-
-Each configure preset except `code-analysis` has a build preset of the same name:
+Each configure preset has a build preset of the same name:
 ```
 cmake --preset tests
 cmake --build --preset tests

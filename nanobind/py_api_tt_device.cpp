@@ -273,17 +273,6 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_board_type", &TTDevice::get_board_type, release_gil())
         .def("get_communication_device_type", &TTDevice::get_communication_device_type, release_gil())
         .def("get_communication_device_id", &TTDevice::get_communication_device_id, release_gil())
-        .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference, release_gil())
-        .def(
-            "get_pci_interface_id",
-            [](TTDevice &self) -> int {
-                auto pci_device = self.get_pci_device();
-                if (pci_device) {
-                    return pci_device->get_device_num();
-                } else {
-                    return -1;
-                }
-            })
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)

@@ -600,14 +600,20 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+RiscReset *TTDevice::get_risc_reset() {
     RiscReset *risc_reset = model_->get_risc_reset();
-    risc_reset->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
+    if (!risc_reset) {
+        UMD_THROW(error::RuntimeError, "RISC reset control is not available for this device.");
+    }
+    return risc_reset;
+}
+
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+    get_risc_reset()->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
-    RiscReset *risc_reset = model_->get_risc_reset();
-    risc_reset->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
+    get_risc_reset()->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }

@@ -529,6 +529,8 @@ private:
 
     DmaInterface *get_dma_interface();
 
+    RiscReset *get_risc_reset();
+
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 };

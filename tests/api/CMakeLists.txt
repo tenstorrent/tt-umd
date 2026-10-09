@@ -4,6 +4,9 @@ set(API_TESTS_SRCS
     test_cluster.cpp
     test_soc_descriptor.cpp
     test_device_io.cpp
+    test_grendel_device_io.cpp
+    test_grendel_dma_loopback.cpp
+    test_grendel_att_fold.cpp
     test_device_memcpy.cpp
     test_risc_program.cpp
     test_sysmem_manager.cpp

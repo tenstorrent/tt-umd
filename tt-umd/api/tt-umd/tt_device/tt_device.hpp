@@ -393,7 +393,7 @@ public:
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
-     * Set the soft reset signal for the given riscs.
+     * Set the soft reset signal for the given riscs. Should be deprecated.
      *
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
@@ -528,6 +528,8 @@ private:
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();
+
+    RiscReset *get_risc_reset();
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

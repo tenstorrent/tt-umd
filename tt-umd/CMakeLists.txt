@@ -95,6 +95,7 @@ target_sources(
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
         src/tt_device/tt_device_error.cpp
+        src/tt_device/reset/classic_tile_risc_reset.cpp
         src/tt_device/hang_detection/hang_detector.cpp
         src/tt_device/hang_detection/hang_detector_implementation.cpp
         src/tt_device/hang_detection/wormhole_hang_detector.cpp

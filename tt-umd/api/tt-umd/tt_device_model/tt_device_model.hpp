@@ -67,8 +67,8 @@ public:
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
-    // Controls the reset state of the device's RISC cores. Null until a model provides one, which
-    // is what TTDevice falls back to its own reset path for.
+    // Controls the reset state of the device's RISC cores. Null only while a model has not migrated
+    // to it, in which case reset is unavailable on every device built from that model.
     virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware

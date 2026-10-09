@@ -160,6 +160,8 @@ add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=${TT_X86_MARCH}>"
     -Wall
     -Wno-sign-compare
+    # Keep rbp a real frame pointer: perf/Tracy call-stack sampling walks it (tt-metal#58148).
+    -fno-omit-frame-pointer
 )
 
 # Fixed this warning on clang, but not yet gcc

@@ -3,8 +3,128 @@
     "configurePresets": [
         {
             "name": "default",
-            "displayName": "Default Config",
-            "description": "Default build using Ninja",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "description": "Library and tools with the CMake option defaults"
+        },
+        {
+            "name": "examples",
+            "inherits": [
+                "default"
+            ],
+            "description": "default with examples",
+            "cacheVariables": {
+                "TT_UMD_BUILD_EXAMPLES": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "tests",
+            "inherits": [
+                "default"
+            ],
+            "description": "Tests and tools, without simulation, Python or clang-tidy",
+            "cacheVariables": {
+                "TT_UMD_BUILD_TESTS": {
+                    "value": "ON"
+                },
+                "TT_UMD_ENABLE_CLANG_TIDY": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "simulation",
+            "inherits": [
+                "tests"
+            ],
+            "description": "Tests with simulation support, without tools and Python bindings",
+            "cacheVariables": {
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_TOOLS": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "simulation-tools-python",
+            "inherits": [
+                "tests"
+            ],
+            "description": "Tests and tools with simulation support and Python bindings",
+            "cacheVariables": {
+                "TT_UMD_BUILD_SIMULATION": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "release",
+            "inherits": [
+                "default"
+            ],
+            "description": "Library and Python bindings, as shipped in release packages",
+            "cacheVariables": {
+                "TT_UMD_BUILD_PYTHON": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_PIP": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "release-no-clang-tidy",
+            "inherits": [
+                "release"
+            ],
+            "description": "Release build without clang-tidy",
+            "cacheVariables": {
+                "TT_UMD_ENABLE_CLANG_TIDY": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "all-no-pip",
+            "inherits": [
+                "default"
+            ],
+            "description": "All components, without the pip package and Tracy",
+            "cacheVariables": {
+                "TT_UMD_BUILD_ALL": {
+                    "value": "ON"
+                },
+                "TT_UMD_BUILD_PIP": {
+                    "value": "OFF"
+                }
+            }
+        },
+        {
+            "name": "all-tracy",
+            "inherits": [
+                "default"
+            ],
+            "description": "all with the pip package and Tracy",
+            "cacheVariables": {
+                "TT_UMD_BUILD_ALL": {
+                    "value": "ON"
+                },
+                "TT_UMD_ENABLE_TRACY": {
+                    "value": "ON"
+                }
+            }
+        },
+        {
+            "name": "clang",
+            "displayName": "Clang Default Config",
+            "description": "clang-20 base for clang-tidy and code-analysis",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/.build/default",
             "cacheVariables": {
@@ -27,7 +147,7 @@
         },
         {
             "name": "clang-tidy",
-            "inherits": "default",
+            "inherits": "clang",
             "description": "Run Clang Tidy checks during build",
             "binaryDir": "${sourceDir}/.build/clang-tidy",
             "cacheVariables": {
@@ -71,7 +191,7 @@
         },
         {
             "name": "code-analysis",
-            "inherits": "default",
+            "inherits": "clang",
             "description": "Run Clang Static Analyzer",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/.build/code-analysis",
@@ -85,12 +205,48 @@
     "buildPresets": [
         {
             "name": "default",
-            "configurePreset": "default",
+            "configurePreset": "default"
+        },
+        {
+            "name": "examples",
+            "configurePreset": "examples"
+        },
+        {
+            "name": "tests",
+            "configurePreset": "tests"
+        },
+        {
+            "name": "simulation",
+            "configurePreset": "simulation"
+        },
+        {
+            "name": "simulation-tools-python",
+            "configurePreset": "simulation-tools-python"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        },
+        {
+            "name": "release-no-clang-tidy",
+            "configurePreset": "release-no-clang-tidy"
+        },
+        {
+            "name": "all-no-pip",
+            "configurePreset": "all-no-pip"
+        },
+        {
+            "name": "all-tracy",
+            "configurePreset": "all-tracy"
+        },
+        {
+            "name": "clang",
+            "configurePreset": "clang",
             "configuration": "Release"
         },
         {
-            "name": "debug",
-            "configurePreset": "default",
+            "name": "clang-debug",
+            "configurePreset": "clang",
             "configuration": "Debug"
         },
         {

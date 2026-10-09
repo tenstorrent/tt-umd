@@ -6,10 +6,10 @@ This example demonstrates TTDevice usage and shows which capabilities are availa
 
 ```bash
 # Configure with examples enabled
-cmake -B build -DTT_UMD_BUILD_EXAMPLES=ON
+cmake --preset examples
 
 # Build
-cmake --build ./build
+cmake --build --preset examples
 
 # Run
 ./build/examples/tt_device_example/tt_device_example

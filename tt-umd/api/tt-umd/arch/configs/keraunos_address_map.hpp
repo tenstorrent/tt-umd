@@ -17,49 +17,18 @@ namespace tt::umd::keraunos {
 /**
  * The statically mapped regions of a Keraunos package, as BAR0 presents them.
  *
- * Transcribed from "Grendel PCIe - Running in Emulation" in the SIVAL space
- * (https://tenstorrent.atlassian.net/wiki/spaces/SIVAL/pages/2027389218), whose table gives the
- * BAR0 TLB entry range, BAR0 offset, system physical base and size of each region.
+ * UMD expects these inbound TLB entries rather than programming them: bring-up maps them before
+ * the host sees the device. The kernel driver reserves an entry past the end of this run for its
+ * own scalar accesses.
  *
- * Bring-up programs these inbound TLB entries before the host ever sees the device, so they are
- * not UMD's to allocate or reprogram -- this is a description of what is already there. The kernel
- * driver reserves an entry well past the end of this run for its own scalar accesses.
+ * Subject to change, and not validated against the device. The values are those of the
+ * keraunos/pcie_5hsio emulation model, release 26ww23. tt-kmd's tools/keraunos_addrmap.h states
+ * the same hardware from the driver side.
  *
- * These values describe the Keraunos combination only. Another Grendel package maps its own
- * chiplets, which is why this is data beside the architecture rather than constants inside it.
- *
- * It is a snapshot, not a contract. This is what bring-up programs on the emulation model today --
- * keraunos/pcie_5hsio, release 26ww23, read 2026-10-06 -- and nothing obliges it to stay put. A
- * later bring-up can move a region or add one, silicon need not place them where the model does,
- * and a different package maps different chiplets. Expect to update this file rather than to trust
- * it.
- *
- * A stale table does not fail loudly, which is the reason to say so here. find_region() would go on
- * blessing an address that no longer reaches anything, and on the emulator an access to an
- * unmodelled region hangs the machine for everyone on it -- the exact outcome this table exists to
- * prevent. tt-kmd's tools/keraunos_addrmap.h describes the same hardware from the driver side and
- * is what to check this against; where either disagrees with the device, the device is right.
- *
- * READ BACK OFF A DEVICE 2026-10-06, and these rows are an idealization of what is there.
- * tt-kmd's tools/keraunos_tlb and tools/keraunos_pcie_remap dumped the live tables on
- * keraunos/pcie_5hsio. The entry range and bases above are confirmed exactly -- entries 68-99 at
- * BAR0 0x4400_0000 covering SPA 0x12_0000_0000 -- but the regions are not uniformly remapped.
- * 144 MiB of the 512 MiB window has no SPA->KLA entry and, per the tool, "passes through as SPA
- * (NoC)":
- *
- *   PCIe MMR        0x12_1800_0000 + 64 MiB   the whole row; nothing maps it
- *   SMN MMR / D2D   0x12_1D00_0000 + 48 MiB   only the first 16 MiB of the row is mapped
- *   HSIO 1..4       8 MiB each                the TL1 SRAM hole inside each 64 MiB row
- *
- * find_region() returns a region for every one of those addresses, because it only range-checks
- * against the rows below. Treat a hit as "inside a row the package nominally covers", not as
- * "this reaches a remapped target". The eleven entries the dump warns about -- 78, 82, 86, 90,
- * 92-95, 97-99 -- are exactly the ones these holes fall in.
- *
- * The same dump shows BAR0 windows package space this table says nothing about: entries 0-63 onto
- * system SRAM at SPA 0x100_0000_0000, 64-67 onto Mimir CCE at 0x12_8000_0000, and 100-163 onto
- * Mimir config at 0x13_0000_0000. They are real and reachable; they are simply outside what a
- * Keraunos-chiplet region table set out to describe.
+ * The description is incomplete. 144 MiB of the 512 MiB window has no SPA->KLA entry and passes
+ * through as SPA: the PCIe MMR row, all but the first 16 MiB of SMN MMR / D2D, and an 8 MiB TL1
+ * SRAM hole in each of HSIO 1..4. BAR0 also windows system SRAM, Mimir CCE and Mimir config,
+ * which are reachable but outside what a Keraunos-chiplet region table describes.
  */
 
 /** Each inbound TLB entry covers 16 MB of BAR0, so an entry index and a BAR0 offset are the same fact. */
@@ -102,8 +71,8 @@ inline constexpr SpaRegion SPA_REGIONS[] = {
 /**
  * The region @p addr falls in, or nullptr if it falls outside the package's range.
  *
- * On the emulator an access to an unmodelled address can hang the machine rather than fail, so
- * knowing whether an address reaches anything is worth checking before issuing it.
+ * Only the rows above are range-checked, so a hit means the address is inside a row the package
+ * nominally covers, not that it reaches a remapped target.
  */
 inline constexpr const SpaRegion* find_region(uint64_t addr) {
     for (const SpaRegion& region : SPA_REGIONS) {

@@ -196,6 +196,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_implementation.hpp
                 api/tt-umd/arch/architecture_registers.hpp
                 api/tt-umd/arch/architecture_tlbs.hpp
+                api/tt-umd/arch/configs/keraunos_address_map.hpp
                 api/tt-umd/arc/arc_telemetry_reader.hpp
                 api/tt-umd/arc/firmware_telemetry_reader.hpp
                 api/tt-umd/arc/blackhole_arc_message_queue.hpp

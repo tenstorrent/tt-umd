@@ -83,6 +83,7 @@ target_sources(
         src/cluster.cpp
         src/tt_device_model/wormhole_tt_device_model.cpp
         src/tt_device_model/blackhole_tt_device_model.cpp
+        src/tt_device_model/grendel_tt_device_model.cpp
         src/tt_device/ethernet_broadcast.cpp
         src/coordinates/coordinate_manager.cpp
         src/cpuset_lib.cpp

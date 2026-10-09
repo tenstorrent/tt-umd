@@ -29,6 +29,9 @@ set(BAREMETAL_TESTS_SRCS
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
 target_link_libraries(baremetal_tests PRIVATE test_common)
+# tt-umd links tt-kmd-lib privately, so the scalar NOC test reaches it only because
+# libtt-umd.so re-exports it. Depend on it directly instead.
+target_link_libraries(baremetal_tests PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # yaml-cpp is private to tt-umd, so its headers do not reach here through test_common, and the
 # ATT map fidelity test parses the vendored tables itself. Take the include path alone: linking

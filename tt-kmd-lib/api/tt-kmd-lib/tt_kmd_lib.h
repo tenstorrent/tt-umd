@@ -63,6 +63,9 @@ enum tt_device_arch {
      * value here.
      */
     TT_DEVICE_ARCH_QUASAR,
+
+    /** One past the largest architecture, so a table indexed by this enum covers every one. */
+    TT_DEVICE_ARCH_COUNT,
 };
 
 /**
@@ -277,13 +280,23 @@ int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_
 int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_t value);
 
 /**
- * @brief Interpret the address as device-local rather than as a system physical address.
- *
- * Only the device-local path reaches the translation and firewall configuration blocks, which sit
- * behind a different inbound aperture than ordinary targets. Architectures that do not have a
- * second aperture reject this flag.
+ * @brief Flags for use with tt_noc_read_scalar() and tt_noc_write_scalar().
  */
-#define TT_NOC_FLAG_KLA (1u << 0)
+enum tt_noc_flags {
+    /**
+     * @brief Interpret the address as a system physical address.
+     */
+    TT_NOC_FLAG_NONE = 0,
+
+    /**
+     * @brief Interpret the address as device-local rather than as a system physical address.
+     *
+     * Only the device-local path reaches the translation and firewall configuration blocks, which
+     * sit behind a different inbound aperture than ordinary targets. Architectures that do not
+     * have a second aperture reject this flag.
+     */
+    TT_NOC_FLAG_KLA = (1U << 0),
+};
 
 /**
  * @brief Read one naturally aligned location through a kernel-owned window.
@@ -297,7 +310,7 @@ int tt_noc_write32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32
  * @param addr Address to read; must be naturally aligned to @p width
  * @param value Receives the value, zero-extended to 64 bits
  * @param width Access width in bytes; must be 1, 2, 4 or 8
- * @param flags Zero or `TT_NOC_FLAG_KLA`
+ * @param flags Bitmask of `TT_NOC_FLAG_*` values
  * @return int 0 on success, negative error code on failure
  */
 int tt_noc_read_scalar(tt_device_t* dev, uint64_t addr, uint64_t* value, uint32_t width, uint32_t flags);
@@ -310,8 +323,8 @@ int tt_noc_read_scalar(tt_device_t* dev, uint64_t addr, uint64_t* value, uint32_
  * @param dev Device handle
  * @param addr Address to write; must be naturally aligned to @p width
  * @param value Value to write; only the low @p width bytes are used
- * @param width Access width in bytes; must be 1, 2, 4 or 8
- * @param flags Zero or `TT_NOC_FLAG_KLA`
+ * @param width Access width in bytes; the widths tt_noc_read_scalar() accepts
+ * @param flags Bitmask of `TT_NOC_FLAG_*` values
  * @return int 0 on success, negative error code on failure
  */
 int tt_noc_write_scalar(tt_device_t* dev, uint64_t addr, uint64_t value, uint32_t width, uint32_t flags);

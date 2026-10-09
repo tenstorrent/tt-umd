@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,9 +23,6 @@
     do {                                                                       \
         fprintf(stderr, "%s:%d " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
     } while (0)
-
-/* One past the largest architecture value, so the tables below cover every one of them. */
-#define TT_DEVICE_ARCH_COUNT (TT_DEVICE_ARCH_QUASAR + 1)
 
 /*
  * Quasar rows are zero because the kernel keeps its inbound apertures to itself there: the TLB
@@ -278,6 +276,9 @@ int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappin
     return 0;
 }
 
+/* Fixed by the ioctl ABI; the vendored struct tenstorrent_noc_io states the same set. */
+static bool is_supported_scalar_width(uint32_t width) { return width == 1 || width == 2 || width == 4 || width == 8; }
+
 /*
  * The kernel enforces these same rules. Checking them here means a malformed request is reported
  * where the caller can see it, rather than as an EINVAL from an ioctl it did not issue directly.
@@ -286,7 +287,7 @@ static int validate_scalar_noc_access(uint64_t addr, uint32_t width, uint32_t fl
     /* The inbound translation table's target-address field is 52 bits wide. */
     const uint64_t address_limit = (uint64_t)1 << 52;
 
-    if (width != 1 && width != 2 && width != 4 && width != 8) {
+    if (!is_supported_scalar_width(width)) {
         return -EINVAL;
     }
 

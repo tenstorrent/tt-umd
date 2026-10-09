@@ -794,28 +794,68 @@ SemVer PCIDevice::read_kernel_version() {
     return SemVer(uts.release);
 }
 
+// Best-effort list of the other processes holding the device open, for the TLB exhaustion
+// error message. The KMD writes one pid per open fd on the device, not per process: the calling
+// process itself always appears (it obviously holds the device open while allocating a TLB), a
+// process with several fds appears several times, and a process in another PID namespace (e.g.
+// another container) shows up as 0 because pid_vnr() cannot see it from our namespace.
+static std::string describe_other_device_holders(int pci_device_num) {
+    const std::string pids_path = fmt::format("/proc/driver/tenstorrent/{}/pids", pci_device_num);
+    std::ifstream pids_file(pids_path);
+    if (!pids_file.is_open()) {
+        return fmt::format(
+            "Could not read {} to list processes holding the device (requires KMD 2.5.0+).", pids_path);
+    }
+    std::set<pid_t> other_pids;
+    pid_t pid;
+    while (pids_file >> pid) {
+        if (pid != getpid()) {
+            other_pids.insert(pid);
+        }
+    }
+    if (pids_file.bad()) {
+        return fmt::format("Could not read {} to list processes holding the device.", pids_path);
+    }
+    if (other_pids.empty()) {
+        return "No other process holds this device open.";
+    }
+    std::string description = "Other processes holding this device open:";
+    for (const pid_t other_pid : other_pids) {
+        if (other_pid == 0) {
+            description += "\n    pid not visible from this PID namespace (e.g. another container)";
+            continue;
+        }
+        std::ifstream comm_file(fmt::format("/proc/{}/comm", other_pid));
+        std::string comm;
+        std::getline(comm_file, comm);
+        description += fmt::format("\n    pid {} ({})", other_pid, comm.empty() ? "exited" : comm);
+    }
+    return description;
+}
+
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
         return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
+        const std::string holders = describe_other_device_holders(pci_device_num);
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
                     "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung "
-                    "process. "
-                    "Error: {}",
+                    "process.\n{}\nError: {}",
+                    holders,
                     e.what()));
         }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/{}/mappings and "
-                "/proc/driver/tenstorrent/{}/pids for more information. Error: {}",
+                "Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/{}/mappings for more "
+                "information.\n{}\nError: {}",
                 pci_device_num,
-                pci_device_num,
+                holders,
                 e.what()));
     }
 }

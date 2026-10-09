@@ -38,10 +38,13 @@ trap 'rm -rf "$control"' EXIT
 pwd > "$control/workdir"
 printf '%q ' "$@" > "$control/cmd"
 
+# The default 64-bit PCI window cannot fit a Blackhole BAR4. 64G covers its 32G BAR4 plus the other
+# BARs at their natural alignment.
 # TCG rather than KVM: every BAR access is emulated MMIO forwarded to libttsim, and KVM cannot emulate
 # the AVX2 loads and stores UMD uses for device copies, so the guest would get SIGILL.
 "$QEMU" \
     -machine q35,accel=tcg -cpu max -smp 4 -m 4G \
+    -global q35-pcihost.pci-hole64-size=64G \
     -kernel "$VM_DIR/vmlinuz" -initrd "$VM_DIR/rootfs.cpio.gz" \
     -append "console=ttyS0 loglevel=4 panic=-1" \
     -nographic -no-reboot \

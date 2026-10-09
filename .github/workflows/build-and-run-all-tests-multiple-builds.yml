@@ -89,6 +89,20 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
+  # Same as ensure-image, for the image run-ttsim-qemu-tests boots its VM from.
+  ensure-ttsim-qemu-image:
+    name: Ensure ttsim-qemu Docker image
+    needs: gatekeeper
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ttsim-qemu
+      # Building QEMU and the guest kernel module takes far longer than the default.
+      timeout: 60
+
   # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
   # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -
   # so all build-type runs share one artifact instead of racing to upload identically-named
@@ -128,7 +142,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
       !cancelled() &&
@@ -146,6 +160,7 @@ jobs:
       build-type: Release
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}

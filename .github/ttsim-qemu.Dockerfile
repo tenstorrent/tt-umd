@@ -36,7 +36,7 @@ RUN git init /src && cd /src \
     && git fetch --depth 1 https://github.com/tenstorrent/ttsim-qemu.git ${TTSIM_QEMU_COMMIT} \
     && git checkout FETCH_HEAD \
     && ./configure --target-list=x86_64-softmmu --prefix=/opt/ttsim-qemu \
-        --enable-kvm --enable-virtfs --disable-docs --disable-werror \
+        --enable-virtfs --disable-docs --disable-werror \
     && make -j"$(nproc)" install \
     && rm -rf /src
 

@@ -1,13 +1,13 @@
 #!/bin/bash
 # Runs a command inside a QEMU VM in which a libttsim.so is attached as a PCIe device and tt-kmd is
 # loaded, so the command sees /dev/tenstorrent/N as on silicon. The current directory is shared into
-# the guest at the same path and the command runs there. Returns the command's exit code. Needs KVM.
+# the guest at the same path and the command runs there. Returns the command's exit code.
 #
 # Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 #   --bar4-size  BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole.
 #
 # Example, from a directory holding libttsim_wh.so:
-#   docker run --rm --device /dev/kvm -v "$PWD:$PWD" -w "$PWD" \
+#   docker run --rm -v "$PWD:$PWD" -w "$PWD" \
 #       ghcr.io/tenstorrent/tt-umd/tt-umd-ci-ttsim-qemu:latest \
 #       run-in-ttsim-vm --lib "$PWD/libttsim_wh.so" --bar4-size 32M -- ls /dev/tenstorrent
 set -euo pipefail
@@ -31,7 +31,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 [[ -n "$lib" && -n "$bar4_size" && $# -gt 0 ]] || usage
-[[ -e /dev/kvm ]] || { echo "run-in-ttsim-vm: /dev/kvm is missing, pass --device /dev/kvm" >&2; exit 1; }
 
 # The guest init reads the command and working directory from this share and writes the exit code back.
 control=$(mktemp -d)
@@ -39,8 +38,10 @@ trap 'rm -rf "$control"' EXIT
 pwd > "$control/workdir"
 printf '%q ' "$@" > "$control/cmd"
 
+# TCG rather than KVM: every BAR access is emulated MMIO forwarded to libttsim, and KVM cannot emulate
+# the AVX2 loads and stores UMD uses for device copies, so the guest would get SIGILL.
 "$QEMU" \
-    -machine q35,accel=kvm -cpu host -smp 4 -m 4G \
+    -machine q35,accel=tcg -cpu max -smp 4 -m 4G \
     -kernel "$VM_DIR/vmlinuz" -initrd "$VM_DIR/rootfs.cpio.gz" \
     -append "console=ttyS0 loglevel=4 panic=-1" \
     -nographic -no-reboot \

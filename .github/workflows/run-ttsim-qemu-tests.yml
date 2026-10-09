@@ -36,7 +36,6 @@ jobs:
     runs-on: tt-ubuntu-2204-large-stable
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ttsim-qemu:${{ needs.ensure-image.outputs.image-tag }}
-      options: --device /dev/kvm
 
     steps:
       - name: Download ttsim binary (wh)

@@ -19,9 +19,9 @@
 #include <utility>
 
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

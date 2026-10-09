@@ -23,7 +23,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "wait_progress_logger.hpp"
 
 namespace tt::umd::utils {

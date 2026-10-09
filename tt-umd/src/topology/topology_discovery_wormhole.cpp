@@ -15,6 +15,8 @@
 
 #include "firmware/erisc_firmware.hpp"
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -27,8 +29,6 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
-#include "tt-umd/utils/semver.hpp"
 
 namespace tt::umd {
 enum class IODeviceType;

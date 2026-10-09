@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/cluster.hpp"
 #include "tt-umd/jtag/jtag.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
@@ -29,7 +30,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;

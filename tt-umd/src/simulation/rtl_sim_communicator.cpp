@@ -20,8 +20,8 @@
 #include "common/utils.hpp"
 #include "simulation/word_access.hpp"
 #include "simulation_device_generated.h"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -16,11 +16,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

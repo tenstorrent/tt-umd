@@ -15,8 +15,8 @@
 
 #include "common/utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -8,7 +8,7 @@
 #include <fmt/format.h>
 
 #include "simulation_server_protocol_generated.h"
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
@@ -25,7 +26,6 @@
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/common.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"

@@ -8,9 +8,9 @@
 
 #include <memory>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

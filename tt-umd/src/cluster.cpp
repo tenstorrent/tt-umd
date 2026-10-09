@@ -47,6 +47,7 @@
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "io_window/io_window_target.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
@@ -64,7 +65,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 namespace tt::umd {

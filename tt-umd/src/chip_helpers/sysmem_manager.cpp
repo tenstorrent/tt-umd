@@ -10,10 +10,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

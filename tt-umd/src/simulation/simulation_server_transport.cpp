@@ -10,7 +10,7 @@
 #include <asio.hpp>
 #include <system_error>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

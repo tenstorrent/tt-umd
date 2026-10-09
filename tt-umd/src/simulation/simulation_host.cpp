@@ -21,7 +21,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

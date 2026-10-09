@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
@@ -26,7 +27,6 @@
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

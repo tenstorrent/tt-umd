@@ -23,6 +23,7 @@
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/word_access.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
@@ -39,7 +40,6 @@
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {

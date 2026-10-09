@@ -12,8 +12,8 @@
 
 #include "tracy.hpp"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

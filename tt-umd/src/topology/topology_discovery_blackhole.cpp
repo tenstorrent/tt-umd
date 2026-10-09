@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "firmware/erisc_firmware.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
@@ -27,7 +28,6 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 namespace tt::umd {

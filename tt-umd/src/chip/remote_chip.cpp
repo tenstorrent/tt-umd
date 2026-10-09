@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
@@ -22,7 +23,6 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

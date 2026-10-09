@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd/chip/chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -21,7 +22,6 @@
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
-#include "tt-umd/utils/mutex_interface.hpp"
 
 namespace tt::umd {
 class SocDescriptor;

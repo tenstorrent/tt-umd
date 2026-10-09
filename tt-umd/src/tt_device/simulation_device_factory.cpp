@@ -10,13 +10,13 @@
 
 #include "simulation/rtl_sim_att_program.hpp"
 #include "simulation/rtl_sim_ip_layout.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

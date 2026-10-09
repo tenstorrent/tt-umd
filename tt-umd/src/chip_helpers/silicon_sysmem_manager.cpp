@@ -27,12 +27,12 @@
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

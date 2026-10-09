@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "tracy.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -23,7 +24,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

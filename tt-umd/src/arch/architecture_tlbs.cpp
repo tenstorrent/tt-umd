@@ -6,11 +6,11 @@
 
 #include <fmt/format.h>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

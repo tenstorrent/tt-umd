@@ -4,5 +4,5 @@
 
 #pragma once
 
-// Deprecated forwarding header, see #2751.
-#include "tt-umd/utils/op_timeout_guard.hpp"
+// Deprecated forwarding header, see #2750.
+#include "tt-umd-utils/op_timeout_guard.hpp"

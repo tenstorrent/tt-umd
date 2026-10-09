@@ -14,13 +14,13 @@
 #include "coordinates/blackhole_coordinate_manager.hpp"
 #include "coordinates/quasar_coordinate_manager.hpp"
 #include "coordinates/wormhole_coordinate_manager.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/common.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

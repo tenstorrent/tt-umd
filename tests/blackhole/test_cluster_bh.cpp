@@ -19,6 +19,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "tt-umd-utils/semver.hpp"
 #include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -26,7 +27,6 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/utils/semver.hpp"
 
 using namespace tt::umd;
 

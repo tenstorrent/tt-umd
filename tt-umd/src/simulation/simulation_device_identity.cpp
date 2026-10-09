@@ -16,10 +16,10 @@
 #include <sstream>
 #include <vector>
 
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "cpuset_lib.hpp"
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 

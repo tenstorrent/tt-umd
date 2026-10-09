@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "tt-umd/utils/semver.hpp"
+#include "tt-umd-utils/semver.hpp"
 
 namespace tt::umd::erisc_firmware {
 

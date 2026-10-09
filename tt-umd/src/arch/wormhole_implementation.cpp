@@ -11,12 +11,12 @@
 #include <tuple>
 
 #include "firmware/erisc_firmware.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/types/wormhole_l1.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 

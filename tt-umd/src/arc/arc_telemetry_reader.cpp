@@ -17,12 +17,12 @@
 #include "arc/wormhole_arc_telemetry_reader.hpp"
 #include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "utils.hpp"
 

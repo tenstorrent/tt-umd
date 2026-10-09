@@ -12,12 +12,12 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tt-umd-utils/error.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

@@ -28,6 +28,8 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -74,6 +76,20 @@ TEST(TestClusterDescriptor, DetectArch) {
         for (auto [chip, pci_device_number] : cluster_desc->get_chips_with_mmio()) {
             EXPECT_EQ(cluster_desc->get_arch(chip), pci_device_infos.at(pci_device_number).get_arch());
         }
+    }
+}
+
+TEST(TestClusterDescriptor, PcieLaneCounts) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    if (cluster_desc->get_io_device_type() != IODeviceType::PCIe) {
+        GTEST_SKIP() << "PCIe lane counts are only recorded for PCIe-attached chips.";
+    }
+
+    const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
+        EXPECT_EQ(lane_counts.at(chip), cluster->get_tt_device(chip)->get_pcie_interface()->get_lane_count());
     }
 }
 

@@ -520,10 +520,13 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             if (tt_device->get_pci_device() != nullptr) {
                 cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
+                cluster_desc->chip_pcie_lane_counts.emplace(chip_id, tt_device->get_pcie_interface()->get_lane_count());
             } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
                 cluster_desc->chip_pci_bdfs.emplace(
                     chip_id,
                     fmt::format("{:04x}:{:02x}:{:02x}.{:x}", 0, (*bdf >> 8) & 0xFF, (*bdf >> 3) & 0x1F, *bdf & 0x7));
+                // A simulated link has no trained lane count.
+                cluster_desc->chip_pcie_lane_counts.emplace(chip_id, std::nullopt);
             }
         }
 

@@ -105,6 +105,12 @@ void bind_topology_discovery(nb::module_& m) {
             "Map of ChipId -> PCI BDF string (e.g. \"0000:41:00.0\"). "
             "Only contains entries for MMIO-capable chips.")
         .def(
+            "get_chip_pcie_lane_counts",
+            &ClusterDescriptor::get_chip_pcie_lane_counts,
+            release_gil(),
+            "Map of ChipId -> number of lanes the chip's PCIe link trained to, or None if unknown. "
+            "Contains an entry for every PCIe-attached MMIO chip.")
+        .def(
             "get_chip_to_bus_id",
             &ClusterDescriptor::get_chip_to_bus_id,
             release_gil(),

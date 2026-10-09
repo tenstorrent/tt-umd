@@ -147,7 +147,8 @@ std::string get_connector_str(
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "A tool that reports system health.");
 
-    options.add_options()("f,path", "File path to save cluster descriptor to.")("h,help", "Print usage");
+    options.add_options()("f,path", "File path to save cluster descriptor to.", cxxopts::value<std::string>())(
+        "h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 

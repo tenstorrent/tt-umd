@@ -1,52 +1,51 @@
-# Boots the ttsim-qemu VM (see .github/ttsim-qemu.Dockerfile) and checks that tt-kmd binds the simulated
-# chip, so the image other teams pull keeps working.
+# Runs UMD tests in the ttsim-qemu VM (see .github/ttsim-qemu.Dockerfile), where tt-kmd binds the
+# simulated chips and UMD takes the same path it takes on silicon.
 name: Run ttsim-qemu tests
 
 on:
-  workflow_dispatch:
-  pull_request:
-  merge_group:
-  push:
-    branches: ["main"]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  packages: read
+  workflow_call:
+    inputs:
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag of the ttsim-qemu image from docker-image.yml. Defaults to latest.'
 
 jobs:
-  ensure-image:
-    name: Ensure Docker image
-    permissions:
-      packages: write
-    secrets: inherit
-    uses: ./.github/workflows/docker-image.yml
-    with:
-      docker-version: ttsim-qemu
-      # Building QEMU and the guest kernel module takes far longer than the default.
-      timeout: 60
-
-  smoke:
-    name: Boot VM with Wormhole ttsim
-    needs: ensure-image
-    timeout-minutes: 15
+  test:
+    name: Test in ttsim VM (${{ matrix.card }})
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
+          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G}
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ttsim-qemu:${{ needs.ensure-image.outputs.image-tag }}
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ttsim-qemu:${{ inputs.image-tag }}
 
     steps:
-      - name: Download ttsim binary (wh)
+      - name: Use build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifacts-ubuntu-22.04-Release
+
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: Untar build artifacts
+        run: tar xf artifact.tar
+
+      - name: Download ttsim binary
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           latest: true
-          fileName: "libttsim_wh.so"
-          out-file-path: ttsim-wh
+          fileName: ${{ matrix.lib }}
+          out-file-path: ttsim
 
-      - name: Check tt-kmd binds the simulated chip
+      - name: Open all chips
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim-wh/libttsim_wh.so" --bar4-size 32M -- \
-              ls -l /dev/tenstorrent/0
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
+              env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
+              --gtest_filter=ApiClusterTest.OpenAllSiliconChips

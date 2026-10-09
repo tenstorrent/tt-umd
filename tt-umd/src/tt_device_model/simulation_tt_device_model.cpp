@@ -76,6 +76,11 @@ SimulationTTDeviceModel::SimulationTTDeviceModel(
 // complete type where the destructor is instantiated.
 SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 
+std::unique_ptr<IoWindow> SimulationTTDeviceModel::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return nullptr;
+}
+
 // Serving a protocol is what lets the architecture's firmware, telemetry reader and firmware-info
 // provider read a simulated device without knowing it is simulated. It is usable only once the
 // device has attached itself to it, which it does when its backend comes up.

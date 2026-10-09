@@ -74,6 +74,11 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
 // complete type where the destructor is instantiated.
 BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 
+std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    return nullptr;
+}
+
 DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 
 DeviceFirmware *BlackholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }

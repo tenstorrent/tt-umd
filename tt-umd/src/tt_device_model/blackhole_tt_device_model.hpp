@@ -33,6 +33,8 @@ public:
 
     ~BlackholeTTDeviceModel() override;
 
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+
     DeviceProtocol *get_device_protocol() override;
 
     DeviceFirmware *get_device_firmware() override;

@@ -19,7 +19,7 @@ jobs:
         shell: bash
         working-directory: /work
     env:
-      BUILD_DIR: /work/.build
+      BUILD_DIR: /work/build
     steps:
       - name: Check out repo
         uses: actions/checkout@v6
@@ -37,10 +37,10 @@ jobs:
           done
 
       - name: 🔧 CMake configure
-        run: cmake --preset code-analysis
+        run: cmake --preset code-analysis -B ${{ env.BUILD_DIR }}
 
       - name: 🔨 Generate simulation sources
-        run: cmake --build "$BUILD_DIR/code-analysis" --target umd_all_generated_files
+        run: cmake --build ${{ env.BUILD_DIR }} --target umd_all_generated_files
 
       - name: Install CodeChecker
         run: |
@@ -54,7 +54,7 @@ jobs:
           mkdir -p "$BUILD_DIR/codechecker-reports"
 
           CodeChecker analyze \
-            "$BUILD_DIR/code-analysis/compile_commands.json" \
+            "$BUILD_DIR/compile_commands.json" \
             --output "$BUILD_DIR/codechecker-reports" \
             --jobs $(nproc) \
             --config /work/.codechecker.json \

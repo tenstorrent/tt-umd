@@ -6,6 +6,8 @@
 
 #include <memory>
 
+#include "tt-umd/coordinates/att/att_resolver.hpp"
+#include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 
@@ -46,6 +48,13 @@ public:
     DeviceFirmware *get_device_firmware() override;
     ArchitectureImplementation *get_architecture_impl() override;
     SocArchDescriptor *get_soc_arch_descriptor() override;
+
+    /**
+     * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile
+     * and a tile-local offset, so a caller's coordinate has to be folded into the address before
+     * the access is issued. Offering the resolver is what asks TTDevice to do that.
+     */
+    att::EndpointResolver *get_endpoint_resolver() override;
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
@@ -54,6 +63,10 @@ private:
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> protocol_;
     std::unique_ptr<DeviceFirmware> device_firmware_;
+
+    // The qsr.s1 programming, which is the Quasar instance's own; see grendel_qsr1_att_map.hpp.
+    // Built once because inverting the endpoint tables into a coordinate lookup is not free.
+    att::EndpointResolver endpoint_resolver_{att::GRENDEL_QSR1_MAP};
 };
 
 }  // namespace tt::umd

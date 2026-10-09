@@ -76,6 +76,7 @@ target_sources(
         src/pcie/tlb_window.cpp
         src/pcie/io_window_reconfigure.cpp
         src/io_window/io_window_target.cpp
+        src/io_window/kmd_noc_window.cpp
         src/pcie/device_memcpy.cpp
         src/pcie/silicon_tlb_window.cpp
         src/pcie/silicon_tlb_handle.cpp

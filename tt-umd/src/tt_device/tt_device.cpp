@@ -480,6 +480,16 @@ EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
+std::optional<uint32_t> TTDevice::read_eth_core_train_speed(CoreCoord eth_core) {
+    const NocId noc_id = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_train_speed(resolve_coordinate(eth_core, noc_id), noc_id);
+}
+
+std::optional<uint32_t> TTDevice::read_eth_core_target_speed(CoreCoord eth_core) {
+    const NocId noc_id = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_target_speed(resolve_coordinate(eth_core, noc_id), noc_id);
+}
+
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }

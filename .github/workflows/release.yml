@@ -268,13 +268,7 @@ jobs:
       - name: Build
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_TESTS=OFF \
-            -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PIP=OFF \
-            -DTT_UMD_BUILD_PYTHON=ON \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_ENABLE_TRACY=OFF \
+          cmake --preset release -B ${{ env.BUILD_OUTPUT_DIR }} \
             -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
             -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}

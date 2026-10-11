@@ -173,6 +173,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
+# rbp must stay a frame pointer: a profiler walking call chains makes the kernel read through it (tt-umd#3594).
+add_compile_options(-fno-omit-frame-pointer)
+
 add_subdirectory(tt-kmd-lib)
 add_subdirectory(tt-umd)
 if(TT_UMD_BUILD_PYTHON)

@@ -145,6 +145,11 @@ jobs:
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/harvesting
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health
+          # Cover -f separately; the runs above only write to the default temp path.
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology -f "$RUNNER_TEMP/topology_cluster_desc.yaml"
+          test -s "$RUNNER_TEMP/topology_cluster_desc.yaml"
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health -f "$RUNNER_TEMP/system_health_cluster_desc.yaml"
+          test -s "$RUNNER_TEMP/system_health_cluster_desc.yaml"
           # warm_reset is skipped here; it is covered by unit tests.
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus
 

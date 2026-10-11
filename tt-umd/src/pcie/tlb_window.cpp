@@ -64,8 +64,7 @@ TlbHandle& TlbWindow::handle_ref() const { return *tlb_handle; }
 
 size_t TlbWindow::get_size() const { return tlb_handle->get_size() - offset_from_aligned_addr; }
 
-// TEMP: fixes tt-metal#58148; keep out of line until we know why inlining this races.
-__attribute__((noinline)) void TlbWindow::validate(uint64_t offset, size_t size) const {
+void TlbWindow::validate(uint64_t offset, size_t size) const {
     if ((offset + size) > get_size()) {
         throw std::out_of_range("Out of bounds access");
     }
@@ -140,10 +139,7 @@ HostMemoryCaching TlbWindow::get_memory_caching_type() const {
     return handle_ref().get_tlb_mapping() == TlbMapping::WC ? HostMemoryCaching::WC : HostMemoryCaching::UC;
 }
 
-// TEMP: fixes tt-metal#58148; keep out of line until we know why inlining this races.
-__attribute__((noinline)) uint64_t TlbWindow::get_total_offset(uint64_t offset) const {
-    return offset + offset_from_aligned_addr;
-}
+uint64_t TlbWindow::get_total_offset(uint64_t offset) const { return offset + offset_from_aligned_addr; }
 
 uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;

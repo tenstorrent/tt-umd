@@ -65,8 +65,10 @@ jobs:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
 
+      # TODO: temporary - revert to `pip install "tt-smi"` once a tt-smi release
+      # newer than 6.7.0 is published (needs tt-smi #265).
       - name: Install tt-smi
-        run: pip install "tt-smi"
+        run: pip install git+https://github.com/tenstorrent/tt-smi.git
 
       - name: Install UMD wheel
         run: pip install tt_umd-*.whl --force-reinstall

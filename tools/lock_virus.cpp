@@ -17,7 +17,6 @@
 #include <chrono>
 #include <cxxopts.hpp>
 #include <iostream>
-#include <memory>
 #include <optional>
 #include <string>
 #include <thread>
@@ -62,18 +61,12 @@ static void report_device_locks(int device_id, IODeviceType device_type) {
 
 // ── device enumeration ────────────────────────────────────────────────────────
 
-// Returns the JTAG device indices, or an empty list if JTAG is not usable on this host. The J-Link
+// Returns the JTAG device ids (J-Link serials), or an empty list if JTAG is not usable on this host. The J-Link
 // library it needs is loaded at runtime and is absent on most systems.
 static std::vector<int> enumerate_jtag_devices() {
     try {
-        std::unique_ptr<JtagDevice> jtag_device = JtagDevice::create();
-        const uint32_t device_count = jtag_device->get_device_cnt();
-        std::vector<int> device_ids;
-        device_ids.reserve(device_count);
-        for (uint32_t index = 0; index < device_count; index++) {
-            device_ids.push_back(static_cast<int>(index));
-        }
-        return device_ids;
+        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
+        return std::vector<int>(jlink_serials.begin(), jlink_serials.end());
     } catch (const std::exception& e) {
         log_debug(tt::LogUMD, "JTAG devices could not be enumerated: {}", e.what());
         return {};

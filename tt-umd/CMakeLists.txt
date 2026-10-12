@@ -283,7 +283,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/topology/ip_layout.hpp
                 api/tt-umd/utils/common.hpp
                 api/tt-umd/utils/error.hpp
-                api/tt-umd/utils/error_detail.hpp
                 api/tt-umd/utils/mmio_timeout_config.hpp
                 api/tt-umd/utils/timeouts.hpp
                 api/tt-umd/types/arch.hpp

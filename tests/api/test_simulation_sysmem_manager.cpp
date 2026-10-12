@@ -10,15 +10,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <fstream>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <string>
 #include <thread>
 #include <vector>
 
+#include "tests/test_utils/process_utils.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
@@ -313,22 +312,6 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
     });
 }
 
-namespace {
-
-// Resident set size in KiB, or 0 if it could not be read.
-size_t read_rss_kib() {
-    std::ifstream status("/proc/self/status");
-    std::string line;
-    while (std::getline(status, line)) {
-        if (line.rfind("VmRSS:", 0) == 0) {
-            return std::stoull(line.substr(line.find_first_of("0123456789")));
-        }
-    }
-    return 0;
-}
-
-}  // namespace
-
 // allocate_sysmem_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
 // While the manager held the mapping in owned_allocations_ instead, nothing was released until the
 // manager itself went away and every allocation leaked for as long as it lived.
@@ -342,7 +325,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
     // Warm up so one-time allocations do not land inside the measurement.
     { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
 
-    const size_t rss_before = read_rss_kib();
+    const size_t rss_before = test_utils::read_rss_kib();
     if (rss_before == 0) {
         GTEST_SKIP() << "Could not read VmRSS from /proc/self/status.";
     }
@@ -359,7 +342,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
         }
     }
 
-    const size_t rss_after = read_rss_kib();
+    const size_t rss_after = test_utils::read_rss_kib();
     const size_t growth_kib = rss_after > rss_before ? rss_after - rss_before : 0;
 
     // Leaking would retain every iteration's mapping. Allow one buffer of slack for allocator noise.

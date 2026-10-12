@@ -58,11 +58,16 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, tt_xy
  * simulator that tried to route on the coordinate would fault instead of targeting tile (0, 0).
  */
 inline flatbuffers::FlatBufferBuilder create_global_flatbuffer(
-    DEVICE_COMMAND rw, const std::vector<uint32_t> &vec, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw,
+    const std::vector<uint32_t> &vec,
+    uint64_t addr,
+    uint64_t size_ = 0,
+    uint64_t user_bits = 0,
+    uint64_t user_bits_hi = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, nullptr, addr, size);
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, nullptr, addr, size, user_bits, user_bits_hi);
     builder.Finish(device_cmd);
     return builder;
 }
@@ -153,7 +158,8 @@ void RtlSimCommunicator::read_words(
         std::lock_guard<std::mutex> lock(device_lock_);
         if (kind == AccessKind::kGlobal) {
             send_command_to_simulation_host(
-                *host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
+                *host_,
+                create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size, user_bits, user_bits_hi));
         } else {
             const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
             send_command_to_simulation_host(
@@ -217,7 +223,8 @@ void RtlSimCommunicator::write_words(
 
     std::lock_guard<std::mutex> lock(device_lock_);
     if (kind == AccessKind::kGlobal) {
-        send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr));
+        send_command_to_simulation_host(
+            *host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr, 0, user_bits, user_bits_hi));
     } else {
         const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
         send_command_to_simulation_host(
@@ -272,19 +279,21 @@ void RtlSimCommunicator::tile_write_bytes(
     write_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size, user_bits, user_bits_hi);
 }
 
-void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::global_read_words(
+    uint64_t addr, void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from global address {:#x}", size, addr);
-    read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, 0, 0);
+    read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, user_bits, user_bits_hi);
 }
 
-void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::global_write_words(
+    uint64_t addr, const void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
     // The payload travels as words, so a partial word could only be dropped or written short.
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
-    write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, 0, 0);
+    write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, user_bits, user_bits_hi);
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {

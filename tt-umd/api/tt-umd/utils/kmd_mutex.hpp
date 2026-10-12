@@ -21,7 +21,7 @@ struct tt_device_t;
 namespace tt::umd {
 
 // KmdMutex is a cross-process lock backed by the Tenstorrent kernel-mode driver (KMD) resource locks,
-// which it drives through tt-kmd-lib's tt_lock_* API. See device/utils/README.md for how the
+// which it drives through tt-kmd-lib's tt_lock_* API. See docs/LOCKING.md for how the
 // available locking backends compare.
 //
 // Properties:

@@ -67,8 +67,13 @@ jobs:
 
       # TODO: temporary - revert to `pip install "tt-smi"` once a tt-smi release
       # newer than 6.7.0 is published (needs tt-smi #265).
+      # tt-smi's setup.py imports tomli without declaring it as a build requirement, so the source
+      # build runs without isolation; the system setuptools is too old to read its dependency list.
       - name: Install tt-smi
-        run: pip install git+https://github.com/tenstorrent/tt-smi.git
+        run: |
+          pip install --upgrade setuptools tomli wheel
+          pip install --no-build-isolation \
+            "git+https://github.com/tenstorrent/tt-smi.git@f52d8b3f629abdeb7c07aff248b523c8a0d7d51f"
 
       - name: Install UMD wheel
         run: pip install tt_umd-*.whl --force-reinstall

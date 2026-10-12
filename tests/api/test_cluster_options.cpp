@@ -7,8 +7,8 @@
 #include <optional>
 #include <type_traits>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/cluster_types.hpp"
 
 using namespace tt::umd;
 

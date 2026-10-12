@@ -17,17 +17,19 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/chip/chip.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -222,13 +224,15 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
+    const xy_pair dram_core_xy =
+        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(dram_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core.to_pair(), ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core.to_pair(), ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -257,13 +261,15 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const xy_pair tensix_core_xy =
+        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -292,15 +298,17 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     void* mapping =
         mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    const xy_pair tensix_core_xy =
+        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
             std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
         });
     }
     munmap(mapping, BUFFER_SIZE);

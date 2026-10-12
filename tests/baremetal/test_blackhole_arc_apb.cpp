@@ -8,8 +8,8 @@
 #include <cstdint>
 
 #include "tests/test_utils/protocol_mocks.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/tt_device/firmware/blackhole_arc_apb.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/tt_device/firmware/blackhole_arc_apb.hpp"
 
 using namespace tt::umd;
 using namespace tt::umd::test_utils;

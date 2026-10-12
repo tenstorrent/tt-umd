@@ -90,6 +90,7 @@ env:
   WHEEL_OUTPUT_DIR: ./build/wheel
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
+  ATT_MAPS_DIR: ./tests/att_maps
   NANOBIND_TEST_DIR: ./nanobind/tests
   # Env. vars related to SCCache:
   SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
@@ -161,13 +162,7 @@ jobs:
           echo "Compiling the code..."
           # Unity build on to match build-device: one compilation mode across CI, so a
           # batching-only failure surfaces here on the PR rather than in the merge queue.
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PYTHON=OFF \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=ON \
-            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+          cmake --preset tests -B ${{ env.BUILD_OUTPUT_DIR }} \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
@@ -186,7 +181,8 @@ jobs:
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }}
+          ${{ env.SOC_DESCRIPTORS_DIR }} \
+          ${{ env.ATT_MAPS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v7

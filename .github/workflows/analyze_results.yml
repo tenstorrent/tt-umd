@@ -50,6 +50,7 @@ jobs:
         with:
           sparse-checkout: |
             tests/microbenchmark/tools/analyze_results.py
+            tests/microbenchmark/tools/utils.py
           sparse-checkout-cone-mode: false
 
       - name: Install dependencies for API calls
@@ -87,12 +88,14 @@ jobs:
 
       - name: Download baseline JSON benchmark results
         id: download-baseline
-        if: steps.get-main-run.outcome == 'success'
+        if: >-
+          inputs.baseline-run-id != ''
+          || (steps.get-main-run.outcome == 'success' && steps.get-main-run.outputs.run-id != '')
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
-          run-id: ${{ inputs.baseline-run-id != '' && inputs.baseline-run-id || steps.get-main-run.outputs.run-id }}
+          run-id: ${{ (inputs.baseline-run-id != '' && inputs.baseline-run-id) || steps.get-main-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/base
 
@@ -102,11 +105,18 @@ jobs:
         continue-on-error: false
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          # Empty when called from the benchmark run, where github.run_id is that same run.
+          run-id: ${{ inputs.results-run-id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
 
       - name: Run analysis of benchmark data (with baseline)
         if: steps.download-baseline.outcome == 'success' && steps.download-comparison.outcome == 'success'
+        # Container jobs default to `sh -e`, which has no pipefail, so a crash in the
+        # script was swallowed by the exit code of the trailing tee.
+        shell: bash
         run: |
+          set -o pipefail
           . /tmp/venv/bin/activate
           echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
@@ -117,7 +127,9 @@ jobs:
 
       - name: Run analysis of benchmark data
         if: steps.download-baseline.outcome != 'success' && steps.download-comparison.outcome == 'success'
+        shell: bash
         run: |
+          set -o pipefail
           . /tmp/venv/bin/activate
           echo "Architecture: ${{ inputs.arch }}" > ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md
           echo "Card: ${{ inputs.card }}" >> ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/results.md

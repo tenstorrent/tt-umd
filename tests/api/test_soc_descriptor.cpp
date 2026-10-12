@@ -13,12 +13,12 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt::umd;
 

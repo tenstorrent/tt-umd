@@ -8,7 +8,7 @@
 #include <functional>
 #include <stdexcept>
 
-#include "umd/device/utils/op_timeout_guard.hpp"
+#include "tt-umd/utils/op_timeout_guard.hpp"
 
 using namespace tt::umd;
 using namespace std::chrono_literals;

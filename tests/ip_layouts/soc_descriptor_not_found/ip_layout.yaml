@@ -1,0 +1,5 @@
+access_points:
+  - host_access: col0
+devices:
+  - access_points: [0]
+    soc_descriptor: no_such_soc_descriptor.yaml

@@ -4,7 +4,7 @@
 
 #include <nanobind/nanobind.h>
 
-#include "umd/device/logging/config.hpp"
+#include "tt-umd/logging/config.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

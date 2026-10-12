@@ -13,6 +13,10 @@ on:
       card:
         required: true
         type: string
+      runs-on:
+        required: true
+        type: string
+        description: 'JSON array of runner labels the job must match.'
       timeout:
         required: true
         type: number
@@ -46,8 +50,7 @@ jobs:
     name: Test (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    runs-on:
-      - ${{ inputs.card }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
       # seccomp=unconfined is required by TSan builds: the runtime re-execs itself with ASLR

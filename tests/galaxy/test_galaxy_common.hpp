@@ -14,10 +14,10 @@
 #include <tuple>
 #include <vector>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 class Cluster;

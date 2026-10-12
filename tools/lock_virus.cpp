@@ -25,9 +25,9 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/utils/lock_manager.hpp"
+#include "tt-umd/jtag/jtag_device.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/utils/lock_manager.hpp"
 
 using namespace tt::umd;
 

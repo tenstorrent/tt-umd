@@ -10,8 +10,8 @@ The environment is pre-configured with dependencies via `copilot-setup-steps.yml
 To rebuild after making changes:
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_ENABLE_CLANG_TIDY=OFF
-cmake --build build
+cmake --preset tests
+cmake --build --preset tests
 ```
 
 **Important**:

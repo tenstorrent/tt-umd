@@ -1,6 +1,7 @@
 set(TT_UMD_UTILS_TESTS_SRCS
     test_errors.cpp
     test_op_timeout_guard.cpp
+    test_robust_mutex.cpp
     test_semver.cpp
 )
 
@@ -11,6 +12,7 @@ target_link_libraries(
         tt-umd-utils::tt-umd-utils
         gtest_main
         gtest
+        pthread
 )
 set_target_properties(
     tt_umd_utils_tests

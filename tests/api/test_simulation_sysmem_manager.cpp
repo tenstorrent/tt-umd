@@ -69,7 +69,7 @@ TEST(ApiSimulationSysmemManager, GalaxyMappedArenasAreBoundedAndPerChip) {
         SimulationSysmemManager sysmem(1, tt::ARCH::BLACKHOLE, chip_id);
         EXPECT_EQ(sysmem.get_host_base(), chip_id * SimulationSysmemManager::PER_CHIP_HOST_STRIDE);
         EXPECT_EQ(sysmem.get_hugepage_mapping(0).physical_address, sysmem.get_host_base());
-        EXPECT_EQ(sysmem.get_mapped_arena_offset(), HUGEPAGE_REGION_SIZE);
+        EXPECT_EQ(sysmem.get_mapped_arena_offset(), SIMULATION_HUGEPAGE_REGION_SIZE);
         EXPECT_EQ(
             sysmem.get_mapped_arena_offset() + sysmem.get_mapped_arena_size(),
             SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);

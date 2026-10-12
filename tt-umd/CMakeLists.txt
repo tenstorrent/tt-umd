@@ -145,6 +145,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/simulation_host.cpp
             src/simulation/simulator_paths.cpp
             src/simulation/tt_sim_communicator.cpp
+            src/simulation/rtl_sim_channel.cpp
             src/simulation/rtl_sim_communicator.cpp
             src/simulation/rtl_sim_session.cpp
             src/simulation/rtl_sim_att_program.cpp

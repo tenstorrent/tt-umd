@@ -63,8 +63,8 @@ cmake --build --preset default
 
 To build basic set of components (tools, examples), you can run these commands:
 ```
-cmake --preset default -DTT_UMD_BUILD_ALL=ON
-cmake --build --preset default
+cmake --preset all
+cmake --build --preset all
 ```
 
 #### CMake presets
@@ -80,6 +80,9 @@ cmake --build --preset default
 | `simulation-tools-python` | `tests` with simulation support and Python bindings |
 | `release` | Library and Python bindings, as shipped in release packages |
 | `release-no-clang-tidy` | `release` without clang-tidy |
+| `all` | All components |
+| `all-debug` | `all` in Debug |
+| `all-asan` | `all` with ASan, LSan and UBSan |
 | `all-no-pip` | All components, without the pip package |
 | `all-tracy` | All components with the pip package and Tracy |
 | `code-analysis` | Debug build of tests and simulation with clang-20 |

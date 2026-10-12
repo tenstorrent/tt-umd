@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -78,13 +77,13 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
             return pci_devices_info.begin()->second.get_arch();
         }
         case IODeviceType::JTAG: {
-            auto jtag_device = JtagDevice::create();
-            if (!jtag_device->get_device_cnt()) {
+            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
+            if (jlink_serials.empty()) {
                 return ARCH::Invalid;
             }
             // This guard previously compared the architecture before it had been probed, so it
             // could never fire. Comparing the probed value is what it was meant to do.
-            const tt::ARCH arch = jtag_device->get_jtag_arch(0);
+            const tt::ARCH arch = JtagDevice::create(jlink_serials.front())->get_jtag_arch();
             UMD_ASSERT(
                 arch != tt::ARCH::BLACKHOLE,
                 error::RuntimeError,
@@ -285,9 +284,8 @@ void TopologyDiscovery::get_connected_devices() {
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
-            local_device_ids = std::vector<int>(device_cnt);
-            std::iota(local_device_ids.begin(), local_device_ids.end(), 0);
+            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path);
+            local_device_ids.assign(jlink_serials.begin(), jlink_serials.end());
             break;
         }
         default:

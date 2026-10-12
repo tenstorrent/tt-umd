@@ -1,4 +1,5 @@
 set(TT_UMD_UTILS_TESTS_SRCS
+    test_errors.cpp
     test_op_timeout_guard.cpp
     test_semver.cpp
 )

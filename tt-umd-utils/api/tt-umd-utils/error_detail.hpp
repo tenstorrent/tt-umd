@@ -4,10 +4,10 @@
 
 #pragma once
 
-// IWYU pragma: private, include "tt-umd/utils/error.hpp"
+// IWYU pragma: private, include "tt-umd-utils/error.hpp"
 
 #ifndef UMD_ERROR_HPP_INTERNAL_INCLUDE
-#error "error_detail.hpp is a private header. Include tt-umd/utils/error.hpp instead."
+#error "error_detail.hpp is a private header. Include tt-umd-utils/error.hpp instead."
 #endif
 #include <cxxabi.h>
 #include <execinfo.h>

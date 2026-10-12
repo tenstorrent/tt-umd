@@ -250,24 +250,9 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
-          if [[ "${{ matrix.image.use_release_flags }}" == "true" ]]; then
-            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_TESTS=OFF \
-              -DTT_UMD_BUILD_SIMULATION=OFF \
-              -DTT_UMD_BUILD_PIP=OFF \
-              -DTT_UMD_BUILD_PYTHON=ON \
-              -DTT_UMD_BUILD_EXAMPLES=OFF \
-              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-              -DCMAKE_BUILD_TYPE=Release
-          else
-            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DTT_UMD_BUILD_ALL=ON \
-              -DTT_UMD_BUILD_PIP=ON \
-              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-              -DTT_UMD_ENABLE_TRACY=ON
-          fi
+          PRESET="${{ matrix.image.use_release_flags && 'release' || 'all-tracy' }}"
+          cmake --preset "$PRESET" -B ${{ env.BUILD_OUTPUT_DIR }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -374,11 +359,8 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_ALL=ON \
-            -DTT_UMD_BUILD_PIP=OFF \
-            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-            -DTT_UMD_ENABLE_CLANG_TIDY=ON
+          cmake --preset all-no-pip -B ${{ env.BUILD_OUTPUT_DIR }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -443,14 +425,7 @@ jobs:
             bash -c '
               set -euo pipefail
               git config --global --add safe.directory /work
-              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-                -DTT_UMD_BUILD_TESTS=OFF \
-                -DTT_UMD_BUILD_SIMULATION=OFF \
-                -DTT_UMD_BUILD_PIP=OFF \
-                -DTT_UMD_BUILD_PYTHON=ON \
-                -DTT_UMD_BUILD_EXAMPLES=OFF \
-                -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-                -DCMAKE_BUILD_TYPE=Release
+              cmake --preset release-no-clang-tidy -B ${{ env.BUILD_OUTPUT_DIR }}
               cmake --build ${{ env.BUILD_OUTPUT_DIR }}
               echo "Compile complete."
             '

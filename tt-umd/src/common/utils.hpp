@@ -372,4 +372,15 @@ inline void validate_register_access(uint64_t addr, size_t size) {
     throw_if_not_aligned<uint32_t>(size, "Register access size");
 }
 
+// NoC requests to MMIO registers must be exactly one register wide; a wider request returns or stores a
+// single register. Calls access(reg_addr, buffer_offset) once per register so a multi-register transfer
+// never reaches the device as one wide request.
+template <typename Access>
+void for_each_register_access(uint64_t addr, size_t size, Access access) {
+    validate_register_access(addr, size);
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        access(addr + offset, offset);
+    }
+}
+
 }  // namespace tt::umd

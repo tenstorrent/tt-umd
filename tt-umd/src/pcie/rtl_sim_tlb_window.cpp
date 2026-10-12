@@ -14,6 +14,7 @@
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/tlb.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -80,11 +81,15 @@ uint32_t RtlSimTlbWindow::read32(uint64_t offset) {
 }
 
 void RtlSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
-    translate_and_write(offset, data, size);
+    for_each_register_access(offset, size, [&](uint64_t reg_offset, size_t data_offset) {
+        translate_and_write(reg_offset, static_cast<const uint8_t*>(data) + data_offset, sizeof(uint32_t));
+    });
 }
 
 void RtlSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
-    translate_and_read(offset, data, size);
+    for_each_register_access(offset, size, [&](uint64_t reg_offset, size_t data_offset) {
+        translate_and_read(reg_offset, static_cast<uint8_t*>(data) + data_offset, sizeof(uint32_t));
+    });
 }
 
 void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {

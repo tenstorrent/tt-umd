@@ -30,13 +30,15 @@ void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, si
 }
 
 void RemoteProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
-    write_data(mem_ptr, core, addr, size, noc_id);
+    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
+        write_data(static_cast<const uint8_t*>(mem_ptr) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
+    });
 }
 
 void RemoteProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
-    read_data(mem_ptr, core, addr, size, noc_id);
+    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
+        read_data(static_cast<uint8_t*>(mem_ptr) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
+    });
 }
 
 bool RemoteProtocol::write_to_core_range(

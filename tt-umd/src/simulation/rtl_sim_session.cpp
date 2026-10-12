@@ -14,6 +14,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "simulation/rtl_sim_channel.hpp"
 #include "simulation_device_generated.h"
 #include "tt-umd/utils/error.hpp"
 
@@ -69,6 +70,7 @@ RtlSimSession::RtlSimSession(
         "RtlSimSession socket names must be distinct.");
     for (size_t i = 0; i < sockets_.size(); i++) {
         hosts_.push_back(std::make_unique<SimulationHost>());
+        channels_.push_back(std::make_shared<RtlSimChannel>(*hosts_.back()));
     }
 }
 
@@ -118,6 +120,8 @@ SimulationHost &RtlSimSession::get_host(size_t socket) {
     return *hosts_.at(socket);
 }
 
+std::shared_ptr<RtlSimChannel> RtlSimSession::get_channel(size_t socket) { return channels_.at(socket); }
+
 RtlSimSocket::RtlSimSocket(std::shared_ptr<RtlSimSession> session, size_t socket) :
     session_(std::move(session)), socket_(socket) {
     UMD_ASSERT(session_ != nullptr, error::RuntimeError, "RtlSimSocket needs a session.");
@@ -128,5 +132,7 @@ RtlSimSocket::RtlSimSocket(std::shared_ptr<RtlSimSession> session, size_t socket
 }
 
 SimulationHost &RtlSimSocket::get_host() const { return session_->get_host(socket_); }
+
+std::shared_ptr<RtlSimChannel> RtlSimSocket::get_channel() const { return session_->get_channel(socket_); }
 
 }  // namespace tt::umd

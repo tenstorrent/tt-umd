@@ -22,7 +22,7 @@ class JtagDevice;
  */
 class JtagProtocol : public DeviceProtocol, public JtagInterface {
 public:
-    JtagProtocol(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    explicit JtagProtocol(std::unique_ptr<JtagDevice> jtag_device);
 
     ~JtagProtocol() override;
 
@@ -42,7 +42,6 @@ public:
 
 private:
     std::unique_ptr<JtagDevice> jtag_device_;
-    int mmio_id_;
 };
 
 }  // namespace tt::umd

@@ -15,17 +15,16 @@
 
 namespace tt::umd {
 
-JtagProtocol::JtagProtocol(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    jtag_device_(std::move(jtag_device)), mmio_id_(jlink_id) {}
+JtagProtocol::JtagProtocol(std::unique_ptr<JtagDevice> jtag_device) : jtag_device_(std::move(jtag_device)) {}
 
 JtagProtocol::~JtagProtocol() = default;
 
 void JtagProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    jtag_device_->write(mmio_id_, mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
+    jtag_device_->write(mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
 }
 
 void JtagProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    jtag_device_->read(mmio_id_, mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
+    jtag_device_->read(mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
 }
 
 void JtagProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
@@ -40,16 +39,16 @@ void JtagProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size
 
 bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId) { return false; }
 
-int JtagProtocol::get_mmio_id() { return mmio_id_; }
+int JtagProtocol::get_mmio_id() { return static_cast<int>(jtag_device_->get_serial()); }
 
 void JtagProtocol::mmio_write32(uint32_t addr, uint32_t data) {
     validate_register_access(addr, sizeof(uint32_t));
-    jtag_device_->write32_axi(mmio_id_, addr, data);
+    jtag_device_->write32_axi(addr, data);
 }
 
 uint32_t JtagProtocol::mmio_read32(uint32_t addr) {
     validate_register_access(addr, sizeof(uint32_t));
-    std::optional<uint32_t> data = jtag_device_->read32_axi(mmio_id_, addr);
+    std::optional<uint32_t> data = jtag_device_->read32_axi(addr);
     if (!data.has_value()) {
         UMD_THROW(
             error::RuntimeError, fmt::format("Failed to read 32-bit MMIO value at address 0x{:x} over JTAG.", addr));

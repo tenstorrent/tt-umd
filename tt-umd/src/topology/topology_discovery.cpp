@@ -504,9 +504,11 @@ void TopologyDiscovery::discover_remote_devices() {
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
 
-    // Keyed by the device number get_communication_device_id() reports; empty for non-PCIe devices.
+    // Keyed by the device number get_communication_device_id() reports. A simulator reports PCIe but its
+    // ids are process-local, not host device numbers, so it gets no entries.
+    const bool has_host_pci_devices = io_device_type == IODeviceType::PCIe && !options.simulation.has_value();
     const std::map<int, PciDeviceInfo> pci_devices_info =
-        io_device_type == IODeviceType::PCIe ? PCIDevice::enumerate_devices_info() : std::map<int, PciDeviceInfo>{};
+        has_host_pci_devices ? PCIDevice::enumerate_devices_info() : std::map<int, PciDeviceInfo>{};
 
     // A remote device reports the communication id of the gateway it is reached through, so looking
     // it up here would attribute the gateway's BDF and bus to it. Only local devices have one.

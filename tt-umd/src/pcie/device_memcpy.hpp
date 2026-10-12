@@ -63,7 +63,9 @@ void memcpy_from_device(
  */
 void write16_to_device(volatile void* dest, std::uint16_t value, const std::function<bool()>& on_timeout = {});
 void write32_to_device(volatile void* dest, std::uint32_t value, const std::function<bool()>& on_timeout = {});
+void write64_to_device(volatile void* dest, std::uint64_t value, const std::function<bool()>& on_timeout = {});
 std::uint16_t read16_from_device(const volatile void* src, const std::function<bool()>& on_timeout = {});
 std::uint32_t read32_from_device(const volatile void* src, const std::function<bool()>& on_timeout = {});
+std::uint64_t read64_from_device(const volatile void* src, const std::function<bool()>& on_timeout = {});
 
 }  // namespace tt::umd

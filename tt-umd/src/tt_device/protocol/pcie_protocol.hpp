@@ -46,8 +46,11 @@ public:
     // DeviceProtocol interface.
     void write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     void read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_ctrl(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
+        override;
+    void read_ctrl(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override;
     bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id)
         override;

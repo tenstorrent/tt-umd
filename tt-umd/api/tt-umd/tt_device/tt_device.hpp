@@ -38,6 +38,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
@@ -168,10 +169,22 @@ public:
     virtual void write_to_device(
         const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
+    // Register reads/writes reach the device as one access of the given width per register; addr and size must
+    // be multiples of that width. 64-bit accesses are supported only on Quasar.
     virtual void read_from_device_reg(
-        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::Bits32);
     virtual void write_to_device_reg(
-        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::Bits32);
 
     /**
      * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.

@@ -50,6 +50,8 @@ public:
     uint16_t read16(uint64_t offset) override = 0;
     void write32(uint64_t offset, uint32_t value) override = 0;
     uint32_t read32(uint64_t offset) override = 0;
+    void write64(uint64_t offset, uint64_t value) override = 0;
+    uint64_t read64(uint64_t offset) override = 0;
     virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
     virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
     void write_block(uint64_t offset, const void* data, size_t size) override = 0;

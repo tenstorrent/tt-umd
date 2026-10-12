@@ -5,6 +5,7 @@
 #include "pcie/io_window_reconfigure.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <optional>
 
 namespace tt::umd {
@@ -62,14 +63,30 @@ void write_block_reconfigure(
 }
 
 void read_register_reconfigure(
-    IoWindow& window, void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
+    IoWindow& window,
+    void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    RegisterAccessWidth width,
+    IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
         TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::UnicastRead},
         ordering,
         static_cast<uint8_t*>(mem_ptr),
         size,
-        [&window](uint8_t* buf, size_t sz) { window.read_aligned(0, buf, sz); });
+        [&window, width](uint8_t* buf, size_t sz) {
+            if (width == RegisterAccessWidth::Bits32) {
+                window.read_aligned(0, buf, sz);
+                return;
+            }
+            for (size_t offset = 0; offset < sz; offset += sizeof(uint64_t)) {
+                const uint64_t value = window.read64(offset);
+                std::memcpy(buf + offset, &value, sizeof(value));
+            }
+        });
 }
 
 void write_register_reconfigure(
@@ -79,6 +96,7 @@ void write_register_reconfigure(
     uint64_t addr,
     size_t size,
     NocId noc_id,
+    RegisterAccessWidth width,
     IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
@@ -86,7 +104,17 @@ void write_register_reconfigure(
         ordering,
         static_cast<const uint8_t*>(mem_ptr),
         size,
-        [&window](const uint8_t* buf, size_t sz) { window.write_aligned(0, buf, sz); });
+        [&window, width](const uint8_t* buf, size_t sz) {
+            if (width == RegisterAccessWidth::Bits32) {
+                window.write_aligned(0, buf, sz);
+                return;
+            }
+            for (size_t offset = 0; offset < sz; offset += sizeof(uint64_t)) {
+                uint64_t value = 0;
+                std::memcpy(&value, buf + offset, sizeof(value));
+                window.write64(offset, value);
+            }
+        });
 }
 
 void noc_multicast_write_reconfigure(

@@ -68,6 +68,14 @@ void write32_to_device(volatile void* dest, std::uint32_t value, const std::func
     timer.record_and_check(t, sizeof(value));
 }
 
+void write64_to_device(volatile void* dest, std::uint64_t value, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = 0;
+    auto timer = make_mmio_timeout_guard("store", sizeof(value), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    *reinterpret_cast<volatile std::uint64_t*>(dest) = value;
+    timer.record_and_check(t, sizeof(value));
+}
+
 std::uint16_t read16_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
     std::size_t remaining = 0;
     auto timer = make_mmio_timeout_guard("load", sizeof(std::uint16_t), remaining, on_timeout);
@@ -82,6 +90,15 @@ std::uint32_t read32_from_device(const volatile void* src, const std::function<b
     auto timer = make_mmio_timeout_guard("load", sizeof(std::uint32_t), remaining, on_timeout);
     auto t = std::chrono::steady_clock::now();
     std::uint32_t value = *reinterpret_cast<const volatile std::uint32_t*>(src);
+    timer.record_and_check(t, sizeof(value));
+    return value;
+}
+
+std::uint64_t read64_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = 0;
+    auto timer = make_mmio_timeout_guard("load", sizeof(std::uint64_t), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    std::uint64_t value = *reinterpret_cast<const volatile std::uint64_t*>(src);
     timer.record_and_check(t, sizeof(value));
     return value;
 }

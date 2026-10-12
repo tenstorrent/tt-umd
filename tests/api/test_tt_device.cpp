@@ -93,6 +93,23 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     }
 }
 
+TEST(ApiTTDeviceTest, TTDeviceReg64BitAccessThrowsOutsideQuasar) {
+    for (int pci_device_id : PCIDevice::enumerate_devices()) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        if (tt_device->get_arch() == tt::ARCH::QUASAR) {
+            continue;
+        }
+        CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        uint64_t buf = 0;
+        EXPECT_ANY_THROW(tt_device->read_from_device_reg(
+            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::Bits64));
+        EXPECT_ANY_THROW(tt_device->write_to_device_reg(
+            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::Bits64));
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -47,23 +48,33 @@ public:
 
     /**
      * @brief Reads data from a device core into a host buffer, suited for register and control transactions.
+     *
+     * The transfer reaches the device as one access of the given width per register.
+     *
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
-     * @param addr Device address on the target core.
-     * @param size Number of bytes to read.
+     * @param addr Device address on the target core. Must be aligned to the access width.
+     * @param size Number of bytes to read. Must be a multiple of the access width.
      * @param noc_id NOC to route through.
+     * @param width Width of each register access.
      */
-    virtual void read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void read_ctrl(
+        void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) = 0;
 
     /**
      * @brief Writes host data to a device core, suited for register and control transactions.
+     *
+     * The transfer reaches the device as one access of the given width per register.
+     *
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
-     * @param addr Device address on the target core.
-     * @param size Number of bytes to write.
+     * @param addr Device address on the target core. Must be aligned to the access width.
+     * @param size Number of bytes to write. Must be a multiple of the access width.
      * @param noc_id NOC to route through.
+     * @param width Width of each register access.
      */
-    virtual void write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void write_ctrl(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) = 0;
 
     /**
      * @brief Writes data to a range of cores via hardware multicast, if supported.

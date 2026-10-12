@@ -95,16 +95,18 @@ void PcieProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size
     read_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
 }
 
-void PcieProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
+void PcieProtocol::write_ctrl(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    validate_register_access(addr, size, width);
     std::lock_guard<std::mutex> lock(io_lock_);
-    write_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
+    write_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id, width);
 }
 
-void PcieProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
+void PcieProtocol::read_ctrl(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    validate_register_access(addr, size, width);
     std::lock_guard<std::mutex> lock(io_lock_);
-    read_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
+    read_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id, width);
 }
 
 bool PcieProtocol::write_to_core_range(

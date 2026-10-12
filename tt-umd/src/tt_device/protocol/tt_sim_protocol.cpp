@@ -49,12 +49,14 @@ void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, 
     device_->noc_write_translated(core, addr, src, size);
 }
 
-void TTSimProtocol::read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    read_registers_individually(*this, dst, core, addr, size, noc_id);
+void TTSimProtocol::read_ctrl(
+    void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    read_registers_individually(*this, dst, core, addr, size, noc_id, width);
 }
 
-void TTSimProtocol::write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    write_registers_individually(*this, src, core, addr, size, noc_id);
+void TTSimProtocol::write_ctrl(
+    const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    write_registers_individually(*this, src, core, addr, size, noc_id, width);
 }
 
 bool TTSimProtocol::write_to_core_range(

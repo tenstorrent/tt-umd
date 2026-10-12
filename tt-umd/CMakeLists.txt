@@ -266,6 +266,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/firmware/firmware_utils.hpp
                 api/tt-umd/types/noc_id.hpp
                 api/tt-umd/types/power_state.hpp
+                api/tt-umd/types/register_access_width.hpp
                 api/tt-umd/types/risc_type.hpp
                 api/tt-umd/simulation/simulation_chip.hpp
                 api/tt-umd/simulation/simulation_connector.hpp

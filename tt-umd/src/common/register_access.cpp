@@ -13,18 +13,32 @@
 namespace tt::umd {
 
 void read_registers_individually(
-    DeviceProtocol& protocol, void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
-    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
-        protocol.read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    DeviceProtocol& protocol,
+    void* dst,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    RegisterAccessWidth width) {
+    validate_register_access(addr, size, width);
+    const size_t access_size = register_access_size(width);
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        protocol.read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id);
     }
 }
 
 void write_registers_individually(
-    DeviceProtocol& protocol, const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    validate_register_access(addr, size);
-    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
-        protocol.write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    DeviceProtocol& protocol,
+    const void* src,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    RegisterAccessWidth width) {
+    validate_register_access(addr, size, width);
+    const size_t access_size = register_access_size(width);
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        protocol.write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, access_size, noc_id);
     }
 }
 

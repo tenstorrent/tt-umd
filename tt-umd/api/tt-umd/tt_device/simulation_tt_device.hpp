@@ -69,9 +69,19 @@ public:
     // device_lock, so ordering is already guaranteed. Delegate to the bulk path -- the base
     // implementations would route through DeviceProtocol, which a simulation model does not provide.
     void read_from_device_reg(
-        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        void* mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::Bits32) override;
     void write_to_device_reg(
-        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        const void* mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::Bits32) override;
 
     void dma_write_to_core_range(
         const void* src,

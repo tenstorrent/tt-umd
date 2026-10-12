@@ -26,12 +26,14 @@ constexpr tt_xy_pair TENSIX_CORE = {1, 1};
 
 // Serves the current register contents to the read under test.
 auto serves_register(uint32_t value) {
-    return Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t, NocId) { std::memcpy(dst, &value, sizeof(value)); });
+    return Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
+        std::memcpy(dst, &value, sizeof(value));
+    });
 }
 
 // Captures what the read-modify-write wrote back.
 auto captures_register(uint32_t* written) {
-    return Invoke([written](const void* src, tt_xy_pair, uint64_t, size_t, NocId) {
+    return Invoke([written](const void* src, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
         std::memcpy(written, src, sizeof(*written));
     });
 }
@@ -55,9 +57,13 @@ protected:
 
 TEST_P(RiscResetImplementationTest, AssertAddsTheSelectedBitsToTheRegister) {
     uint32_t written = 0;
-    EXPECT_CALL(protocol_, read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0))
+    EXPECT_CALL(
+        protocol_,
+        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::Bits32))
         .WillOnce(serves_register(0));
-    EXPECT_CALL(protocol_, write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0))
+    EXPECT_CALL(
+        protocol_,
+        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::Bits32))
         .WillOnce(captures_register(&written));
 
     risc_reset_.assert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX, NocId::NOC0);
@@ -67,8 +73,8 @@ TEST_P(RiscResetImplementationTest, AssertAddsTheSelectedBitsToTheRegister) {
 
 TEST_P(RiscResetImplementationTest, AssertKeepsTheBitsThatAreAlreadySet) {
     uint32_t written = 0;
-    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::BRISC)));
-    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).WillOnce(captures_register(&written));
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::BRISC)));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _, _)).WillOnce(captures_register(&written));
 
     risc_reset_.assert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX_TRISCS, NocId::NOC0);
 
@@ -77,8 +83,8 @@ TEST_P(RiscResetImplementationTest, AssertKeepsTheBitsThatAreAlreadySet) {
 
 TEST_P(RiscResetImplementationTest, DeassertClearsOnlyTheSelectedBits) {
     uint32_t written = 0;
-    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::ALL_TENSIX)));
-    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).WillOnce(captures_register(&written));
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::ALL_TENSIX)));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _, _)).WillOnce(captures_register(&written));
 
     risc_reset_.deassert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX_TRISCS, /*staggered_start=*/false, NocId::NOC0);
 
@@ -87,8 +93,8 @@ TEST_P(RiscResetImplementationTest, DeassertClearsOnlyTheSelectedBits) {
 
 TEST_P(RiscResetImplementationTest, DeassertWithStaggeredStartSetsTheStaggeredBit) {
     uint32_t written = 0;
-    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).WillOnce(serves_register(0));
-    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).WillOnce(captures_register(&written));
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).WillOnce(serves_register(0));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _, _)).WillOnce(captures_register(&written));
 
     risc_reset_.deassert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX, /*staggered_start=*/true, NocId::NOC0);
 
@@ -96,7 +102,7 @@ TEST_P(RiscResetImplementationTest, DeassertWithStaggeredStartSetsTheStaggeredBi
 }
 
 TEST_P(RiscResetImplementationTest, ReportsTheRiscsHeldInReset) {
-    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::BRISC)));
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).WillOnce(serves_register(bits_for(RiscType::BRISC)));
 
     std::optional<RiscType> state = risc_reset_.get_risc_reset_state(TENSIX_CORE, NocId::NOC0);
 
@@ -106,9 +112,13 @@ TEST_P(RiscResetImplementationTest, ReportsTheRiscsHeldInReset) {
 }
 
 TEST_P(RiscResetImplementationTest, RoutesOnTheGivenNoc) {
-    EXPECT_CALL(protocol_, read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1))
+    EXPECT_CALL(
+        protocol_,
+        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32))
         .WillOnce(serves_register(0));
-    EXPECT_CALL(protocol_, write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1));
+    EXPECT_CALL(
+        protocol_,
+        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32));
 
     risc_reset_.assert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX, NocId::NOC1);
 }

@@ -807,10 +807,12 @@ TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
 
         auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
 
-        write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0);
+        write_register_reconfigure(
+            *tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0, RegisterAccessWidth::Bits32);
 
         std::vector<uint32_t> readback(num_words, 0);
-        read_register_reconfigure(*tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0);
+        read_register_reconfigure(
+            *tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0, RegisterAccessWidth::Bits32);
 
         EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }

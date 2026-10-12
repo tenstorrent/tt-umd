@@ -23,6 +23,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "wait_progress_logger.hpp"
 
@@ -367,9 +369,23 @@ inline void throw_if_not_aligned(Value value, const std::string& what) {
     }
 }
 
-inline void validate_register_access(uint64_t addr, size_t size) {
-    throw_if_not_aligned<uint32_t>(addr, "Register address");
-    throw_if_not_aligned<uint32_t>(size, "Register access size");
+inline void validate_register_access(
+    uint64_t addr, size_t size, RegisterAccessWidth width = RegisterAccessWidth::Bits32) {
+    const size_t access_size = register_access_size(width);
+    if (addr % access_size != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Register address must be {}-byte aligned.", access_size));
+    }
+    if (size % access_size != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Register access size must be {}-byte aligned.", access_size));
+    }
+}
+
+// Only Quasar has 64-bit registers; Wormhole and Blackhole accept nothing but 32-bit register accesses.
+inline void validate_register_access_width(tt::ARCH arch, RegisterAccessWidth width) {
+    if (width == RegisterAccessWidth::Bits64 && arch != tt::ARCH::QUASAR) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("64-bit register accesses are not supported on {}.", arch_to_str(arch)));
+    }
 }
 
 }  // namespace tt::umd

@@ -117,12 +117,13 @@ void WormholeArcWindow::read(void* mem_ptr, uint64_t arc_addr_offset, size_t siz
         if (config_.content == Content::MEMORY) {
             device_protocol_->read_data(mem_ptr, arc_core, noc_address, size, noc_id);
         } else {
-            device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, size, noc_id);
+            device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, size, noc_id, RegisterAccessWidth::Bits32);
         }
         return;
     }
     if (jtag_interface_ != nullptr) {
-        device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
+        device_protocol_->read_ctrl(
+            mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id, RegisterAccessWidth::Bits32);
         return;
     }
     // memcpy rather than a type-punning cast: the caller's buffer need not be a live uint32_t
@@ -140,12 +141,13 @@ void WormholeArcWindow::write(
         if (config_.content == Content::MEMORY) {
             device_protocol_->write_data(mem_ptr, arc_core, noc_address, size, noc_id);
         } else {
-            device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, size, noc_id);
+            device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, size, noc_id, RegisterAccessWidth::Bits32);
         }
         return;
     }
     if (jtag_interface_ != nullptr) {
-        device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
+        device_protocol_->write_ctrl(
+            mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id, RegisterAccessWidth::Bits32);
         return;
     }
     uint32_t value = 0;

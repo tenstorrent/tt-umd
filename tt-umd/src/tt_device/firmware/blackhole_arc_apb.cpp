@@ -39,12 +39,22 @@ void BlackholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size,
 
     if (jtag_interface_ != nullptr) {
         device_protocol_->read_ctrl(
-            mem_ptr, arc_core, blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, sizeof(uint32_t), noc_id);
+            mem_ptr,
+            arc_core,
+            blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t),
+            noc_id,
+            RegisterAccessWidth::Bits32);
         return;
     }
     if (!is_arc_available_over_axi()) {
         device_protocol_->read_ctrl(
-            mem_ptr, arc_core, blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size, noc_id);
+            mem_ptr,
+            arc_core,
+            blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            size,
+            noc_id,
+            RegisterAccessWidth::Bits32);
         return;
     }
     auto result = pcie_interface_->bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -59,12 +69,22 @@ void BlackholeArcApb::write(
 
     if (jtag_interface_ != nullptr) {
         device_protocol_->write_ctrl(
-            mem_ptr, arc_core, blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, sizeof(uint32_t), noc_id);
+            mem_ptr,
+            arc_core,
+            blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t),
+            noc_id,
+            RegisterAccessWidth::Bits32);
         return;
     }
     if (!is_arc_available_over_axi()) {
         device_protocol_->write_ctrl(
-            mem_ptr, arc_core, blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size, noc_id);
+            mem_ptr,
+            arc_core,
+            blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            size,
+            noc_id,
+            RegisterAccessWidth::Bits32);
         return;
     }
     pcie_interface_->bar_write32(

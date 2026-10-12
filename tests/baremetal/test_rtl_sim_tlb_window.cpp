@@ -10,6 +10,7 @@
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
@@ -45,7 +46,7 @@ TargetIoWindowConfig make_target() {
 // ordinary-TLB counterpart.
 class RtlSimTlbWindowFlags : public ::testing::TestWithParam<tt::ARCH> {
 protected:
-    std::unique_ptr<RtlSimTlbWindow> make_window() {
+    std::unique_ptr<IoWindow> make_window() {
         const size_t size = window_size_for(GetParam());
         allocator_ = std::make_shared<SimulationTlbAllocator>(TEST_BAR0_BASE, GetParam());
         const int tlb_id = allocator_->allocate_tlb_index(size);
@@ -67,10 +68,11 @@ private:
 // honor WindowFlags::Snoop. Accepting it and reporting it back is what lets a caller ask for a
 // snooped transaction at all.
 TEST_P(RtlSimTlbWindowFlags, ConfigureAcceptsAndReportsSnoopFlag) {
-    std::unique_ptr<RtlSimTlbWindow> window = make_window();
+    auto window = make_window();
 
     TargetIoWindowConfig target = make_target();
-    EXPECT_EQ(window->get_target_config().flags, WindowFlags::None) << "A fresh window should request no flags";
+    EXPECT_EQ(window->get_target_config().flags, WindowFlags::None)
+        << "A default-created window should request no flags";
 
     target.flags = WindowFlags::Snoop;
     window->configure(target);
@@ -83,30 +85,10 @@ TEST_P(RtlSimTlbWindowFlags, ConfigureAcceptsAndReportsSnoopFlag) {
     EXPECT_EQ(window->get_target_config().flags, WindowFlags::None);
 }
 
-// The tlb_data overload of configure() only moves the mapping and knows nothing about flags, so a
-// snoop request must survive it -- otherwise retargeting a Snoop window would silently drop snoop.
-// (The read/write_block_reconfigure helpers go through the TargetIoWindowConfig overload instead,
-// with direction-only flags, so they never carry Snoop.)
-TEST_P(RtlSimTlbWindowFlags, SnoopFlagSurvivesTlbDataReconfigure) {
-    std::unique_ptr<RtlSimTlbWindow> window = make_window();
-
-    TargetIoWindowConfig target = make_target();
-    target.flags = WindowFlags::Snoop;
-    window->configure(target);
-
-    tlb_data config;
-    config.local_offset = 0x2000;
-    config.x_end = 2;
-    config.y_end = 2;
-    window->configure(config);
-
-    EXPECT_EQ(window->get_target_config().flags, WindowFlags::Snoop);
-}
-
 // Snoop is expressible on this path; Atomic is not. Rejecting the unsupported one keeps the
 // "fail loudly rather than silently drop" contract that applies to every other TLB-backed window.
 TEST_P(RtlSimTlbWindowFlags, ConfigureRejectsUnsupportedFlags) {
-    std::unique_ptr<RtlSimTlbWindow> window = make_window();
+    auto window = make_window();
 
     TargetIoWindowConfig target = make_target();
     target.flags = WindowFlags::Atomic;

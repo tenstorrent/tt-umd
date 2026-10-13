@@ -345,6 +345,7 @@ jobs:
 
   run-ttsim-qemu-tests:
     secrets: inherit
+    needs: build-tests
     # Whether the silicon path works against ttsim does not depend on the build type, so run it once.
     if: inputs.build-type == 'Release'
     uses: ./.github/workflows/run-ttsim-qemu-tests.yml

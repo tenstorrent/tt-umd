@@ -132,6 +132,11 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
+      - name: Run tt-umd-utils tests
+        if: ${{ inputs.arch == 'baremetal' && inputs.build-type != 'TSan' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/utils/tt_umd_utils_tests
+
       - name: Run unified tests
         if: ${{ inputs.arch != 'baremetal' }}
         run: |

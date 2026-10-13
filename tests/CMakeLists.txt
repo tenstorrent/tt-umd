@@ -54,6 +54,7 @@ add_custom_target(
         destructive_tests
         baremetal_tests
         umd_misc_tests
+        tt_umd_utils_tests
         unified_tests
         test_utils_tests
 )

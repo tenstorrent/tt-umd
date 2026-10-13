@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "simulation/rtl_sim_ip_layout.hpp"
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt::umd;
 
@@ -104,8 +104,6 @@ protected:
     static inline std::unique_ptr<Cluster> cluster_;
 };
 
-}  // namespace
-
 TEST_F(RtlSimIpPartitionTest, OneChipPerDevice) {
     size_t expected = layout_->get_devices().size();
     if (const char* visible = std::getenv("TT_VISIBLE_DEVICES"); visible != nullptr && *visible != '\0') {
@@ -177,3 +175,5 @@ TEST_F(RtlSimIpPartitionTest, HorizonAttReadModifyWriteBack) {
         EXPECT_EQ(read32(chip, slot), original) << "chip " << chip;
     }
 }
+
+}  // namespace

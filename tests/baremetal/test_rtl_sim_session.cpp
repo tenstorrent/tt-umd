@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "simulation_device_generated.h"
-#include "umd/device/simulation/rtl_sim_communicator.hpp"
-#include "umd/device/simulation/rtl_sim_session.hpp"
+#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "tt-umd/simulation/rtl_sim_session.hpp"
 
 using namespace tt::umd;
 
@@ -115,8 +115,6 @@ protected:
     std::filesystem::path dir_;
     std::vector<std::string> names_;
 };
-
-}  // namespace
 
 TEST_F(RtlSimSessionTest, AcksOnEverySocket) {
     const std::string address_a = add_socket("ut_a");
@@ -223,3 +221,5 @@ TEST_F(RtlSimSessionTest, GlobalAccessRejectsPartialWords) {
     EXPECT_THROW(communicator.global_read_words(0x1000, &word, 2), std::exception);
     EXPECT_THROW(communicator.global_read_words(0x1002, &word, 4), std::exception);
 }
+
+}  // namespace

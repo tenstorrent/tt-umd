@@ -21,8 +21,8 @@ This repository contains microbenchmarks for evaluating the performance of key c
 In order to build UMD benchmarks, run following commands from **UMD root directory**
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
-ninja umd_microbenchmark -C build
+cmake --preset tests
+cmake --build --preset tests --target umd_microbenchmark
 ```
 
 ## Running benchmarks

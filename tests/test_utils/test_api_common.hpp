@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt::umd;
 

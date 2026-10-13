@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/types/telemetry.hpp"
+#include "tt-umd/types/telemetry.hpp"
 
 #include <fmt/format.h>
 
@@ -22,10 +22,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "common.hpp"
-#include "umd/device/arc/firmware_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "tt-umd/arc/firmware_telemetry_reader.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 
 using namespace tt::umd;
 
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     options.add_options()(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp "
+        "power, temperature and vcore. See tt-umd/api/tt-umd/types/telemetry.hpp "
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(

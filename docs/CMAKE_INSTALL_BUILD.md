@@ -15,8 +15,8 @@ The UMD project supports two build modes:
 
 ```bash
 # Build the tt-umd library
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install
-cmake --build build --target tt-umd
+cmake --preset default -DCMAKE_INSTALL_PREFIX=/path/to/install
+cmake --build --preset default --target tt-umd
 
 # Install the tt-umd library and headers
 cmake --install build --prefix /path/to/install
@@ -63,9 +63,7 @@ When you install UMD to `/path/to/install`, it creates:
 │           ├── umdConfigVersion.cmake
 │           └── umdTargets.cmake
 ├── include/
-│   └── umd/                            # Public headers
-│       ├── device/
-│       └── common/
+│   └── tt-umd/                          # Public headers
 └── bin/                                # (if tools are installed)
 ```
 

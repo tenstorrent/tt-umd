@@ -26,8 +26,8 @@ instead — it exercises the same export path over an RDMA loopback QP pair on o
 in the `rdma_tests` target, behind the same `TT_UMD_BUILD_RDMA` flag as this example:
 
 ```bash
-cmake -B build -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_BUILD_RDMA=ON
-cmake --build build --target rdma_tests
+cmake --preset tests -DTT_UMD_BUILD_RDMA=ON
+cmake --build --preset tests --target rdma_tests
 ./build/test/umd/rdma/rdma_tests
 ```
 
@@ -80,8 +80,8 @@ that host needs updating first.
 ## Build (both hosts)
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DTT_UMD_BUILD_EXAMPLES=ON -DTT_UMD_BUILD_RDMA=ON
-cmake --build build -j"$(nproc)"
+cmake --preset examples -DTT_UMD_BUILD_RDMA=ON
+cmake --build --preset examples
 ```
 
 Binaries land in `build/examples/rdma_dmabuf_p2p/`. `TT_UMD_BUILD_RDMA` is OFF by default, so a
@@ -144,7 +144,7 @@ read-completion concurrency and latency rather than raw link bandwidth.
   of the nominal `DRAM_BANK_SIZE` — keep clear of the tail when picking large `--size`/`--addr`.
 - The underlying TLB window size is chosen by `tt_tlb_alloc()`, which accepts only specific size
   classes — on Blackhole exactly 2 MiB or 4 GiB (see the size class tables in
-  `device/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class
+  `tt-umd/src/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class
   that fits, so no manual adjustment is needed. This is why the default is 2 MiB: anything larger
   consumes one of the few 4 GiB windows.
 - `--size` is capped at 4 GiB minus one byte by the `uint32_t` length of a single RDMA work request,

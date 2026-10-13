@@ -15,13 +15,13 @@
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -104,6 +104,12 @@ void bind_topology_discovery(nb::module_& m) {
             release_gil(),
             "Map of ChipId -> PCI BDF string (e.g. \"0000:41:00.0\"). "
             "Only contains entries for MMIO-capable chips.")
+        .def(
+            "get_chip_pcie_lane_counts",
+            &ClusterDescriptor::get_chip_pcie_lane_counts,
+            release_gil(),
+            "Map of ChipId -> number of lanes the chip's PCIe link trained to, or None if unknown. "
+            "Contains an entry for every PCIe-attached MMIO chip.")
         .def(
             "get_chip_to_bus_id",
             &ClusterDescriptor::get_chip_to_bus_id,

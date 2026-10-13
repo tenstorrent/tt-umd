@@ -18,18 +18,18 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/jtag/jtag.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/jtag/jtag.hpp"
+#include "tt-umd/jtag/jtag_device.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;

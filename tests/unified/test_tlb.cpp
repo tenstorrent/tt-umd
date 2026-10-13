@@ -16,23 +16,23 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/io_window/io_window.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/io_window_config.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/kmd_versions.hpp"
-#include "umd/device/utils/mmio_timeout_config.hpp"
-#include "umd/device/utils/semver.hpp"
-#include "umd/device/utils/timeouts.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/tlb.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
+#include "tt-umd/utils/mmio_timeout_config.hpp"
+#include "tt-umd/utils/semver.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -466,6 +466,40 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
         EXPECT_EQ(readback_unaligned_1, write_pattern)
             << "Readback data from unaligned TLB window with offset should match the written pattern";
     }
+}
+
+// A read that runs off the end of one TLB window has to continue in the next mapping. DRAM is the target because the
+// boundary sits a whole window into the core's address space, beyond the end of Tensix L1.
+TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
+    const ChipId chip = 0;
+    const size_t window_size = 1 << 21;
+    // A multiple of the window size, so the window has to end exactly here.
+    const uint64_t boundary_addr = 0x30000000;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const CoreCoord dram_core =
+        cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
+    SiliconTlbWindow window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+
+    // Covers both reads below, [boundary_addr - 4, boundary_addr + 32).
+    std::vector<uint8_t> pattern(36);
+    for (size_t i = 0; i < pattern.size(); ++i) {
+        pattern[i] = static_cast<uint8_t>(i + 1);
+    }
+    cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, boundary_addr - 4);
+
+    // A read that wraps back to the start of the window instead of moving on would return these bytes.
+    std::vector<uint8_t> window_start(32, 0xFF);
+    cluster->write_to_device(window_start.data(), window_start.size(), chip, dram_core, boundary_addr - window_size);
+
+    std::vector<uint8_t> straddling(32, 0);
+    read_block_reconfigure(window, straddling.data(), dram_core, boundary_addr - 4, straddling.size(), NocId::NOC0);
+    EXPECT_EQ(straddling, std::vector<uint8_t>(pattern.begin(), pattern.begin() + 32));
+
+    std::vector<uint8_t> past_boundary(32, 0);
+    read_block_reconfigure(window, past_boundary.data(), dram_core, boundary_addr, past_boundary.size(), NocId::NOC0);
+    EXPECT_EQ(past_boundary, std::vector<uint8_t>(pattern.begin() + 4, pattern.end()));
 }
 
 TEST_F(TestTlb, TestTlbAccessOutofBounds) {

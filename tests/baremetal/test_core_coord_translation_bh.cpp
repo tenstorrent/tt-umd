@@ -16,13 +16,13 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/coordinates/coordinate_manager.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/common.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/common.hpp"
 
 using namespace tt;
 using namespace tt::umd;

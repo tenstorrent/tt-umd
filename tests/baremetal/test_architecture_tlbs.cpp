@@ -8,10 +8,10 @@
 #include <exception>
 #include <string>
 
-#include "umd/device/arch/architecture_tlbs.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/types/arch.hpp"
+#include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/types/arch.hpp"
 
 using namespace tt::umd;
 

@@ -12,11 +12,11 @@
 
 #include <optional>
 
-#include "umd/device/soc_arch_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

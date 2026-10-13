@@ -11,8 +11,8 @@
 #include <string>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/simulation/simulation_device_identity.hpp"
-#include "umd/device/soc_descriptor.hpp"
+#include "tt-umd/simulation/simulation_device_identity.hpp"
+#include "tt-umd/soc_descriptor.hpp"
 
 using namespace tt;
 using namespace tt::umd;

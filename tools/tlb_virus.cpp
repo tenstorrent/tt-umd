@@ -17,11 +17,11 @@
 #include <vector>
 
 #include "common.hpp"
-#include "umd/device/arch/architecture_tlbs.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/tlb.hpp"
+#include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/tlb.hpp"
 
 using namespace tt::umd;
 

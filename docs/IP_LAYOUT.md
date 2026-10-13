@@ -1,6 +1,6 @@
 # IP layout
 
-`IpLayout` ([ip_layout.hpp](../device/api/umd/device/topology/ip_layout.hpp)) describes how an IP's access points split it into devices.
+`IpLayout` ([ip_layout.hpp](../tt-umd/api/tt-umd/topology/ip_layout.hpp)) describes how an IP's access points split it into devices.
 The access points may be reached over one or more host connections (e.g. `/dev/tenstorrent/<N>` fds, or one simulator run).
 Mapping an access point to its connection is up to the implementation.
 

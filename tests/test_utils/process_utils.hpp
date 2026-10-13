@@ -10,7 +10,10 @@
 #include <cerrno>
 #include <chrono>
 #include <csignal>
+#include <cstddef>
+#include <fstream>
 #include <initializer_list>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -53,5 +56,17 @@ inline void terminate_processes(const std::vector<pid_t>& pids) {
 }
 
 inline void terminate_processes(std::initializer_list<pid_t> pids) { terminate_processes(std::vector<pid_t>(pids)); }
+
+// Resident set size in KiB, or 0 if it could not be read.
+inline size_t read_rss_kib() {
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+        if (line.rfind("VmRSS:", 0) == 0) {
+            return std::stoull(line.substr(line.find_first_of("0123456789")));
+        }
+    }
+    return 0;
+}
 
 }  // namespace tt::umd::test_utils

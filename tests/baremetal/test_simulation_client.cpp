@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
-#include "umd/device/simulation/simulation_client.hpp"
+#include "tt-umd/simulation/simulation_client.hpp"
 
 using namespace tt::umd;
 
@@ -30,8 +30,6 @@ protected:
     std::filesystem::path path_ =
         std::filesystem::temp_directory_path() / ("tt-umd-sim-client-test-" + std::to_string(::getpid()) + ".sock");
 };
-
-}  // namespace
 
 // attach() connects to a live host's socket; detach() closes and is idempotent.
 TEST_F(SimulationClientTest, AttachesToLiveHostThenDetaches) {
@@ -114,3 +112,5 @@ TEST_F(SimulationClientTest, TransactThrowsAfterHostGone) {
 
     EXPECT_THROW(client.transact({0x01}), std::exception);
 }
+
+}  // namespace

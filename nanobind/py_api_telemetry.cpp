@@ -10,17 +10,17 @@
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arc/firmware_telemetry_reader.hpp"
-#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/gddr_telemetry.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/arc/firmware_telemetry_reader.hpp"
+#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
+#include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/gddr_telemetry.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/telemetry.hpp"
+#include "tt-umd/types/wormhole_telemetry.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

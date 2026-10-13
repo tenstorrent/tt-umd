@@ -1,5 +1,7 @@
 set(BAREMETAL_TESTS_SRCS
     test_architecture_tlbs.cpp
+    test_pci_device_arch.cpp
+    test_kmd_lib_noc_io.cpp
     test_att_window.cpp
     test_att_resolver.cpp
     test_grendel_att_map.cpp
@@ -15,6 +17,7 @@ set(BAREMETAL_TESTS_SRCS
     test_notification_mechanism.cpp
     test_cluster.cpp
     test_blackhole_arc_apb.cpp
+    test_risc_reset.cpp
     test_wormhole_arc_window.cpp
     test_blackhole_arc_message_queue.cpp
     # SimulationServerSocket and SimulationClient have no simulation deps (always compiled), so
@@ -27,6 +30,9 @@ set(BAREMETAL_TESTS_SRCS
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
 target_link_libraries(baremetal_tests PRIVATE test_common)
+# tt-umd links tt-kmd-lib privately, so the scalar NOC test reaches it only because
+# libtt-umd.so re-exports it. Depend on it directly instead.
+target_link_libraries(baremetal_tests PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # yaml-cpp is private to tt-umd, so its headers do not reach here through test_common, and the
 # ATT map fidelity test parses the vendored tables itself. Take the include path alone: linking

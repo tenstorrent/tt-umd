@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -27,6 +28,26 @@
 #include "wait_progress_logger.hpp"
 
 namespace tt::umd::utils {
+
+// Creates a new, uniquely named directory under the system temp directory, accessible only by the
+// current user (the same guarantees mkdtemp() gives).
+inline std::filesystem::path create_unique_temp_dir() {
+    const std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::random_device random_source;
+    std::uniform_int_distribution<uint64_t> random_suffix;
+    constexpr int max_attempts = 100;
+    for (int attempt = 0; attempt < max_attempts; ++attempt) {
+        const std::filesystem::path candidate = temp_path / fmt::format("umd_{:016x}", random_suffix(random_source));
+        // create_directory() returns false when the path already exists, so true means the name is ours.
+        if (std::filesystem::create_directory(candidate)) {
+            std::filesystem::permissions(
+                candidate, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace);
+            return candidate;
+        }
+    }
+    UMD_THROW(
+        error::RuntimeError, fmt::format("Failed to create a unique temp directory under {}.", temp_path.string()));
+}
 
 inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
     const char* env_var = std::getenv(env_var_name);

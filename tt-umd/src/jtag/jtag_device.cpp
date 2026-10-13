@@ -5,17 +5,15 @@
 #include "tt-umd/jtag/jtag_device.hpp"
 
 #include <fmt/format.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include <algorithm>
-#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <utility>
@@ -72,18 +70,14 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     std::filesystem::path actual_path = binary_directory;
 
     if (actual_path.empty()) {
-        char buffer[PATH_MAX + 1];
-        ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
-
-        if (len != -1) {
-            buffer[len] = '\0';
-            std::string path(buffer);
-            std::string::size_type pos = path.find_last_of('/');
-            actual_path = path.substr(0, pos);
+        std::error_code ec;
+        const std::filesystem::path executable_path = std::filesystem::read_symlink("/proc/self/exe", ec);
+        if (!ec) {
+            actual_path = executable_path.parent_path();
         }
     }
 
-    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
+    std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.string().c_str());
     std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type.

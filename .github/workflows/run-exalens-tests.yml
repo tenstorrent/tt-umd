@@ -104,7 +104,10 @@ jobs:
           PYTHONWARNINGS: ignore::ResourceWarning
         shell: bash
         run: |
-          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+          for i in {1..100}; do
+            echo "Run iteration $i/100"
+            python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+          done
 
       - name: Run Python tests for tt-exalens app (NOC1)
         env:

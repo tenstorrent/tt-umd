@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-#include "tt-umd/utils/mutex_interface.hpp"
+#include "tt-umd-utils/mutex_interface.hpp"
 
 // tt-kmd-lib device handle. Forward declared so this public header does not require tt-kmd-lib's
 // include path, which UMD links privately.

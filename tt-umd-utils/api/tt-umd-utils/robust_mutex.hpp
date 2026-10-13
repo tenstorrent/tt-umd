@@ -16,7 +16,7 @@
 #include <string_view>
 #include <utility>
 
-#include "tt-umd/utils/mutex_interface.hpp"
+#include "tt-umd-utils/mutex_interface.hpp"
 
 namespace tt::umd {
 

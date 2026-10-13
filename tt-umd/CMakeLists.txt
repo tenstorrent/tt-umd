@@ -128,7 +128,6 @@ target_sources(
         src/warm_reset_with_recovery.cpp
         src/types/xy_pair.cpp
         src/utils/lock_manager.cpp
-        src/utils/robust_mutex.cpp
         src/utils/kmd_mutex.cpp
         src/topology/topology_discovery.cpp
         src/topology/topology_discovery_blackhole.cpp
@@ -225,7 +224,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/lock_manager.hpp
                 api/tt-umd/utils/kmd_versions.hpp
                 api/tt-umd/driver_atomics.hpp
-                api/tt-umd/utils/mutex_interface.hpp
                 api/tt-umd/pcie/pci_device.hpp
                 api/tt-umd/pcie/silicon_tlb_window.hpp
                 api/tt-umd/pcie/tlb_window.hpp
@@ -235,7 +233,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/warm_reset.hpp
                 api/tt-umd/warm_reset_with_recovery.hpp
                 api/tt-umd/utils/semver.hpp
-                api/tt-umd/utils/robust_mutex.hpp
                 api/tt-umd/utils/kmd_mutex.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp

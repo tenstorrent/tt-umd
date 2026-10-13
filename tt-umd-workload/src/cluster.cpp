@@ -637,6 +637,24 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+    // Without a SoC descriptor, each chip's descriptor is built from the architecture the cluster
+    // descriptor records, which nothing else checks against the image the chips will run on.
+    if (options.chip_type == ChipType::SIMULATION && options.sdesc_path.empty() &&
+        options.simulator_directory.extension() == ".so") {
+        const tt::ARCH image_arch = SimulationChip::get_arch_from_simulator_path(options.simulator_directory);
+        for (const ChipId chip_id : cluster_desc->get_all_chips()) {
+            UMD_ASSERT(
+                cluster_desc->get_arch(chip_id) == image_arch,
+                error::RuntimeError,
+                fmt::format(
+                    "Cluster descriptor gives chip {} architecture {}, but simulator {} is {}.",
+                    chip_id,
+                    arch_to_str(cluster_desc->get_arch(chip_id)),
+                    options.simulator_directory.string(),
+                    arch_to_str(image_arch)));
+        }
+    }
+
     // Simulated devices size their system memory as they are constructed, and discovery constructs
     // them before the descriptor that the auto-detect above reads exists. A discovered simulator is
     // not necessarily all-MMIO -- wh_x2 models a second chip reached over ethernet, which groups

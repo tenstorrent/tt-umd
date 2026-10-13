@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include <fmt/format.h>
+#include <functional>
+#include <fmt/format.h
 
 #include <cstdint>
 #include <sstream>

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <functional>
 #include <fmt/format.h>
 
 #include <cstdint>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <tuple>

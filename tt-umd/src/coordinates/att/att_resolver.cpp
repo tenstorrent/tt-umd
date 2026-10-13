@@ -154,6 +154,21 @@ uint64_t resolve_core(
     return resolver.resolve(descriptor_core, core_type, offset, size);
 }
 
+std::optional<uint64_t> resolve_io_window(
+    const EndpointResolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    const CoreCoord& core,
+    WindowFlags flags,
+    IoOrdering /*ordering*/,
+    uint64_t offset) {
+    // Any ordering travels on the unicast window; multicast, atomic and snoop have none.
+    if ((flags & ~WindowFlags::DirectionMask) != WindowFlags::None ||
+        (flags & WindowFlags::DirectionMask) == WindowFlags::MulticastWrite) {
+        return std::nullopt;
+    }
+    return resolve_core(resolver, soc_descriptor, core, offset, /*size=*/1);
+}
+
 uint64_t resolve_translated(
     const EndpointResolver& resolver,
     const SocDescriptor& soc_descriptor,

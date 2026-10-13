@@ -138,15 +138,17 @@ public:
      * PCIDevice::enumerate_devices(), answering how many chips are present before any device object
      * exists, so a caller can size the cluster from the image itself.
      *
-     * MUST be called before any simulator is brought up in this process. Config space only reports
-     * endpoints while the image is running, so this starts and stops it around the walk, and
-     * starting an already-running image is fatal inside the simulator. The walk itself is
-     * scan_pci_endpoints().
+     * The first call for an image MUST come before any simulator is brought up in this process.
+     * Config space only reports endpoints while the image is running, so that call starts and stops
+     * it around the walk, and starting an already-running image is fatal inside the simulator. The
+     * answer is kept for the rest of the process, so later calls for the same image are free and
+     * safe at any time. The walk itself is scan_pci_endpoints().
      *
      * @param simulator_path Path to the libttsim .so to enumerate.
      * @return Bus/device/function identifiers of the present endpoints, in ascending order.
-     * @throws error::RuntimeError if a simulator is already initialized in this process, rather than
-     *         re-initializing it fatally and stopping it under the communicators using it.
+     * @throws error::RuntimeError if the image has not been probed and a simulator is already
+     *         initialized in this process, rather than re-initializing it fatally and stopping it
+     *         under the communicators using it.
      */
     static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 
@@ -154,13 +156,13 @@ public:
      * Read the PCI device id of a simulator image's first host-visible endpoint: what KMD reads to
      * tell a chip's architecture, available before any device object exists.
      *
-     * Brings the image up and down around the read, so it carries the same ordering requirement as
-     * enumerate_mmio_device_bdfs().
+     * Answered from the same probe as enumerate_mmio_device_bdfs(), so it carries the same ordering
+     * requirement and costs no further bring-up once either has run.
      *
      * @param simulator_path Path to the libttsim .so to probe.
      * @return The endpoint's PCI device id (e.g. TT_WORMHOLE_PCI_DEVICE_ID).
      * @throws error::RuntimeError if the image exposes no endpoint, the endpoint is not a Tenstorrent
-     *         one, or a simulator is already initialized in this process.
+     *         one, or the image has not been probed and a simulator is already initialized.
      */
     static uint16_t read_pci_device_id(const std::filesystem::path &simulator_path);
 
@@ -226,12 +228,16 @@ public:
     bool is_closed() const { return closed_; }
 
 private:
-    using ConfigRead32 = std::function<uint32_t(uint32_t bus_device_function, uint32_t offset)>;
+    // What an image's config space reports, read once per image and process.
+    struct ImageProbe {
+        std::vector<uint32_t> bdfs;
+        // Vendor and device id dword of bdfs.front(); unset when the image exposes no endpoint.
+        uint32_t first_endpoint_id = 0;
+    };
 
-    // Runs probe against the config space of the image at simulator_path, which is brought up just
-    // for its duration.
-    static void probe_config_space(
-        const std::filesystem::path &simulator_path, const std::function<void(const ConfigRead32 &)> &probe);
+    // Brings the image at simulator_path up just long enough to read its config space, the first
+    // time it is asked about.
+    static const ImageProbe &probe_image(const std::filesystem::path &simulator_path);
 
     // Library management.
     void create_simulator_binary();

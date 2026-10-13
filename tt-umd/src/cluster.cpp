@@ -512,6 +512,7 @@ Cluster::Cluster(ClusterOptions options) {
                     const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
                     tt_devices = create_rtl_sim_ip_layout_tt_devices(
                         options.simulator_directory,
+                        layout,
                         chips,
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                         launch);

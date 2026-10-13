@@ -91,11 +91,10 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
 
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
+    const RtlSimIpLayout &layout,
     const std::map<ChipId, uint32_t> &chips,
     int num_host_mem_channels,
     bool launch_simulator) {
-    const RtlSimIpLayout layout(simulator_directory);
-
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
 
     // One socket per device, in chip order.

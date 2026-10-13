@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -15,11 +16,12 @@
 namespace tt::umd::test_utils {
 
 inline std::string GetAbsPath(const std::string& relative_path) {
-#ifdef UMD_TESTS_ROOT_PATH
-    std::filesystem::path umd_test_root(UMD_TESTS_ROOT_PATH);
-#else
+#ifndef UMD_TESTS_ROOT_PATH
 #error "UMD_TESTS_ROOT_PATH not defined. The UMD tests project cannot find cluster and SoC descriptors."
 #endif
+    // Allow overriding at runtime when test binaries are deployed away from the source tree.
+    const char* env_root = std::getenv("UMD_TESTS_ROOT_PATH");
+    std::filesystem::path umd_test_root = env_root ? env_root : UMD_TESTS_ROOT_PATH;
     std::filesystem::path abs_path = umd_test_root / relative_path;
 
     return abs_path.string();

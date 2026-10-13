@@ -285,7 +285,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/error.hpp
                 api/tt-umd/utils/error_detail.hpp
                 api/tt-umd/utils/mmio_timeout_config.hpp
-                api/tt-umd/utils/op_timeout_guard.hpp
                 api/tt-umd/utils/timeouts.hpp
                 api/tt-umd/types/arch.hpp
                 api/tt-umd/types/blackhole_arc.hpp
@@ -452,6 +451,10 @@ target_link_libraries(
 target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
+
+# tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
+target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)
+target_include_directories(tt-umd PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 check_function_exists(
     backtrace

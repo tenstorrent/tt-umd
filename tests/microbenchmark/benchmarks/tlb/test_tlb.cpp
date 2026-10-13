@@ -24,8 +24,6 @@ using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::test::utils;
 
-constexpr ChipId CHIP_ID = 0;
-
 namespace {
 
 const char* ordering_name(IoOrdering ordering) {

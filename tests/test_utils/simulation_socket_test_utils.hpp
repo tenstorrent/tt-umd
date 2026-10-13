@@ -15,7 +15,7 @@
 #include <system_error>
 #include <utility>
 
-namespace test_utils {
+namespace tt::umd::test_utils {
 
 // Leaves a socket file at path that nothing is serving: bound, never listened on, and closed --
 // exactly what a crashed simulation host leaves on disk. connect() to it yields ECONNREFUSED, so it
@@ -66,4 +66,4 @@ private:
     std::filesystem::path directory_;
 };
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

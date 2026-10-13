@@ -116,8 +116,6 @@ protected:
     std::vector<std::string> names_;
 };
 
-}  // namespace
-
 TEST_F(RtlSimSessionTest, AcksOnEverySocket) {
     const std::string address_a = add_socket("ut_a");
     const std::string address_b = add_socket("ut_b");
@@ -223,3 +221,5 @@ TEST_F(RtlSimSessionTest, GlobalAccessRejectsPartialWords) {
     EXPECT_THROW(communicator.global_read_words(0x1000, &word, 2), std::exception);
     EXPECT_THROW(communicator.global_read_words(0x1002, &word, 4), std::exception);
 }
+
+}  // namespace

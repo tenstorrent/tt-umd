@@ -495,9 +495,12 @@ Cluster::Cluster(ClusterOptions options) {
                     std::filesystem::exists(options.simulator_directory / RtlSimIpLayout::FILE_NAME);
                 if (is_rtl_build_with_ip_layout) {
                     const RtlSimIpLayout layout(options.simulator_directory);
-                    std::unordered_set<ChipId> layout_chips;
+                    // The layout's devices in id order; a mock chip stands for the device at its place here.
+                    std::vector<IpDeviceId> layout_devices;
+                    std::unordered_set<ChipId> mock_chips;
                     for (const auto& [device, access_points] : layout.get_devices()) {
-                        layout_chips.insert(static_cast<ChipId>(device));
+                        mock_chips.insert(static_cast<ChipId>(layout_devices.size()));
+                        layout_devices.push_back(device);
                     }
                     const IpDeviceId first_device = layout.get_devices().begin()->first;
                     const tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(
@@ -505,13 +508,13 @@ Cluster::Cluster(ClusterOptions options) {
 
                     // The descriptor picks the devices this process opens (target_devices, else
                     // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
-                    // layout device id, so it maps each chip back to its device.
+                    // original number, so it maps each chip back to its device. Keyed by chip: a
+                    // device id is only unique within one IP.
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                        ClusterDescriptor::create_mock_cluster(layout_chips, arch, false).get(),
-                        options.target_devices);
-                    std::map<ChipId, uint32_t> chips;
+                        ClusterDescriptor::create_mock_cluster(mock_chips, arch, false).get(), options.target_devices);
+                    std::map<ChipId, IpDeviceId> ip_devices;
                     for (const auto& [chip_id, unique_id] : cluster_desc->get_chip_unique_ids()) {
-                        chips[chip_id] = static_cast<uint32_t>(unique_id);
+                        ip_devices.emplace(chip_id, layout_devices.at(unique_id));
                     }
 
                     // Serve only this process's devices. Another process may serve the rest of the
@@ -520,7 +523,8 @@ Cluster::Cluster(ClusterOptions options) {
                     const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
                     tt_devices = create_rtl_sim_ip_layout_tt_devices(
                         options.simulator_directory,
-                        chips,
+                        layout,
+                        ip_devices,
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                         launch);
                     if (options.sdesc_path.empty()) {

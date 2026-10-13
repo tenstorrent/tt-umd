@@ -6,12 +6,15 @@
 
 #include <fmt/format.h>
 
+#include <map>
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
+#include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -36,6 +39,59 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
 std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
     return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "soc_descriptor.yaml")
                                                  : (simulator_path / "soc_descriptor.yaml");
+}
+
+std::string SimulationChip::find_soc_descriptor_path(const std::filesystem::path& simulator_path) {
+    std::string soc_descriptor_path = get_soc_descriptor_path_from_simulator_path(simulator_path);
+    return std::filesystem::exists(soc_descriptor_path) ? soc_descriptor_path : "";
+}
+
+tt::ARCH SimulationChip::get_arch_from_simulator_path(const std::filesystem::path& simulator_path) {
+    const std::string soc_descriptor_path = find_soc_descriptor_path(simulator_path);
+    if (!soc_descriptor_path.empty()) {
+        return SocDescriptor::get_arch_from_soc_descriptor_path(soc_descriptor_path);
+    }
+    UMD_ASSERT(
+        simulator_path.extension() == ".so",
+        error::RuntimeError,
+        fmt::format(
+            "{} not found: an RTL simulator declares its architecture only through its SoC descriptor.",
+            get_soc_descriptor_path_from_simulator_path(simulator_path)));
+
+    // Reading the device id brings the image up, which cannot be done again once it is running, so
+    // the answer is kept for every later caller in this process. Keyed on the canonical path so every
+    // spelling of the same image finds it.
+    static std::mutex cache_mutex;
+    static std::map<std::filesystem::path, tt::ARCH> arch_cache;
+    const std::filesystem::path cache_key = std::filesystem::weakly_canonical(simulator_path);
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    if (auto cached = arch_cache.find(cache_key); cached != arch_cache.end()) {
+        return cached->second;
+    }
+
+    const uint16_t device_id = TTSimCommunicator::read_pci_device_id(simulator_path);
+    tt::ARCH arch = tt::ARCH::Invalid;
+    switch (device_id) {
+        case TT_WORMHOLE_PCI_DEVICE_ID:
+            arch = tt::ARCH::WORMHOLE_B0;
+            break;
+        case TT_BLACKHOLE_PCI_DEVICE_ID:
+            arch = tt::ARCH::BLACKHOLE;
+            break;
+        default:
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Simulator {} reports PCI device id {:#x}, which has no built-in SoC descriptor. Place its "
+                    "soc_descriptor.yaml at {}.",
+                    simulator_path.string(),
+                    device_id,
+                    get_soc_descriptor_path_from_simulator_path(simulator_path)));
+    }
+    log_debug(
+        LogUMD, "Simulator {} reports PCI device id {:#x}: {}", simulator_path.string(), device_id, arch_to_str(arch));
+    arch_cache.emplace(cache_key, arch);
+    return arch;
 }
 
 std::string SimulationChip::get_cluster_descriptor_path_from_simulator_path(

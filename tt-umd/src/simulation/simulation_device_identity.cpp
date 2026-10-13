@@ -62,22 +62,21 @@ SimulationServerDeviceInfo describe_device(
     const SocDescriptor& soc_descriptor,
     SimulationBackendType backend_type,
     const std::filesystem::path& simulator_path) {
-    const std::string& yaml_path = soc_descriptor.get_arch_descriptor().get_device_descriptor_file_path();
-    UMD_ASSERT(
-        !yaml_path.empty(),
-        error::RuntimeError,
-        "Cannot serve device info: the SoC descriptor was not built from a YAML file.");
-
-    std::ifstream in(yaml_path);
-    UMD_ASSERT(in.good(), error::RuntimeError, fmt::format("Failed to open SoC descriptor YAML at {}", yaml_path));
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-
     SimulationServerDeviceInfo info;
+    // A descriptor not built from a YAML file is its architecture's built-in one, which the arch
+    // alone lets the client rebuild.
+    const std::string& yaml_path = soc_descriptor.get_arch_descriptor().get_device_descriptor_file_path();
+    if (!yaml_path.empty()) {
+        std::ifstream in(yaml_path);
+        UMD_ASSERT(in.good(), error::RuntimeError, fmt::format("Failed to open SoC descriptor YAML at {}", yaml_path));
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        info.soc_descriptor_yaml = buffer.str();
+    }
+
     info.status = 0;
     info.arch = static_cast<int32_t>(soc_descriptor.arch);
     info.backend_type = backend_type;
-    info.soc_descriptor_yaml = buffer.str();
     info.noc_translation_enabled = soc_descriptor.noc_translation_enabled;
     info.tensix_harvesting_mask = soc_descriptor.harvesting_masks.tensix_harvesting_mask;
     info.dram_harvesting_mask = soc_descriptor.harvesting_masks.dram_harvesting_mask;
@@ -89,11 +88,6 @@ SimulationServerDeviceInfo describe_device(
 }
 
 SocDescriptor build_soc_descriptor(const SimulationServerDeviceInfo& device_info) {
-    // SocArchDescriptor constructs only from a path, so materialize the served YAML to a unique temp
-    // file, build from it, and let RAII remove it -- including if construction or the arch check
-    // below throws. The descriptor reads the YAML eagerly, so the file isn't needed afterwards.
-    const ScopedTempFile yaml_file = write_temp_file(device_info.soc_descriptor_yaml, ".yaml");
-
     ChipInfo chip_info{};
     chip_info.noc_translation_enabled = device_info.noc_translation_enabled;
     chip_info.harvesting_masks.tensix_harvesting_mask = device_info.tensix_harvesting_mask;
@@ -102,6 +96,14 @@ SocDescriptor build_soc_descriptor(const SimulationServerDeviceInfo& device_info
     chip_info.harvesting_masks.l2cpu_harvesting_mask = device_info.l2cpu_harvesting_mask;
     chip_info.harvesting_masks.pcie_harvesting_mask = device_info.pcie_harvesting_mask;
 
+    if (device_info.soc_descriptor_yaml.empty()) {
+        return SocDescriptor(std::make_shared<SocArchDescriptor>(static_cast<tt::ARCH>(device_info.arch)), chip_info);
+    }
+
+    // SocArchDescriptor constructs only from a path, so materialize the served YAML to a unique temp
+    // file, build from it, and let RAII remove it -- including if construction or the arch check
+    // below throws. The descriptor reads the YAML eagerly, so the file isn't needed afterwards.
+    const ScopedTempFile yaml_file = write_temp_file(device_info.soc_descriptor_yaml, ".yaml");
     SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(yaml_file.path.string()), chip_info);
 
     // The arch is transported explicitly (not just implied by the YAML) so a mismatch between the

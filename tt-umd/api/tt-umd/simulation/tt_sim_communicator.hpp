@@ -151,6 +151,20 @@ public:
     static std::vector<uint32_t> enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path);
 
     /**
+     * Read the PCI device id of a simulator image's first host-visible endpoint: what KMD reads to
+     * tell a chip's architecture, available before any device object exists.
+     *
+     * Brings the image up and down around the read, so it carries the same ordering requirement as
+     * enumerate_mmio_device_bdfs().
+     *
+     * @param simulator_path Path to the libttsim .so to probe.
+     * @return The endpoint's PCI device id (e.g. TT_WORMHOLE_PCI_DEVICE_ID).
+     * @throws error::RuntimeError if the image exposes no endpoint, the endpoint is not a Tenstorrent
+     *         one, or a simulator is already initialized in this process.
+     */
+    static uint16_t read_pci_device_id(const std::filesystem::path &simulator_path);
+
+    /**
      * Walk PCI config space for present endpoints: function 0 of every device slot, 32 slots per bus,
      * a slot counting as present unless its first dword reads all-ones.
      *
@@ -212,6 +226,13 @@ public:
     bool is_closed() const { return closed_; }
 
 private:
+    using ConfigRead32 = std::function<uint32_t(uint32_t bus_device_function, uint32_t offset)>;
+
+    // Runs probe against the config space of the image at simulator_path, which is brought up just
+    // for its duration.
+    static void probe_config_space(
+        const std::filesystem::path &simulator_path, const std::function<void(const ConfigRead32 &)> &probe);
+
     // Library management.
     void create_simulator_binary();
     off_t resize_simulator_binary(int src_fd);

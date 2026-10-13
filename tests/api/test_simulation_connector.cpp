@@ -205,7 +205,6 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
     EXPECT_EQ(info.arch, static_cast<int32_t>(soc.arch));
     const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
     EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
-    EXPECT_FALSE(info.soc_descriptor_yaml.empty());
     EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
     EXPECT_EQ(info.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
     EXPECT_EQ(info.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);

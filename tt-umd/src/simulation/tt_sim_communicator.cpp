@@ -446,7 +446,8 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
-std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+void TTSimCommunicator::probe_config_space(
+    const std::filesystem::path &simulator_path, const std::function<void(const ConfigRead32 &)> &probe) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
 
     // This starts and stops an image of its own, so a simulator already running in this process
@@ -455,8 +456,8 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
     UMD_ASSERT(
         !s_sim_initialized_,
         error::RuntimeError,
-        "enumerate_mmio_device_bdfs() must run before any simulator is brought up in this process: a "
-        "simulator is already initialized, and enumerating would re-initialize and then stop it.");
+        "Probing a simulator image must happen before any simulator is brought up in this process: a "
+        "simulator is already initialized, and probing would re-initialize and then stop it.");
 
     void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
     if (handle == nullptr) {
@@ -472,16 +473,16 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Simulator library {} does not export the symbols needed to enumerate it.", simulator_path.string()));
+                "Simulator library {} does not export the symbols needed to probe it.", simulator_path.string()));
     }
 
-    // Config space only reports endpoints while the image is running. Starting an image that is
-    // already running is fatal inside the simulator, which is why this must run before any
-    // simulator is brought up -- see the header.
+    // Config space only answers while the image is running. Starting an image that is already
+    // running is fatal inside the simulator, which is why this must run before any simulator is
+    // brought up.
     sim_init();
 
-    // Stopped even if the walk below throws: config_read32 is documented to throw ConfigurationError,
-    // and a left-running image makes the next enumeration or device open hit that fatal path.
+    // Stopped even if the probe throws: config_read32 is documented to throw ConfigurationError,
+    // and a left-running image makes the next probe or device open hit that fatal path.
     // Declared after handle_guard so the image stops before its library is unloaded.
     struct SimRunGuard {
         void (*exit_fn)();
@@ -489,7 +490,37 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         ~SimRunGuard() { exit_fn(); }
     } sim_run_guard{sim_exit};
 
-    return scan_pci_endpoints(config_read32);
+    probe(config_read32);
+}
+
+std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+    std::vector<uint32_t> bdfs;
+    probe_config_space(
+        simulator_path, [&](const ConfigRead32 &config_read32) { bdfs = scan_pci_endpoints(config_read32); });
+    return bdfs;
+}
+
+uint16_t TTSimCommunicator::read_pci_device_id(const std::filesystem::path &simulator_path) {
+    uint32_t vendor_and_device_id = 0;
+    probe_config_space(simulator_path, [&](const ConfigRead32 &config_read32) {
+        const std::vector<uint32_t> bdfs = scan_pci_endpoints(config_read32);
+        UMD_ASSERT(
+            !bdfs.empty(),
+            error::RuntimeError,
+            fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
+        vendor_and_device_id = config_read32(bdfs.front(), 0);
+    });
+    constexpr uint16_t TENSTORRENT_VENDOR_ID = 0x1e52;
+    const uint16_t vendor_id = static_cast<uint16_t>(vendor_and_device_id & 0xFFFF);
+    UMD_ASSERT(
+        vendor_id == TENSTORRENT_VENDOR_ID,
+        error::RuntimeError,
+        fmt::format(
+            "Simulator {} reports PCI vendor id {:#x} rather than Tenstorrent's {:#x}.",
+            simulator_path.string(),
+            vendor_id,
+            TENSTORRENT_VENDOR_ID));
+    return static_cast<uint16_t>(vendor_and_device_id >> 16);
 }
 
 std::vector<uint32_t> TTSimCommunicator::scan_pci_endpoints(

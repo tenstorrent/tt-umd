@@ -789,17 +789,14 @@ SemVer PCIDevice::read_kernel_version() {
     return SemVer(uts.release);
 }
 
-// Best-effort list of the other processes holding the device open, for the TLB exhaustion
-// error message. The KMD writes one pid per open fd on the device, not per process: the calling
-// process itself always appears (it obviously holds the device open while allocating a TLB), a
-// process with several fds appears several times, and a process in another PID namespace (e.g.
-// another container) shows up as 0 because pid_vnr() cannot see it from our namespace.
+// Best-effort list of the other processes holding the device open, for the TLB exhaustion error message.
+// The KMD lists one pid per open fd, so it includes this process and repeats processes holding several fds.
+// Processes in another PID namespace (e.g. another container) show up as 0.
 static std::string describe_other_device_holders(int pci_device_num) {
     const std::string pids_path = fmt::format("/proc/driver/tenstorrent/{}/pids", pci_device_num);
     std::ifstream pids_file(pids_path);
     if (!pids_file.is_open()) {
-        return fmt::format(
-            "Could not read {} to list processes holding the device (requires KMD 2.5.0+).", pids_path);
+        return fmt::format("Could not read {} to list processes holding the device (requires KMD 2.5.0+).", pids_path);
     }
     std::set<pid_t> other_pids;
     pid_t pid;
@@ -823,7 +820,7 @@ static std::string describe_other_device_holders(int pci_device_num) {
         std::ifstream comm_file(fmt::format("/proc/{}/comm", other_pid));
         std::string comm;
         std::getline(comm_file, comm);
-        description += fmt::format("\n    pid {} ({})", other_pid, comm.empty() ? "exited" : comm);
+        description += fmt::format("\n    pid {} ({})", other_pid, comm.empty() ? "name unavailable" : comm);
     }
     return description;
 }

@@ -38,6 +38,14 @@ class SocDescriptor;
 class SimulationChip : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
+    // The simulator's soc_descriptor.yaml when it ships one, else empty. A libttsim image of Wormhole or
+    // Blackhole needs none: it is then described by its architecture's built-in SoC descriptor.
+    static std::string find_soc_descriptor_path(const std::filesystem::path& simulator_path);
+    // The simulator's architecture: declared by its soc_descriptor.yaml when it ships one, else read
+    // from the PCI device id its libttsim image reports, the way KMD tells silicon apart. The first
+    // call for an image without a descriptor has to come before any simulator is brought up in this
+    // process.
+    static tt::ARCH get_arch_from_simulator_path(const std::filesystem::path& simulator_path);
     // An optional cluster_descriptor.yaml beside the simulator describes a (possibly multichip) topology.
     // Returns the path where it would live; the file is not required to exist.
     static std::string get_cluster_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);

@@ -71,8 +71,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
-    auto soc_desc_path = get_simulator_soc_descriptor_path(simulator_directory);
-    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    const tt::ARCH arch = get_simulator_arch(simulator_directory);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
         // Blackhole SocDescriptor construction rejects an empty eth_harvesting_mask, and this runs
@@ -82,7 +81,10 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         // descriptor built here disagree with the one discovery builds from telemetry.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
     }
-    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
+    const std::string soc_desc_path = find_simulator_soc_descriptor_path(simulator_directory);
+    auto soc_arch_descriptor = soc_desc_path.empty() ? std::make_shared<SocArchDescriptor>(arch)
+                                                     : std::make_shared<SocArchDescriptor>(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory,
         soc_descriptor,

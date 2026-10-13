@@ -251,7 +251,9 @@ jobs:
         # Build presets are looked up in the current directory, so run from the UMD checkout.
         working-directory: tt-metal/tt_metal/third_party/umd
         run: |
-          cmake --preset simulation-tools-python
+          # Unity build on to match build-device: one compilation mode across CI, so a
+          # batching-only failure surfaces here on the PR rather than in the merge queue.
+          cmake --preset simulation-tools-python -DTT_UMD_ENABLE_UNITY_BUILD=ON
           # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
           # builds the tools with simulation OFF, which excludes it).
           cmake --build --preset simulation-tools-python \
@@ -651,7 +653,9 @@ jobs:
 
       - name: Build UMD api_tests with simulation support
         run: |
-          cmake --preset simulation
+          # Unity build on to match build-device: one compilation mode across CI, so a
+          # batching-only failure surfaces here on the PR rather than in the merge queue.
+          cmake --preset simulation -DTT_UMD_ENABLE_UNITY_BUILD=ON
           cmake --build --preset simulation --target api_tests
 
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole

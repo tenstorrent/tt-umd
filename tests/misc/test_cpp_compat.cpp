@@ -11,15 +11,15 @@
 
 using namespace tt::umd;
 
-namespace {
+// Named rather than anonymous so these helpers don't collide with same-named ones in other tests
+// when a unity build compiles them in one translation unit.
+namespace cpp_compat_test {
 
 enum class Rgb : uint8_t { RED, GREEN, BLUE };
 
 enum class Defaulted { A, B };
 
 enum Unscoped { X, Y };
-
-}  // namespace
 
 // to_underlying yields the value in the enum's underlying type, for scoped and unscoped enums alike.
 static_assert(to_underlying(Rgb::BLUE) == 2);
@@ -35,3 +35,5 @@ TEST(ToUnderlying, ComposesABitMask) {
     mask |= 1u << to_underlying(Rgb::BLUE);
     EXPECT_EQ(mask, 0b101u);
 }
+
+}  // namespace cpp_compat_test

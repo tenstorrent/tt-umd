@@ -35,7 +35,7 @@
 
 using namespace tt::umd;
 
-constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+constexpr std::uint32_t CLUSTER_WH_DRAM_BARRIER_BASE = 0;
 static const std::vector<tt_xy_pair> ETH_CORES_TRANSLATION_ON = {
     {{25, 16},
      {18, 16},
@@ -70,7 +70,7 @@ static const std::vector<uint32_t> REDUCED_BROADCAST_SIZES = {1, 128, 256, 16384
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
-        {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+        {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, CLUSTER_WH_DRAM_BARRIER_BASE});
 }
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {

@@ -16,7 +16,9 @@
 using namespace tt::umd;
 using ::testing::HasSubstr;
 
-namespace {
+// Named rather than anonymous so these helpers don't collide with same-named ones in other tests
+// when a unity build compiles them in one translation unit.
+namespace rtl_sim_ip_layout_test {
 
 constexpr AccessPointId AP0 = static_cast<AccessPointId>(0);
 constexpr AccessPointId AP1 = static_cast<AccessPointId>(1);
@@ -41,8 +43,6 @@ std::string error_of(const std::string& name) {
     }
     return "";
 }
-
-}  // namespace
 
 TEST(RtlSimIpLayout, OneDeviceTwoAccessPoints) {
     const RtlSimIpLayout layout(layout_dir("one_device_two_access_points"));
@@ -107,3 +107,5 @@ TEST(RtlSimIpLayout, UnownedAccessPoint) {
 TEST(RtlSimIpLayout, AccessPointListedTwiceByOneDevice) {
     EXPECT_THAT(error_of("access_point_listed_twice"), HasSubstr("device 0 lists access point 0 twice."));
 }
+
+}  // namespace rtl_sim_ip_layout_test

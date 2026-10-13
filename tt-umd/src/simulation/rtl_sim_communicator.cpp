@@ -80,7 +80,9 @@ RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_di
     channel_ = owned_session_->get_channel(0);
 }
 
-RtlSimCommunicator::RtlSimCommunicator(SimulationHost &host) : channel_(std::make_shared<RtlSimChannel>(host)) {}
+RtlSimCommunicator::RtlSimCommunicator(SimulationHost &host) : channel_(std::make_shared<RtlSimChannel>(host)) {
+    channel_->start();
+}
 
 RtlSimCommunicator::RtlSimCommunicator(const RtlSimSocket &socket) : socket_(socket), channel_(socket.get_channel()) {}
 

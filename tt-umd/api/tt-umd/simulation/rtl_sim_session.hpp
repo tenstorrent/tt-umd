@@ -21,24 +21,28 @@ class RtlSimChannel;
 /**
  * One run of an RTL simulator build: launches <simulator_directory>/run.sh once and serves one
  * socket per name, each the host side of one access point. See SimulationHost::init() for the env
- * variables each name uses; an empty name is the single unnamed socket. Names must be distinct. With
- * launch_simulator false, it only serves its sockets and another process launches run.sh (the run
- * then spans several host processes). RtlSimCommunicator speaks the device protocol over one of
- * these sockets; a device is handed its socket as an RtlSimSocket.
+ * variables each name uses; an empty name is the single unnamed socket. The sockets are the ones
+ * named at construction, which must be distinct, and the ones added before start(), which serves
+ * them all. With launch_simulator false, it only serves its sockets and another process launches
+ * run.sh (the run then spans several host processes). RtlSimCommunicator speaks the device protocol
+ * over one of these sockets; a device is handed its socket as an RtlSimSocket.
  */
 class RtlSimSession {
 public:
     RtlSimSession(
         const std::filesystem::path& simulator_directory,
-        const std::vector<std::string>& sockets,
+        const std::vector<std::string>& sockets = {},
         bool launch_simulator = true);
 
     /**
      * Create every listener, launch run.sh if launching, then wait for the ack on each socket in
      * order. Once only.
-     * Throws if a socket does not ack within @p ack_timeout.
+     * Throws if there is no socket, or a socket does not ack within @p ack_timeout.
      */
     void start(std::chrono::milliseconds ack_timeout = timeout::RTL_SIM_ACK_TIMEOUT);
+
+    /** The socket named @p name, added if the session doesn't serve it yet. Before start() only. */
+    size_t add_socket(const std::string& name);
 
     size_t get_num_sockets() const;
 
@@ -47,7 +51,8 @@ public:
 
     /**
      * Socket @p socket's channel, shared by every communicator on the socket so that their requests
-     * take turns. It sends and receives only once the session has started.
+     * take turns. Communicators may attach to it before the session starts; it sends and receives
+     * only once the session has started.
      */
     std::shared_ptr<RtlSimChannel> get_channel(size_t socket);
 
@@ -62,12 +67,15 @@ private:
 };
 
 /**
- * One socket of a started RtlSimSession: the access point a device talks over. It keeps the session
- * alive, so the run outlives every device using one of its sockets.
+ * One socket of an RtlSimSession: the access point a device talks over. It keeps the session alive,
+ * so the run outlives every device using one of its sockets.
  */
 class RtlSimSocket {
 public:
     RtlSimSocket(std::shared_ptr<RtlSimSession> session, size_t socket);
+
+    /** Socket @p name of @p session. @see RtlSimSession::add_socket() */
+    RtlSimSocket(const std::shared_ptr<RtlSimSession>& session, const std::string& name);
 
     SimulationHost& get_host() const;
 

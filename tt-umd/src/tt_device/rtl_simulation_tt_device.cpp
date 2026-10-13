@@ -70,6 +70,16 @@ static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
 namespace {
+
+// The access point a device talks over: its first. The others are known but not used yet.
+const RtlSimAccessPoint& io_access_point(const IpLayoutDevice& layout_device) {
+    UMD_ASSERT(
+        !layout_device.access_points.empty(),
+        error::RuntimeError,
+        fmt::format("Device {} has no access point to talk over.", static_cast<uint32_t>(layout_device.device)));
+    return layout_device.access_points.front();
+}
+
 void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
     if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
         UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
@@ -118,6 +128,20 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         num_host_mem_channels,
         std::nullopt,
         std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const std::shared_ptr<RtlSimSession>& session,
+    const IpLayoutDevice& layout_device,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        RtlSimSocket(session, io_access_point(layout_device).host_access),
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const RtlSimSocket& socket,

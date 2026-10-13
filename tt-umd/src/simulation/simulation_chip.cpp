@@ -6,7 +6,6 @@
 
 #include <fmt/format.h>
 
-#include <map>
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
@@ -58,17 +57,6 @@ tt::ARCH SimulationChip::get_arch_from_simulator_path(const std::filesystem::pat
             "{} not found: an RTL simulator declares its architecture only through its SoC descriptor.",
             get_soc_descriptor_path_from_simulator_path(simulator_path)));
 
-    // Reading the device id brings the image up, which cannot be done again once it is running, so
-    // the answer is kept for every later caller in this process. Keyed on the canonical path so every
-    // spelling of the same image finds it.
-    static std::mutex cache_mutex;
-    static std::map<std::filesystem::path, tt::ARCH> arch_cache;
-    const std::filesystem::path cache_key = std::filesystem::weakly_canonical(simulator_path);
-    std::lock_guard<std::mutex> lock(cache_mutex);
-    if (auto cached = arch_cache.find(cache_key); cached != arch_cache.end()) {
-        return cached->second;
-    }
-
     const uint16_t device_id = TTSimCommunicator::read_pci_device_id(simulator_path);
     tt::ARCH arch = tt::ARCH::Invalid;
     switch (device_id) {
@@ -90,7 +78,6 @@ tt::ARCH SimulationChip::get_arch_from_simulator_path(const std::filesystem::pat
     }
     log_debug(
         LogUMD, "Simulator {} reports PCI device id {:#x}: {}", simulator_path.string(), device_id, arch_to_str(arch));
-    arch_cache.emplace(cache_key, arch);
     return arch;
 }
 

@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -446,9 +447,17 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
-void TTSimCommunicator::probe_config_space(
-    const std::filesystem::path &simulator_path, const std::function<void(const ConfigRead32 &)> &probe) {
+const TTSimCommunicator::ImageProbe &TTSimCommunicator::probe_image(const std::filesystem::path &simulator_path) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+
+    // An image's endpoints are fixed when it is built, so one bring-up answers every later question
+    // about it -- including those asked once a simulator is running, when probing is no longer
+    // possible. Keyed on the canonical path so every spelling of the same image finds it.
+    static std::map<std::filesystem::path, ImageProbe> probes;
+    const std::filesystem::path key = std::filesystem::weakly_canonical(simulator_path);
+    if (auto cached = probes.find(key); cached != probes.end()) {
+        return cached->second;
+    }
 
     // This starts and stops an image of its own, so a simulator already running in this process
     // would be re-initialized -- fatal inside the simulator -- and then torn down underneath the
@@ -477,11 +486,11 @@ void TTSimCommunicator::probe_config_space(
     }
 
     // Config space only answers while the image is running. Starting an image that is already
-    // running is fatal inside the simulator, which is why this must run before any simulator is
-    // brought up.
+    // running is fatal inside the simulator, which is why the first probe of an image must run
+    // before any simulator is brought up.
     sim_init();
 
-    // Stopped even if the probe throws: config_read32 is documented to throw ConfigurationError,
+    // Stopped even if the walk throws: config_read32 is documented to throw ConfigurationError,
     // and a left-running image makes the next probe or device open hit that fatal path.
     // Declared after handle_guard so the image stops before its library is unloaded.
     struct SimRunGuard {
@@ -490,26 +499,25 @@ void TTSimCommunicator::probe_config_space(
         ~SimRunGuard() { exit_fn(); }
     } sim_run_guard{sim_exit};
 
-    probe(config_read32);
+    ImageProbe probe;
+    probe.bdfs = scan_pci_endpoints(config_read32);
+    if (!probe.bdfs.empty()) {
+        probe.first_endpoint_id = config_read32(probe.bdfs.front(), 0);
+    }
+    return probes.emplace(key, std::move(probe)).first->second;
 }
 
 std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
-    std::vector<uint32_t> bdfs;
-    probe_config_space(
-        simulator_path, [&](const ConfigRead32 &config_read32) { bdfs = scan_pci_endpoints(config_read32); });
-    return bdfs;
+    return probe_image(simulator_path).bdfs;
 }
 
 uint16_t TTSimCommunicator::read_pci_device_id(const std::filesystem::path &simulator_path) {
-    uint32_t vendor_and_device_id = 0;
-    probe_config_space(simulator_path, [&](const ConfigRead32 &config_read32) {
-        const std::vector<uint32_t> bdfs = scan_pci_endpoints(config_read32);
-        UMD_ASSERT(
-            !bdfs.empty(),
-            error::RuntimeError,
-            fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
-        vendor_and_device_id = config_read32(bdfs.front(), 0);
-    });
+    const ImageProbe &probe = probe_image(simulator_path);
+    UMD_ASSERT(
+        !probe.bdfs.empty(),
+        error::RuntimeError,
+        fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
+    const uint32_t vendor_and_device_id = probe.first_endpoint_id;
     constexpr uint16_t TENSTORRENT_VENDOR_ID = 0x1e52;
     const uint16_t vendor_id = static_cast<uint16_t>(vendor_and_device_id & 0xFFFF);
     UMD_ASSERT(

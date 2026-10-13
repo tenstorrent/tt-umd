@@ -22,10 +22,12 @@ dram:
   [[0-0, 1-0]]
 
 # Dram view parameters are used by tt-metal and are not recognized by UMD.
-# One view for the single Mimir channel; worker/eth endpoints name location 0 for both NOCs.
-# Mimir has no Ethernet, but eth_endpoint still has to name a location: Metal reads it per NOC
-# when it builds the addressable-DRAM list, and the repeats collapse to that one location.
-# programmable: true marks the channel as a Mimir CCE (Metal DRAM core). Omitted defaults to false.
+# The emulator backs only 1 GiB per Mimir and cannot reset that page table, so
+# each half is 512 MiB (128 MiB on each of its 4 channels). The second half
+# starts 4 GiB after the first, so the two halves do not share backing pages.
+# Mimir has no Ethernet, but eth_endpoint still has to name a location: Metal
+# reads it per NOC when it builds the addressable-DRAM list.
+# programmable: true marks that location's CCE as a Metal DRAM core.
 dram_views:
   [
     {
@@ -34,11 +36,18 @@ dram_views:
       worker_endpoint: [0, 0],
       address_offset: 0,
       programmable: true
+    },
+    {
+      channel: 0,
+      eth_endpoint: [1, 1],
+      worker_endpoint: [1, 1],
+      address_offset: 4294967296,
+      programmable: true
     }
   ]
 
 dram_view_size:
-  8589934592
+  536870912
 
 eth:
   []
@@ -58,6 +67,7 @@ smc:
 worker_l1_size:
   0
 
+# UMD per-Mimir GDDR stride. Stays 8 GiB so the 4 GiB half-start fits in the window.
 dram_bank_size:
   8589934592
 

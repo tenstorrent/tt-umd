@@ -1,15 +1,16 @@
 # Two Mimir chiplets in one package, exposed as one UMD device.
 #
-# Same core map as mimir_2x_package.yaml: each Mimir is one UMD DRAM channel, and
-# that channel's two coordinates are its two locations. Metal sees each
-# coordinate as its own DRAM view of 4 GiB, half of the 8 GiB channel.
-# Location 0 is the first 4 GiB. Location 1 is the next 4 GiB of the same
-# channel, selected by address_offset.
+# Each Mimir is one UMD DRAM channel, and that channel's two coordinates are
+# its two locations. Metal sees each coordinate as its own DRAM view.
+#
+# The emulator backs only 1 GiB per Mimir and cannot reset that page table, so
+# each half is 512 MiB (128 MiB on each of its 4 channels). Location 0 starts
+# at offset 0. Location 1 starts 4 GiB later, selected by address_offset, so
+# the two halves do not share backing pages.
 #
 # dram_bank_size stays 8 GiB. UMD uses it as the per-Mimir GDDR stride, so the
-# second Mimir still begins 8 GiB after the first. A 4 GiB bank would make that
-# stride overlap the first Mimir's second tile, and the 4 GiB offset would no
-# longer fit in the window.
+# second Mimir still begins 8 GiB after the first. The 4 GiB half-start still
+# fits in that window.
 #
 # Coordinates are package-local UMD handles, not hardware NOC endpoints. The
 # two SMC handles are M0 then M1.
@@ -64,7 +65,7 @@ dram_views:
   ]
 
 dram_view_size:
-  4294967296
+  536870912
 
 eth:
   []

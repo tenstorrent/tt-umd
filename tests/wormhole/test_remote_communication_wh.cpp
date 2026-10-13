@@ -103,6 +103,70 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     }
 }
 
+namespace {
+
+// Exposes the protected gateway rotation that UMD performs when an ethernet core's command queue is full.
+class RotatableRemoteCommunication : public RemoteCommunicationLegacyFirmware {
+public:
+    using RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware;
+
+    void rotate_active_eth_core() { update_active_eth_core_idx(); }
+};
+
+}  // namespace
+
+// Replacing the gateway set after UMD has rotated off index 0 must not leave a stale index behind.
+// Shrinking to a single core used to make get_remote_transfer_ethernet_core() throw std::out_of_range.
+TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
+    const uint64_t address = 0x1000;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips found. Skipping the test.";
+    }
+
+    ChipId mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
+    LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    const std::set<uint32_t> active_channels = cluster_desc->get_active_eth_channels(mmio_chip_id);
+    if (active_channels.size() < 2) {
+        GTEST_SKIP() << "Need at least 2 active ethernet channels on MMIO chip " << mmio_chip_id << ".";
+    }
+    const std::unordered_set<tt_xy_pair> all_cores =
+        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(active_channels, CoordSystem::TRANSLATED);
+    const std::unordered_set<tt_xy_pair> single_core = local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+        {*active_channels.begin()}, CoordSystem::TRANSLATED);
+
+    ChipId remote_chip_id = *cluster->get_target_remote_device_ids().begin();
+    EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
+    RotatableRemoteCommunication remote_comm(
+        local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+
+    remote_comm.set_remote_transfer_ethernet_cores(all_cores);
+    for (size_t i = 0; i + 1 < all_cores.size(); i++) {
+        remote_comm.rotate_active_eth_core();
+    }
+
+    remote_comm.set_remote_transfer_ethernet_cores(single_core);
+    tt_xy_pair active_core;
+    ASSERT_NO_THROW(active_core = remote_comm.get_remote_transfer_ethernet_core());
+    EXPECT_EQ(active_core, *single_core.begin());
+
+    // The pinned gateway must still carry traffic.
+    const CoreCoord core = cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX).front();
+    const CoreCoord translated_core =
+        cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
+    std::vector<uint32_t> data_to_write = {0xdead, 0xbeef, 1, 2, 3, 4, 5, 6};
+    std::vector<uint32_t> data_read(data_to_write.size(), 0);
+    remote_comm.write_to_non_mmio(
+        translated_core.to_pair(), data_to_write.data(), address, data_to_write.size() * sizeof(uint32_t));
+    remote_comm.wait_for_non_mmio_flush();
+    remote_comm.read_non_mmio(
+        translated_core.to_pair(), data_read.data(), address, data_read.size() * sizeof(uint32_t));
+    EXPECT_EQ(data_to_write, data_read);
+}
+
 // Test large transfers (> 1024 bytes) to remote chips without sysmem
 // This test verifies that chunking works correctly when sysmem_manager is nullptr.
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {

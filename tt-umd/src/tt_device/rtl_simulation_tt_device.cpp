@@ -30,6 +30,7 @@
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
@@ -53,16 +54,42 @@ namespace {
 // carries an ATT, and the Quasar models that do not would be sent addresses they cannot route.
 constexpr const char* NOC_ATT_MAP_ENV_VAR = "TT_UMD_NOC_ATT";
 
-// The maps this build carries, by the name TT_UMD_NOC_ATT gives them.
+// The maps this build carries, by the name TT_UMD_NOC_ATT gives them. A map has one table for every
+// access point, or one per access point of the build's ip_layout.yaml, in its order, when each of a
+// device's access points has its own flat addresses.
 struct NamedAttMap {
     const char* name;
-    const att::MapData* map;
+    att::Table<const att::MapData*> tables;
 };
 
+constexpr const att::MapData* GRENDEL_QSR1_TABLES[] = {&att::GRENDEL_QSR1_MAP};
+constexpr const att::MapData* HORIZON_2X3_TABLES[] = {&att::HORIZON_2X3_MAP};
+constexpr const att::MapData* HORIZON_X2_TABLES[] = {
+    &att::HORIZON_X2_DEV0_NOC2AXI0_MAP,
+    &att::HORIZON_X2_DEV0_NOC2AXI1_MAP,
+    &att::HORIZON_X2_DEV1_NOC2AXI0_MAP,
+    &att::HORIZON_X2_DEV1_NOC2AXI1_MAP};
+
 constexpr NamedAttMap ATT_MAPS[] = {
-    {"grendel_qsr1", &att::GRENDEL_QSR1_MAP},
-    {"horizon_2x3", &att::HORIZON_2X3_MAP},
+    {"grendel_qsr1", GRENDEL_QSR1_TABLES},
+    {"horizon_2x3", HORIZON_2X3_TABLES},
+    {"horizon_x2", HORIZON_X2_TABLES},
 };
+
+// Access point @p access_point's table in @p map.
+const att::MapData& table_for(const NamedAttMap& map, AccessPointId access_point) {
+    const uint32_t index = map.tables.size() == 1 ? 0 : static_cast<uint32_t>(access_point);
+    UMD_ASSERT(
+        index < map.tables.size(),
+        error::RuntimeError,
+        fmt::format(
+            "{} names ATT map '{}', which has tables for {} access points; this is access point {}.",
+            NOC_ATT_MAP_ENV_VAR,
+            map.name,
+            map.tables.size(),
+            static_cast<uint32_t>(access_point)));
+    return *map.tables[index];
+}
 
 }  // namespace
 
@@ -227,7 +254,17 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
             *map_name,
             fmt::join(names, ", ")));
 
-    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(*known->map);
+    // Outside an ip_layout.yaml a device has one implicit access point, the map's first.
+    if (!layout_device_.has_value()) {
+        noc_address_resolver_ = std::make_unique<att::EndpointResolver>(table_for(*known, AccessPointId{0}));
+        global_address_mode_ = true;
+        return;
+    }
+    for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
+        access_point_resolvers_.emplace(access_point.id, table_for(*known, access_point.id));
+    }
+    noc_address_resolver_ =
+        std::make_unique<att::EndpointResolver>(table_for(*known, io_access_point(*layout_device_).id));
     global_address_mode_ = true;
 }
 
@@ -248,12 +285,12 @@ std::optional<uint64_t> RtlSimulationTTDevice::get_flat_address(
         std::find(access_points.begin(), access_points.end(), access_point) != access_points.end(),
         error::RuntimeError,
         fmt::format("Access point {} is not one of this device's.", static_cast<uint32_t>(access_point)));
-    // Without a map (TT_UMD_NOC_ATT) the device has no flat addresses. A device has one map today,
-    // so every one of its access points gives the same address.
-    if (noc_address_resolver_ == nullptr) {
+    // Without a map (TT_UMD_NOC_ATT) the device has no flat addresses.
+    const auto resolver = access_point_resolvers_.find(access_point);
+    if (resolver == access_point_resolvers_.end()) {
         return std::nullopt;
     }
-    return att::resolve_io_window(*noc_address_resolver_, get_soc_descriptor(), core, flags, ordering, offset);
+    return att::resolve_io_window(resolver->second, get_soc_descriptor(), core, flags, ordering, offset);
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {

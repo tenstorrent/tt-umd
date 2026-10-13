@@ -90,6 +90,15 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
+    std::vector<AccessPointId> get_access_points() const override;
+
+    std::optional<uint64_t> get_flat_address(
+        AccessPointId access_point,
+        CoreCoord core,
+        WindowFlags flags,
+        IoOrdering ordering,
+        uint64_t offset = 0) const override;
+
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 
@@ -118,9 +127,10 @@ private:
     // arguments before construction.
     RtlSimulationTTDevice(
         const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
-    // Host mode over @p socket, one of an RtlSimSession's.
+    // Host mode over @p socket, one of an RtlSimSession's, as device @p layout_device of its layout.
     RtlSimulationTTDevice(
         const RtlSimSocket& socket,
+        const IpLayoutDevice& layout_device,
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
@@ -132,6 +142,7 @@ private:
         ChipId chip_id,
         int num_host_mem_channels,
         std::optional<RtlSimSocket> socket,
+        std::optional<IpLayoutDevice> layout_device,
         std::unique_ptr<RtlSimCommunicator> communicator);
 
     // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
@@ -149,5 +160,8 @@ private:
     std::optional<RtlSimSocket> session_socket_;
 
     std::unique_ptr<RtlSimCommunicator> communicator_;
+
+    // This device's place in the build's ip_layout.yaml, when it has one.
+    std::optional<IpLayoutDevice> layout_device_;
 };
 }  // namespace tt::umd

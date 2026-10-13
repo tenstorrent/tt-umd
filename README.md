@@ -20,6 +20,10 @@ sudo apt install -y libhwloc-dev cmake ninja-build
 
 UMD currently supports gcc-11 and newer gcc versions, and clang-13 and newer clang versions.
 
+Other dependencies are fetched with [CPM](https://github.com/cpm-cmake/CPM.cmake). To use system libraries instead:
+* `-DCPM_USE_LOCAL_PACKAGES=ON`: prefer system libraries, fetch the missing ones.
+* `-DCPM_LOCAL_PACKAGES_ONLY=ON`: system libraries only; Asio must be given with `-Dumd_asio_SOURCE_DIR=<path>`.
+
 ## IOMMU and Hugepage requirements
 To determine whether your system requires hugepage configuration, run the provided script:
 

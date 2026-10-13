@@ -30,6 +30,8 @@ public:
 
     ~SimulationTTDeviceModel() override;
 
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+
     DeviceProtocol *get_device_protocol() override;
 
     // Serving a PcieInterface obliges this: TTDevice runs its bus-hang check during startup

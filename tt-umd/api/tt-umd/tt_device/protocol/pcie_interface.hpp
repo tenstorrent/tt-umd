@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/power_state.hpp"
@@ -43,6 +44,12 @@ public:
      * @return int NUMA node ID, or -1 if the system is non-NUMA.
      */
     virtual int get_numa_node() const = 0;
+
+    /**
+     * @brief Returns the number of lanes the PCIe link trained to.
+     * @return std::optional<uint32_t> Lane count, or std::nullopt if it can't be determined.
+     */
+    virtual std::optional<uint32_t> get_lane_count() const = 0;
 
     /**
      * @brief Requests a hardware power domain state change through the kernel driver.

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
@@ -67,6 +68,7 @@ public:
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
+    std::optional<uint32_t> get_lane_count() const override;
     void set_power_state(PowerState state) override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
     void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;

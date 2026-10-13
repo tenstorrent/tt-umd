@@ -47,10 +47,10 @@ protected:
 // Which interface is present is how the window picks its route, so it cannot be built with an
 // ambiguous set. Giving none leaves no route at all; giving two makes the null checks meaningless.
 TEST_F(WormholeArcApbWindowTest, RequiresExactlyOneTransport) {
-    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, nullptr, nullptr, nullptr), std::exception);
-    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, &pcie_, &jtag_, nullptr), std::exception);
-    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, &pcie_, nullptr, &remote_), std::exception);
-    EXPECT_THROW(WormholeArcWindow::arc_apb(nullptr, &pcie_, nullptr, nullptr), std::exception);
+    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, nullptr, nullptr, nullptr), error::UmdBaseException);
+    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, &pcie_, &jtag_, nullptr), error::UmdBaseException);
+    EXPECT_THROW(WormholeArcWindow::arc_apb(&protocol_, &pcie_, nullptr, &remote_), error::UmdBaseException);
+    EXPECT_THROW(WormholeArcWindow::arc_apb(nullptr, &pcie_, nullptr, nullptr), error::UmdBaseException);
 }
 
 // A remote device is reached over the NOC, and the APB window holds registers, so the access has to
@@ -123,12 +123,12 @@ TEST_F(WormholeArcApbWindowTest, NonWordSizeIsRejectedOnTheWordSizedRoutes) {
     uint32_t value = 0;
 
     auto pcie_window = over_pcie();
-    EXPECT_THROW(pcie_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), std::exception);
-    EXPECT_THROW(pcie_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(pcie_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), error::UmdBaseException);
+    EXPECT_THROW(pcie_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), error::UmdBaseException);
 
     auto jtag_window = over_jtag();
-    EXPECT_THROW(jtag_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), std::exception);
-    EXPECT_THROW(jtag_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(jtag_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), error::UmdBaseException);
+    EXPECT_THROW(jtag_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), error::UmdBaseException);
 }
 
 // The window bound covers the whole transfer, not just its first byte: a word access starting at
@@ -143,11 +143,12 @@ TEST_F(WormholeArcApbWindowTest, AccessMustFitEntirelyInsideTheWindow) {
 
     // Starts inside the window but runs past its end.
     EXPECT_THROW(
-        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0),
+        error::UmdBaseException);
     // Starts at the first byte past the window.
-    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), error::UmdBaseException);
     // Starts at zero but is larger than the whole window.
-    EXPECT_THROW(window.read(&value, 0, WINDOW_SIZE + 1, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(window.read(&value, 0, WINDOW_SIZE + 1, ARC_CORE, NocId::NOC0), error::UmdBaseException);
 
     // The last word that fits ends exactly on the window's last byte.
     EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _));
@@ -158,8 +159,8 @@ TEST_F(WormholeArcApbWindowTest, ZeroLengthAccessIsRejected) {
     auto window = over_remote();
     uint32_t value = 0;
 
-    EXPECT_THROW(window.read(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
-    EXPECT_THROW(window.write(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(window.read(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), error::UmdBaseException);
+    EXPECT_THROW(window.write(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), error::UmdBaseException);
 }
 
 // Arbitrary offset inside the window, not a hardware-defined location.
@@ -242,9 +243,10 @@ TEST_F(WormholeArcCsmWindowTest, AccessIsBoundedByTheCsmWindow) {
     uint32_t value = 0;
 
     constexpr uint64_t WINDOW_SIZE = static_cast<uint64_t>(wormhole::ARC_CSM_ADDRESS_RANGE) + 1;
-    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), error::UmdBaseException);
     EXPECT_THROW(
-        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0),
+        error::UmdBaseException);
 
     EXPECT_CALL(protocol_, read_data(_, _, _, _, _));
     window.read(&value, WINDOW_SIZE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);

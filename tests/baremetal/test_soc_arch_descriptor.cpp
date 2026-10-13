@@ -5,6 +5,8 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -433,4 +435,35 @@ TEST(SocArchDescriptor, AllSocDescriptors) {
     for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
         EXPECT_NO_THROW(SocArchDescriptor{soc_desc_yaml}) << "Failed to load: " << soc_desc_yaml;
     }
+}
+
+// Writes a copy of quasar_32_arch.yaml with the given ip_variant line appended.
+static std::filesystem::path write_quasar_with_ip_variant(const std::string& ip_variant) {
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / ("quasar_" + ip_variant + ".yaml");
+    std::filesystem::copy_file(
+        test_utils::GetSocDescAbsPath("quasar_32_arch.yaml"), path, std::filesystem::copy_options::overwrite_existing);
+    std::ofstream(path, std::ios::app) << "\nip_variant: " << ip_variant << "\n";
+    return path;
+}
+
+TEST(SocArchDescriptor, IpVariant) {
+    EXPECT_FALSE(SocArchDescriptor(test_utils::GetSocDescAbsPath("quasar_32_arch.yaml")).get_ip_variant().has_value());
+
+    const std::vector<std::pair<std::string, tt::IpVariant>> variants = {
+        {"grendel", tt::IpVariant::GRENDEL},
+        {"horizon", tt::IpVariant::HORIZON},
+        {"saturn", tt::IpVariant::SATURN},
+        {"trinity", tt::IpVariant::TRINITY},
+    };
+    for (const auto& [name, variant] : variants) {
+        const std::filesystem::path path = write_quasar_with_ip_variant(name);
+        EXPECT_EQ(SocArchDescriptor(path.string()).get_ip_variant(), variant);
+        std::filesystem::remove(path);
+    }
+}
+
+TEST(SocArchDescriptor, UnknownIpVariantThrows) {
+    const std::filesystem::path path = write_quasar_with_ip_variant("unknown");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
 }

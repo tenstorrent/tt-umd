@@ -55,6 +55,12 @@ SimulationChip::SimulationChip(
     simulator_directory_(simulator_directory),
     tt_device_(std::move(tt_device)) {
     UMD_ASSERT(tt_device_ != nullptr, error::RuntimeError, "SimulationChip requires a non-null TTDevice.");
+    // A SimulationChip reaches its device in-process, so its flushes and membars are no-ops. A device reached over
+    // ethernet belongs in a RemoteChip; wrapping it here would silently drop those.
+    UMD_ASSERT(
+        !tt_device_->is_remote(),
+        error::RuntimeError,
+        fmt::format("SimulationChip for chip {} was handed a remote TTDevice; it belongs in a RemoteChip.", chip_id));
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }

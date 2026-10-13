@@ -17,6 +17,7 @@
 
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/simulation/simulation_host.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -60,7 +61,8 @@ public:
     void shutdown();
 
     /**
-     * Read data from a tile core.
+     * Read data from a tile core: any address and size, over the whole-word transfers the simulator
+     * moves.
      *
      * @param x Core X coordinate
      * @param y Core Y coordinate
@@ -71,7 +73,8 @@ public:
     void tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
 
     /**
-     * Write data to a tile core.
+     * Write data to a tile core: any address and size. A partial first or last word is read, merged
+     * and written back whole, so the bytes around the range keep their values.
      *
      * @param x Core X coordinate
      * @param y Core Y coordinate
@@ -237,6 +240,17 @@ private:
     // response.
     void notification_handler_thread();
 
+    // Which command pair an access uses and whether a core coordinate travels with it.
+    enum class AccessKind { kTile, kGlobal, kSmn };
+
+    // One whole-word read or write at a word-aligned address and size. Called with request_lock_ held.
+    void read_words(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size);
+    void write_words(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size);
+
+    // Any address and size over whole-word transfers (see word_access.hpp). Called with request_lock_ held.
+    void read_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size);
+    void write_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size);
+
     // Wait for a regular command response from the command queue.
     // Command queue is filled up by notification_handler_thread. Operations that need to wait
     // on a response from the simulator should call this function to consume a response from the
@@ -260,6 +274,12 @@ private:
 
     // Thread safety for send operations.
     mutable std::mutex device_lock_;
+
+    // One request at a time. All responses arrive on one queue, so two threads reading at once (e.g. the
+    // DPRINT poller and the main thread) could take each other's reply. Held from send to parse, and
+    // across the read and write of a sub-word write. Separate from device_lock_, which the notification
+    // thread still needs while a read waits.
+    mutable std::mutex request_lock_;
 
     // Notification handler thread.
     std::thread notification_thread_;

@@ -4,12 +4,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -452,3 +456,50 @@ TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
     Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});
     EXPECT_THROW(cluster.refresh_cluster_description(), std::runtime_error);
 }
+
+TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsLoadedFromYaml) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N300_pci_bdf.yaml"));
+    const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, 16}};
+    EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
+}
+
+TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P150.yaml"));
+    const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, std::nullopt}};
+    EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
+}
+
+class ClusterDescriptorPcieLaneCountsTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(ClusterDescriptorPcieLaneCountsTest, EntryPerMmioChip) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(GetParam());
+    std::set<ChipId> lane_count_chips;
+    for (const auto& [chip, _] : cluster_desc->get_chip_pcie_lane_counts()) {
+        lane_count_chips.insert(chip);
+    }
+    std::set<ChipId> mmio_chips;
+    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+        mmio_chips.insert(chip);
+    }
+    EXPECT_EQ(lane_count_chips, mmio_chips);
+}
+
+TEST_P(ClusterDescriptorPcieLaneCountsTest, SurvivesSerializeRoundTrip) {
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(GetParam());
+    std::unique_ptr<ClusterDescriptor> reloaded =
+        ClusterDescriptor::create_from_yaml_content(cluster_desc->serialize());
+    EXPECT_EQ(reloaded->get_chip_pcie_lane_counts(), cluster_desc->get_chip_pcie_lane_counts());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AllClusterDescs,
+    ClusterDescriptorPcieLaneCountsTest,
+    ::testing::ValuesIn(test_utils::GetAllClusterDescs()),
+    [](const ::testing::TestParamInfo<std::string>& info) {
+        std::string name = std::filesystem::path(info.param).stem().string();
+        std::replace_if(
+            name.begin(), name.end(), [](char c) { return !std::isalnum(c); }, '_');
+        return name;
+    });

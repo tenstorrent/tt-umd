@@ -72,4 +72,16 @@ uint64_t resolve_core(
     uint64_t offset,
     uint64_t size);
 
+/**
+ * Flat address for a transfer at an already-translated coordinate (the frame NOC accesses carry).
+ * The coordinate is converted to the descriptor's frame before the map lookup, so the result does
+ * not rely on the two frames coinciding. The host path and the RTL-sim TLB windows both use this.
+ */
+uint64_t resolve_translated(
+    const EndpointResolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    tt_xy_pair core,
+    uint64_t offset,
+    uint64_t size);
+
 }  // namespace tt::umd::att

@@ -26,7 +26,7 @@ namespace {
 constexpr uint32_t PCIE_X_ARC_OVER_AXI = 11;
 constexpr uint32_t PCIE_X_ARC_OVER_NOC = 2;
 
-constexpr uint64_t APB_OFFSET = 0x100;
+constexpr uint64_t BLACKHOLE_APB_OFFSET = 0x100;
 
 // Every routing case is run against both NOCs. BlackholeArcApb does not branch on the NOC today --
 // it forwards whatever it is given -- so this is not covering a branch so much as pinning that
@@ -49,9 +49,9 @@ protected:
             .WillRepeatedly(Return(x));
     }
 
-    uint64_t noc_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START + APB_OFFSET; }
+    uint64_t noc_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START + BLACKHOLE_APB_OFFSET; }
 
-    uint32_t bar_address() const { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + APB_OFFSET; }
+    uint32_t bar_address() const { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + BLACKHOLE_APB_OFFSET; }
 
     NiceMock<MockDeviceProtocol> protocol_;
     NiceMock<MockPcieInterface> pcie_;
@@ -72,7 +72,7 @@ TEST_P(BlackholeArcApbTest, ReadOverJtagGoesThroughDeviceProtocol) {
     EXPECT_CALL(protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc()));
 
     uint32_t value = 0;
-    apb.read(&value, APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
+    apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
 }
 
 TEST_P(BlackholeArcApbTest, WriteOverJtagGoesThroughDeviceProtocol) {
@@ -81,7 +81,7 @@ TEST_P(BlackholeArcApbTest, WriteOverJtagGoesThroughDeviceProtocol) {
     EXPECT_CALL(protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc()));
 
     uint32_t value = 0xABCD;
-    apb.write(&value, APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
+    apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
 }
 
 // Over PCIe with the ARC tile unreachable over AXI, the access goes over the NOC and keeps the
@@ -93,7 +93,7 @@ TEST_P(BlackholeArcApbTest, ReadFallsBackToNocWhenArcNotAvailableOverAxi) {
     EXPECT_CALL(protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc()));
 
     uint64_t value = 0;
-    apb.read(&value, APB_OFFSET, sizeof(value), arc_core(), noc());
+    apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
 }
 
 TEST_P(BlackholeArcApbTest, WriteFallsBackToNocWhenArcNotAvailableOverAxi) {
@@ -103,7 +103,7 @@ TEST_P(BlackholeArcApbTest, WriteFallsBackToNocWhenArcNotAvailableOverAxi) {
     EXPECT_CALL(protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc()));
 
     uint64_t value = 0x1234;
-    apb.write(&value, APB_OFFSET, sizeof(value), arc_core(), noc());
+    apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
 }
 
 // Over PCIe with the ARC tile reachable over AXI, the access is a plain BAR access and never
@@ -116,7 +116,7 @@ TEST_P(BlackholeArcApbTest, ReadUsesBarWhenArcAvailableOverAxi) {
     EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).Times(0);
 
     uint32_t value = 0;
-    apb.read(&value, APB_OFFSET, sizeof(value), arc_core(), noc());
+    apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
     EXPECT_EQ(value, 0xDEADBEEF);
 }
 
@@ -128,7 +128,7 @@ TEST_P(BlackholeArcApbTest, WriteUsesBarWhenArcAvailableOverAxi) {
     EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).Times(0);
 
     uint32_t value = 0xFEEDFACE;
-    apb.write(&value, APB_OFFSET, sizeof(value), arc_core(), noc());
+    apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
 }
 
 TEST_P(BlackholeArcApbTest, RejectsOffsetOutsideTheXbarRange) {

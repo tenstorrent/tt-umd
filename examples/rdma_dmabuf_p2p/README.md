@@ -26,8 +26,8 @@ instead — it exercises the same export path over an RDMA loopback QP pair on o
 in the `rdma_tests` target, behind the same `TT_UMD_BUILD_RDMA` flag as this example:
 
 ```bash
-cmake -B build -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_BUILD_RDMA=ON
-cmake --build build --target rdma_tests
+cmake --preset tests -DTT_UMD_BUILD_RDMA=ON
+cmake --build --preset tests --target rdma_tests
 ./build/test/umd/rdma/rdma_tests
 ```
 
@@ -80,8 +80,8 @@ that host needs updating first.
 ## Build (both hosts)
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DTT_UMD_BUILD_EXAMPLES=ON -DTT_UMD_BUILD_RDMA=ON
-cmake --build build -j"$(nproc)"
+cmake --preset examples -DTT_UMD_BUILD_RDMA=ON
+cmake --build --preset examples
 ```
 
 Binaries land in `build/examples/rdma_dmabuf_p2p/`. `TT_UMD_BUILD_RDMA` is OFF by default, so a

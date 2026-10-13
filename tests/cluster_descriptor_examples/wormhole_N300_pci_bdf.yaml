@@ -61,3 +61,5 @@ asic_locations:
   1: 1
 chip_pci_bdfs:
   0: 0000:41:00.0
+chip_pcie_lane_counts:
+  0: 16

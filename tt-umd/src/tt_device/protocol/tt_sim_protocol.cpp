@@ -100,6 +100,9 @@ uint32_t TTSimProtocol::bar_read32(uint32_t addr) {
 
 int TTSimProtocol::get_numa_node() const { return -1; }
 
+// A simulator has no physical link to train.
+std::optional<uint32_t> TTSimProtocol::get_lane_count() const { return std::nullopt; }
+
 void TTSimProtocol::set_power_state(PowerState /*state*/) {
     // A simulator models no power domains. Silently ignored rather than thrown: the firmware sets a
     // power state during startup, and refusing would fail bringup over something inconsequential.

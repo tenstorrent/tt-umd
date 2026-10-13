@@ -388,6 +388,19 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
 
+    // Resolved before the model is asked, so a model serving its own window sees the same target
+    // the TLB path below would have used.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+
+    // A model whose architecture has no mappable aperture serves the window itself. The ordering
+    // argument does not travel with it: the Base API's signature takes target and host only, and a
+    // window with nothing mapped behind it has nothing weaker than Strict to offer anyway.
+    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host)) {
+        return window;
+    }
+
     const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
 
     // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
@@ -416,11 +429,6 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
                 tt::arch_to_str(get_arch()),
                 size_classes.back().size));
         size = size_class->size;
-    }
-
-    // Routing follows the caller's selected NOC unless the target names one explicitly.
-    if (!target.noc.has_value()) {
-        target.noc = get_selected_noc_id();
     }
 
     std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
@@ -600,39 +608,20 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+RiscReset *TTDevice::get_risc_reset() {
     RiscReset *risc_reset = model_->get_risc_reset();
-    if (risc_reset != nullptr) {
-        risc_reset->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
-        return;
+    if (!risc_reset) {
+        UMD_THROW(error::RuntimeError, "RISC reset control is not available for this device.");
     }
+    return risc_reset;
+}
 
-    // TODO: transitional - the path for models that do not serve a RiscReset yet. Deleted once they
-    // all do. The register accesses are written out rather than taken from
-    // get_risc_reset_state()/set_risc_reset_state(), which cannot route on a given NOC.
-    const uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_state = 0;
-    read_from_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
-    soft_reset_state |= get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    write_to_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
-    tt_driver_atomics::sfence();
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+    get_risc_reset()->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
-    RiscReset *risc_reset = model_->get_risc_reset();
-    if (risc_reset != nullptr) {
-        risc_reset->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
-        return;
-    }
-
-    // TODO: transitional - see assert_risc_reset.
-    const uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_state = 0;
-    read_from_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
-    soft_reset_state &= ~get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    soft_reset_state |= staggered_start ? get_architecture_implementation()->get_soft_reset_staggered_start() : 0;
-    write_to_device_reg(&soft_reset_state, core, soft_reset_addr, sizeof(soft_reset_state), noc_id);
-    tt_driver_atomics::sfence();
+    get_risc_reset()->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }

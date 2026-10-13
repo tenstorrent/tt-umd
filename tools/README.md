@@ -6,8 +6,8 @@ In general, see the common build instructions in the main [README](../README.md)
 
 Short instructions for building tools:
 ```
-cmake -B build -G Ninja -DTT_UMD_BUILD_TOOLS=ON
-cmake --build build --target umd_tools
+cmake --preset default
+cmake --build --preset default --target umd_tools
 ```
 
 ## Topology tool
@@ -149,7 +149,8 @@ Press `Ctrl-C` in terminal 1 to release the lock.
 
 The sim server tool manages long-running simulation host processes, so one process can host a
 simulation while other UMD processes attach to it as clients over its per-chip socket. It is only
-built when the simulation backend is enabled (`-DTT_UMD_BUILD_SIMULATION=ON`).
+built when the simulation backend is enabled (`-DTT_UMD_BUILD_SIMULATION=ON`, e.g. within the
+`simulation-tools-python` preset).
 
 Each host gets its own server directory (`<temp>/tt-umd-sim-server-<index>`), so two hosts on the
 same machine never collide — even when they serve the same chip id — and a client attaches by

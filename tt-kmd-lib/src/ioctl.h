@@ -32,6 +32,8 @@
 #define TENSTORRENT_IOCTL_SET_NOC_CLEANUP		_IO(TENSTORRENT_IOCTL_MAGIC, 14)
 #define TENSTORRENT_IOCTL_SET_POWER_STATE		_IO(TENSTORRENT_IOCTL_MAGIC, 15)
 #define TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF	_IO(TENSTORRENT_IOCTL_MAGIC, 16)
+#define TENSTORRENT_IOCTL_NOC_READ	_IO(TENSTORRENT_IOCTL_MAGIC, 18)
+#define TENSTORRENT_IOCTL_NOC_WRITE	_IO(TENSTORRENT_IOCTL_MAGIC, 19)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -417,6 +419,42 @@ struct tenstorrent_export_tlb_dmabuf {
 	__s32 fd;
 	__u64 offset;
 	__u64 size;
+};
+
+
+/**
+ * struct tenstorrent_noc_io - TENSTORRENT_IOCTL_NOC_READ / _NOC_WRITE
+ *
+ * Scalar read or write of one naturally aligned location, performed by the
+ * kernel through a window it owns rather than through a TLB the caller mapped.
+ *
+ * On Quasar @addr is a flat 52-bit system physical address and @x, @y and @noc
+ * are unused and must be 0. Setting TENSTORRENT_NOC_FLAG_KLA instead
+ * interprets @addr as a Quasar-local address, reached through a SYSIN0
+ * aperture. Wormhole and Blackhole reject that flag.
+ *
+ * @argsz: Must be sizeof(struct tenstorrent_noc_io).
+ * @flags: Zero or TENSTORRENT_NOC_FLAG_KLA.
+ * @x: X coordinate of the NOC endpoint; must be in the range 0-63.
+ * @y: Y coordinate of the NOC endpoint; must be in the range 0-63.
+ * @noc: NOC ID to use; must be 0 or 1.
+ * @width: Access width in bytes; must be 1, 2, 4 or 8.
+ * @reserved0: Must be zero.
+ * @addr: Address to access; must be naturally aligned to @width.
+ * @value: For NOC_READ, receives the value (zero-extended to 64 bits). For
+ *         NOC_WRITE, the value to write (only the low @width bytes are used).
+ */
+struct tenstorrent_noc_io {
+	__u32 argsz;
+	__u32 flags;
+#define TENSTORRENT_NOC_FLAG_KLA	(1 << 0)
+	__u16 x;
+	__u16 y;
+	__u8 noc;
+	__u8 width;
+	__u8 reserved0[2];
+	__u64 addr;
+	__u64 value;
 };
 
 #endif

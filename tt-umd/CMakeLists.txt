@@ -95,6 +95,7 @@ target_sources(
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
         src/tt_device/tt_device_error.cpp
+        src/tt_device/reset/classic_tile_risc_reset.cpp
         src/tt_device/hang_detection/hang_detector.cpp
         src/tt_device/hang_detection/hang_detector_implementation.cpp
         src/tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -196,6 +197,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_implementation.hpp
                 api/tt-umd/arch/architecture_registers.hpp
                 api/tt-umd/arch/architecture_tlbs.hpp
+                api/tt-umd/arch/configs/keraunos_address_map.hpp
                 api/tt-umd/arc/arc_telemetry_reader.hpp
                 api/tt-umd/arc/firmware_telemetry_reader.hpp
                 api/tt-umd/arc/blackhole_arc_message_queue.hpp
@@ -283,7 +285,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/error.hpp
                 api/tt-umd/utils/error_detail.hpp
                 api/tt-umd/utils/mmio_timeout_config.hpp
-                api/tt-umd/utils/op_timeout_guard.hpp
                 api/tt-umd/utils/timeouts.hpp
                 api/tt-umd/types/arch.hpp
                 api/tt-umd/types/blackhole_arc.hpp
@@ -316,6 +317,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/architecture_registers.hpp
                 api/umd/device/arch/architecture_tlbs.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
+                api/umd/device/arch/configs/keraunos_address_map.hpp
                 api/umd/device/arch/grendel_implementation.hpp
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
@@ -449,6 +451,10 @@ target_link_libraries(
 target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
+
+# tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
+target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)
+target_include_directories(tt-umd PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 check_function_exists(
     backtrace

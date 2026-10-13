@@ -189,6 +189,11 @@ public:
     int get_numa_node() const { return numa_node; }
 
     /**
+     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
+     */
+    std::optional<uint32_t> get_current_link_width() const;
+
+    /**
      * @return N in /dev/tenstorrent/N
      * TODO: target for removal; upper layers should not care about this.
      */

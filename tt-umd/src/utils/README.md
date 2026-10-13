@@ -65,8 +65,8 @@ It is built as its own executable (`umd_locks_benchmark`), separate from the reg
 `umd_microbenchmark`, since it is a one-off comparison rather than a routine benchmark:
 
 ```bash
-cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
-ninja umd_locks_benchmark -C build
+cmake --preset tests
+cmake --build --preset tests --target umd_locks_benchmark
 ./build/test/umd/microbenchmark/umd_locks_benchmark
 ```
 

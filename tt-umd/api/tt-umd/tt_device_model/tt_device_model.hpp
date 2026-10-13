@@ -6,7 +6,11 @@
 
 #include <memory>
 
+// Complete type, not a forward declaration: unique_ptr<IoWindow> is the public return type, so
+// every implementer and caller needs the definition that instantiates its deleter.
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
 namespace tt::umd {
 class DeviceFirmware;
@@ -63,8 +67,8 @@ public:
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
-    // Controls the reset state of the device's RISC cores. Null until a model provides one, which
-    // is what TTDevice falls back to its own reset path for.
+    // Controls the reset state of the device's RISC cores. Null only while a model has not migrated
+    // to it, in which case reset is unavailable on every device built from that model.
     virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware
@@ -82,6 +86,19 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
+
+    /**
+     * @brief Creates an I/O window mapping host memory to device address space.
+     *
+     * A model whose architecture has no mappable aperture builds the window itself. Returning
+     * nullptr instead asks TTDevice to serve the window from its TLB path, which is temporary:
+     * that path cannot be reached from here until its machinery moves off TTDevice.
+     *
+     * @param target Device-side target (core, address, NOC).
+     * @param host Host-side properties (caching, size).
+     * @return Exclusively owned window handle, or nullptr for the TLB path.
+     */
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 
     // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once

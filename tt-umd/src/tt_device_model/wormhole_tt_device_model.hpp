@@ -10,6 +10,7 @@
 
 namespace tt::umd {
 class WormholeDeviceFirmware;
+class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
@@ -36,9 +37,13 @@ public:
 
     ~WormholeTTDeviceModel() override;
 
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+
     DeviceProtocol *get_device_protocol() override;
 
     DeviceFirmware *get_device_firmware() override;
+
+    RiscReset *get_risc_reset() override;
 
     FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
 
@@ -80,6 +85,9 @@ private:
 
     // Declared after the transports: it borrows them, so it must be destroyed first.
     std::unique_ptr<WormholeDeviceFirmware> device_firmware_;
+
+    // Borrows the protocol and the architecture implementation, so it is declared after them.
+    std::unique_ptr<ClassicTileRiscReset> risc_reset_;
 };
 
 }  // namespace tt::umd

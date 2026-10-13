@@ -323,6 +323,7 @@ public:
      * Claims or releases full power domains. No-op for remote devices.
      *
      * @param state The requested power state (BUSY or IDLE).
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
@@ -333,6 +334,7 @@ public:
      * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
+     * @param noc_id NOC to route through (if the feature is routed through NOC).
      */
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 
@@ -393,7 +395,7 @@ public:
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
-     * Set the soft reset signal for the given riscs.
+     * Set the soft reset signal for the given riscs. Should be deprecated.
      *
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
@@ -528,6 +530,8 @@ private:
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();
+
+    RiscReset *get_risc_reset();
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -291,6 +292,21 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     if (device_descriptor_yaml["dispatch"].IsDefined()) {
         dispatch_cores_ =
             SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["dispatch"].as<std::vector<std::string>>());
+    }
+
+    if (device_descriptor_yaml["ip_variant"].IsDefined()) {
+        static const std::unordered_map<std::string, tt::IpVariant> ip_variants = {
+            {"grendel", tt::IpVariant::GRENDEL},
+            {"horizon", tt::IpVariant::HORIZON},
+            {"saturn", tt::IpVariant::SATURN},
+            {"trinity", tt::IpVariant::TRINITY},
+        };
+        const std::string ip_variant = device_descriptor_yaml["ip_variant"].as<std::string>();
+        const auto it = ip_variants.find(ip_variant);
+        if (it == ip_variants.end()) {
+            UMD_THROW(error::RuntimeError, fmt::format("Unknown ip_variant: {}", ip_variant));
+        }
+        ip_variant_ = it->second;
     }
 
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {

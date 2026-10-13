@@ -24,6 +24,17 @@ enum class ARCH {
     Invalid = 0xFF,
 };
 
+/**
+ * IP variants of an architecture, set by the optional `ip_variant` field of a SoC descriptor.
+ * Absent means the default design for the arch (Grendel for Quasar).
+ */
+enum class IpVariant {
+    GRENDEL,
+    HORIZON,
+    SATURN,
+    TRINITY,
+};
+
 static inline tt::ARCH arch_from_str(const std::string &arch_str) {
     std::string arch_str_lower = to_lower(arch_str);
 

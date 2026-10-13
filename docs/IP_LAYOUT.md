@@ -79,6 +79,14 @@ devices:
 
 A build with an `ip_layout.yaml` opens as one chip per device: `create_rtl_sim_ip_layout_tt_devices()` creates one `RtlSimulationTTDevice` per device, with its device's SoC descriptor and all its access points, in one `RtlSimSession`. Each device picks the access point it talks over, its first for now, and only those sockets are served. Devices talking over the same `host_access` share that socket: its requests take one turn at a time, and the remote is told to exit once the last of them closes.
 
+## Core resets
+
+An RTL simulation device resets its cores the way its IP variant, the SoC descriptor's `ip_variant`, does. On Horizon UMD writes the core's TSC itself (`TSC_RESET_CTRL` and the overlay soft resets of each Tensix and Dispatch tile), through the device's own IO: the reset reaches the core it names, on the device it names, whichever socket the device talks over. A device of any other variant, or with none, resets its cores by asking the testbench, which acts on the socket's own device.
+
+```yaml
+ip_variant: horizon
+```
+
 ## Flat addresses for fabric
 
 With an ATT map named in `TT_UMD_NOC_ATT`, a device has flat addresses: the global addresses another device's kernels use to reach its tiles. Fabric reads them, by access point; the device's own IO is unaffected.

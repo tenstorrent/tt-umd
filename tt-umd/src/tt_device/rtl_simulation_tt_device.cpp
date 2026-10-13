@@ -42,6 +42,8 @@
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/simulation_noc_protocol.hpp"
+#include "tt_device/reset/tsc_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {
@@ -73,6 +75,16 @@ constexpr NamedAttMap ATT_MAPS[] = {
     {"grendel_qsr1", GRENDEL_QSR1_TABLES},
     {"horizon_2x3", HORIZON_2X3_TABLES},
     {"horizon_x2", HORIZON_X2_TABLES},
+};
+
+// The IP variants (the SoC descriptor's ip_variant) whose cores UMD resets itself, through each tile's TSC.
+struct VariantTileReset {
+    tt::IpVariant variant;
+    const TscResetLayout* layout;
+};
+
+constexpr VariantTileReset TILE_RESETS[] = {
+    {tt::IpVariant::HORIZON, &HORIZON_TSC_RESET},
 };
 
 // Access point @p access_point's table in @p map.
@@ -218,6 +230,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();
+    setup_tile_reset(chip_id);
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -271,6 +284,19 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     noc_address_resolver_ =
         std::make_unique<att::EndpointResolver>(table_for(*known, io_access_point(*layout_device_).id));
     global_address_mode_ = true;
+}
+
+void RtlSimulationTTDevice::setup_tile_reset(ChipId chip_id) {
+    const std::optional<tt::IpVariant> variant = get_soc_descriptor().get_arch_descriptor().get_ip_variant();
+    const auto* const known =
+        std::find_if(std::begin(TILE_RESETS), std::end(TILE_RESETS), [&](const VariantTileReset& reset) {
+            return variant == reset.variant;
+        });
+    if (known == std::end(TILE_RESETS)) {
+        return;
+    }
+    noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, static_cast<int>(chip_id));
+    tile_reset_ = std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout);
 }
 
 std::vector<AccessPointId> RtlSimulationTTDevice::get_access_points() const {
@@ -440,6 +466,10 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
 void RtlSimulationTTDevice::assert_risc_reset(
     CoreCoord core, const RiscType selected_riscs, [[maybe_unused]] NocId noc_id) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
+    if (tile_reset_ != nullptr) {
+        tile_reset_->assert_risc_reset(translated_core, selected_riscs, get_selected_noc_id());
+        return;
+    }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
@@ -484,6 +514,10 @@ void RtlSimulationTTDevice::assert_risc_reset(
 void RtlSimulationTTDevice::deassert_risc_reset(
     CoreCoord core, const RiscType selected_riscs, bool staggered_start, [[maybe_unused]] NocId noc_id) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
+    if (tile_reset_ != nullptr) {
+        tile_reset_->deassert_risc_reset(translated_core, selected_riscs, staggered_start, get_selected_noc_id());
+        return;
+    }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.

@@ -96,6 +96,7 @@ target_sources(
         src/tt_device/tt_device.cpp
         src/tt_device/tt_device_error.cpp
         src/tt_device/reset/classic_tile_risc_reset.cpp
+        src/tt_device/reset/tsc_risc_reset.cpp
         src/tt_device/hang_detection/hang_detector.cpp
         src/tt_device/hang_detection/hang_detector_implementation.cpp
         src/tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -169,6 +170,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/tt_device/tt_sim_tt_device.cpp
             src/chip_helpers/simulation_tlb_allocator.cpp
             src/tt_device/protocol/tt_sim_protocol.cpp
+            src/tt_device/protocol/simulation_noc_protocol.cpp
             # Composes the protocol above, so it cannot be built without it. Every user of it is a
             # simulation device, all of which are in this block too.
             src/tt_device_model/simulation_tt_device_model.cpp

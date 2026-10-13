@@ -12,12 +12,15 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_layout.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -33,6 +36,18 @@ class SimulationClient;
 class SocDescriptor;
 class TlbWindow;
 
+/** One of a device's access points: its id in the build's ip_layout.yaml and the socket that reaches it. */
+struct RtlSimAccessPoint {
+    AccessPointId id;
+    std::string host_access;
+};
+
+/** A device of the build's ip_layout.yaml: its id and its access points, in the order the file lists them. */
+struct IpLayoutDevice {
+    IpDeviceId device;
+    std::vector<RtlSimAccessPoint> access_points;
+};
+
 class RtlSimulationTTDevice : public SimulationTTDevice {
 public:
     RtlSimulationTTDevice(
@@ -42,11 +57,13 @@ public:
         int num_host_mem_channels = 0);
 
     /**
-     * Talk over @p socket, one access point of a started RtlSimSession. The socket keeps the session
-     * alive; several devices can share one session, each on its own socket.
+     * Device @p layout_device of the build's ip_layout.yaml, in @p session. The device talks over one
+     * of its access points, and adds only that one's socket to the session, so the session starts
+     * once every device in it has been constructed. Devices talking over the same socket share it.
      */
     RtlSimulationTTDevice(
-        const RtlSimSocket& socket,
+        const std::shared_ptr<RtlSimSession>& session,
+        const IpLayoutDevice& layout_device,
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
@@ -101,6 +118,13 @@ private:
     // arguments before construction.
     RtlSimulationTTDevice(
         const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+    // Host mode over @p socket, one of an RtlSimSession's.
+    RtlSimulationTTDevice(
+        const RtlSimSocket& socket,
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels);
     // Host mode over @p communicator; @p socket is empty when the communicator owns its socket.
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,

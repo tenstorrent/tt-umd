@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <string>
 
+#include "tt-umd/types/arch.hpp"
+
 namespace tt::umd {
 
 // Simulator artifacts such as the descriptor files live beside the simulator: next to a TTSim .so, or inside an RTL
@@ -18,6 +20,18 @@ inline std::filesystem::path get_simulator_artifacts_dir(const std::filesystem::
 inline std::string get_simulator_soc_descriptor_path(const std::filesystem::path& simulator_path) {
     return get_simulator_artifacts_dir(simulator_path) / "soc_descriptor.yaml";
 }
+
+// The simulator's soc_descriptor.yaml when it ships one, else empty. A libttsim image of Wormhole or
+// Blackhole needs none: it is then described by its architecture's built-in SoC descriptor.
+inline std::string find_simulator_soc_descriptor_path(const std::filesystem::path& simulator_path) {
+    std::string soc_descriptor_path = get_simulator_soc_descriptor_path(simulator_path);
+    return std::filesystem::exists(soc_descriptor_path) ? soc_descriptor_path : "";
+}
+
+// The simulator's architecture: declared by its soc_descriptor.yaml when it ships one, else read from
+// the PCI device id its libttsim image reports, the way KMD tells silicon apart. The first call for an
+// image without a descriptor has to come before any simulator is brought up in this process.
+tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path);
 
 inline std::string get_simulator_cluster_descriptor_path(const std::filesystem::path& simulator_path) {
     return get_simulator_artifacts_dir(simulator_path) / "cluster_descriptor.yaml";

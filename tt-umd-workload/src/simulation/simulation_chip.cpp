@@ -38,6 +38,14 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
     return get_simulator_soc_descriptor_path(simulator_path);
 }
 
+std::string SimulationChip::find_soc_descriptor_path(const std::filesystem::path& simulator_path) {
+    return find_simulator_soc_descriptor_path(simulator_path);
+}
+
+tt::ARCH SimulationChip::get_arch_from_simulator_path(const std::filesystem::path& simulator_path) {
+    return get_simulator_arch(simulator_path);
+}
+
 std::string SimulationChip::get_cluster_descriptor_path_from_simulator_path(
     const std::filesystem::path& simulator_path) {
     return get_simulator_cluster_descriptor_path(simulator_path);

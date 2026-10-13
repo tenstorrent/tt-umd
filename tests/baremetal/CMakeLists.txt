@@ -5,6 +5,7 @@ set(BAREMETAL_TESTS_SRCS
     test_att_window.cpp
     test_att_resolver.cpp
     test_grendel_att_map.cpp
+    test_horizon_x2_att_map.cpp
     test_ip_layout.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp

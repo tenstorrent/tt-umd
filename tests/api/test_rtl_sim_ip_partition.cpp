@@ -20,12 +20,17 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <unordered_set>
 #include <vector>
 
 #include "simulation/rtl_sim_ip_layout.hpp"
 #include "tt-umd/cluster.hpp"
+#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
 using namespace tt::umd;
 
@@ -173,6 +178,44 @@ TEST_F(RtlSimIpPartitionTest, HorizonAttReadModifyWriteBack) {
 
         write32(chip, slot, original);
         EXPECT_EQ(read32(chip, slot), original) << "chip " << chip;
+    }
+}
+
+// Each of a device's access points has its own flat address of a tile, and all of them reach that
+// tile: a marker written through one access point reads back through every other. Skips without flat
+// addresses (TT_UMD_NOC_ATT) or a device with two access points.
+TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
+    const size_t bytes = marker(0).size() * sizeof(uint32_t);
+    bool checked = false;
+    for (tt::ChipId chip : cluster_->get_target_device_ids()) {
+        auto* device = dynamic_cast<RtlSimulationTTDevice*>(cluster_->get_tt_device(chip));
+        ASSERT_NE(device, nullptr);
+        std::vector<uint64_t> addresses;
+        for (const AccessPointId access_point : device->get_access_points()) {
+            const std::optional<uint64_t> address = device->get_flat_address(
+                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::Strict, L1_ADDR);
+            if (address.has_value()) {
+                addresses.push_back(*address);
+            }
+        }
+        if (addresses.size() < 2) {
+            continue;
+        }
+        checked = true;
+        for (size_t writer = 0; writer < addresses.size(); writer++) {
+            const auto data = marker(0xC0000000u | (static_cast<uint32_t>(chip) << 20) | (writer << 16));
+            device->get_communicator()->global_write_words(addresses[writer], data.data(), bytes);
+            for (size_t reader = 0; reader < addresses.size(); reader++) {
+                std::vector<uint32_t> readback(data.size());
+                device->get_communicator()->global_read_words(addresses[reader], readback.data(), bytes);
+                EXPECT_EQ(readback, data) << "chip " << chip << ": written through access point " << writer << " at 0x"
+                                          << std::hex << addresses[writer] << ", read through " << std::dec << reader
+                                          << " at 0x" << std::hex << addresses[reader];
+            }
+        }
+    }
+    if (!checked) {
+        GTEST_SKIP() << "No device has two access points with flat addresses.";
     }
 }
 

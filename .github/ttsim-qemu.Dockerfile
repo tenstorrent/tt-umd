@@ -67,6 +67,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=kmd /kver /kver
 RUN apt-get update && apt-get install -y --no-install-recommends \
         kmod \
+        libhwloc15 \
         linux-image-"$(cat /kver)" \
     && rm -rf /var/lib/apt/lists/*
 

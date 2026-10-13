@@ -19,6 +19,9 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 # devtmpfs creates /dev/tenstorrent/N on its own, so no udev is needed.
 mount -t devtmpfs devtmpfs /dev
+# UMD keeps its cross-process mutexes in POSIX shared memory.
+mkdir -p /dev/shm
+mount -t tmpfs tmpfs /dev/shm
 
 modprobe 9pnet_virtio && modprobe 9p || fail "cannot load the 9p modules"
 mkdir -p /ttsim-vm

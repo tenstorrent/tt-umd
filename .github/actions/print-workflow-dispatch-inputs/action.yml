@@ -1,0 +1,62 @@
+name: 'Print Workflow Dispatch Inputs'
+description: |
+  Print all workflow_dispatch input values and environment variables to the log.
+  can add inputs to the GitHub Summary
+inputs:
+  print_env_vars:
+    description: 'Whether to print environment variables'
+    required: false
+    default: 'false'
+  add_to_summary:
+    description: 'Whether to add inputs to GitHub Summary'
+    required: false
+    default: 'false'
+outputs:
+  output:
+    description: 'The output of the action'
+    value: ${{ steps.set-output.outputs.action_output }}
+branding:
+  icon: 'printer'
+  color: 'blue'
+runs:
+  using: "composite"
+  steps:
+    - name: Print workflow_dispatch inputs and env vars
+      id: set-output
+      shell: bash
+      env:
+        PRINT_ENV_VARS: ${{ inputs.print_env_vars }}
+        ADD_TO_SUMMARY: ${{ inputs.add_to_summary }}
+      run: |
+        output=$(
+          echo "Checking for workflow_dispatch inputs:"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "$GITHUB_EVENT_PATH" ] && [ -f "$GITHUB_EVENT_PATH" ]; then
+              inputs=$(jq -r '.inputs // empty' "$GITHUB_EVENT_PATH")
+              if [ -n "$inputs" ] && [ "$inputs" != "null" ]; then
+                echo "$inputs" | jq -r 'to_entries[] | "\(.key): \(.value)"'
+                if [ "$ADD_TO_SUMMARY" = "true" ]; then
+                  echo -e "\n<details>\n<summary>Inputs</summary>\n\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "$inputs" | jq -r 'to_entries[] | "\(.key): \(.value)"' >> $GITHUB_STEP_SUMMARY
+                  echo -e "\`\`\`\n</details>" >> $GITHUB_STEP_SUMMARY
+                fi
+              else
+                echo "No workflow_dispatch inputs found in the event payload."
+              fi
+            else
+              echo "GITHUB_EVENT_PATH is not set or the file does not exist."
+            fi
+          else
+            echo "This is not a workflow_dispatch event. No inputs expected."
+          fi
+
+          if [ "$PRINT_ENV_VARS" = "true" ]; then
+            echo -e "\nPrinting environment variables:"
+            env | sort
+          fi
+        )
+        echo "$output"
+        output="${output//'%'/'%25'}"
+        output="${output//$'\n'/'%0A'}"
+        output="${output//$'\r'/'%0D'}"
+        echo "action_output=$output" >> $GITHUB_OUTPUT

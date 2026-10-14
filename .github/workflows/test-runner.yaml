@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Print Workflow Dispatch Inputs and Env Vars
-        uses: shayki5/print-workflow-dispatch-inputs@v1.0.1
+        uses: ./.github/actions/print-workflow-dispatch-inputs
         with:
           print_env_vars: 'true'  # Set to 'true' to print environment variables
           add_to_summary: 'true'  # Set to 'true' to add inputs to GitHub Summary

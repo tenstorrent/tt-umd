@@ -1,7 +1,7 @@
 # ttsim-qemu: runs commands inside a QEMU VM in which ttsim is a real PCIe device.
 #
 # The guest loads tt-kmd and sees /dev/tenstorrent/N, so software in it takes the full silicon path
-# (PCI discovery, KMD ioctls, TLBs) against the simulator. See run-in-ttsim-vm.sh for usage.
+# (PCI discovery, KMD ioctls, TLBs) against the simulator. See docs/TTSIM_QEMU.md for usage.
 #
 # libttsim.so is deliberately not part of the image: QEMU is GPL and libttsim must stay a separate
 # binary the user mounts in at runtime.
@@ -13,7 +13,9 @@ ARG UBUNTU_VERSION=22.04
 ARG TTSIM_QEMU_COMMIT=cade2422b833f77e5afddcec7da6916993bc2416
 ARG TT_KMD_TAG=ttkmd-2.11.0
 
-# Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu.
+# Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu. ttsim-qemu is Tenstorrent's fork of
+# QEMU that adds a `ttsim` PCI device, which forwards the guest's BAR accesses to libttsim and the
+# simulator's DMA back into guest memory.
 FROM ubuntu:${UBUNTU_VERSION} AS qemu
 
 ARG TTSIM_QEMU_COMMIT
@@ -35,9 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git init /src && cd /src \
-    && git fetch --depth 1 https://github.com/tenstorrent/ttsim-qemu.git ${TTSIM_QEMU_COMMIT} \
-    && git checkout FETCH_HEAD \
+RUN git clone --filter=blob:none --no-checkout https://github.com/tenstorrent/ttsim-qemu.git /src \
+    && cd /src && git checkout ${TTSIM_QEMU_COMMIT} \
     && ./configure --target-list=x86_64-softmmu --prefix=/opt/ttsim-qemu \
         --enable-virtfs --disable-docs --disable-werror \
     && make -j"$(nproc)" install \

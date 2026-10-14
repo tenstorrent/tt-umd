@@ -20,7 +20,8 @@ jobs:
       matrix:
         include:
           - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
-    runs-on: tt-ubuntu-2204-large-stable
+    # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ttsim-qemu:${{ inputs.image-tag }}
 

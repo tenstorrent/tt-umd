@@ -1,7 +1,8 @@
 #!/bin/bash
 # Runs a command inside a QEMU VM in which a libttsim.so is attached as a PCIe device and tt-kmd is
 # loaded, so the command sees /dev/tenstorrent/N as on silicon. The current directory is shared into
-# the guest at the same path and the command runs there. Returns the command's exit code.
+# the guest at the same path and the command runs there. Returns the command's exit code. See
+# docs/TTSIM_QEMU.md.
 #
 # Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 #   --bar4-size  BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole.
@@ -16,7 +17,7 @@ QEMU=/opt/ttsim-qemu/bin/qemu-system-x86_64
 VM_DIR=/opt/ttsim-vm
 
 usage() {
-    sed -n 's/^# \?//; 6,7p' "$0" >&2
+    sed -n 's/^# \?//; 7,8p' "$0" >&2
     exit 2
 }
 

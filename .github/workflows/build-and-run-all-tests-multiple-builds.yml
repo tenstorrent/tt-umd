@@ -93,12 +93,7 @@ jobs:
   ensure-ttsim-qemu-image:
     name: Ensure ttsim-qemu Docker image
     needs: gatekeeper
-    # Don't skip if gatekeeper is skipped. Only Release consumes the image, so a manual run without
-    # it skips the build.
-    if: >-
-      !cancelled() &&
-      (github.event_name != 'workflow_dispatch' ||
-      contains(fromJson(github.event.inputs['build-types']), 'Release'))
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
     permissions:
       packages: write
     secrets: inherit
@@ -172,7 +167,7 @@ jobs:
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -188,6 +183,7 @@ jobs:
       build-type: ASan
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -196,7 +192,7 @@ jobs:
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -212,6 +208,7 @@ jobs:
       build-type: TSan
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -220,7 +217,7 @@ jobs:
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -235,6 +232,7 @@ jobs:
       build-type: RelWithDebInfo
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
@@ -245,7 +243,7 @@ jobs:
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -260,6 +258,7 @@ jobs:
       build-type: Debug
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}

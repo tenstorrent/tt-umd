@@ -92,7 +92,6 @@ protected:
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->assert_risc_reset(tensix_core, RiscType::ALL_TENSIX, noc);
         }
-        NocIdSwitcher switcher(noc);
         try {
             tt_device_->read_from_device(
                 &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value), noc);
@@ -198,9 +197,10 @@ TEST_P(NocHangDetectionTest, TestIsNocHungAPI) {
 }
 
 // Verifies the per-op MMIO timeout (PR #2629) on the memcpy read path and that it is runtime
-// configurable via MmioTimeoutConfig: once a NOC is hung its reads complete only after ~700 ms, so a
-// budget below that aborts the memcpy with DeviceTimeoutError (instead of letting ops pile up and grind
-// the host), while a budget above it lets the same read complete. Exercises two budgets to show usage.
+// configurable via MmioTimeoutConfig: once a NOC is hung its reads complete only after ~700 ms on WH and
+// ~55 ms on BH, so a budget below that aborts the memcpy with DeviceTimeoutError (instead of letting ops
+// pile up and grind the host), while a budget above it lets the same read silently return all ones.
+// Exercises two budgets to show usage.
 TEST_P(NocHangDetectionTest, PerOpTimeoutThrowsOnHungNoc) {
     NocId noc_to_hang = GetParam();
 
@@ -213,21 +213,21 @@ TEST_P(NocHangDetectionTest, PerOpTimeoutThrowsOnHungNoc) {
     hang_noc(tensix_core, noc_to_hang);
 
     const auto original_budget = MmioTimeoutConfig::get_op_timeout();
+    const uint64_t hang_addr = noc_hang_addr(tt_device_->get_arch());
     uint32_t value = 0;
-    NocIdSwitcher switcher(noc_to_hang);
 
-    // Budget 1: tight (below the ~700 ms hung-read latency) — the memcpy read trips the per-op timeout.
-    MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(100));
+    // Budget 1: tight (below the hung-read latency on every arch) — the memcpy read trips the per-op timeout.
+    MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(20));
     EXPECT_THROW(
-        tt_device_->read_from_device(&value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(value)),
+        tt_device_->read_from_device(&value, tensix_core, hang_addr, sizeof(value), noc_to_hang),
         error::UmdException<error::DeviceTimeoutError>)
-        << "A read on the hung NOC should trip the 100 ms per-op budget.";
+        << "A read on the hung NOC should trip the 20 ms per-op budget.";
 
-    // Budget 2: generous (above the hung-read latency) — the same read completes without tripping.
+    // Budget 2: generous (above the hung-read latency) — the same read completes, returning all ones.
     MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(5000));
-    EXPECT_NO_THROW(
-        tt_device_->read_from_device(&value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(value)))
+    EXPECT_NO_THROW(tt_device_->read_from_device(&value, tensix_core, hang_addr, sizeof(value), noc_to_hang))
         << "A 5 s per-op budget should outlast the hung-read latency.";
+    EXPECT_EQ(value, 0xFFFFFFFF) << "A completed read on the hung NOC should return all ones.";
 
     // Restore the process-global default so the change doesn't leak into other tests.
     MmioTimeoutConfig::set_op_timeout(original_budget);

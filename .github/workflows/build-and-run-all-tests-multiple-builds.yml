@@ -89,6 +89,18 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
+  # Same as ensure-image, for the image run-ttsim-qemu-tests boots its VM from.
+  ensure-ttsim-qemu-image:
+    name: Ensure ttsim-qemu Docker image
+    needs: gatekeeper
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ttsim-qemu
+
   # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
   # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -
   # so all build-type runs share one artifact instead of racing to upload identically-named
@@ -128,7 +140,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
       !cancelled() &&
@@ -146,6 +158,7 @@ jobs:
       build-type: Release
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -154,7 +167,7 @@ jobs:
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -170,6 +183,7 @@ jobs:
       build-type: ASan
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -178,7 +192,7 @@ jobs:
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -194,6 +208,7 @@ jobs:
       build-type: TSan
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -202,7 +217,7 @@ jobs:
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -217,6 +232,7 @@ jobs:
       build-type: RelWithDebInfo
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
@@ -227,7 +243,7 @@ jobs:
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: [ensure-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -242,6 +258,7 @@ jobs:
       build-type: Debug
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -260,6 +277,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ensure-image
+      - ensure-ttsim-qemu-image
       - build-exalens-kernels
       - build-release
       - build-asan
@@ -271,6 +289,7 @@ jobs:
       - name: Check no job failed or was cancelled
         run: |
           echo "ensure-image:          ${{ needs.ensure-image.result }}"
+          echo "ensure-ttsim-qemu-image: ${{ needs.ensure-ttsim-qemu-image.result }}"
           echo "build-exalens-kernels: ${{ needs.build-exalens-kernels.result }}"
           echo "build-release:         ${{ needs.build-release.result }}"
           echo "build-asan:            ${{ needs.build-asan.result }}"

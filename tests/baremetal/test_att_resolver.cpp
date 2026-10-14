@@ -33,6 +33,7 @@ constexpr att::Window WORKER_WINDOW{
     .endpoint_size = 4,
     .endpoint_table_offset = 0,
     .translate_address = true,
+    .bar = 0,
 };
 
 constexpr att::Window DRAM_WINDOW{
@@ -42,6 +43,7 @@ constexpr att::Window DRAM_WINDOW{
     .endpoint_size = 4,
     .endpoint_table_offset = 16,
     .translate_address = false,
+    .bar = 0,
 };
 
 constexpr att::Window FULL_TILE_WINDOW{
@@ -51,6 +53,7 @@ constexpr att::Window FULL_TILE_WINDOW{
     .endpoint_size = 4,
     .endpoint_table_offset = 32,
     .translate_address = true,
+    .bar = 0,
 };
 
 // Package coordinates, packed the way an endpoint word is. The worker and full-tile tables name the
@@ -91,6 +94,19 @@ constexpr att::Window TWO_SELECTOR_WINDOW{
     .endpoint_size = 1,
     .endpoint_table_offset = 0,
     .translate_address = false,
+    .bar = 0,
+};
+
+// The worker window above, rebased: the region it maps begins at 0x4000 of the destination rather
+// than at zero, so the resolver has to take the difference out of the local field.
+constexpr att::Window REBASED_WORKER_WINDOW{
+    .compare = 0x10000,
+    .mask_bits = 12,
+    .endpoint_shift = 8,
+    .endpoint_size = 4,
+    .endpoint_table_offset = 0,
+    .translate_address = true,
+    .bar = 0x4000,
 };
 
 }  // namespace
@@ -304,4 +320,25 @@ TEST(AttHorizonMap, CarriesAFortyBitLocalAddress) {
     const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
     EXPECT_NO_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 4, 4));
     EXPECT_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 2, 4), std::exception);
+}
+
+TEST(AttResolver, TakesTheBarOutOfTheLocalFieldSoTheDestinationSeesTheRequestedOffset) {
+    const att::EndpointResolver resolver(map_with_worker_endpoints(REBASED_WORKER_WINDOW, WORKER_WORDS));
+
+    // This map carries no package offset, so the coordinates below are already package ones.
+    // Hardware adds the bar back on arrival, so the address carries the difference, not the offset.
+    EXPECT_EQ(resolver.resolve({2, 2}, CoreType::TENSIX, 0x4000, 4), 0x10000u);
+    EXPECT_EQ(resolver.resolve({2, 2}, CoreType::TENSIX, 0x4010, 4), 0x10010u);
+
+    // The selector is unaffected by the rebase: it still names the core, not the offset.
+    EXPECT_EQ(resolver.resolve({3, 2}, CoreType::TENSIX, 0x4010, 4), 0x10110u);
+}
+
+TEST(AttResolver, RejectsAnOffsetBelowTheWindowsBar) {
+    const att::EndpointResolver resolver(map_with_worker_endpoints(REBASED_WORKER_WINDOW, WORKER_WORDS));
+
+    // The window reaches nothing below its rebase. Building one anyway would wrap the local field
+    // and land high inside the same core rather than failing.
+    EXPECT_THROW(resolver.resolve({2, 2}, CoreType::TENSIX, 0, 4), std::runtime_error);
+    EXPECT_THROW(resolver.resolve({2, 2}, CoreType::TENSIX, 0x3ffc, 4), std::runtime_error);
 }

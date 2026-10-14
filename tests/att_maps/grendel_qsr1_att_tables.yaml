@@ -6,6 +6,10 @@
 # models/qsr.s1/docs/qmk_att_dump.md, sections 3 and 4. Field names are unchanged, so a
 # refresh is a copy of the corresponding upstream entries.
 #
+# `bar` is the rebase the ATT adds to the local field when `translate_addr` is 1, read from the
+# MASK_BAR_LO/HI register pair of each entry. Entry 5 carries one the hardware never applies,
+# because that window is programmed pass-through.
+#
 # `translate_addr` is taken from the dump's Quasar column rather than the template. They
 # disagree on entry 5, where the template says 1 but Quasar and Mimir are programmed with 0
 # and the generated att/address_map.md calls that window pass-through. What the hardware is
@@ -25,6 +29,7 @@ mask_table:
     ep_id_size: 6
     table_offset: 128
     translate_addr: 1
+    bar: '0x0'
   - index: 5
     compare: '0x1000000000000'
     mask: 38
@@ -32,6 +37,7 @@ mask_table:
     ep_id_size: 5
     table_offset: 96
     translate_addr: 0
+    bar: '0x800000000'
   - index: 14
     compare: '0x1800000000'
     mask: 33
@@ -39,6 +45,7 @@ mask_table:
     ep_id_size: 6
     table_offset: 256
     translate_addr: 1
+    bar: '0x0'
 
 noc_endpoint_table:
   - { index: 96, x: 6, y: 9 }

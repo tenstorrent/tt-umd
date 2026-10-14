@@ -29,6 +29,7 @@ inline constexpr Window HORIZON_2X3_WINDOW{
     .endpoint_size = 12,
     .endpoint_table_offset = 0,
     .translate_address = true,
+    .bar = 0,
 };
 
 // Selectors 1, 2: Tensix (0,0), (1,0).

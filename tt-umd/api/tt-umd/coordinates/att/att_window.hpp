@@ -41,9 +41,27 @@ struct Window {
     /** Whether the ATT rebases the address after matching this window. */
     bool translate_address;
 
-    /** Flat address reaching @p selector_value at core-local byte offset @p local. */
-    constexpr uint64_t make_address(uint32_t selector_value, uint64_t local) const {
-        return compare | (static_cast<uint64_t>(selector_value) << endpoint_shift) | local;
+    /**
+     * Rebase the ATT adds to the local field when this window translates, so the destination
+     * observes local_field + bar. A window with a non-zero bar therefore maps a region of the
+     * destination's own address space that does not start at zero. Hardware never applies it on a
+     * pass-through window, where the whole address is forwarded and the destination decodes it.
+     */
+    uint64_t bar;
+
+    /**
+     * Lowest offset this window reaches. A translating window's region begins at the rebase it
+     * applies; a pass-through window's at zero, because nothing is added on the way.
+     */
+    constexpr uint64_t offset_base() const { return translate_address ? bar : 0; }
+
+    /**
+     * Flat address reaching @p selector_value at byte offset @p offset of the region this window
+     * maps, measured in the destination's own addressing. @p offset must satisfy
+     * transfer_supported(), which is what rejects one below offset_base().
+     */
+    constexpr uint64_t make_address(uint32_t selector_value, uint64_t offset) const {
+        return compare | (static_cast<uint64_t>(selector_value) << endpoint_shift) | (offset - offset_base());
     }
 
     /** Whether @p address falls in this window's compare range. */
@@ -59,8 +77,10 @@ struct Window {
         return static_cast<uint16_t>(endpoint_table_offset + selector(address));
     }
 
-    /** Core-local byte offset @p address carries. */
-    constexpr uint64_t local_address(uint64_t address) const { return address & low_mask(local_address_bits()); }
+    /** Byte offset @p address carries, in the same addressing make_address() takes. */
+    constexpr uint64_t local_address(uint64_t address) const {
+        return (address & low_mask(local_address_bits())) + offset_base();
+    }
 
     /**
      * Width of the local-address field. A window with no selector spends every ignored comparison
@@ -68,8 +88,11 @@ struct Window {
      */
     constexpr uint32_t local_address_bits() const { return endpoint_size == 0 ? mask_bits : endpoint_shift; }
 
-    /** One past the largest core-local offset the window can carry. */
+    /** Size of one selector's slot, which is the span of offsets the window reaches. */
     constexpr uint64_t local_address_limit() const { return uint64_t{1} << local_address_bits(); }
+
+    /** One past the highest offset this window reaches. */
+    constexpr uint64_t offset_limit() const { return offset_base() + local_address_limit(); }
 
     /** Number of selector values the window supports. */
     constexpr uint32_t selector_limit() const { return endpoint_size == 0 ? 1u : (uint32_t{1} << endpoint_size); }
@@ -78,13 +101,16 @@ struct Window {
     constexpr bool selector_supported(uint32_t selector_value) const { return selector_value < selector_limit(); }
 
     /**
-     * Whether a @p size byte transfer at core-local offset @p local stays within one selector's
-     * slot. A transfer that runs past it carries into the selector field and reaches a different
-     * core instead of failing, so it is rejected here. Zero-size transfers are rejected too.
+     * Whether a @p size byte transfer at @p offset stays within one selector's slot. A transfer
+     * that runs past it carries into the selector field and reaches a different core instead of
+     * failing, so it is rejected here, as are an offset below offset_base() and a zero size.
      */
-    constexpr bool transfer_supported(uint64_t local, uint64_t size) const {
-        const uint64_t limit = local_address_limit();
-        return size != 0 && local < limit && size <= limit - local;
+    constexpr bool transfer_supported(uint64_t offset, uint64_t size) const {
+        if (size == 0 || offset < offset_base()) {
+            return false;
+        }
+        const uint64_t limit = offset_limit();
+        return offset < limit && size <= limit - offset;
     }
 };
 

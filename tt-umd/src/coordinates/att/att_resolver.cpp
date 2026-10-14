@@ -90,7 +90,7 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
     // transfer that starts in L1 stays on the L1 window, so one that runs past the end of L1 is
     // still rejected below.
     if (window_class == WindowClass::WORKER &&
-        offset >= map_.windows[static_cast<size_t>(WindowClass::WORKER)].local_address_limit()) {
+        offset >= map_.windows[static_cast<size_t>(WindowClass::WORKER)].offset_limit()) {
         window_class = WindowClass::FULL_TILE;
     }
 
@@ -125,11 +125,12 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
         window.transfer_supported(offset, size),
         error::RuntimeError,
         fmt::format(
-            "A {} byte transfer at offset 0x{:x} runs past the 0x{:x} byte slot of core ({}, {}), so it would "
+            "A {} byte transfer at offset 0x{:x} leaves the [0x{:x}, 0x{:x}) slot of core ({}, {}), so it would "
             "reach a different core.",
             size,
             offset,
-            window.local_address_limit(),
+            window.offset_base(),
+            window.offset_limit(),
             x,
             y));
 

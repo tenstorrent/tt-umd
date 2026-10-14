@@ -121,6 +121,7 @@ TEST(GrendelAttMap, MatchesTheTablesTheFirmwareProgrammes) {
         EXPECT_EQ(window->endpoint_size, entry["ep_id_size"].as<uint32_t>());
         EXPECT_EQ(window->endpoint_table_offset, entry["table_offset"].as<uint32_t>());
         EXPECT_EQ(window->translate_address, entry["translate_addr"].as<int>() == 1);
+        EXPECT_EQ(window->bar, entry["bar"].as<uint64_t>());
     }
 
     EXPECT_EQ(matched_windows, att::WINDOW_CLASS_COUNT)

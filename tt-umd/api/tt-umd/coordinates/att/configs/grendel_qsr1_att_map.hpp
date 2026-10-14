@@ -34,10 +34,12 @@ inline constexpr Window QSR1_WORKER_WINDOW{
     .endpoint_size = 6,
     .endpoint_table_offset = 128,
     .translate_address = true,
+    .bar = 0,
 };
 
 // Mask-table entry 5: Mimir GDDR, one 8 GiB slot per D2D link. Quasar passes the address through
-// rather than rebasing it, because the Mimir side decodes the global range directly.
+// rather than rebasing it, because the Mimir side decodes the global range directly. The bar the
+// firmware programmes here is inert for the same reason: nothing adds it to a forwarded address.
 inline constexpr Window QSR1_DRAM_WINDOW{
     .compare = 0x1000000000000ULL,
     .mask_bits = 38,
@@ -45,6 +47,7 @@ inline constexpr Window QSR1_DRAM_WINDOW{
     .endpoint_size = 5,
     .endpoint_table_offset = 96,
     .translate_address = false,
+    .bar = 0x800000000ULL,
 };
 
 // Mask-table entry 14: the per-tile config aperture, one 128 MiB slot per Quasar mesh tile.
@@ -55,6 +58,7 @@ inline constexpr Window QSR1_FULL_TILE_WINDOW{
     .endpoint_size = 6,
     .endpoint_table_offset = 256,
     .translate_address = true,
+    .bar = 0,
 };
 
 // clang-format off

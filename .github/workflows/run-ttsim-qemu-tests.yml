@@ -33,8 +33,6 @@ jobs:
         with:
           name: build-artifacts-ubuntu-22.04-Release
 
-      # This is needed to preserve file permissions
-      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
       - name: Untar build artifacts
         run: tar xf artifact.tar
 

@@ -269,6 +269,15 @@ Since the hooks run automatically before each commit, you don't need to remember
 
 We strongly encourage all developers to integrate pre-commit into their workflow.
 
+## VS Code Configuration
+
+If working with VS Code, you can copy the provided default settings:
+```bash
+cp .vscode/default.settings.json .vscode/settings.json
+```
+
+It will enable format on save (given that clang-format is available) as well as other quality of life improvements.
+
 ## Formatting C++ code
 
 ### Installing clang-format
@@ -279,14 +288,7 @@ on [llvm website](https://apt.llvm.org/) for installing it.
 
 ### Formatting files
 
-If working with VSCode, you can copy the provided default settings:
-```bash
-cp .vscode/default.settings.json .vscode/settings.json
-```
-
-From now on, c++ files will be formatted on save (given that clang-format is available).
-
-Note that if you setup pre-commit hook, the files will be automatically formatted when you commit changes.
+If you setup pre-commit hook, the files will be automatically formatted when you commit changes.
 You can also manually auto format the whole repo using mentioned pre-commit:
 ```bash
    pre-commit run --all-files

@@ -1,13 +1,14 @@
 # Destructive tests: NOC hang / MMIO-timeout detection, and the safe-I/O warm-reset tests
 # (which reset the board repeatedly to prove a reset-invalidated mapping surfaces as SigbusError).
-# Runs automatically every weeknight on a set of cards, and can also be
+# Runs automatically once a week on a set of cards, and can also be
 # triggered manually from the Actions tab ("Run workflow"), picking the card to run on.
 name: Run destructive tests
 
 on:
   schedule:
-    # Run nightly at 1 AM UTC, Monday through Friday.
-    - cron: "0 1 * * 1-5"
+    # Weekly, early Monday in Belgrade (01:00 CET / 02:00 CEST), so a failure is on Slack
+    # by the start of the work week.
+    - cron: "0 0 * * 1"
   workflow_dispatch:
     inputs:
       card:
@@ -20,8 +21,6 @@ on:
           - tt-ubuntu-2204-n300-stable
           - tt-ubuntu-2204-p150b-stable
           - P300-viommu
-          - tt-ubuntu-2204-wh-glx-6u-stable
-          # - wh-glx-6u  # Temporarily disabled (see #3413).
       build-type:
         description: 'CMake build type'
         required: true
@@ -47,7 +46,7 @@ on:
         default: 30
         type: number
 
-# Defaults below (via `github.event.inputs.* || '...'`) are used for the nightly scheduled run.
+# Defaults below (via `github.event.inputs.* || '...'`) are used for the weekly scheduled run.
 # Manual dispatch overrides them with the chosen values.
 env:
   TEST_OUTPUT_DIR: ./build/test
@@ -72,16 +71,15 @@ jobs:
     timeout-minutes: ${{ fromJSON(github.event.inputs.timeout || '30') }}
     strategy:
       fail-fast: false
-      # Manual dispatch runs on the single chosen card; the nightly schedule fans out
-      # across the default card set (n150, n300, p150, p300, glx).
+      # Manual dispatch runs on the single chosen card; the weekly schedule fans out
+      # across the default card set (n150, n300, p150, p300). Galaxy is left out: every test skips there.
       matrix:
         card: >-
           ${{ fromJSON(github.event_name == 'schedule' && '[
           "tt-ubuntu-2204-n150-stable",
           "tt-ubuntu-2204-n300-stable",
           "tt-ubuntu-2204-p150b-stable",
-          "P300-viommu",
-          "tt-ubuntu-2204-wh-glx-6u-stable"
+          "P300-viommu"
           ]' || format('["{0}"]', github.event.inputs.card)) }}
     # Runners outside the tt-ubuntu-*-stable pool need in-service, which their pool uses to mark the
     # machines that may take general CI jobs.
@@ -126,7 +124,7 @@ jobs:
     name: 📢 Notify #tt-umd-ci on failure
     runs-on: ubuntu-latest
     needs: [build, run]
-    # One message per nightly run, only when the build or any card failed.
+    # One message per weekly run, only when the build or any card failed.
     # Scheduled runs only — manual dispatch is for interactive testing and
     # shouldn't ping the channel.
     if: failure() && github.event_name == 'schedule'
@@ -135,7 +133,7 @@ jobs:
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           cat << EOF > /tmp/slack_message.txt
-          🚨 Nightly destructive tests failed
+          🚨 Weekly destructive tests failed
 
           The build or one or more cards failed the destructive NOC hang / warm-reset tests.
 

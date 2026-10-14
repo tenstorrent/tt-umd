@@ -20,8 +20,7 @@ jobs:
       matrix:
         include:
           - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
-          # P150 (libttsim_bh.so, bar4-size 32G) waits for ttsim to accept the static VC fields UMD
-          # programs into Blackhole TLBs: https://github.com/tenstorrent/ttsim-private/issues/964
+          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
     runs-on: ubuntu-22.04
     container:

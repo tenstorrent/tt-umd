@@ -1,158 +1,163 @@
-name: Check runner
+# Builds umd_tests.
+name: Build Target
 
 on:
+  workflow_call:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      timeout:
+        required: false
+        type: number
+        default: 30
+        description: >-
+          Build job timeout in minutes. Defaults to 30, sized for the
+          github-hosted runners. Callers only set this to override.
+      build-type:
+        required: true
+        type: string
+        default: Release
+      build-targets:
+        required: false
+        type: string
+        default: "umd_tests umd_microbenchmark umd_tools"
+        description: >-
+          Space-separated list of CMake targets to build.
+      log-params:
+        required: false
+        type: string
+        default: ""
+      build-wheel:
+        required: false
+        type: boolean
+        default: true
+      build-tracy:
+        required: false
+        type: boolean
+        default: false
+        description: >-
+          When true, the build job runs an additional matrix entry with
+          TT_UMD_ENABLE_TRACY=ON. The Tracy artifact uses a -tracy suffix.
+      use-sccache:
+        required: false
+        type: boolean
+        default: true
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
   workflow_dispatch:
     inputs:
+      ubuntu-docker-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
       timeout:
         required: true
-        description: 'The timeout for the job in minutes'
+        description: 'The timeout for the build job in minutes'
         type: number
-        default: 10
+      build-type:
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+      build-tracy:
+        required: false
+        description: 'Also build a Tracy-enabled variant'
+        type: boolean
+        default: false
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
+env:
+  CC: clang-20
+  CXX: clang++-20
+  BUILD_TARGETS: "umd_tests umd_microbenchmark umd_tools"
+  BUILD_OUTPUT_DIR: ./build
+  LIB_OUTPUT_DIR: ./build/lib
+  DEPS_OUTPUT_DIR: ./build/_deps
+  TEST_OUTPUT_DIR: ./build/test
+  TOOLS_OUTPUT_DIR: ./build/tools
+  WHEEL_OUTPUT_DIR: ./build/wheel
+  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
+  ATT_MAPS_DIR: ./tests/att_maps
+  NANOBIND_TEST_DIR: ./nanobind/tests
+  # Env. vars related to SCCache:
+  SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+  # Only the main branch may write to the sccache; all other branches read only.
+  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
 jobs:
-  check-runners-host:
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable,
-          # Runners outside the tt-ubuntu-*-stable pool need in-service, which their pool uses to
-          # mark the machines that may take general CI jobs.
-          [P300-viommu, in-service],
-          [BH-Quietbox-2, in-service]]
-
-    name: Check runner
-    runs-on: ${{ matrix.machine }}
-
+  print-inputs-and-env:
+    runs-on: ubuntu-latest
     steps:
-      - name: Fix ownership
-        run: |
-          sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
-
-      - uses: actions/checkout@v6
-
-      - name: Print machine info
-        run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
-
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
-
-          # Print current user
-          echo "Current User: $(whoami)"
-
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
-
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
-
-  check-runners-docker:
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable,
-          [P300-viommu, in-service],
-          [BH-Quietbox-2, in-service]]
-        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
-
-    name: Check runner docker
-    needs: check-runners-host
-    runs-on: ${{ matrix.machine }}
-
-    container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
-      volumes:
-        - /dev/hugepages:/dev/hugepages
-        - /dev/hugepages-1G:/dev/hugepages-1G
-
-    steps:
-      - name: Set working directory env variable
-        id: strings
-        shell: bash
-        run: |
-          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
-
-      - name: Git add safe dir for working directory
-        run: |
-          # Mark the main repository as safe
-          git config --global --add safe.directory ${{ env.WORK_DIR }} || true
-          # Iterate over all submodules and mark them as safe
-          git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
-
-      - uses: actions/checkout@v6
+      - name: Print Workflow Dispatch Inputs and Env Vars
+        uses: shayki5/print-workflow-dispatch-inputs@v1.0.1
         with:
-          submodules: recursive
+          print_env_vars: 'true'  # Set to 'true' to print environment variables
+          add_to_summary: 'true'  # Set to 'true' to add inputs to GitHub Summary
+  build:
+    name: >-
+      Build (${{ inputs.build-type }},
+      ${{ inputs.ubuntu-docker-version }}${{ matrix.use_tracy && ', tracy' || '' }})
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-      - name: Print machine info
+    strategy:
+      fail-fast: false
+      # When build-tracy is true, the matrix expands to two jobs: one regular and one Tracy-enabled.
+      # When false (default), only the regular build runs - so existing callers see no behavior change.
+      matrix:
+        use_tracy: ${{ fromJSON(inputs.build-tracy && '[false, true]' || '[false]') }}
+
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+
+    env:
+      SCCACHE_GHA_VERSION: >-
+        build-tests-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version
+        }}${{ matrix.use_tracy && '-tracy' || '' }}
+      # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
+      # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
+      TRACY_NO_INVARIANT_CHECK: 1
+
+    steps:
+      - name: Print all params
         run: |
-          # Print machine name
-          echo "Machine Name: $(hostname)"
+          ${{ inputs.log-params }}
+          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo build-tests - timeout: ${{ inputs.timeout }}
+          echo build-tests - build-type: ${{ inputs.build-type }}
+          echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
-          # Print OS information
-          echo "Operating System: $(lsb_release -d | cut -f2-)"
-          echo "Kernel Version: $(uname -r)"
-          echo "Architecture: $(uname -m)"
+  build-wheel:
+    if: inputs.build-wheel
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-          # Print current user
-          echo "Current User: $(whoami)"
+    name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
-          # Print number of CPU cores
-          echo "Number of CPU Cores: $(nproc)"
+    env:
+      SCCACHE_GHA_VERSION: build-wheel-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}
 
-          # Print CPU information
-          echo "CPU Information:"
-          lscpu
-
-          # Print Memory information
-          echo "Memory Information:"
-          free -h
-
-          # Print Disk usage
-          echo "Disk Usage:"
-          df -h
-
-          # Print usage of landing folder
-          echo "Show file usage"
-          du -h --max-depth=1 | sort -rh
+    steps:
+      - name: Dummy step
+        run: |
+          echo build-wheel dummy step

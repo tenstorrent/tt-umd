@@ -1,6 +1,7 @@
 #!/bin/bash
 # PID 1 of the ttsim VM guest. Runs the command run-in-ttsim-vm.sh left in the control share, stores its
-# exit code next to it, and powers the VM off. PID 1 must never exit, or the kernel panics.
+# exit code next to it, and powers the VM off. If setup fails, it powers off without an exit code, so the
+# host reports a VM failure instead of a command failure. PID 1 must never exit, or the kernel panics.
 
 power_off() {
     sync
@@ -8,7 +9,6 @@ power_off() {
     sleep infinity
 }
 
-# Leaving no exit code behind makes the host report a VM failure instead of a command failure.
 fail() {
     echo "ttsim-vm-init: $*" >&2
     dmesg | tail -50 >&2

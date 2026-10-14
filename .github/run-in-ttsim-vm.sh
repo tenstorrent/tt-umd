@@ -52,5 +52,5 @@ printf '%q ' "$@" > "$control/cmd"
     -virtfs "local,path=$PWD,mount_tag=workdir,security_model=none" \
     -device "ttsim,lib=$lib,bar4-size=$bar4_size"
 
-[[ -f "$control/exit-code" ]] || { echo "run-in-ttsim-vm: the VM stopped before the command finished" >&2; exit 1; }
+[[ -f "$control/exit-code" ]] || { echo "run-in-ttsim-vm: the VM stopped without reporting an exit code" >&2; exit 1; }
 exit "$(cat "$control/exit-code")"

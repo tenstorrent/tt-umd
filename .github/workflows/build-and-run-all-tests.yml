@@ -23,7 +23,7 @@ on:
         default: latest
         description: >-
           Content-hash tag of the ttsim-qemu image produced by docker-image.yml.
-          When unset, run-ttsim-qemu-tests uses ":latest"; when empty, it is skipped.
+          When empty or unset, run-ttsim-qemu-tests uses ":latest".
       log-params:
         required: false
         type: string
@@ -346,11 +346,10 @@ jobs:
   run-ttsim-qemu-tests:
     secrets: inherit
     # Whether the silicon path works against ttsim does not depend on the build type, so run it once.
-    # An empty tag means the caller's image build failed, which already shows as that job's failure.
-    if: inputs.build-type == 'Release' && inputs.ttsim-qemu-image-tag != ''
+    if: inputs.build-type == 'Release'
     uses: ./.github/workflows/run-ttsim-qemu-tests.yml
     with:
-      image-tag: ${{ inputs.ttsim-qemu-image-tag }}
+      image-tag: ${{ inputs.ttsim-qemu-image-tag || 'latest' }}
 
   run-tooling-tests:
     secrets: inherit

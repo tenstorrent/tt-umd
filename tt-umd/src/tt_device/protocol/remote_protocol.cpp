@@ -29,12 +29,14 @@ void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, si
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    write_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
+void RemoteProtocol::write_ctrl(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    write_registers_individually(*this, mem_ptr, core, addr, size, noc_id, width);
 }
 
-void RemoteProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    read_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
+void RemoteProtocol::read_ctrl(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    read_registers_individually(*this, mem_ptr, core, addr, size, noc_id, width);
 }
 
 bool RemoteProtocol::write_to_core_range(

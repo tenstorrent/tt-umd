@@ -266,6 +266,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/firmware/firmware_utils.hpp
                 api/tt-umd/types/noc_id.hpp
                 api/tt-umd/types/power_state.hpp
+                api/tt-umd/types/register_access_width.hpp
                 api/tt-umd/types/risc_type.hpp
                 api/tt-umd/simulation/simulation_chip.hpp
                 api/tt-umd/simulation/simulation_connector.hpp
@@ -399,6 +400,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/io_window_config.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/power_state.hpp
+                api/umd/device/types/register_access_width.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp

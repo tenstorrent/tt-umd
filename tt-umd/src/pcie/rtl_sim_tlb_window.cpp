@@ -80,6 +80,14 @@ uint32_t RtlSimTlbWindow::read32(uint64_t offset) {
     return value;
 }
 
+void RtlSimTlbWindow::write64(uint64_t offset, uint64_t value) { translate_and_write(offset, &value, sizeof(value)); }
+
+uint64_t RtlSimTlbWindow::read64(uint64_t offset) {
+    uint64_t value = 0;
+    translate_and_read(offset, &value, sizeof(value));
+    return value;
+}
+
 void RtlSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
     write_registers_individually(*this, offset, data, size);
 }

@@ -29,12 +29,14 @@ void JtagProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size
     jtag_device_->read(mmio_id_, mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
 }
 
-void JtagProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    write_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
+void JtagProtocol::write_ctrl(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    write_registers_individually(*this, mem_ptr, core, addr, size, noc_id, width);
 }
 
-void JtagProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    read_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
+void JtagProtocol::read_ctrl(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    read_registers_individually(*this, mem_ptr, core, addr, size, noc_id, width);
 }
 
 bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId) { return false; }

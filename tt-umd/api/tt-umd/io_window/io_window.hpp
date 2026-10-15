@@ -75,6 +75,20 @@ public:
     virtual uint32_t read32(uint64_t offset) = 0;
 
     /**
+     * @brief Writes a 64-bit value through the window as a single access.
+     * @param offset Byte offset from the window base.
+     * @param value The 64-bit value to write.
+     */
+    virtual void write64(uint64_t offset, uint64_t value) = 0;
+
+    /**
+     * @brief Reads a 64-bit value through the window as a single access.
+     * @param offset Byte offset from the window base.
+     * @return uint64_t The value read.
+     */
+    virtual uint64_t read64(uint64_t offset) = 0;
+
+    /**
      * @brief Writes 4-byte aligned data through the window. More suited for register transactions.
      * @param offset Byte offset from the window base. Must be 4-byte aligned.
      * @param data Pointer to the source data.

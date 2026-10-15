@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -16,15 +17,27 @@ class DeviceProtocol;
 class TlbWindow;
 
 // NoC requests to MMIO registers must be exactly one register wide; a wider request returns or stores a
-// single register. These issue a multi-register transfer as one 4-byte access per register, so it never
-// reaches the device as one wide request. The address and size must be 4-byte aligned.
+// single register. These issue a multi-register transfer as one access of the given width per register, so
+// it never reaches the device as one wide request. The address and size must be aligned to that width.
 void read_registers_individually(
-    DeviceProtocol& protocol, void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
+    DeviceProtocol& protocol,
+    void* dst,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    RegisterAccessWidth width);
 void write_registers_individually(
-    DeviceProtocol& protocol, const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
+    DeviceProtocol& protocol,
+    const void* src,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    RegisterAccessWidth width);
 
-// Same split over a window's block path, for the simulation windows driven directly instead of through a
-// protocol. Temporary: goes away when simulation moves under the DeviceProtocol umbrella.
+// Same split over a window's block path, with 32-bit accesses, for the simulation windows driven directly
+// instead of through a protocol. Temporary: goes away when simulation moves under the DeviceProtocol umbrella.
 void read_registers_individually(TlbWindow& window, uint64_t offset, void* data, size_t size);
 void write_registers_individually(TlbWindow& window, uint64_t offset, const void* data, size_t size);
 

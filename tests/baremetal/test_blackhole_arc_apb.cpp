@@ -69,7 +69,8 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(BlackholeArcApbTest, ReadOverJtagGoesThroughDeviceProtocol) {
     BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_);
 
-    EXPECT_CALL(protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc()));
+    EXPECT_CALL(
+        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::BITS32));
 
     uint32_t value = 0;
     apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
@@ -78,7 +79,8 @@ TEST_P(BlackholeArcApbTest, ReadOverJtagGoesThroughDeviceProtocol) {
 TEST_P(BlackholeArcApbTest, WriteOverJtagGoesThroughDeviceProtocol) {
     BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_);
 
-    EXPECT_CALL(protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc()));
+    EXPECT_CALL(
+        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::BITS32));
 
     uint32_t value = 0xABCD;
     apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
@@ -90,7 +92,8 @@ TEST_P(BlackholeArcApbTest, ReadFallsBackToNocWhenArcNotAvailableOverAxi) {
     expect_pcie_x_coordinate(PCIE_X_ARC_OVER_NOC);
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
-    EXPECT_CALL(protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc()));
+    EXPECT_CALL(
+        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::BITS32));
 
     uint64_t value = 0;
     apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
@@ -100,7 +103,8 @@ TEST_P(BlackholeArcApbTest, WriteFallsBackToNocWhenArcNotAvailableOverAxi) {
     expect_pcie_x_coordinate(PCIE_X_ARC_OVER_NOC);
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
-    EXPECT_CALL(protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc()));
+    EXPECT_CALL(
+        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::BITS32));
 
     uint64_t value = 0x1234;
     apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
@@ -113,7 +117,7 @@ TEST_P(BlackholeArcApbTest, ReadUsesBarWhenArcAvailableOverAxi) {
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
     EXPECT_CALL(pcie_, bar_read32(bar_address())).WillOnce(Return(0xDEADBEEF));
-    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).Times(0);
 
     uint32_t value = 0;
     apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
@@ -125,7 +129,7 @@ TEST_P(BlackholeArcApbTest, WriteUsesBarWhenArcAvailableOverAxi) {
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
     EXPECT_CALL(pcie_, bar_write32(bar_address(), 0xFEEDFACE));
-    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _, _)).Times(0);
 
     uint32_t value = 0xFEEDFACE;
     apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());

@@ -38,6 +38,14 @@ uint32_t TTSimTlbWindow::read32(uint64_t offset) {
     return value;
 }
 
+void TTSimTlbWindow::write64(uint64_t offset, uint64_t value) { write_block(offset, &value, sizeof(value)); }
+
+uint64_t TTSimTlbWindow::read64(uint64_t offset) {
+    uint64_t value = 0;
+    read_block(offset, &value, sizeof(value));
+    return value;
+}
+
 void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
     write_registers_individually(*this, offset, data, size);
 }

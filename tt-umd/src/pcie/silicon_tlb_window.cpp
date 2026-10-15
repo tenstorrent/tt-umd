@@ -114,6 +114,16 @@ uint32_t SiliconTlbWindow::read32_impl(uint64_t offset) {
     return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
+void SiliconTlbWindow::write64_impl(uint64_t offset, uint64_t value) {
+    validate(offset, sizeof(uint64_t));
+    write64_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
+}
+
+uint64_t SiliconTlbWindow::read64_impl(uint64_t offset) {
+    validate(offset, sizeof(uint64_t));
+    return read64_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
+}
+
 void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, size_t size) {
     size_t n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
@@ -317,6 +327,21 @@ uint32_t SiliconTlbWindow::read32(uint64_t offset) {
         return execute_safe(&SiliconTlbWindow::read32_impl, offset);
     }
     return read32_impl(offset);
+}
+
+void SiliconTlbWindow::write64(uint64_t offset, uint64_t value) {
+    if (io_safety_ == IoSafety::Enabled) {
+        execute_safe(&SiliconTlbWindow::write64_impl, offset, value);
+        return;
+    }
+    write64_impl(offset, value);
+}
+
+uint64_t SiliconTlbWindow::read64(uint64_t offset) {
+    if (io_safety_ == IoSafety::Enabled) {
+        return execute_safe(&SiliconTlbWindow::read64_impl, offset);
+    }
+    return read64_impl(offset);
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {

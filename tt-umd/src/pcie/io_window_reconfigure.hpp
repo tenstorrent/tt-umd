@@ -10,6 +10,7 @@
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -41,7 +42,7 @@ void write_block_reconfigure(
     NocId noc_id,
     IoOrdering ordering = IoOrdering::Strict);
 
-// Register reconfigure functions transfer through read_aligned/write_aligned. Alignment
+// Register reconfigure functions transfer one access of the given width per register. Alignment
 // enforcement is the caller's responsibility.
 void read_register_reconfigure(
     IoWindow& window,
@@ -50,6 +51,7 @@ void read_register_reconfigure(
     uint64_t addr,
     size_t size,
     NocId noc_id,
+    RegisterAccessWidth width,
     IoOrdering ordering = IoOrdering::Strict);
 
 void write_register_reconfigure(
@@ -59,6 +61,7 @@ void write_register_reconfigure(
     uint64_t addr,
     size_t size,
     NocId noc_id,
+    RegisterAccessWidth width,
     IoOrdering ordering = IoOrdering::Strict);
 
 void noc_multicast_write_reconfigure(

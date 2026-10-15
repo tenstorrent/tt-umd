@@ -31,6 +31,8 @@ public:
     uint16_t read16(uint64_t offset) override;
     void write32(uint64_t offset, uint32_t value) override;
     uint32_t read32(uint64_t offset) override;
+    void write64(uint64_t offset, uint64_t value) override;
+    uint64_t read64(uint64_t offset) override;
     void write_register(uint64_t offset, const void* data, size_t size) override;
     void read_register(uint64_t offset, void* data, size_t size) override;
     void write_block(uint64_t offset, const void* data, size_t size) override;
@@ -87,6 +89,8 @@ private:
     uint16_t read16_impl(uint64_t offset);
     void write32_impl(uint64_t offset, uint32_t value);
     uint32_t read32_impl(uint64_t offset);
+    void write64_impl(uint64_t offset, uint64_t value);
+    uint64_t read64_impl(uint64_t offset);
     void write_register_impl(uint64_t offset, const void* data, size_t size);
     void read_register_impl(uint64_t offset, void* data, size_t size);
     void write_block_impl(uint64_t offset, const void* data, size_t size);

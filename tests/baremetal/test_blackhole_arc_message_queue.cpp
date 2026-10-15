@@ -251,9 +251,10 @@ TEST_P(BlackholeArcMessageQueueTest, FactoryReadsTheDescriptorOverJtagWhenPresen
     constexpr uint32_t FIRST_QUEUE_BASE = 0x60000;
     constexpr uint32_t ENTRIES_PER_QUEUE = 2;
 
-    ON_CALL(protocol_, read_ctrl(_, _, _, _, _))
-        .WillByDefault(Invoke(
-            [](void* dst, tt_xy_pair, uint64_t, size_t, NocId) { *static_cast<uint32_t*>(dst) = CONTROL_BLOCK_ADDR; }));
+    ON_CALL(protocol_, read_ctrl(_, _, _, _, _, _))
+        .WillByDefault(Invoke([](void* dst, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
+            *static_cast<uint32_t*>(dst) = CONTROL_BLOCK_ADDR;
+        }));
     EXPECT_CALL(jtag_, mmio_read32(CONTROL_BLOCK_ADDR)).WillOnce(Return(FIRST_QUEUE_BASE));
     EXPECT_CALL(jtag_, mmio_read32(CONTROL_BLOCK_ADDR + 4)).WillOnce(Return(ENTRIES_PER_QUEUE));
     EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);

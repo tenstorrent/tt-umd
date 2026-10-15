@@ -65,10 +65,8 @@ jobs:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
 
-      # TODO: temporary - revert to `pip install "tt-smi"` once a tt-smi release
-      # newer than 6.7.0 is published (needs tt-smi #265).
-      # tt-smi's setup.py imports tomli without declaring it as a build requirement, so the source
-      # build runs without isolation; the system setuptools is too old to read its dependency list.
+      # TODO: revert to `pip install "tt-smi"` once a tt-smi release includes #265.
+      # Building tt-smi from source needs tomli and a newer setuptools than the system one.
       - name: Install tt-smi
         run: |
           pip install --upgrade setuptools tomli wheel

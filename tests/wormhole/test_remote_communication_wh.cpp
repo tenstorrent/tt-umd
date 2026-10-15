@@ -144,9 +144,8 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
         local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
 
     remote_comm.set_remote_transfer_ethernet_cores(all_cores);
-    for (size_t i = 0; i + 1 < all_cores.size(); i++) {
-        remote_comm.rotate_active_eth_core();
-    }
+    // One rotation moves the index to 1, which is past the end of the single-core set below.
+    remote_comm.rotate_active_eth_core();
 
     remote_comm.set_remote_transfer_ethernet_cores(single_core);
     tt_xy_pair active_core;

@@ -36,7 +36,7 @@ struct DmaRequest {
     uint32_t dst_noc_x;     // PCIe tile that the destination address is sent to, NOC0 coordinates.
     uint32_t dst_noc_y;
     uint64_t size;       // Bytes to copy.
-    uint64_t flags;      // Reserved for selecting a transfer mode; 0.
+    uint64_t flags;      // 0 for a normal copy, or FLAG_TLE_BENCH_CTL.
     uint64_t txn_id;     // Non-zero, new for each request.
     uint32_t src_noc_x;  // Source DRAM tile, NOC0 coordinates. A port of the tile's own bank is read directly; any
     uint32_t src_noc_y;  // other DRAM tile is read over the NOC.
@@ -49,7 +49,8 @@ struct DmaStatus {
     uint64_t magic;          // KERNEL_MAGIC once the kernel is up.
     uint64_t state;          // One of the STATE_ values below.
     uint64_t txn_id;         // Request that state refers to; 0 before the first one.
-    uint64_t detail;         // DMA_STARTED: bytes done. DMA_DONE: the ROUTE_ taken. INVALID: why. Else DMAC status.
+    uint64_t detail;         // DMA_STARTED: bytes done. DMA_DONE: the ROUTE_ taken (FLAG_TLE_BENCH_CTL: see there).
+                             // INVALID: why. Else DMAC status.
     uint64_t elapsed_ticks;  // mtime ticks (50 MHz) from doorbell seen to transfer done.
     uint64_t mcause;         // These three only when state is STATE_TRAP.
     uint64_t mepc;
@@ -60,7 +61,7 @@ static_assert(sizeof(DmaStatus) == CACHE_LINE);
 constexpr uint64_t STATUS = MAILBOX + sizeof(DmaRequest);
 
 // Low 16 bits are the mailbox ABI version. A kernel with another version must not be driven by this test.
-constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0004;
+constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0005;
 
 constexpr uint64_t STATE_READY = 1;        // Up and waiting for a doorbell.
 constexpr uint64_t STATE_RECEIVED = 2;     // Saw the doorbell, checking the request.
@@ -74,6 +75,11 @@ constexpr uint64_t STATE_TRAP = 8;         // The kernel took an exception; mcau
 // How the kernel read the source: detail on DMA_DONE.
 constexpr uint64_t ROUTE_DIRECT = 1;  // Direct port to the tile's own bank, no NOC.
 constexpr uint64_t ROUTE_NOC = 2;     // NOC read from the source DRAM tile.
+
+// Request flag: run one block with the CTL value tt-llm-engine's deprecated DMA bench builds, rather than a normal
+// copy (x280_experiments/02_dmac/TLE_M2M_BENCH_ANALYSIS.md). On DMA_DONE, detail holds how far the DMAC's DAR
+// advanced in bytes ([31:0]) and the BLOCK_TS that CTL reads back ([43:32]).
+constexpr uint64_t FLAG_TLE_BENCH_CTL = 1;
 
 const char* state_name(uint64_t state) {
     switch (state) {
@@ -150,6 +156,30 @@ uint32_t pattern_word(size_t i, uint64_t txn_id) {
     return static_cast<uint32_t>(i * 0x9E37'79B9U) ^ static_cast<uint32_t>(txn_id << 24);
 }
 
+// tt-llm-engine x280/deprecated/src/test_noc_bw_matrix.c bench_dma (lines 100-111 at d1cd7b1) builds the channel CTL
+// with BLOCK_TS shifted by 28 instead of 32, plus a stray 1 << 40. Its bandwidth table divides the requested size by
+// the time, so these two functions give the CTL it really programs and the bytes that CTL moves in one block.
+constexpr uint64_t tle_bench_ctl(uint64_t requested) {
+    const uint64_t block_ts = std::min<uint64_t>(requested / 32, 4095);
+    return (1ULL << 0) | (1ULL << 40) | (5ULL << 1) | (5ULL << 4) | (7ULL << 11) | (7ULL << 14) | (block_ts << 28);
+}
+
+constexpr uint64_t tle_bench_block_bytes(uint64_t requested) { return ((tle_bench_ctl(requested) >> 32) & 0xFFF) * 32; }
+
+// Sizes from the bench's own table that fit one block and leave CTL [31:28] clear, so the replay never turns on
+// linked-list mode. If the bench moved what it claims, the host would see the requested size; decoding its CTL
+// predicts 8448, 9216 and 12288 B.
+constexpr std::array<uint64_t, 3> TLE_REPLICA_SIZES = {4 * 1024, 16 * 1024, 64 * 1024};
+static_assert(tle_bench_block_bytes(4 * 1024) == 8448);
+static_assert(tle_bench_block_bytes(16 * 1024) == 9216);
+static_assert(tle_bench_block_bytes(64 * 1024) == 12288);
+
+// The replay's host buffer: a guard page, room for the largest requested size, and poison after it, so a block that
+// moves more or less than requested shows up either way.
+constexpr size_t TLE_REPLICA_BUFFER_SIZE = 128 * 1024;
+constexpr size_t TLE_REPLICA_SRC_SIZE = 128 * 1024;
+constexpr auto TLE_REPLICA_TIMEOUT = std::chrono::seconds(5);
+
 double gb_per_s(size_t bytes, double seconds) { return seconds > 0 ? bytes / seconds / 1e9 : 0; }
 
 // Boots the DMA kernel on L2CPU tile IDX, or attaches to it when an earlier test or run already booted it: a tile
@@ -214,7 +244,7 @@ protected:
                 state_name(status.state),
                 status.txn_id);
             ASSERT_EQ(status.magic, KERNEL_MAGIC)
-                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v4). Run `tt-smi -r` first.";
+                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v5). Run `tt-smi -r` first.";
             if (status.state == STATE_TRAP) {
                 log_trap(status);
             }
@@ -267,6 +297,20 @@ protected:
                                                                     : "The kernel speaks another mailbox ABI version.");
         ASSERT_EQ(status.state, STATE_READY) << "The kernel is up but not waiting for a request.";
         next_txn_id_ = 1;
+    }
+
+    // Writes the request, reads it back, then rings the doorbell. The read-back makes sure the request is in DRAM
+    // before the doorbell write is sent. Call through ASSERT_NO_FATAL_FAILURE.
+    void submit_request(const DmaRequest& request) {
+        constexpr size_t request_body = offsetof(DmaRequest, doorbell);
+        tt_device_->write_to_device(&request, local_dram(), MAILBOX, request_body);
+
+        DmaRequest request_readback{};
+        tt_device_->read_from_device(&request_readback, local_dram(), MAILBOX, request_body);
+        ASSERT_EQ(std::memcmp(&request_readback, &request, request_body), 0) << "The mailbox request reads back wrong.";
+
+        tt_device_->write_to_device(
+            &request.txn_id, local_dram(), MAILBOX + offsetof(DmaRequest, doorbell), sizeof(request.txn_id));
     }
 
     // Plants DMA_SIZE bytes at src_dram SRC_OFFSET, has the kernel copy them into a fresh pinned host buffer, checks
@@ -327,8 +371,6 @@ protected:
             plant_s,
             gb_per_s(DMA_SIZE, plant_s));
 
-        // Fill the request, read it back, then ring the doorbell. The read-back makes sure the request is in DRAM
-        // before the doorbell write is sent.
         DmaRequest request{};
         request.src = SRC_OFFSET;
         request.dst_noc_addr = dst_noc_addr;
@@ -339,14 +381,7 @@ protected:
         request.txn_id = txn_id;
         request.src_noc_x = static_cast<uint32_t>(src_dram.x);
         request.src_noc_y = static_cast<uint32_t>(src_dram.y);
-        constexpr size_t request_body = offsetof(DmaRequest, doorbell);
-        tt_device_->write_to_device(&request, local_dram(), MAILBOX, request_body);
-
-        DmaRequest request_readback{};
-        tt_device_->read_from_device(&request_readback, local_dram(), MAILBOX, request_body);
-        ASSERT_EQ(std::memcmp(&request_readback, &request, request_body), 0) << "The mailbox request reads back wrong.";
-
-        tt_device_->write_to_device(&txn_id, local_dram(), MAILBOX + offsetof(DmaRequest, doorbell), sizeof(txn_id));
+        ASSERT_NO_FATAL_FAILURE(submit_request(request));
         const auto rung_at = std::chrono::steady_clock::now();
         log_info(
             tt::LogUMD,
@@ -494,6 +529,120 @@ protected:
                                   << " with poison around it; see the log.";
     }
 
+    // Has the kernel run one block with tt-llm-engine's bench CTL for `requested` bytes, from the local bank into a
+    // poisoned host buffer, and checks that what lands is what that CTL really programs, not what was requested.
+    // Call through ASSERT_NO_FATAL_FAILURE after boot_or_attach.
+    void tle_bench_ctl_replica(uint64_t requested) {
+        const SocDescriptor& soc_desc = tt_device_->get_soc_descriptor();
+        const CoreCoord pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::NOC0).at(0);
+        const uint64_t ctl = tle_bench_ctl(requested);
+        const uint64_t predicted = tle_bench_block_bytes(requested);
+
+        std::unique_ptr<SysmemBuffer> host_buffer =
+            sysmem_manager_->allocate_sysmem_buffer(TLE_REPLICA_BUFFER_SIZE, true);
+        ASSERT_TRUE(host_buffer->get_noc_address().has_value()) << "KMD gave the host buffer no NOC address.";
+        uint32_t* const host_words = static_cast<uint32_t*>(host_buffer->get_va());
+        const size_t total_words = TLE_REPLICA_BUFFER_SIZE / sizeof(uint32_t);
+
+        // Plant more source than either the requested or the predicted size, so neither runs off the pattern.
+        const uint64_t txn_id = next_txn_id_++;
+        std::vector<uint32_t> source(TLE_REPLICA_SRC_SIZE / sizeof(uint32_t));
+        for (size_t i = 0; i < source.size(); i++) {
+            source[i] = pattern_word(i, txn_id);
+        }
+        tt_device_->write_to_device(source.data(), local_dram(), SRC_OFFSET, TLE_REPLICA_SRC_SIZE);
+        std::fill(host_words, host_words + total_words, POISON);
+
+        DmaRequest request{};
+        request.src = SRC_OFFSET;
+        request.dst_noc_addr = host_buffer->get_noc_address().value() + DST_OFFSET;
+        request.dst_noc_x = static_cast<uint32_t>(pcie_core.x);
+        request.dst_noc_y = static_cast<uint32_t>(pcie_core.y);
+        request.size = requested;
+        request.flags = FLAG_TLE_BENCH_CTL;
+        request.txn_id = txn_id;
+        request.src_noc_x = static_cast<uint32_t>(local_dram().x);
+        request.src_noc_y = static_cast<uint32_t>(local_dram().y);
+        ASSERT_NO_FATAL_FAILURE(submit_request(request));
+
+        DmaStatus status{};
+        const auto deadline = std::chrono::steady_clock::now() + TLE_REPLICA_TIMEOUT;
+        bool finished = false;
+        while (std::chrono::steady_clock::now() < deadline) {
+            status = read_status();
+            if (status.txn_id == txn_id && (status.state == STATE_TRAP || is_terminal(status.state))) {
+                finished = true;
+                break;
+            }
+            std::this_thread::sleep_for(POLL_INTERVAL);
+        }
+        if (!finished) {
+            // The DMAC may still write into the buffer later, so it must stay pinned: leak it on purpose.
+            static_cast<void>(host_buffer.release());
+            FAIL() << "No terminal state for txn " << txn_id << " within " << TLE_REPLICA_TIMEOUT.count()
+                   << " s; last state " << state_name(status.state) << ". Host buffer left pinned.";
+        }
+        if (status.state == STATE_TRAP) {
+            log_trap(status);
+        }
+        ASSERT_EQ(status.state, STATE_DMA_DONE) << "Txn " << txn_id << " ended " << state_name(status.state)
+                                                << ", detail 0x" << std::hex << status.detail << ".";
+
+        // What landed: the pattern from DST_OFFSET for as far as it runs, poison everywhere else. Re-check once after
+        // LATE_DATA_GRACE in case posted writes were still in flight when DMA_DONE was seen.
+        const size_t first_word = DST_OFFSET / sizeof(uint32_t);
+        size_t landed_words = 0;
+        size_t stray_words = 0;
+        auto scan = [&]() {
+            landed_words = 0;
+            while (first_word + landed_words < total_words &&
+                   host_words[first_word + landed_words] == pattern_word(landed_words, txn_id)) {
+                landed_words++;
+            }
+            stray_words = 0;
+            for (size_t i = 0; i < total_words; i++) {
+                const bool in_landed = i >= first_word && i < first_word + landed_words;
+                if (!in_landed && host_words[i] != POISON) {
+                    stray_words++;
+                }
+            }
+        };
+        scan();
+        if (landed_words * sizeof(uint32_t) != predicted || stray_words != 0) {
+            std::this_thread::sleep_for(LATE_DATA_GRACE);
+            scan();
+        }
+        const uint64_t landed = landed_words * sizeof(uint32_t);
+        const uint64_t dar_advance = status.detail & 0xFFFF'FFFF;
+        const uint64_t block_ts_readback = (status.detail >> 32) & 0xFFF;
+
+        // The kernel's time includes the DMA TLB and window setup before the block; bench_dma timed only the block.
+        const double kernel_s = static_cast<double>(status.elapsed_ticks) / 50e6;
+        log_info(
+            tt::LogUMD,
+            "TLE bench CTL for {} B: CTL 0x{:016x}, BLOCK_TS field {} items, predicts {} B. Host buffer got {} B "
+            "({} stray words); DAR advanced {} B; CTL BLOCK_TS reads back {}. Kernel {:.1f} us: {:.1f} MB/s counting "
+            "the requested bytes as the bench did, {:.1f} MB/s counting the bytes that landed.",
+            requested,
+            ctl,
+            predicted / 32,
+            predicted,
+            landed,
+            stray_words,
+            dar_advance,
+            block_ts_readback,
+            kernel_s * 1e6,
+            gb_per_s(requested, kernel_s) * 1e3,
+            gb_per_s(landed, kernel_s) * 1e3);
+        RecordProperty(fmt::format("requested_{}", requested), std::to_string(landed));
+
+        EXPECT_EQ(stray_words, 0U) << "Words outside the copied run are not poison: the block wrote somewhere else.";
+        EXPECT_EQ(landed, predicted) << "The bench CTL for " << requested << " B moved " << landed << " B, not the "
+                                     << predicted << " B its decoded BLOCK_TS predicts"
+                                     << (landed == requested ? " (it moved the requested size: the decode is wrong)."
+                                                             : ".");
+    }
+
     std::unique_ptr<SiliconSysmemManager> sysmem_manager_;
     uint64_t next_txn_id_ = 0;
 };
@@ -512,6 +661,18 @@ TEST_F(L2CPUDmaTest, DramToHost) {
         return;
     }
     ASSERT_NO_FATAL_FAILURE(dram_to_host(local_dram(), ROUTE_DIRECT));
+}
+
+// Replays tt-llm-engine's DMA bench CTL for three of its table's sizes and counts the bytes that land, to check the
+// claim that its "2.34 GB/s DMA M2M" counted bytes it never moved. Local bank only, one block per size.
+TEST_F(L2CPUDmaTest, TleBenchCtlReplica) {
+    ASSERT_NO_FATAL_FAILURE(boot_or_attach());
+    if (IsSkipped()) {
+        return;
+    }
+    for (const uint64_t requested : TLE_REPLICA_SIZES) {
+        ASSERT_NO_FATAL_FAILURE(tle_bench_ctl_replica(requested));
+    }
 }
 
 // Same, but the block sits at REMOTE_DRAM, so the DMAC reads it over the NOC before writing it to the host.

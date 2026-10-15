@@ -7,12 +7,12 @@
 #include <fmt/format.h>
 #include <unistd.h>
 
+#include "register_access.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -50,15 +50,11 @@ void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, 
 }
 
 void TTSimProtocol::read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
-        read_data(static_cast<uint8_t*>(dst) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
-    });
+    read_registers_individually(*this, dst, core, addr, size, noc_id);
 }
 
 void TTSimProtocol::write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
-        write_data(static_cast<const uint8_t*>(src) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
-    });
+    write_registers_individually(*this, src, core, addr, size, noc_id);
 }
 
 bool TTSimProtocol::write_to_core_range(

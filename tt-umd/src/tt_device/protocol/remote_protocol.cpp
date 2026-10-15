@@ -9,12 +9,12 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "register_access.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/tt_device/ethernet_broadcast.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -30,15 +30,11 @@ void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, si
 }
 
 void RemoteProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
-        write_data(static_cast<const uint8_t*>(mem_ptr) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
-    });
+    write_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
 }
 
 void RemoteProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    for_each_register_access(addr, size, [&](uint64_t reg_addr, size_t offset) {
-        read_data(static_cast<uint8_t*>(mem_ptr) + offset, core, reg_addr, sizeof(uint32_t), noc_id);
-    });
+    read_registers_individually(*this, mem_ptr, core, addr, size, noc_id);
 }
 
 bool RemoteProtocol::write_to_core_range(

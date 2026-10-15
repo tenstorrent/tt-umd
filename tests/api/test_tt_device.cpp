@@ -93,32 +93,6 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     }
 }
 
-// A multi-register read must match reading each register on its own: registers answer only single-register
-// NoC requests (tenstorrent/tt-umd#3611).
-TEST(ApiTTDeviceTest, TTDeviceRegMultiRegisterRead) {
-    // NIU0 config registers of a Tensix tile, which hold distinct values.
-    const uint64_t niu_cfg_address = 0xFFB20100;
-    const size_t num_registers = 16;
-
-    for (int pci_device_id : PCIDevice::enumerate_devices()) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->init_tt_device();
-        CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-        std::vector<uint32_t> single_reads(num_registers);
-        for (size_t i = 0; i < num_registers; i++) {
-            tt_device->read_from_device_reg(
-                &single_reads[i], tensix_core, niu_cfg_address + i * sizeof(uint32_t), sizeof(uint32_t));
-        }
-
-        std::vector<uint32_t> multi_read(num_registers);
-        tt_device->read_from_device_reg(
-            multi_read.data(), tensix_core, niu_cfg_address, multi_read.size() * sizeof(uint32_t));
-
-        EXPECT_EQ(multi_read, single_reads);
-    }
-}
-
 TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

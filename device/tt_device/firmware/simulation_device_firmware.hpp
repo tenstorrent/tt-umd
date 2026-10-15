@@ -96,7 +96,7 @@ public:
         return false;
     }
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override {
+    std::optional<uint64_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override {
         return std::nullopt;
     }
 

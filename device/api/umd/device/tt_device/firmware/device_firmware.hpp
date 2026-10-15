@@ -159,9 +159,10 @@ public:
     /**
      * @brief Retrieves the address of the runtime telemetry buffer.
      * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Device address of the runtime telemetry buffer.
+     * @return std::optional<uint64_t> NOC address of the runtime telemetry buffer on the ARC core, usable
+     * directly for reads/writes to the ARC core. 0 if firmware has not published the buffer.
      */
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address(
+    virtual std::optional<uint64_t> get_runtime_telemetry_buffer_address(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**

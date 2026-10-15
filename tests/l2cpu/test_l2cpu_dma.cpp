@@ -60,7 +60,7 @@ static_assert(sizeof(DmaStatus) == CACHE_LINE);
 constexpr uint64_t STATUS = MAILBOX + sizeof(DmaRequest);
 
 // Low 16 bits are the mailbox ABI version. A kernel with another version must not be driven by this test.
-constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0003;
+constexpr uint64_t KERNEL_MAGIC = 0x0000'0280'0D3A'0004;
 
 constexpr uint64_t STATE_READY = 1;        // Up and waiting for a doorbell.
 constexpr uint64_t STATE_RECEIVED = 2;     // Saw the doorbell, checking the request.
@@ -214,7 +214,7 @@ protected:
                 state_name(status.state),
                 status.txn_id);
             ASSERT_EQ(status.magic, KERNEL_MAGIC)
-                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v3). Run `tt-smi -r` first.";
+                << "L2CPU" << IDX << " is released but not running this DMA kernel (ABI v4). Run `tt-smi -r` first.";
             if (status.state == STATE_TRAP) {
                 log_trap(status);
             }

@@ -504,8 +504,7 @@ void TopologyDiscovery::discover_remote_devices() {
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
 
-    // Keyed by the device number get_communication_device_id() reports. A simulator reports PCIe but its
-    // ids are process-local, not host device numbers, so it gets no entries.
+    // Workaround: a simulator reports PCIe with process-local ids, so skip host enumeration in simulation.
     const bool has_host_pci_devices = io_device_type == IODeviceType::PCIe && !options.simulation.has_value();
     const std::map<int, PciDeviceInfo> pci_devices_info =
         has_host_pci_devices ? PCIDevice::enumerate_devices_info() : std::map<int, PciDeviceInfo>{};

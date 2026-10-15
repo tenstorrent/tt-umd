@@ -74,14 +74,14 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        RegisterAccessWidth width = RegisterAccessWidth::Bits32) override;
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32) override;
     void write_to_device_reg(
         const void* mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        RegisterAccessWidth width = RegisterAccessWidth::Bits32) override;
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32) override;
 
     void dma_write_to_core_range(
         const void* src,

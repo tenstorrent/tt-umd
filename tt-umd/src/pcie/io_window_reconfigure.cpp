@@ -78,7 +78,7 @@ void read_register_reconfigure(
         static_cast<uint8_t*>(mem_ptr),
         size,
         [&window, width](uint8_t* buf, size_t sz) {
-            if (width == RegisterAccessWidth::Bits32) {
+            if (width == RegisterAccessWidth::BITS32) {
                 window.read_aligned(0, buf, sz);
                 return;
             }
@@ -105,7 +105,7 @@ void write_register_reconfigure(
         static_cast<const uint8_t*>(mem_ptr),
         size,
         [&window, width](const uint8_t* buf, size_t sz) {
-            if (width == RegisterAccessWidth::Bits32) {
+            if (width == RegisterAccessWidth::BITS32) {
                 window.write_aligned(0, buf, sz);
                 return;
             }

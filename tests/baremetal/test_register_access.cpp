@@ -11,12 +11,12 @@
 class RegisterAccess64BitOutsideQuasar : public ::testing::TestWithParam<tt::ARCH> {};
 
 TEST_P(RegisterAccess64BitOutsideQuasar, Throws) {
-    EXPECT_ANY_THROW(tt::umd::validate_register_access_width(GetParam(), tt::umd::RegisterAccessWidth::Bits64));
+    EXPECT_ANY_THROW(tt::umd::validate_register_access_width(GetParam(), tt::umd::RegisterAccessWidth::BITS64));
 }
 
 INSTANTIATE_TEST_SUITE_P(
     Architectures, RegisterAccess64BitOutsideQuasar, ::testing::Values(tt::ARCH::WORMHOLE_B0, tt::ARCH::BLACKHOLE));
 
 TEST(RegisterAccess, Allows64BitAccessOnQuasar) {
-    EXPECT_NO_THROW(tt::umd::validate_register_access_width(tt::ARCH::QUASAR, tt::umd::RegisterAccessWidth::Bits64));
+    EXPECT_NO_THROW(tt::umd::validate_register_access_width(tt::ARCH::QUASAR, tt::umd::RegisterAccessWidth::BITS64));
 }

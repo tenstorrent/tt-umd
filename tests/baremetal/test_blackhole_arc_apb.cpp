@@ -70,7 +70,7 @@ TEST_P(BlackholeArcApbTest, ReadOverJtagGoesThroughDeviceProtocol) {
     BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_);
 
     EXPECT_CALL(
-        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::Bits32));
+        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::BITS32));
 
     uint32_t value = 0;
     apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
@@ -80,7 +80,7 @@ TEST_P(BlackholeArcApbTest, WriteOverJtagGoesThroughDeviceProtocol) {
     BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_);
 
     EXPECT_CALL(
-        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::Bits32));
+        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint32_t), noc(), RegisterAccessWidth::BITS32));
 
     uint32_t value = 0xABCD;
     apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(uint64_t), arc_core(), noc());
@@ -93,7 +93,7 @@ TEST_P(BlackholeArcApbTest, ReadFallsBackToNocWhenArcNotAvailableOverAxi) {
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
     EXPECT_CALL(
-        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::Bits32));
+        protocol_, read_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::BITS32));
 
     uint64_t value = 0;
     apb.read(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());
@@ -104,7 +104,7 @@ TEST_P(BlackholeArcApbTest, WriteFallsBackToNocWhenArcNotAvailableOverAxi) {
     BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
     EXPECT_CALL(
-        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::Bits32));
+        protocol_, write_ctrl(_, arc_core(), noc_address(), sizeof(uint64_t), noc(), RegisterAccessWidth::BITS32));
 
     uint64_t value = 0x1234;
     apb.write(&value, BLACKHOLE_APB_OFFSET, sizeof(value), arc_core(), noc());

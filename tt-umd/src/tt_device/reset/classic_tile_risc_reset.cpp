@@ -46,7 +46,7 @@ uint32_t ClassicTileRiscReset::read_reset_register(tt_xy_pair core, NocId noc_id
         architecture_impl_->get_tensix_soft_reset_addr(),
         sizeof(value),
         noc_id,
-        RegisterAccessWidth::Bits32);
+        RegisterAccessWidth::BITS32);
     return value;
 }
 
@@ -57,7 +57,7 @@ void ClassicTileRiscReset::write_reset_register(tt_xy_pair core, uint32_t value,
         architecture_impl_->get_tensix_soft_reset_addr(),
         sizeof(value),
         noc_id,
-        RegisterAccessWidth::Bits32);
+        RegisterAccessWidth::BITS32);
     tt_driver_atomics::sfence();
 }
 

@@ -851,7 +851,7 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
                     wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET,
                 sizeof(address),
                 noc_id,
-                RegisterAccessWidth::Bits32);
+                RegisterAccessWidth::BITS32);
             return address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
@@ -863,7 +863,7 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
                 blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
                 sizeof(address),
                 noc_id,
-                RegisterAccessWidth::Bits32);
+                RegisterAccessWidth::BITS32);
             return address;
         default:
             return std::nullopt;
@@ -884,7 +884,7 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
                     wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET,
                 sizeof(size),
                 noc_id,
-                RegisterAccessWidth::Bits32);
+                RegisterAccessWidth::BITS32);
             return size;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
@@ -896,7 +896,7 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
                 blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
                 sizeof(size),
                 noc_id,
-                RegisterAccessWidth::Bits32);
+                RegisterAccessWidth::BITS32);
             return size;
         default:
             return std::nullopt;

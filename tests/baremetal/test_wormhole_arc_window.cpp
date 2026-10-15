@@ -58,7 +58,7 @@ TEST_F(WormholeArcApbWindowTest, RequiresExactlyOneTransport) {
 TEST_F(WormholeArcApbWindowTest, RemoteReadIsARegisterAccessKeepingSize) {
     auto window = over_remote();
 
-    EXPECT_CALL(protocol_, read_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC0, RegisterAccessWidth::Bits32));
+    EXPECT_CALL(protocol_, read_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC0, RegisterAccessWidth::BITS32));
     EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
@@ -68,7 +68,7 @@ TEST_F(WormholeArcApbWindowTest, RemoteReadIsARegisterAccessKeepingSize) {
 TEST_F(WormholeArcApbWindowTest, RemoteWriteIsARegisterAccessKeepingSize) {
     auto window = over_remote();
 
-    EXPECT_CALL(protocol_, write_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC1, RegisterAccessWidth::Bits32));
+    EXPECT_CALL(protocol_, write_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC1, RegisterAccessWidth::BITS32));
     EXPECT_CALL(protocol_, write_data(_, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
@@ -81,7 +81,7 @@ TEST_F(WormholeArcApbWindowTest, JtagReadUsesTheCallersCoreAndNoc) {
     auto window = over_jtag();
 
     EXPECT_CALL(
-        protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32));
+        protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32));
 
     uint32_t value = 0;
     window.read(&value, APB_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
@@ -91,7 +91,7 @@ TEST_F(WormholeArcApbWindowTest, JtagWriteUsesTheCallersCoreAndNoc) {
     auto window = over_jtag();
 
     EXPECT_CALL(
-        protocol_, write_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32));
+        protocol_, write_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32));
 
     uint32_t value = 0xABCD;
     window.write(&value, APB_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
@@ -214,7 +214,7 @@ TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
     auto window = over_jtag();
 
     EXPECT_CALL(
-        protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32));
+        protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32));
     EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
 
     uint32_t value = 0;

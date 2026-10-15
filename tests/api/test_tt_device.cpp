@@ -104,9 +104,9 @@ TEST(ApiTTDeviceTest, TTDeviceReg64BitAccessThrowsOutsideQuasar) {
 
         uint64_t buf = 0;
         EXPECT_ANY_THROW(tt_device->read_from_device_reg(
-            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::Bits64));
+            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::BITS64));
         EXPECT_ANY_THROW(tt_device->write_to_device_reg(
-            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::Bits64));
+            &buf, tensix_core, SAFE_IO_L1_ADDRESS, sizeof(buf), NocId::NOC0, RegisterAccessWidth::BITS64));
     }
 }
 

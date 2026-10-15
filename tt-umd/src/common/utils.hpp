@@ -370,7 +370,7 @@ inline void throw_if_not_aligned(Value value, const std::string& what) {
 }
 
 inline void validate_register_access(
-    uint64_t addr, size_t size, RegisterAccessWidth width = RegisterAccessWidth::Bits32) {
+    uint64_t addr, size_t size, RegisterAccessWidth width = RegisterAccessWidth::BITS32) {
     const size_t access_size = register_access_size(width);
     if (addr % access_size != 0) {
         UMD_THROW(error::RuntimeError, fmt::format("Register address must be {}-byte aligned.", access_size));
@@ -382,7 +382,7 @@ inline void validate_register_access(
 
 // Only Quasar has 64-bit registers; Wormhole and Blackhole accept nothing but 32-bit register accesses.
 inline void validate_register_access_width(tt::ARCH arch, RegisterAccessWidth width) {
-    if (width == RegisterAccessWidth::Bits64 && arch != tt::ARCH::QUASAR) {
+    if (width == RegisterAccessWidth::BITS64 && arch != tt::ARCH::QUASAR) {
         UMD_THROW(
             error::RuntimeError, fmt::format("64-bit register accesses are not supported on {}.", arch_to_str(arch)));
     }

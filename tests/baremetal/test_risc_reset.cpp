@@ -59,11 +59,11 @@ TEST_P(RiscResetImplementationTest, AssertAddsTheSelectedBitsToTheRegister) {
     uint32_t written = 0;
     EXPECT_CALL(
         protocol_,
-        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::Bits32))
+        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::BITS32))
         .WillOnce(serves_register(0));
     EXPECT_CALL(
         protocol_,
-        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::Bits32))
+        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC0, RegisterAccessWidth::BITS32))
         .WillOnce(captures_register(&written));
 
     risc_reset_.assert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX, NocId::NOC0);
@@ -114,11 +114,11 @@ TEST_P(RiscResetImplementationTest, ReportsTheRiscsHeldInReset) {
 TEST_P(RiscResetImplementationTest, RoutesOnTheGivenNoc) {
     EXPECT_CALL(
         protocol_,
-        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32))
+        read_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32))
         .WillOnce(serves_register(0));
     EXPECT_CALL(
         protocol_,
-        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::Bits32));
+        write_ctrl(_, TENSIX_CORE, reset_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32));
 
     risc_reset_.assert_risc_reset(TENSIX_CORE, RiscType::ALL_TENSIX, NocId::NOC1);
 }

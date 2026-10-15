@@ -606,7 +606,7 @@ bool WormholeDeviceFirmware::wait_eth_core_training(
 EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id) {
     uint32_t retrain_status = 0;
     device_protocol_->read_ctrl(
-        &retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t), noc_id, RegisterAccessWidth::Bits32);
+        &retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t), noc_id, RegisterAccessWidth::BITS32);
     // If the core is in retrain state the training status is not yet meaningful; the retrain state has
     // to clear first.
     if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
@@ -621,7 +621,7 @@ EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pai
         wormhole::ETH_TRAIN_STATUS_ADDR,
         sizeof(uint32_t),
         noc_id,
-        RegisterAccessWidth::Bits32);
+        RegisterAccessWidth::BITS32);
     log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
 
     if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
@@ -634,7 +634,7 @@ EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pai
             wormhole::ETH_LINK_ERR_STATUS_ADDR,
             sizeof(uint32_t),
             noc_id,
-            RegisterAccessWidth::Bits32);
+            RegisterAccessWidth::BITS32);
         log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
         if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
             return EthTrainingStatus::NOT_CONNECTED;

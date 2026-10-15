@@ -177,14 +177,14 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        RegisterAccessWidth width = RegisterAccessWidth::Bits32);
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32);
     virtual void write_to_device_reg(
         const void *mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        RegisterAccessWidth width = RegisterAccessWidth::Bits32);
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32);
 
     /**
      * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.

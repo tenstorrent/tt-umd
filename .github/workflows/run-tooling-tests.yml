@@ -65,8 +65,13 @@ jobs:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
 
+      # TODO: revert to `pip install "tt-smi"` once a tt-smi release includes #265.
+      # Building tt-smi from source needs tomli and a newer setuptools than the system one.
       - name: Install tt-smi
-        run: pip install "tt-smi"
+        run: |
+          pip install --upgrade setuptools tomli wheel
+          pip install --no-build-isolation \
+            "git+https://github.com/tenstorrent/tt-smi.git@f52d8b3f629abdeb7c07aff248b523c8a0d7d51f"
 
       - name: Install UMD wheel
         run: pip install tt_umd-*.whl --force-reinstall

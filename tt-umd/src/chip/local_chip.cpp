@@ -494,7 +494,10 @@ void LocalChip::deassert_risc_resets() {
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
-int LocalChip::get_numa_node() { return tt_device_->get_numa_node(); }
+int LocalChip::get_numa_node() {
+    PcieInterface* pcie_interface = tt_device_->get_pcie_interface();
+    return pcie_interface != nullptr ? pcie_interface->get_numa_node() : -1;
+}
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {

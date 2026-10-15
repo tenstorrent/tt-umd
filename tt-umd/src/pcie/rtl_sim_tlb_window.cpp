@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "pcie/rtl_sim_tlb_handle.hpp"
+#include "register_access.hpp"
 #include "simulation/word_access.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
@@ -80,11 +81,11 @@ uint32_t RtlSimTlbWindow::read32(uint64_t offset) {
 }
 
 void RtlSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
-    translate_and_write(offset, data, size);
+    write_registers_individually(*this, offset, data, size);
 }
 
 void RtlSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
-    translate_and_read(offset, data, size);
+    read_registers_individually(*this, offset, data, size);
 }
 
 void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {

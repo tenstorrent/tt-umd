@@ -108,11 +108,23 @@ void SimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected
 }
 
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->write_to_device_reg(
+        src,
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()),
+        reg_dest,
+        size,
+        get_selected_noc_id());
 }
 
 void SimulationChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->read_from_device_reg(
+        dest,
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()),
+        reg_src,
+        size,
+        get_selected_noc_id());
 }
 
 void SimulationChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {

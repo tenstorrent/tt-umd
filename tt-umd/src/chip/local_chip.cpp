@@ -298,7 +298,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size, get_selected_noc_id());
+        tt_device_->write_to_device_reg(src, core, reg_dest, size, get_selected_noc_id());
         return;
     }
 
@@ -330,7 +330,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, reg_src, size, get_selected_noc_id());
+        tt_device_->read_from_device_reg(dest, translated_core, reg_src, size, get_selected_noc_id());
         return;
     }
 

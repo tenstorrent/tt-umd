@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <unistd.h>
 
+#include "register_access.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/noc_id.hpp"
@@ -49,11 +50,11 @@ void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, 
 }
 
 void TTSimProtocol::read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    read_data(dst, core, addr, size, noc_id);
+    read_registers_individually(*this, dst, core, addr, size, noc_id);
 }
 
 void TTSimProtocol::write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    write_data(src, core, addr, size, noc_id);
+    write_registers_individually(*this, src, core, addr, size, noc_id);
 }
 
 bool TTSimProtocol::write_to_core_range(

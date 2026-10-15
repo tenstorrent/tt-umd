@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "pcie/tt_sim_tlb_handle.hpp"
+#include "register_access.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -37,9 +38,13 @@ uint32_t TTSimTlbWindow::read32(uint64_t offset) {
     return value;
 }
 
-void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) { write_block(offset, data, size); }
+void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
+    write_registers_individually(*this, offset, data, size);
+}
 
-void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
+void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
+    read_registers_individually(*this, offset, data, size);
+}
 
 void TTSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {
     validate(offset, size);

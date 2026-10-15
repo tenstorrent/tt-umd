@@ -25,6 +25,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -159,13 +160,21 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
+// One access per register, as in register_access.hpp; this device reaches registers directly instead of through
+// a DeviceProtocol. Temporary: goes away when simulation moves under the DeviceProtocol umbrella.
 void SimulationTTDevice::read_from_device_reg(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    read_from_device(mem_ptr, core, addr, size, noc_id);
+    validate_register_access(addr, size);
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        read_from_device(static_cast<uint8_t*>(mem_ptr) + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    }
 }
 
 void SimulationTTDevice::write_to_device_reg(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    write_to_device(mem_ptr, core, addr, size, noc_id);
+    validate_register_access(addr, size);
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        write_to_device(static_cast<const uint8_t*>(mem_ptr) + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    }
 }
 
 void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {

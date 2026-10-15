@@ -837,7 +837,7 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_address(NocId noc_id) const {
+std::optional<uint64_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_address(NocId noc_id) const {
     uint32_t address = 0;
     switch (arch_) {
         case ARCH::WORMHOLE_B0:
@@ -852,7 +852,9 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
                 sizeof(address),
                 noc_id,
                 RegisterAccessWidth::BITS32);
-            return address;
+            // Firmware publishes an ARC-local address; without ARC_NOC_ADDRESS_START the ARC tile routes the
+            // access to DRAM instead of CSM. 0 means unpublished and is passed through unchanged.
+            return address == 0 ? 0 : wormhole::ARC_NOC_ADDRESS_START + address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;

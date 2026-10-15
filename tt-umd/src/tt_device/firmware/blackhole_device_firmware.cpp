@@ -504,7 +504,7 @@ void BlackholeDeviceFirmware::write_to_arc_apb(
     arc_apb_.write(mem_ptr, arc_addr_offset, size, get_firmware_noc_coord(noc_id), noc_id);
 }
 
-std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+std::optional<uint64_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 12, 0)) {
         return std::nullopt;
     }

@@ -23,6 +23,7 @@
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -852,12 +853,23 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
         // be both present or both absent regardless of arch or firmware version.
         EXPECT_EQ(address.has_value(), size.has_value());
 
+        // DeviceFirmware exposes the same locator and must agree with FirmwareInfoProvider.
+        DeviceFirmware* device_firmware = tt_device->get_device_firmware();
+        EXPECT_EQ(device_firmware->get_runtime_telemetry_buffer_address(), address);
+        EXPECT_EQ(device_firmware->get_runtime_telemetry_buffer_size(), size);
+
         // When the buffer is published, the locator must point somewhere and describe a non-empty,
         // word-aligned region.
         if (address.has_value() && size.has_value()) {
             EXPECT_NE(address.value(), 0u);
             EXPECT_NE(size.value(), 0u);
             EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
+
+            // Wormhole firmware publishes an ARC-local address; the API must return it in ARC CSM NOC space,
+            // otherwise accesses through the ARC tile land in DRAM.
+            if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
+                EXPECT_GE(address.value(), wormhole::ARC_CSM_NOC_BASE_ADDRESS);
+            }
         }
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }

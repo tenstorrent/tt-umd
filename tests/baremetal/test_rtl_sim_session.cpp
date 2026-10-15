@@ -24,6 +24,7 @@
 #include "simulation_device_generated.h"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
+#include "tt-umd/simulation/simulation_host.hpp"
 
 using namespace tt::umd;
 
@@ -220,6 +221,28 @@ TEST_F(RtlSimSessionTest, GlobalAccessRejectsPartialWords) {
     EXPECT_THROW(communicator.global_write_words(0x1001, &word, 4), std::exception);
     EXPECT_THROW(communicator.global_read_words(0x1000, &word, 2), std::exception);
     EXPECT_THROW(communicator.global_read_words(0x1002, &word, 4), std::exception);
+}
+
+// A second open in the same process gets a new generated port, so the address an earlier open
+// exported is stale and must be replaced, or the simulator dials a listener that is gone.
+TEST_F(RtlSimSessionTest, ReplacesAStaleAddressWithAGeneratedPort) {
+    names_.push_back("ut_a");
+    setenv("NNG_SOCKET_ADDR_ut_a", "tcp://localhost:1", 1);
+    SimulationHost host;
+    host.init("ut_a");
+
+    EXPECT_STRNE(std::getenv("NNG_SOCKET_ADDR_ut_a"), "tcp://localhost:1");
+}
+
+// With a pinned port the address the simulator dials can differ from the one listened on (a port
+// forward), so a given address is kept.
+TEST_F(RtlSimSessionTest, KeepsAGivenAddressWithAPinnedPort) {
+    add_socket("ut_a");
+    setenv("NNG_SOCKET_ADDR_ut_a", "tcp://forwarded:53487", 1);
+    SimulationHost host;
+    host.init("ut_a");
+
+    EXPECT_STREQ(std::getenv("NNG_SOCKET_ADDR_ut_a"), "tcp://forwarded:53487");
 }
 
 }  // namespace

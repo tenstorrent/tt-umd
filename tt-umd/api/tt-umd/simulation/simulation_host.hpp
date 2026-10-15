@@ -26,6 +26,7 @@ public:
      * Create the listener. With an empty @p suffix, reads NNG_SOCKET_LOCAL_PORT and exports
      * NNG_SOCKET_ADDR; otherwise reads NNG_SOCKET_LOCAL_PORT_<suffix> and exports
      * NNG_SOCKET_ADDR_<suffix>. @p suffix must be [A-Za-z0-9_]+, so run.sh can read the variables.
+     * An address already set is kept when the port is pinned, and replaced when it is generated.
      */
     void init(const std::string &suffix = "");
     void start_host();

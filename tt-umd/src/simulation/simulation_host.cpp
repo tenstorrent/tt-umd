@@ -89,8 +89,10 @@ void SimulationHost::init(const std::string &suffix) {
     ss << "tcp://" << hostname << ":" << port;
     nng_socket_addr_str = ss.str();
 
-    // Export the address for client to use.
-    if (std::getenv(addr_var.c_str()) == nullptr) {
+    // Export the address for client to use. One already set is kept only with a pinned port, where
+    // it can be the address the client dials through a port forward. With a generated port it can't
+    // name this listener: it is stale, left by an earlier open in this process.
+    if (local_socket_port_str == nullptr || std::getenv(addr_var.c_str()) == nullptr) {
         setenv(addr_var.c_str(), nng_socket_addr_str.c_str(), 1);
         log_info(tt::LogEmulationDriver, "Generated {}: {}", addr_var, nng_socket_addr_str);
     }

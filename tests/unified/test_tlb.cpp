@@ -783,7 +783,10 @@ TEST_F(TestTlb, IoWindowTensixRoundTrip) {
     }
 }
 
-TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
+// L1 accepts both access widths, so a round trip there exercises each width's register path on any silicon.
+class TestTlbRegisterReconfigure : public TestTlb, public ::testing::WithParamInterface<RegisterAccessWidth> {};
+
+TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -807,13 +810,14 @@ TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
 
         auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
 
-        write_register_reconfigure(
-            *tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0, RegisterAccessWidth::BITS32);
+        write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0, GetParam());
 
         std::vector<uint32_t> readback(num_words, 0);
-        read_register_reconfigure(
-            *tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0, RegisterAccessWidth::BITS32);
+        read_register_reconfigure(*tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0, GetParam());
 
         EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    Widths, TestTlbRegisterReconfigure, ::testing::Values(RegisterAccessWidth::BITS32, RegisterAccessWidth::BITS64));

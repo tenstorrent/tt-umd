@@ -163,6 +163,8 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/rtl_sim_att_program.cpp
             src/simulation/rtl_sim_ip_layout.cpp
             src/tt_device/simulation_tt_device.cpp
+            src/tt_device/reset/tt_sim_risc_reset.cpp
+            src/tt_device/reset/rtl_sim_risc_reset.cpp
             src/tt_device/rtl_simulation_tt_device.cpp
             src/tt_device/tt_sim_tt_device.cpp
             src/chip_helpers/simulation_tlb_allocator.cpp

@@ -152,7 +152,7 @@ public:
     virtual std::optional<double> get_current_max_dram_temperature(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address(
+    virtual std::optional<uint64_t> get_runtime_telemetry_buffer_address(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size(

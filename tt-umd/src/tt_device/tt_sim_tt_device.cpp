@@ -18,11 +18,11 @@
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "pcie/tt_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
@@ -69,7 +69,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    auto soc_desc_path = get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {

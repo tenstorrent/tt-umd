@@ -79,61 +79,27 @@ jobs:
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
 
-      - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh.so"
-          out-file-path: /tmp/ttsim-wh
-
-      - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh.so"
-          out-file-path: /tmp/ttsim-bh
-
-      - name: Download ttsim binary (bh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_x2.so"
-          out-file-path: /tmp/ttsim-bh-x2
-
-      - name: Download ttsim binary (qsr)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_qsr.so"
-          out-file-path: /tmp/ttsim-qsr
-
-      - name: Download ttsim binary (wh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x2.so"
-          out-file-path: /tmp/ttsim-wh-x2
-
-      - name: Download ttsim binary (wh_x32)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x32.so"
-          out-file-path: /tmp/ttsim-wh-x32
-
-      - name: Download ttsim binary (bh_x32)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_x32.so"
-          out-file-path: /tmp/ttsim-bh-x32
+      - name: Download ttsim binaries
+        run: |
+          set -euo pipefail
+          # One line per asset: "release asset name | destination directory".
+          # Adding a new arch is a one-line change (issue #2899).
+          assets=$(
+          cat <<'EOF'
+          libttsim_wh.so|/tmp/ttsim-wh
+          libttsim_bh.so|/tmp/ttsim-bh
+          libttsim_bh_x2.so|/tmp/ttsim-bh-x2
+          libttsim_qsr.so|/tmp/ttsim-qsr
+          libttsim_wh_x2.so|/tmp/ttsim-wh-x2
+          libttsim_wh_x32.so|/tmp/ttsim-wh-x32
+          libttsim_bh_x32.so|/tmp/ttsim-bh-x32
+          EOF
+          )
+          latest=$(curl -fsSL https://api.github.com/repos/tenstorrent/ttsim/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
+          while IFS='|' read -r asset out_dir; do
+            mkdir -p "$out_dir"
+            curl -fsSL -o "$out_dir/$asset" "https://github.com/tenstorrent/ttsim/releases/download/$latest/$asset"
+          done <<< "$assets"
 
       # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
       # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
@@ -598,37 +564,24 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_aarch64.so"
-          out-file-path: /tmp/ttsim-wh
-
-      - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_aarch64.so"
-          out-file-path: /tmp/ttsim-bh
-
-      - name: Download ttsim binary (qsr)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_qsr_aarch64.so"
-          out-file-path: /tmp/ttsim-qsr
-
-      - name: Download ttsim binary (wh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x2_aarch64.so"
-          out-file-path: /tmp/ttsim-wh-x2
+      - name: Download ttsim binaries
+        run: |
+          set -euo pipefail
+          # One line per asset: "release asset name | destination directory".
+          # Adding a new arch is a one-line change (issue #2899).
+          assets=$(
+          cat <<'EOF'
+          libttsim_wh_aarch64.so|/tmp/ttsim-wh
+          libttsim_bh_aarch64.so|/tmp/ttsim-bh
+          libttsim_qsr_aarch64.so|/tmp/ttsim-qsr
+          libttsim_wh_x2_aarch64.so|/tmp/ttsim-wh-x2
+          EOF
+          )
+          latest=$(curl -fsSL https://api.github.com/repos/tenstorrent/ttsim/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
+          while IFS='|' read -r asset out_dir; do
+            mkdir -p "$out_dir"
+            curl -fsSL -o "$out_dir/$asset" "https://github.com/tenstorrent/ttsim/releases/download/$latest/$asset"
+          done <<< "$assets"
 
       - name: Prepare sim paths
         run: |

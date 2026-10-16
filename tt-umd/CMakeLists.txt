@@ -440,7 +440,12 @@ target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
-target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)
+target_link_libraries(
+    tt-umd
+    PRIVATE
+        tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
+)
 target_include_directories(tt-umd PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 # tt-umd-workload ships inside tt-umd until its consumers link it directly. Its headers are exposed to consumers only,

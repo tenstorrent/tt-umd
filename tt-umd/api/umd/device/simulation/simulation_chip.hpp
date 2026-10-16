@@ -5,4 +5,4 @@
 #pragma once
 
 // Deprecated forwarding header, see #2751.
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"

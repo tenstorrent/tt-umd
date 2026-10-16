@@ -27,6 +27,7 @@
 #include "topology/topology_discovery_wormhole.hpp"
 #include "topology/topology_utils.hpp"
 #include "tracy.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"

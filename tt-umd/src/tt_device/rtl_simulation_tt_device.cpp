@@ -17,13 +17,13 @@
 #include <utility>
 #include <vector>
 
-#include "common/utils.hpp"
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "simulation/word_access.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"

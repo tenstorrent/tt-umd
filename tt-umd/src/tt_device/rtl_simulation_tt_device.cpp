@@ -30,6 +30,7 @@
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_chip.hpp"
@@ -70,11 +71,17 @@ constexpr const att::MapData* HORIZON_X2_TABLES[] = {
     &att::HORIZON_X2_DEV0_NOC2AXI1_MAP,
     &att::HORIZON_X2_DEV1_NOC2AXI0_MAP,
     &att::HORIZON_X2_DEV1_NOC2AXI1_MAP};
+constexpr const att::MapData* HORIZON_X2_COLUMNS_TABLES[] = {
+    &att::HORIZON_X2_DEV0_COLUMN0_MAP,
+    &att::HORIZON_X2_DEV0_COLUMN1_MAP,
+    &att::HORIZON_X2_DEV1_COLUMN0_MAP,
+    &att::HORIZON_X2_DEV1_COLUMN1_MAP};
 
 constexpr NamedAttMap ATT_MAPS[] = {
     {"grendel_qsr1", GRENDEL_QSR1_TABLES},
     {"horizon_2x3", HORIZON_2X3_TABLES},
     {"horizon_x2", HORIZON_X2_TABLES},
+    {"horizon_x2_columns", HORIZON_X2_COLUMNS_TABLES},
 };
 
 // The IP variants (the SoC descriptor's ip_variant) whose cores UMD resets itself, through each tile's TSC.

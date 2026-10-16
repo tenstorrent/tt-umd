@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "simulation_device_generated.h"
@@ -433,5 +434,42 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
         device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
         std::optional<uint64_t>(0x21'4020'0100));
 }
+
+// horizon_x2_columns takes its tables in the order of the column layout's access points
+// (docs/IP_LAYOUT.md), so each access point reaches its own column device.
+class RtlSimSessionColumnLayoutTest : public RtlSimSessionTest,
+                                      public ::testing::WithParamInterface<std::tuple<uint32_t, uint64_t>> {};
+
+TEST_P(RtlSimSessionColumnLayoutTest, AccessPointReachesItsColumn) {
+    const auto [access_point, address] = GetParam();
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    setenv("TT_UMD_NOC_ATT", "horizon_x2_columns", 1);
+    const RtlSimulationTTDevice device(
+        session, {IpDeviceId{0}, {{AccessPointId{access_point}, "ut_a"}}}, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+
+    EXPECT_EQ(
+        device.get_flat_address(
+            AccessPointId{access_point},
+            CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
+            WindowFlags::UnicastWrite,
+            IoOrdering::Posted,
+            0x5'0000),
+        std::optional<uint64_t>(address));
+}
+
+// Device 0 columns 0 and 1, device 1 column 0, then device 1 column 1 over device 0's crossbar and
+// over its own NOC2AXI.
+INSTANTIATE_TEST_SUITE_P(
+    InLayoutOrder,
+    RtlSimSessionColumnLayoutTest,
+    ::testing::Values(
+        std::make_tuple(0u, uint64_t{0x10'4005'0000}),
+        std::make_tuple(1u, uint64_t{0x11'4005'0000}),
+        std::make_tuple(2u, uint64_t{0x20'4005'0000}),
+        std::make_tuple(3u, uint64_t{0x21'4005'0000}),
+        std::make_tuple(4u, uint64_t{0x21'4005'0000})));
 
 }  // namespace

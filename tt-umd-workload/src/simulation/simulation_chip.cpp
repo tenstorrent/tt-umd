@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 
 #include <fmt/format.h>
 

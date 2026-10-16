@@ -25,8 +25,13 @@
 #include <vector>
 
 #include "simulation_device_generated.h"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 
 using namespace tt::umd;
 
@@ -310,6 +315,62 @@ TEST_F(RtlSimSessionTest, CommunicatorsShareASocket) {
     }
     serving.store(false);
     server.join();
+    EXPECT_EQ(exits.load(), 1);
+}
+
+// A communicator attaches while its session is still being put together, and its requests work once
+// the session has started. Sockets can be added by name only until then.
+TEST_F(RtlSimSessionTest, CommunicatorsAttachBeforeStart) {
+    const std::string address = add_socket("ut_a");
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    RtlSimCommunicator communicator(RtlSimSocket(session, "ut_a"));
+    communicator.initialize();
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session->start(std::chrono::milliseconds(10'000));
+    dialer.join();
+    EXPECT_THROW(RtlSimSocket(session, "ut_b"), std::exception);
+
+    std::atomic<bool> serving{true};
+    std::atomic<int> exits{0};
+    std::thread server([&] {
+        while (serving.load()) {
+            remote->answer_one(50, exits);
+        }
+    });
+    std::array<uint32_t, 4> data{};
+    communicator.tile_read_bytes(1, 2, 0x1000, data.data(), sizeof(data));
+    EXPECT_EQ(data, (std::array<uint32_t, 4>{0x1200'1000, 0x1200'1004, 0x1200'1008, 0x1200'100C}));
+
+    communicator.shutdown();
+    for (int attempt = 0; attempt < 100 && exits.load() == 0; attempt++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    serving.store(false);
+    server.join();
+    EXPECT_EQ(exits.load(), 1);
+}
+
+// A device with several access points talks over its first: only that socket joins the session, so
+// the session starts with the remote dialing that one alone, and the device says goodbye on it.
+TEST_F(RtlSimSessionTest, DeviceTalksOverItsFirstAccessPoint) {
+    const std::string address = add_socket("ut_a");
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x3.yaml")));
+    const IpLayoutDevice layout_device{IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}, {AccessPointId{1}, "ut_b"}}};
+    auto device = std::make_unique<RtlSimulationTTDevice>(session, layout_device, dir_, soc_descriptor, 0);
+    EXPECT_EQ(session->get_num_sockets(), 1);
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session->start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    device.reset();
+    std::atomic<int> exits{0};
+    remote->answer_one(5000, exits);
     EXPECT_EQ(exits.load(), 1);
 }
 

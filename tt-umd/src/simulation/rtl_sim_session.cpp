@@ -60,22 +60,33 @@ void spawn_simulator(const std::filesystem::path &simulator_directory) {
 
 RtlSimSession::RtlSimSession(
     const std::filesystem::path &simulator_directory, const std::vector<std::string> &sockets, bool launch_simulator) :
-    simulator_directory_(simulator_directory), sockets_(sockets), launch_simulator_(launch_simulator) {
-    UMD_ASSERT(!sockets_.empty(), error::RuntimeError, "RtlSimSession needs at least one socket.");
+    simulator_directory_(simulator_directory), launch_simulator_(launch_simulator) {
     // Each name is a process-wide NNG_SOCKET_ADDR_<name> variable, so a repeated one would leave a
     // listener nobody can reach.
     UMD_ASSERT(
-        std::set<std::string>(sockets_.begin(), sockets_.end()).size() == sockets_.size(),
+        std::set<std::string>(sockets.begin(), sockets.end()).size() == sockets.size(),
         error::RuntimeError,
         "RtlSimSession socket names must be distinct.");
-    for (size_t i = 0; i < sockets_.size(); i++) {
-        hosts_.push_back(std::make_unique<SimulationHost>());
-        channels_.push_back(std::make_shared<RtlSimChannel>(*hosts_.back()));
+    for (const std::string &name : sockets) {
+        add_socket(name);
     }
+}
+
+size_t RtlSimSession::add_socket(const std::string &name) {
+    const auto it = std::find(sockets_.begin(), sockets_.end(), name);
+    if (it != sockets_.end()) {
+        return static_cast<size_t>(it - sockets_.begin());
+    }
+    UMD_ASSERT(!started_, error::RuntimeError, fmt::format("Socket '{}' added after the session started.", name));
+    sockets_.push_back(name);
+    hosts_.push_back(std::make_unique<SimulationHost>());
+    channels_.push_back(std::make_shared<RtlSimChannel>(*hosts_.back()));
+    return sockets_.size() - 1;
 }
 
 void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
     UMD_ASSERT(!started_, error::RuntimeError, "RtlSimSession::start() called twice.");
+    UMD_ASSERT(!sockets_.empty(), error::RuntimeError, "RtlSimSession has no socket to serve.");
     started_ = true;
     for (size_t i = 0; i < sockets_.size(); i++) {
         hosts_[i]->init(sockets_[i]);
@@ -111,6 +122,10 @@ void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
             error::RuntimeError,
             fmt::format("Did not receive expected ack from remote on socket '{}'.", sockets_[i]));
     }
+
+    for (auto &channel : channels_) {
+        channel->start();
+    }
 }
 
 size_t RtlSimSession::get_num_sockets() const { return sockets_.size(); }
@@ -130,6 +145,9 @@ RtlSimSocket::RtlSimSocket(std::shared_ptr<RtlSimSession> session, size_t socket
         error::RuntimeError,
         fmt::format("RtlSimSocket {} is out of range; the session has {}.", socket_, session_->get_num_sockets()));
 }
+
+RtlSimSocket::RtlSimSocket(const std::shared_ptr<RtlSimSession> &session, const std::string &name) :
+    RtlSimSocket(session, session != nullptr ? session->add_socket(name) : 0) {}
 
 SimulationHost &RtlSimSocket::get_host() const { return session_->get_host(socket_); }
 

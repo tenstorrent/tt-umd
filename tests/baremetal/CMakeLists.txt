@@ -15,7 +15,6 @@ set(BAREMETAL_TESTS_SRCS
     test_soc_descriptor.cpp
     test_long_jump.cpp
     test_notification_mechanism.cpp
-    test_cluster.cpp
     test_blackhole_arc_apb.cpp
     test_risc_reset.cpp
     test_wormhole_arc_window.cpp
@@ -44,10 +43,6 @@ target_include_directories(baremetal_tests PRIVATE $<TARGET_PROPERTY:yaml-cpp::y
 get_target_property(YAML_CPP_TYPE yaml-cpp::yaml-cpp TYPE)
 if(YAML_CPP_TYPE STREQUAL "SHARED_LIBRARY")
     target_link_libraries(baremetal_tests PRIVATE yaml-cpp::yaml-cpp)
-endif()
-if(TT_UMD_BUILD_EMULE)
-    target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
-    target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(

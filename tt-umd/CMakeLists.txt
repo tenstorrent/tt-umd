@@ -52,11 +52,6 @@ target_sources(
         src/arch/architecture_implementation.cpp
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
-        src/chip/chip.cpp
-        src/chip/local_chip.cpp
-        src/chip/mock_chip.cpp
-        src/chip/remote_chip.cpp
-        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:src/chip/sw_emule_chip.cpp>
         src/chip_helpers/sysmem_manager.cpp
         src/chip_helpers/simulation_sysmem_manager.cpp
         src/chip_helpers/silicon_sysmem_manager.cpp
@@ -166,11 +161,6 @@ if(TT_UMD_BUILD_SIMULATION)
             ${FBS_GENERATED_HEADERS}
     )
     target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
-endif()
-
-if(TT_UMD_BUILD_EMULE)
-    target_compile_definitions(tt-umd-base PRIVATE TT_UMD_BUILD_EMULE)
-    target_link_libraries(tt-umd-base PRIVATE tt-emule::headers)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)

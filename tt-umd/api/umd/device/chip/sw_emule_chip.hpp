@@ -5,4 +5,4 @@
 #pragma once
 
 // Deprecated forwarding header, see #2751.
-#include "tt-umd/chip/sw_emule_chip.hpp"
+#include "tt-umd-workload/chip/sw_emule_chip.hpp"

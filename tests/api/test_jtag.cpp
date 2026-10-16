@@ -53,16 +53,16 @@ protected:
             return;
         }
 
-        auto jlink_device_count_ = JtagDevice::create()->get_device_cnt();
+        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
 
-        if (!jlink_device_count_) {
+        if (jlink_serials.empty()) {
             log_warning(tt::LogUMD, "Jlink devices discovered but not usable with current Jtag implementation.");
             return;
         }
 
-        for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
+        for (uint32_t jlink_serial : jlink_serials) {
             DeviceData device_data;
-            device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
+            device_data.tt_device_ = TTDevice::create(static_cast<int>(jlink_serial), IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
             device_data.tensix_core_ = device_data.tt_device_->get_soc_descriptor()
                                            .get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0]
@@ -223,7 +223,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
         GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();
     }
 
-    if (!JtagDevice::create()->get_device_cnt()) {
+    if (JtagDevice::enumerate().empty()) {
         GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
     }
 

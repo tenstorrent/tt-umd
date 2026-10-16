@@ -53,11 +53,12 @@ struct EmuTTDevice::Impl {
         chiplet_transports.reserve(mimir_count);
         mimirs.reserve(mimir_count);
         for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
-            std::shared_ptr<Transport> chiplet_transport = root_transport;
-            if (mimir_count > 1) {
-                chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+            // Select even for a one-Mimir descriptor. The MMK server's default chiplet is k0, and
+            // a naked socket never sends SELECT_CHIPLET, so mimir_1x1.yaml would program Keraunos.
+            // A single-Mimir server ignores the select and the access still hits that die.
+            std::shared_ptr<Transport> chiplet_transport =
+                std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
                     root_transport, fmt::format("m{}", mimir_index));
-            }
             chiplet_transports.push_back(chiplet_transport);
             mimirs.push_back(
                 {.transport = chiplet_transport,

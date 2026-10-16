@@ -80,7 +80,6 @@ target_sources(
         src/pcie/device_memcpy.cpp
         src/pcie/silicon_tlb_window.cpp
         src/pcie/silicon_tlb_handle.cpp
-        src/cluster.cpp
         src/tt_device_model/wormhole_tt_device_model.cpp
         src/tt_device_model/blackhole_tt_device_model.cpp
         src/tt_device/ethernet_broadcast.cpp
@@ -153,7 +152,6 @@ if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         tt-umd
         PRIVATE
-            src/simulation/simulation_chip.cpp
             src/simulation/simulation_connector.cpp
             src/simulation/simulation_server_protocol.cpp
             src/simulation/simulation_device_identity.cpp
@@ -454,6 +452,11 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
 target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)
 target_include_directories(tt-umd PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
+
+# tt-umd-workload ships inside tt-umd until its consumers link it directly. Its headers are exposed to consumers only,
+# so that tt-umd sources cannot depend on it.
+target_link_libraries(tt-umd PRIVATE tt-umd-workload::tt-umd-workload)
+target_include_directories(tt-umd INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-workload/api>)
 
 check_function_exists(
     backtrace

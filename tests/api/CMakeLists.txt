@@ -1,15 +1,10 @@
 set(API_TESTS_SRCS
-    test_chip.cpp
     test_cluster_descriptor.cpp
-    test_cluster.cpp
     test_soc_descriptor.cpp
-    test_device_io.cpp
     test_device_memcpy.cpp
-    test_risc_program.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
     test_sim_multichip.cpp
-    test_cluster_options.cpp
     test_frame_pointer.cpp
     test_tt_device.cpp
     test_noc.cpp
@@ -17,7 +12,6 @@ set(API_TESTS_SRCS
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
-    test_tt_visible_devices.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

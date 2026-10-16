@@ -20,8 +20,8 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "tracy.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"

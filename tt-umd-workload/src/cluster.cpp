@@ -30,7 +30,7 @@
 
 #include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"

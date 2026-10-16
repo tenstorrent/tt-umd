@@ -8,7 +8,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/utils/error.hpp"
 

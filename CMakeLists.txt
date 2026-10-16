@@ -198,6 +198,8 @@ endif()
 
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
+    # Adds tests to the binaries defined in tests/, so it has to come after it.
+    add_subdirectory(tt-umd-workload/tests)
 endif(TT_UMD_BUILD_TESTS)
 
 include(packaging)

@@ -1,5 +1,4 @@
 set(UNIT_TESTS_BH_SRCS
-    test_cluster_bh.cpp
     test_arc_messages_bh.cpp
     test_chip_info_bh.cpp
 )

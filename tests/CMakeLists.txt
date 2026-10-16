@@ -40,7 +40,6 @@ if(TT_UMD_BUILD_RDMA)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
 
 add_custom_target(

@@ -54,6 +54,8 @@
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/process_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-utils/internal/host.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
 #include "tt-umd/cluster.hpp"
@@ -66,7 +68,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/semver.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

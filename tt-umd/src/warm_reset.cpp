@@ -36,6 +36,9 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/internal/host.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -44,7 +47,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 

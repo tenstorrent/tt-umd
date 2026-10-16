@@ -38,6 +38,7 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
         $<$<BOOL:${TT_UMD_ENABLE_TRACY}>:TracyClient>
 )
 

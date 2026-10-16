@@ -31,7 +31,9 @@
 
 namespace tt::umd {
 
+class RiscReset;
 class RtlSimCommunicator;
+class SimulationNocProtocol;
 class SimulationSysmemManager;
 class SimulationServerSocket;
 class SimulationClient;
@@ -113,6 +115,9 @@ protected:
     bool should_use_cached_tlb_window() override;
 
 private:
+    // Hold the tile reset of the IP variant the SoC descriptor names, when this build knows one.
+    void setup_tile_reset(ChipId chip_id);
+
     // Install the flat-address resolvers when the environment names an ATT map: each access point's,
     // and the one this device talks over for its own IO. Host mode only: a client hands the host a
     // translated coordinate and a core-local address, and the host resolves it, so resolving here as
@@ -169,5 +174,10 @@ private:
 
     // Each access point's flat addresses, when the environment names an ATT map.
     std::map<AccessPointId, att::EndpointResolver> access_point_resolvers_;
+
+    // The IP variant's tile reset, over this device's own NOC path; the testbench performs resets
+    // for a variant without one.
+    std::unique_ptr<SimulationNocProtocol> noc_protocol_;
+    std::unique_ptr<RiscReset> tile_reset_;
 };
 }  // namespace tt::umd

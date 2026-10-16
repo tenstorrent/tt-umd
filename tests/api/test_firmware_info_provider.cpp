@@ -13,6 +13,7 @@
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <tt-umd/tt_device/firmware/device_firmware.hpp>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -844,9 +845,10 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
-        const auto size = fw_info->get_runtime_telemetry_buffer_size();
-        const auto address = fw_info->get_runtime_telemetry_buffer_address();
+        // These two features were moved from FirmwareInfoProvider to DeviceFirmware.
+        DeviceFirmware* firmware = tt_device->get_device_firmware();
+        const auto size = firmware->get_runtime_telemetry_buffer_size();
+        const auto address = firmware->get_runtime_telemetry_buffer_address();
 
         // Address and size are published together behind the same firmware-version gate, so they must
         // be both present or both absent regardless of arch or firmware version.

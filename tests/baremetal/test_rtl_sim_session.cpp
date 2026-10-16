@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -32,7 +33,10 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/ip_layout.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 namespace {
@@ -372,6 +376,42 @@ TEST_F(RtlSimSessionTest, DeviceTalksOverItsFirstAccessPoint) {
     std::atomic<int> exits{0};
     remote->answer_one(5000, exits);
     EXPECT_EQ(exits.load(), 1);
+}
+
+// Fabric reads a device's access points and, with an ATT map named, a core's flat address through
+// each. The query does no IO, so the session needn't start.
+TEST_F(RtlSimSessionTest, DeviceGivesItsAccessPointsFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const IpLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_b"}}};
+    setenv("TT_UMD_NOC_ATT", "horizon_2x3", 1);
+    const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+
+    EXPECT_EQ(device.get_access_points(), (std::vector<AccessPointId>{AccessPointId{2}, AccessPointId{3}}));
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x100'0000'0100));
+    EXPECT_THROW(
+        device.get_flat_address(AccessPointId{0}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::exception);
+}
+
+TEST_F(RtlSimSessionTest, DeviceWithoutAnAttMapHasNoFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const RtlSimulationTTDevice device(session, {IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}}}, dir_, soc_descriptor, 0);
+
+    EXPECT_EQ(
+        device.get_flat_address(
+            AccessPointId{0},
+            CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
+            WindowFlags::Bidirectional,
+            IoOrdering::Strict),
+        std::nullopt);
 }
 
 }  // namespace

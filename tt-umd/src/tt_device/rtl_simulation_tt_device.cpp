@@ -26,6 +26,7 @@
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -137,6 +138,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         chip_id,
         num_host_mem_channels,
         std::nullopt,
+        std::nullopt,
         std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
@@ -148,6 +150,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     int num_host_mem_channels) :
     RtlSimulationTTDevice(
         RtlSimSocket(session, io_access_point(layout_device).host_access),
+        layout_device,
         simulator_directory,
         soc_descriptor,
         chip_id,
@@ -155,6 +158,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const RtlSimSocket& socket,
+    const IpLayoutDevice& layout_device,
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
@@ -165,6 +169,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         chip_id,
         num_host_mem_channels,
         socket,
+        layout_device,
         std::make_unique<RtlSimCommunicator>(socket)) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
@@ -173,6 +178,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels,
     std::optional<RtlSimSocket> socket,
+    std::optional<IpLayoutDevice> layout_device,
     std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
@@ -180,7 +186,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
     session_socket_(std::move(socket)),
-    communicator_(std::move(communicator)) {
+    communicator_(std::move(communicator)),
+    layout_device_(std::move(layout_device)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();
@@ -227,6 +234,31 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
 
     noc_address_resolver_ = std::make_unique<att::EndpointResolver>(*known->map);
     global_address_mode_ = true;
+}
+
+std::vector<AccessPointId> RtlSimulationTTDevice::get_access_points() const {
+    std::vector<AccessPointId> access_points;
+    if (layout_device_.has_value()) {
+        for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
+            access_points.push_back(access_point.id);
+        }
+    }
+    return access_points;
+}
+
+std::optional<uint64_t> RtlSimulationTTDevice::get_flat_address(
+    AccessPointId access_point, CoreCoord core, WindowFlags flags, IoOrdering ordering, uint64_t offset) const {
+    const std::vector<AccessPointId> access_points = get_access_points();
+    UMD_ASSERT(
+        std::find(access_points.begin(), access_points.end(), access_point) != access_points.end(),
+        error::RuntimeError,
+        fmt::format("Access point {} is not one of this device's.", static_cast<uint32_t>(access_point)));
+    // Without a map (TT_UMD_NOC_ATT) the device has no flat addresses. A device has one map today,
+    // so every one of its access points gives the same address.
+    if (noc_address_resolver_ == nullptr) {
+        return std::nullopt;
+    }
+    return att::resolve_io_window(*noc_address_resolver_, get_soc_descriptor(), core, flags, ordering, offset);
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {

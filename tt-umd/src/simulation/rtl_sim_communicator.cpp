@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "common/utils.hpp"
+#include "simulation/rtl_sim_channel.hpp"
 #include "simulation/word_access.hpp"
 #include "simulation_device_generated.h"
 #include "tt-umd/types/xy_pair.hpp"
@@ -61,15 +62,6 @@ inline flatbuffers::FlatBufferBuilder create_global_flatbuffer(
     return builder;
 }
 
-/**
- * Send a command to the simulation host.
- */
-inline void send_command_to_simulation_host(SimulationHost &host, const flatbuffers::FlatBufferBuilder &flat_buffer) {
-    uint8_t *wr_buffer_ptr = flat_buffer.GetBufferPointer();
-    size_t wr_buffer_size = flat_buffer.GetSize();
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
-}
-
 }  // namespace
 
 RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory) :
@@ -79,76 +71,51 @@ RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_di
             error::RuntimeError, fmt::format("Simulator directory not found at: {}", simulator_directory_.string()));
     }
     owned_session_ = std::make_unique<RtlSimSession>(simulator_directory_, std::vector<std::string>{""});
+    channel_ = owned_session_->get_channel(0);
 }
 
-RtlSimCommunicator::RtlSimCommunicator(SimulationHost &host) : host_(&host) {}
+RtlSimCommunicator::RtlSimCommunicator(SimulationHost &host) : channel_(std::make_shared<RtlSimChannel>(host)) {}
+
+RtlSimCommunicator::RtlSimCommunicator(const RtlSimSocket &socket) : socket_(socket), channel_(socket.get_channel()) {}
 
 RtlSimCommunicator::~RtlSimCommunicator() {
-    if (notification_thread_running_.load()) {
-        notification_thread_running_.store(false);
-        if (notification_thread_.joinable()) {
-            notification_thread_.join();
-        }
-    }
-
-    // Clean up any remaining messages in the command queue.
-    std::lock_guard<std::mutex> lock(command_queue_mutex_);
-    while (!command_queue_.empty()) {
-        auto msg = command_queue_.front();
-        command_queue_.pop();
-        if (msg.data != nullptr && msg.size > 0) {
-            nng_free(msg.data, msg.size);
-        }
+    if (attached_) {
+        channel_->detach(/*send_exit=*/false);
     }
 }
 
-void RtlSimCommunicator::initialize() {
-    std::lock_guard<std::mutex> lock(device_lock_);
+SimulationHost &RtlSimCommunicator::get_host() { return channel_->get_host(); }
 
+void RtlSimCommunicator::initialize() {
     log_info(tt::LogEmulationDriver, "Initializing RTL simulation communicator");
 
     if (owned_session_ != nullptr) {
         owned_session_->start();
-        host_ = &owned_session_->get_host(0);
     }
 
-    // Start notification handler thread.
-    log_info(tt::LogEmulationDriver, "Starting notification handler thread.");
-    notification_thread_running_.store(true);
-    notification_thread_ = std::thread(&RtlSimCommunicator::notification_handler_thread, this);
+    channel_->attach();
+    attached_ = true;
 }
 
 void RtlSimCommunicator::shutdown() {
-    // Stop notification thread before shutting down communication.
-    if (notification_thread_running_.load()) {
-        log_info(tt::LogEmulationDriver, "Stopping notification handler thread.");
-        notification_thread_running_.store(false);
-        command_queue_cv_.notify_all();
-        if (notification_thread_.joinable()) {
-            notification_thread_.join();
-        }
+    // The last communicator on the socket stops its receive thread and tells the remote to exit.
+    if (attached_) {
+        attached_ = false;
+        channel_->detach(/*send_exit=*/true);
     }
-
-    std::lock_guard<std::mutex> lock(device_lock_);
-    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
 void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size) {
     const char *name = kind == AccessKind::kGlobal ? "global" : (kind == AccessKind::kSmn ? "SMN" : "tile");
-    {
-        std::lock_guard<std::mutex> lock(device_lock_);
-        if (kind == AccessKind::kGlobal) {
-            send_command_to_simulation_host(
-                *host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
-        } else {
-            const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
-            send_command_to_simulation_host(*host_, create_flatbuffer(command, {0}, core, addr, size));
-        }
+    if (kind == AccessKind::kGlobal) {
+        channel_->send(create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
+    } else {
+        const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
+        channel_->send(create_flatbuffer(command, {0}, core, addr, size));
     }
 
-    // Take the response from the command queue, which the notification thread fills.
-    auto msg = wait_for_command_response();
+    // The channel's receive thread queues the response; the request lock makes it this read's.
+    auto msg = channel_->wait_for_response();
     if (msg.data == nullptr || msg.size == 0) {
         UMD_THROW(
             error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
@@ -194,12 +161,11 @@ void RtlSimCommunicator::write_words(AccessKind kind, tt_xy_pair core, uint64_t 
     std::vector<uint32_t> words(size / sizeof(uint32_t));
     std::memcpy(words.data(), data, size);
 
-    std::lock_guard<std::mutex> lock(device_lock_);
     if (kind == AccessKind::kGlobal) {
-        send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr));
+        channel_->send(create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr));
     } else {
         const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
-        send_command_to_simulation_host(*host_, create_flatbuffer(command, words, core, addr));
+        channel_->send(create_flatbuffer(command, words, core, addr));
     }
 }
 
@@ -221,20 +187,20 @@ void RtlSimCommunicator::write_bytes(AccessKind kind, tt_xy_pair core, uint64_t 
 }
 
 void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
     read_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
     write_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {
     validate_register_access(addr, size);
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from global address {:#x}", size, addr);
     read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
 }
@@ -242,61 +208,55 @@ void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t s
 void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uint32_t size) {
     // The payload travels as words, so a partial word could only be dropped or written short.
     validate_register_access(addr, size);
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
     write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
     read_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
-    std::lock_guard<std::mutex> request_lock(request_lock_);
+    std::lock_guard<std::mutex> request_lock(channel_->request_mutex());
     log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
     write_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
 }
 
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_tensix_reset_assert signal to core ({}, {})", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, core));
 }
 
 void RtlSimCommunicator::all_tensix_reset_deassert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_tensix_reset_deassert signal to core ({}, {})", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, core));
 }
 
 void RtlSimCommunicator::all_neo_dms_reset_assert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_reset_assert signal to core ({}, {})", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_ASSERT, core));
 }
 
 void RtlSimCommunicator::all_neo_dms_reset_deassert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_reset_deassert signal to core ({}, {})", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_RESET_DEASSERT, core));
 }
 
 void RtlSimCommunicator::neo_dm_reset_assert(uint32_t x, uint32_t y, uint32_t dm_index) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(
         tt::LogEmulationDriver, "Sending neo_dm_reset_assert signal to core ({}, {}) for DM index {}", x, y, dm_index);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, core, dm_index));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_ASSERT, {0}, core, dm_index));
 }
 
 void RtlSimCommunicator::neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t dm_index) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(
         tt::LogEmulationDriver,
         "Sending neo_dm_reset_deassert signal to core ({}, {}) for DM index {}",
@@ -304,148 +264,35 @@ void RtlSimCommunicator::neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t 
         y,
         dm_index);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(
-        *host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, dm_index));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, dm_index));
 }
 
 void RtlSimCommunicator::all_neo_dms_uncore_reset_assert() {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_assert signal.");
     tt_xy_pair core = {0, 0};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_ASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_ASSERT, core));
 }
 
 void RtlSimCommunicator::all_neo_dms_uncore_reset_deassert() {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_deassert signal.");
     tt_xy_pair core = {0, 0};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_DEASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_DEASSERT, core));
 }
 
 void RtlSimCommunicator::neo_dm_uncore_reset_assert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_assert signal to core ({}, {}).", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_ASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_ASSERT, core));
 }
 
 void RtlSimCommunicator::neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y) {
-    std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_deassert signal to core ({}, {}).", x, y);
     tt_xy_pair core = {x, y};
-    send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_DEASSERT, core));
+    channel_->send(create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_DEASSERT, core));
 }
 
 void RtlSimCommunicator::set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb) {
-    ram_write_callback_ = std::move(write_cb);
-    ram_read_callback_ = std::move(read_cb);
-}
-
-void RtlSimCommunicator::notification_handler_thread() {
-    log_info(tt::LogEmulationDriver, "Notification handler thread started.");
-
-    while (notification_thread_running_.load()) {
-        void *buf_ptr = nullptr;
-        size_t buf_size = 0;
-
-        try {
-            buf_size = host_->recv_from_device(&buf_ptr, 5000);
-
-            if (buf_size == 0 || buf_ptr == nullptr) {
-                continue;
-            }
-
-            auto buf = GetDeviceRequestResponse(buf_ptr);
-            auto cmd = buf->command();
-
-            if (cmd == DEVICE_COMMAND_AXI_RAM_WRITE_NOTIFICATION) {
-                handle_ram_write_notification(buf_ptr);
-                nng_free(buf_ptr, buf_size);
-            } else if (cmd == DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION) {
-                handle_ram_read_notification(buf_ptr);
-                nng_free(buf_ptr, buf_size);
-            } else {
-                // Regular command response - queue it for the caller.
-                log_debug(
-                    tt::LogEmulationDriver,
-                    "Notification thread received regular command: {}, queueing.",
-                    static_cast<int>(cmd));
-
-                ReceivedMessage msg;
-                msg.data = buf_ptr;
-                msg.size = buf_size;
-
-                {
-                    std::lock_guard<std::mutex> lock(command_queue_mutex_);
-                    command_queue_.push(msg);
-                }
-                command_queue_cv_.notify_one();
-            }
-        } catch (const std::exception &e) {
-            log_error(tt::LogEmulationDriver, "Error in notification handler thread: {}", e.what());
-            if (buf_ptr != nullptr && buf_size > 0) {
-                nng_free(buf_ptr, buf_size);
-            }
-        }
-    }
-
-    log_info(tt::LogEmulationDriver, "Notification handler thread stopped.");
-}
-
-void RtlSimCommunicator::handle_ram_write_notification(const void *notification) {
-    auto buf = GetDeviceRequestResponse(notification);
-    uint64_t address = buf->address();
-    uint32_t size = buf->size();
-
-    log_debug(tt::LogEmulationDriver, "[AXI_RAM_WRITE] @ 0x{:016x} size={}.", address, size);
-
-    if (ram_write_callback_ && buf->data() && buf->data()->size() > 0) {
-        uint32_t payload_bytes = buf->data()->size() * sizeof(uint32_t);
-        UMD_ASSERT(
-            payload_bytes >= size,
-            error::RuntimeError,
-            fmt::format("RAM write notification payload {} is smaller than reported size {}.", payload_bytes, size));
-        ram_write_callback_(address, buf->data()->data(), size);
-    } else if (!ram_write_callback_) {
-        log_warning(tt::LogEmulationDriver, "[AXI_RAM_WRITE] No callback registered, dropping write.");
-    }
-}
-
-void RtlSimCommunicator::handle_ram_read_notification(const void *notification) {
-    auto buf = GetDeviceRequestResponse(notification);
-    uint64_t address = buf->address();
-    uint32_t size = buf->size();
-
-    log_debug(tt::LogEmulationDriver, "[AXI_RAM_READ] @ 0x{:016x} size={}.", address, size);
-
-    // Flatbuffer data field is [uint32], so round up byte size to uint32 count.
-    std::vector<uint32_t> read_data((size + 3) / 4, 0);
-
-    if (ram_read_callback_) {
-        ram_read_callback_(address, read_data.data(), size);
-    } else {
-        log_warning(tt::LogEmulationDriver, "[AXI_RAM_READ] No callback registered, returning zeros.");
-    }
-
-    // Echo back the core from the request so the simulator can route the response.
-    tt_xy_pair core = {buf->core()->x(), 0};
-    std::lock_guard<std::mutex> lock(device_lock_);
-    send_command_to_simulation_host(
-        *host_, create_flatbuffer(DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION, read_data, core, address, size));
-}
-
-RtlSimCommunicator::ReceivedMessage RtlSimCommunicator::wait_for_command_response() {
-    std::unique_lock<std::mutex> lock(command_queue_mutex_);
-    command_queue_cv_.wait(lock, [this] { return !command_queue_.empty() || !notification_thread_running_.load(); });
-
-    if (!command_queue_.empty()) {
-        auto msg = command_queue_.front();
-        command_queue_.pop();
-        return msg;
-    }
-
-    // Notification thread has stopped, return empty message.
-    return {nullptr, 0};
+    channel_->set_ram_callbacks(std::move(write_cb), std::move(read_cb));
 }
 
 }  // namespace tt::umd

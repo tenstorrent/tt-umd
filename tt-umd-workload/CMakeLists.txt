@@ -39,7 +39,7 @@ target_link_libraries(
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
         tt-umd-utils::internal
-        $<$<BOOL:${TT_UMD_ENABLE_TRACY}>:TracyClient>
+        tt-umd-utils::tracy
 )
 
 if(TT_UMD_BUILD_EMULE)

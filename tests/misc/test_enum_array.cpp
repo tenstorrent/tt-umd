@@ -10,8 +10,8 @@
 #include <utility>
 #include <vector>
 
-#include "common/cpp_compat.hpp"
-#include "common/enum_array.hpp"
+#include "tt-umd-utils/internal/cpp_compat.hpp"
+#include "tt-umd-utils/internal/enum_array.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
 

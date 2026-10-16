@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "common/cpp_compat.hpp"
+#include "tt-umd-utils/internal/cpp_compat.hpp"
 
 using namespace tt::umd;
 

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
+#include "simulation/simulator_paths.hpp"
 #include "tracy.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
@@ -34,14 +35,12 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
 }
 
 std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
-    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "soc_descriptor.yaml")
-                                                 : (simulator_path / "soc_descriptor.yaml");
+    return tt::umd::get_soc_descriptor_path_from_simulator_path(simulator_path);
 }
 
 std::string SimulationChip::get_cluster_descriptor_path_from_simulator_path(
     const std::filesystem::path& simulator_path) {
-    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "cluster_descriptor.yaml")
-                                                 : (simulator_path / "cluster_descriptor.yaml");
+    return tt::umd::get_cluster_descriptor_path_from_simulator_path(simulator_path);
 }
 
 SimulationChip::SimulationChip(

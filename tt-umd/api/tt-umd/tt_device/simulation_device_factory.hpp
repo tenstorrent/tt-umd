@@ -11,9 +11,12 @@
 #include <memory>
 #include <optional>
 
+#include "tt-umd/topology/ip_layout.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
+
+class RtlSimIpLayout;
 
 class SocDescriptor;
 class TTDevice;
@@ -63,19 +66,21 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
 
 /**
  * Create the devices of an RTL simulator build with an ip_layout.yaml: one RtlSimulationTTDevice per
- * entry of @p chips (chip id -> the layout's device id), each on its device's socket of one shared
+ * entry of @p ip_devices (chip id -> the layout's device), each on its device's socket of one shared
  * RtlSimSession, which is started first. Each device must have exactly one access point. With
  * @p launch_simulator false the session serves its sockets without launching run.sh, and another
  * process launches it.
  *
- * @param simulator_directory The RTL build directory, holding ip_layout.yaml and run.sh.
- * @param chips The devices to open, keyed by the chip id each one gets.
+ * @param simulator_directory The RTL build directory, holding run.sh.
+ * @param layout The build's ip_layout.yaml.
+ * @param ip_devices The devices to open, keyed by the chip id each one gets.
  * @param num_host_mem_channels Host memory channels per device.
  * @param launch_simulator Whether this process launches run.sh.
  */
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
-    const std::map<ChipId, uint32_t> &chips,
+    const RtlSimIpLayout &layout,
+    const std::map<ChipId, IpDeviceId> &ip_devices,
     int num_host_mem_channels = 0,
     bool launch_simulator = true);
 

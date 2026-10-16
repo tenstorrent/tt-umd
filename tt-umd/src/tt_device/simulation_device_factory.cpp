@@ -91,17 +91,16 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
 
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
-    const std::map<ChipId, uint32_t> &chips,
+    const RtlSimIpLayout &layout,
+    const std::map<ChipId, IpDeviceId> &ip_devices,
     int num_host_mem_channels,
     bool launch_simulator) {
-    const RtlSimIpLayout layout(simulator_directory);
-
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
 
     // One socket per device, in chip order.
     std::vector<std::string> sockets;
-    for (const auto &[chip_id, device_id] : chips) {
-        const std::vector<AccessPointId> &access_points = layout_devices.at(static_cast<IpDeviceId>(device_id));
+    for (const auto &[chip_id, ip_device_id] : ip_devices) {
+        const std::vector<AccessPointId> &access_points = layout_devices.at(ip_device_id);
         // A TTDevice talks over one socket; spreading a device over several isn't supported yet.
         UMD_ASSERT(
             access_points.size() == 1,
@@ -109,7 +108,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
             fmt::format(
                 "{}: device {} has {} access points; a device can use only one for now.",
                 (simulator_directory / RtlSimIpLayout::FILE_NAME).string(),
-                device_id,
+                static_cast<uint32_t>(ip_device_id),
                 access_points.size()));
         sockets.push_back(layout.get_host_access(access_points.front()));
     }
@@ -121,13 +120,13 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     size_t socket = 0;
-    for (const auto &[chip_id, device_id] : chips) {
-        const SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(
-            layout.get_soc_descriptor(static_cast<IpDeviceId>(device_id)).string()));
+    for (const auto &[chip_id, ip_device_id] : ip_devices) {
+        const SocDescriptor soc_descriptor(
+            std::make_shared<SocArchDescriptor>(layout.get_soc_descriptor(ip_device_id).string()));
         auto device = std::make_unique<RtlSimulationTTDevice>(
             RtlSimSocket(session, socket++), simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
         if (att_program.has_value()) {
-            att_program->apply(static_cast<IpDeviceId>(device_id), *device->get_communicator());
+            att_program->apply(ip_device_id, *device->get_communicator());
         }
         devices[chip_id] = std::move(device);
     }

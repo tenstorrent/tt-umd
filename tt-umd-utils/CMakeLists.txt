@@ -34,6 +34,12 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/internal>
 )
+target_link_libraries(
+    tt-umd-utils-internal
+    INTERFACE
+        fmt::fmt-header-only
+        tt-logger::tt-logger
+)
 
 # Not installed as a package of its own: it ships inside tt-umd, whose headers include these.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)

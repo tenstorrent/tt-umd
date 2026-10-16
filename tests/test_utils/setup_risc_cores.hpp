@@ -20,20 +20,14 @@ inline void safe_test_cluster_start(Cluster* cluster) {
 
     std::lock_guard<RobustMutex> lock(mtx);
 
-    auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
     static constexpr uint32_t start_address_in_l1 = 0x20;
-    std::array<uint32_t, 12> brisc_program_default{};
-    std::copy(
-        brisc_configuration_program_default.cbegin(),
-        brisc_configuration_program_default.cend(),
-        std::next(brisc_program_default.begin(), 1));
-
-    switch (architecture) {
+    std::array<uint32_t, 12> brisc_park_program{};
+    switch (cluster->get_chip(0)->get_tt_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            brisc_program_default[0] = WORMHOLE_BRISC_BASE_INSTRUCTION;
+            brisc_park_program = wh_brisc_park_program;
             break;
         case tt::ARCH::BLACKHOLE:
-            brisc_program_default[0] = BLACKHOLE_BRISC_BASE_INSTRUCTION;
+            brisc_park_program = bh_brisc_park_program;
             break;
         default:
             return;
@@ -53,8 +47,8 @@ inline void safe_test_cluster_start(Cluster* cluster) {
             cluster->write_to_device(
                 &BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core_translated, 0);
             cluster->write_to_device(
-                brisc_program_default.data(),
-                brisc_program_default.size() * sizeof(std::uint32_t),
+                brisc_park_program.data(),
+                brisc_park_program.size() * sizeof(std::uint32_t),
                 chip_id,
                 tensix_core_translated,
                 start_address_in_l1);

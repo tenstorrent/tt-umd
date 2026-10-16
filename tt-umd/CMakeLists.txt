@@ -433,7 +433,12 @@ target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
-target_link_libraries(tt-umd-base PRIVATE tt-umd-utils::tt-umd-utils)
+target_link_libraries(
+    tt-umd-base
+    PRIVATE
+        tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
+)
 target_include_directories(tt-umd-base PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 check_function_exists(

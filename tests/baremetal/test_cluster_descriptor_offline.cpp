@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-umd-utils/internal/disjoint_set.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"

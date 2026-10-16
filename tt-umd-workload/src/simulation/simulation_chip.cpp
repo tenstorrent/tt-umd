@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "simulation/simulator_paths.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"

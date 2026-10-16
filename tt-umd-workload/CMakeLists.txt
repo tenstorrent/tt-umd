@@ -11,6 +11,11 @@ add_library(tt-umd-workload::tt-umd-workload ALIAS tt-umd-workload)
 target_sources(
     tt-umd-workload
     PRIVATE
+        src/chip/chip.cpp
+        src/chip/local_chip.cpp
+        src/chip/mock_chip.cpp
+        src/chip/remote_chip.cpp
+        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:src/chip/sw_emule_chip.cpp>
         src/cluster.cpp
         $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:src/simulation/simulation_chip.cpp>
 )
@@ -36,6 +41,11 @@ target_link_libraries(
         $<$<BOOL:${TT_UMD_ENABLE_TRACY}>:TracyClient>
 )
 
+if(TT_UMD_BUILD_EMULE)
+    target_compile_definitions(tt-umd-workload PRIVATE TT_UMD_BUILD_EMULE)
+    target_link_libraries(tt-umd-workload PRIVATE tt-emule::headers)
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         tt-umd-workload
@@ -43,7 +53,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             FILE_SET api
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
-            FILES api/tt-umd-workload/cluster.hpp api/tt-umd-workload/simulation/simulation_chip.hpp
+            FILES
+                api/tt-umd-workload/chip/chip.hpp
+                api/tt-umd-workload/chip/local_chip.hpp
+                api/tt-umd-workload/chip/mock_chip.hpp
+                api/tt-umd-workload/chip/remote_chip.hpp
+                api/tt-umd-workload/chip/sw_emule_chip.hpp
+                api/tt-umd-workload/cluster.hpp
+                api/tt-umd-workload/simulation/simulation_chip.hpp
     )
 endif()
 

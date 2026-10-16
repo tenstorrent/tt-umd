@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/local_chip.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
 
 #include <fmt/format.h>
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/mock_chip.hpp"
+#include "tt-umd-workload/chip/mock_chip.hpp"
 
 #include <chrono>
 #include <cstdint>

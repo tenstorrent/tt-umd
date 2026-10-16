@@ -9,7 +9,7 @@
 #include <cstring>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"

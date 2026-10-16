@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -338,7 +339,29 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
 
 void SimulationTTDevice::noc_multicast_write(
     const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+    // Without a TLB window there is no NOC multicast to reach, so emulate it.
+    if (!should_use_cached_tlb_window()) {
+        multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+        return;
+    }
+    if (is_device_closed()) {
+        return;
+    }
+    // Silicon delivers a multicast to Tensix cores only, while TTSim rejects a rectangle reaching past the
+    // Tensix grid. Clipping the rectangle to that grid gives TTSim the cores silicon would write.
+    const SocDescriptor& soc_descriptor = get_soc_descriptor();
+    const tt_xy_pair start = soc_descriptor.translate_chip_coord_to_translated(core_start, noc_id);
+    const tt_xy_pair end = soc_descriptor.translate_chip_coord_to_translated(core_end, noc_id);
+    const auto [tensix_first, tensix_last] = soc_descriptor.get_bounding_rectangle();
+    const tt_xy_pair clipped_start = {
+        std::max(std::min(start.x, end.x), tensix_first.x), std::max(std::min(start.y, end.y), tensix_first.y)};
+    const tt_xy_pair clipped_end = {
+        std::min(std::max(start.x, end.x), tensix_last.x), std::min(std::max(start.y, end.y), tensix_last.y)};
+    if (clipped_start.x > clipped_end.x || clipped_start.y > clipped_end.y) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    noc_multicast_write_reconfigure(*cached_tlb_window_, src, size, clipped_start, clipped_end, addr, noc_id);
 }
 
 void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

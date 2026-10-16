@@ -96,6 +96,30 @@ With an ATT map named in `TT_UMD_NOC_ATT`, a device has flat addresses: the glob
 
 A map has one table for every access point, or one per access point of the build's `ip_layout.yaml`, in its order; a device's own IO resolves through the table of the access point it talks over. `horizon_x2` (two whole Horizon devices behind linked crossbars, aether `horizon_x2`) gives each NOC2AXI its own range over its whole device, so a device's two access points give different addresses: Tensix (0,0)'s L1 is at `0x10_4020_0000` through device 0's NOC2AXI 0 and at `0x11_4020_0000` through its NOC2AXI 1. The build programs the matching tables, `tests/att_maps/horizon_x2_per_noc2axi.yaml`, through its `ATT_CONFIG`.
 
+`horizon_x2_columns` splits both devices by column: each column is a device with a 1x3 soc descriptor at x = 0, mapped only by its own NOC2AXI, in that NOC2AXI's range (tables: `tests/att_maps/horizon_x2_columns.yaml`). Its tables follow the access points of this layout, in this order, so a build lists all of them even when its processes open only some devices (`TT_VISIBLE_DEVICES`):
+
+```yaml
+access_points:
+  - host_access: dev0_port0      # device 0 column 0
+    coord: [0, 2]
+  - host_access: dev0_port1      # device 0 column 1
+    coord: [0, 2]
+  - host_access: dev1_port0      # device 1 column 0
+    coord: [0, 2]
+  - host_access: dev0_port1      # device 1 column 1, over device 0's crossbar and the link
+  - host_access: dev1_port1      # device 1 column 1, over its own NOC2AXI
+    coord: [0, 2]
+devices:
+  - access_points: [0]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [1]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [2]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [3, 4]
+    soc_descriptor: soc_descriptor_column.yaml
+```
+
 ## One process or several
 
 A build with an `ip_layout.yaml` opens as one chip per device. A process opens the devices selected by `ClusterOptions::target_devices`, or else by `TT_VISIBLE_DEVICES`, renumbered from 0, and serves only their sockets.

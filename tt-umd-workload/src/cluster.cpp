@@ -31,9 +31,9 @@
 #include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
-#include "tt-umd/chip/local_chip.hpp"
-#include "tt-umd/chip/mock_chip.hpp"
-#include "tt-umd/chip/remote_chip.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
+#include "tt-umd-workload/chip/mock_chip.hpp"
+#include "tt-umd-workload/chip/remote_chip.hpp"
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -47,8 +47,8 @@
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "io_window/io_window_target.hpp"
+#include "tt-umd-workload/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
-#include "tt-umd/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/sw_emule_chip.hpp"
+#include "tt-umd-workload/chip/sw_emule_chip.hpp"
 
 #include <cassert>
 #include <cstdlib>

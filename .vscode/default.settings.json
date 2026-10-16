@@ -1,6 +1,6 @@
 {
     "[cpp]": {
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
     },
     "C_Cpp.clang_format_fallbackStyle": "Google",
     "C_Cpp.clang_format_style": "file",
@@ -8,15 +8,15 @@
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
         "--header-insertion=never",
-        "--enable-config"
+        "--enable-config",
     ],
     "C_Cpp.default.intelliSenseMode": "clang-x64",
     "C_Cpp.intelliSenseEngine": "disabled",
     //  Ignore symlinked local directory for file changes and search
     "files.watcherExclude": {
-        "device/**": true
+        "device/**": true,
     },
     "search.exclude": {
-        "device/**": true
+        "device/**": true,
     }
 }

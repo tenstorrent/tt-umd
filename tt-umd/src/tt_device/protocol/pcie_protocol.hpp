@@ -102,9 +102,8 @@ private:
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
-    // Takes the PCIE_DMA lock, which is what keeps other processes off this device's one DMA engine.
-    // Callers hold dma_mutex_, and always take the two in that order.
-    std::unique_lock<MutexInterface> acquire_dma_channel();
+    // Keeps other processes off this device's DMA engine. Taken while holding dma_mutex_, never before it.
+    std::unique_lock<MutexInterface> lock_dma_engine();
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
@@ -113,8 +112,7 @@ private:
     DmaTransferStrategy dma_strategy_;
     bool use_safe_api_;
     std::mutex io_lock_;
-    // Guards the DMA engine registers and the DMA TLB window against threads of this process. Other
-    // processes are kept out by the PCIE_DMA lock, which this is always taken before.
+    // Keeps threads of this process off the DMA engine and the DMA TLB window.
     std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;

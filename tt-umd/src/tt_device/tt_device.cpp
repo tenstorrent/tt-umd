@@ -48,7 +48,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "tt_device/hang_detection/hang_detector_implementation.hpp"

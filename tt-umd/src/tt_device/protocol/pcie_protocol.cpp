@@ -59,8 +59,6 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
     pci_device_(std::move(pci_device)),
     dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
     use_safe_api_(use_safe_api) {
-    // The DMA engine is one per device and shared with every other process that has it open, so the
-    // lock guarding it is set up here, where it is taken.
     LockManager::initialize_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
@@ -314,9 +312,8 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         return false;
     }
 
-    // Taken after the availability check, so a caller that is about to fall back to MMIO does not
-    // queue up behind other processes for a channel it will not use. Released when this returns.
-    auto dma_channel = acquire_dma_channel();
+    // After the availability check, so a caller falling back to MMIO does not wait on other processes.
+    auto engine_lock = lock_dma_engine();
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     const size_t dmabuf_size = dma_buffer.size;
@@ -361,7 +358,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
         return false;
     }
 
-    auto dma_channel = acquire_dma_channel();
+    auto engine_lock = lock_dma_engine();
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
@@ -392,7 +389,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
     return true;
 }
 
-std::unique_lock<MutexInterface> PcieProtocol::acquire_dma_channel() {
+std::unique_lock<MutexInterface> PcieProtocol::lock_dma_engine() {
     return LockManager::acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 

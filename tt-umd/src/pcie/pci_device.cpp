@@ -1153,6 +1153,22 @@ static uint32_t to_library_flags(const NocAddressSpace space) {
     return space == NocAddressSpace::DeviceLocal ? TT_NOC_FLAG_KLA : TT_NOC_FLAG_NONE;
 }
 
+NocAddressSpace PCIDevice::noc_address_space(const NocId noc_id) {
+    switch (noc_id) {
+        case NocId::NOC0:
+            return NocAddressSpace::SystemPhysical;
+        case NocId::SYSTEM_NOC:
+            return NocAddressSpace::DeviceLocal;
+        default:
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "The driver reaches a target through one inbound aperture per address space, and {} is not one of "
+                    "them.",
+                    noc_to_str(noc_id)));
+    }
+}
+
 uint64_t PCIDevice::noc_read_scalar(const uint64_t addr, const uint32_t width, const NocAddressSpace space) {
     uint64_t value = 0;
     const int ret = tt_noc_read_scalar(tt_device_handle, addr, &value, width, to_library_flags(space));

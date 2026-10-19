@@ -6,22 +6,24 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 
 #include "tt-umd/io_window/io_window.hpp"
-#include "tt-umd/tt_device/protocol/kmd_scalar_noc_access.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 
 namespace tt::umd {
 
 /**
- * An IoWindow over Grendel's kernel-mediated scalar access.
+ * An IoWindow over the kernel driver's scalar accesses.
  *
- * Nothing is mapped. On Wormhole and Blackhole a window is a region of host address space and an
- * access through it is a load or a store; here the driver owns the only inbound apertures, so an
- * access is a round trip through it at the window's base plus the offset. The interface is the
- * same so that callers above need not know which of the two they hold, but the cost is not: a
- * block transfer is one round trip per word.
+ * Nothing is mapped. On an architecture that offers a translation window, a window is a region of
+ * host address space and an access through it is a load or a store; here the driver owns the only
+ * inbound apertures, so an access is a round trip through it at the window's base plus the offset.
+ * The interface is the same so that callers above need not know which of the two they hold, but
+ * the cost is not: a block transfer is one round trip per word.
+ *
+ * The address is flat and names its own target, so a window carries no coordinate: only the origin
+ * is accepted, and a multicast grid cannot be represented at all.
  *
  * Its base is whatever it was last configured with. Nothing is allocated to bound it, so the size
  * is the span the window accepts offsets within: whatever the caller asked for, or unbounded when
@@ -30,12 +32,12 @@ namespace tt::umd {
 class KmdNocWindow : public IoWindow {
 public:
     /**
-     * @param access The scalar access every transfer through this window is built from. Shared,
-     * because the protocol on the same device issues its own accesses over the same driver handle.
+     * @param pci_device The device every transfer through this window is issued on. Borrowed: the
+     * protocol on the same device owns it and outlives the windows served from it.
      * @param config The target this window starts out pointing at.
      * @param size The span to accept offsets within, or 0 for unbounded.
      */
-    KmdNocWindow(std::shared_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config, size_t size = 0);
+    KmdNocWindow(PCIDevice* pci_device, const TargetIoWindowConfig& config, size_t size = 0);
     ~KmdNocWindow() override;
 
     void write_block(uint64_t offset, const void* data, size_t size) override;
@@ -47,9 +49,13 @@ public:
     void write32(uint64_t offset, uint32_t value) override;
     uint32_t read32(uint64_t offset) override;
 
+    void write64(uint64_t offset, uint64_t value) override;
+    uint64_t read64(uint64_t offset) override;
+
     void write_aligned(uint64_t offset, const void* data, size_t size) override;
     void read_aligned(uint64_t offset, void* data, size_t size) override;
 
+    /** @throws error::RuntimeError for a target this path cannot represent. */
     void configure(const TargetIoWindowConfig& config) override;
     void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
 
@@ -59,14 +65,16 @@ public:
     HostMemoryCaching get_memory_caching_type() const override;
 
 private:
-    /** Aperture flags implied by the configured target. */
-    uint32_t access_flags() const;
-
     /** Refuses an access that is misaligned, or that runs past a window with a size. */
     void validate(uint64_t offset, size_t size, uint32_t width) const;
 
-    std::shared_ptr<KmdScalarNocAccess> access_;
+    PCIDevice* pci_device_;
     TargetIoWindowConfig config_;
+
+    // Resolved when the target is accepted rather than per access, so that a target this path
+    // cannot serve is refused instead of being quietly served from the wrong address space.
+    NocAddressSpace space_;
+
     size_t size_;
 };
 

@@ -20,22 +20,6 @@ KmdProtocol::KmdProtocol(std::unique_ptr<PCIDevice> pci_device, int mmio_id) :
 
 KmdProtocol::~KmdProtocol() = default;
 
-NocAddressSpace KmdProtocol::address_space(NocId noc_id) {
-    switch (noc_id) {
-        case NocId::NOC0:
-            return NocAddressSpace::SystemPhysical;
-        case NocId::SYSTEM_NOC:
-            return NocAddressSpace::DeviceLocal;
-        default:
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "The driver reaches a target through one inbound aperture per address space, and {} is not one of "
-                    "them.",
-                    noc_to_str(noc_id)));
-    }
-}
-
 void KmdProtocol::validate(tt_xy_pair core, uint64_t addr, size_t size, uint32_t access_width) {
     UMD_ASSERT(
         core.x == 0 && core.y == 0,
@@ -68,7 +52,7 @@ void KmdProtocol::validate(tt_xy_pair core, uint64_t addr, size_t size, uint32_t
 
 void KmdProtocol::read_ctrl(
     void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    const NocAddressSpace space = address_space(noc_id);
+    const NocAddressSpace space = PCIDevice::noc_address_space(noc_id);
     const auto access_width = static_cast<uint32_t>(register_access_size(width));
     validate(core, addr, size, access_width);
 
@@ -82,7 +66,7 @@ void KmdProtocol::read_ctrl(
 
 void KmdProtocol::write_ctrl(
     const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    const NocAddressSpace space = address_space(noc_id);
+    const NocAddressSpace space = PCIDevice::noc_address_space(noc_id);
     const auto access_width = static_cast<uint32_t>(register_access_size(width));
     validate(core, addr, size, access_width);
 

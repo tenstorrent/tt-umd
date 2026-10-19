@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/io_window/kmd_noc_window.hpp"
+#include "io_window/kmd_noc_window.hpp"
 
 #include <fmt/format.h>
 
@@ -17,13 +17,38 @@ namespace {
 
 constexpr uint32_t WORD_WIDTH = 4;
 
+/**
+ * The address space a target names, refusing one this path cannot represent.
+ *
+ * A coordinate and a grid are both refused rather than ignored: every transfer is issued at
+ * config_.addr alone, so honouring them silently would send the access somewhere else.
+ */
+NocAddressSpace accept_target(const TargetIoWindowConfig& config) {
+    UMD_ASSERT(
+        config.core_start.x == 0 && config.core_start.y == 0,
+        error::RuntimeError,
+        fmt::format(
+            "A flat address already names its target, so a window travels with no coordinate; core ({}, {}) cannot "
+            "be honoured.",
+            config.core_start.x,
+            config.core_start.y));
+
+    UMD_ASSERT(
+        !config.core_end.has_value(),
+        error::RuntimeError,
+        "There is no multicast on this path, so a window cannot cover a grid of cores.");
+
+    return PCIDevice::noc_address_space(config.noc.value_or(NocId::NOC0));
+}
+
 }  // namespace
 
-KmdNocWindow::KmdNocWindow(
-    std::shared_ptr<KmdScalarNocAccess> access, const TargetIoWindowConfig& config, size_t size) :
-    access_(std::move(access)), config_(config), size_(size) {
-    UMD_ASSERT(access_ != nullptr, error::RuntimeError, "An I/O window needs a scalar access path.");
+KmdNocWindow::KmdNocWindow(PCIDevice* pci_device, const TargetIoWindowConfig& config, size_t size) :
+    pci_device_(pci_device), config_(config), space_(accept_target(config)), size_(size) {
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "An I/O window needs an open device.");
 }
+
+KmdNocWindow::~KmdNocWindow() = default;
 
 void KmdNocWindow::validate(uint64_t offset, size_t size, uint32_t width) const {
     UMD_ASSERT(
@@ -43,36 +68,35 @@ void KmdNocWindow::validate(uint64_t offset, size_t size, uint32_t width) const 
         fmt::format("A {} byte access at offset 0x{:x} runs past this {} byte window.", size, offset, size_));
 }
 
-KmdNocWindow::~KmdNocWindow() = default;
-
-uint32_t KmdNocWindow::access_flags() const {
-    return config_.noc.value_or(NocId::NOC0) == NocId::SYSTEM_NOC ? KmdScalarNocAccess::FLAG_LOCAL_ADDRESS : 0;
-}
-
 void KmdNocWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, WORD_WIDTH, WORD_WIDTH);
-    access_->write(config_.addr + offset, value, WORD_WIDTH, access_flags());
+    pci_device_->noc_write_scalar(config_.addr + offset, value, WORD_WIDTH, space_);
 }
 
 uint32_t KmdNocWindow::read32(uint64_t offset) {
     validate(offset, WORD_WIDTH, WORD_WIDTH);
+    return static_cast<uint32_t>(pci_device_->noc_read_scalar(config_.addr + offset, WORD_WIDTH, space_));
+}
 
-    uint64_t value = 0;
-    access_->read(config_.addr + offset, &value, WORD_WIDTH, access_flags());
-    return static_cast<uint32_t>(value);
+// The driver serves a 64-bit access natively, so this is one round trip rather than two.
+void KmdNocWindow::write64(uint64_t offset, uint64_t value) {
+    validate(offset, sizeof(uint64_t), sizeof(uint64_t));
+    pci_device_->noc_write_scalar(config_.addr + offset, value, sizeof(uint64_t), space_);
+}
+
+uint64_t KmdNocWindow::read64(uint64_t offset) {
+    validate(offset, sizeof(uint64_t), sizeof(uint64_t));
+    return pci_device_->noc_read_scalar(config_.addr + offset, sizeof(uint64_t), space_);
 }
 
 void KmdNocWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t), sizeof(uint16_t));
-    access_->write(config_.addr + offset, value, sizeof(uint16_t), access_flags());
+    pci_device_->noc_write_scalar(config_.addr + offset, value, sizeof(uint16_t), space_);
 }
 
 uint16_t KmdNocWindow::read16(uint64_t offset) {
     validate(offset, sizeof(uint16_t), sizeof(uint16_t));
-
-    uint64_t value = 0;
-    access_->read(config_.addr + offset, &value, sizeof(uint16_t), access_flags());
-    return static_cast<uint16_t>(value);
+    return static_cast<uint16_t>(pci_device_->noc_read_scalar(config_.addr + offset, sizeof(uint16_t), space_));
 }
 
 void KmdNocWindow::write_block(uint64_t offset, const void* data, size_t size) {
@@ -82,7 +106,7 @@ void KmdNocWindow::write_block(uint64_t offset, const void* data, size_t size) {
     for (size_t done = 0; done < size; done += WORD_WIDTH) {
         uint32_t word = 0;
         std::memcpy(&word, in + done, WORD_WIDTH);
-        access_->write(config_.addr + offset + done, word, WORD_WIDTH, access_flags());
+        pci_device_->noc_write_scalar(config_.addr + offset + done, word, WORD_WIDTH, space_);
     }
 }
 
@@ -91,10 +115,8 @@ void KmdNocWindow::read_block(uint64_t offset, void* data, size_t size) {
 
     auto* out = static_cast<uint8_t*>(data);
     for (size_t done = 0; done < size; done += WORD_WIDTH) {
-        uint64_t value = 0;
-        access_->read(config_.addr + offset + done, &value, WORD_WIDTH, access_flags());
-
-        const auto word = static_cast<uint32_t>(value);
+        const auto word =
+            static_cast<uint32_t>(pci_device_->noc_read_scalar(config_.addr + offset + done, WORD_WIDTH, space_));
         std::memcpy(out + done, &word, WORD_WIDTH);
     }
 }
@@ -105,7 +127,10 @@ void KmdNocWindow::write_aligned(uint64_t offset, const void* data, size_t size)
 
 void KmdNocWindow::read_aligned(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
 
-void KmdNocWindow::configure(const TargetIoWindowConfig& config) { config_ = config; }
+void KmdNocWindow::configure(const TargetIoWindowConfig& config) {
+    space_ = accept_target(config);
+    config_ = config;
+}
 
 // The ordering argument is accepted and ignored: the driver performs one access at a time and
 // returns when it is done, so there is no weaker ordering available to select.

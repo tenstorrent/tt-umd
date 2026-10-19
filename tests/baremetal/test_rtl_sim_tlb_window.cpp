@@ -10,6 +10,8 @@
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
+#include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/io_window_config.hpp"
@@ -46,7 +48,8 @@ TargetIoWindowConfig make_target() {
 // ordinary-TLB counterpart.
 class RtlSimTlbWindowFlags : public ::testing::TestWithParam<tt::ARCH> {
 protected:
-    std::unique_ptr<IoWindow> make_window() {
+    // A non-null resolver makes the window address the device by flat address instead of coordinates.
+    std::unique_ptr<IoWindow> make_window(const att::EndpointResolver* resolver = nullptr) {
         const size_t size = window_size_for(GetParam());
         allocator_ = std::make_shared<SimulationTlbAllocator>(TEST_BAR0_BASE, GetParam());
         const int tlb_id = allocator_->allocate_tlb_index(size);
@@ -54,7 +57,7 @@ protected:
         return std::make_unique<RtlSimTlbWindow>(
             RtlSimTlbHandle::create(allocator_, tlb_id, size, TlbMapping::WC),
             /*communicator=*/nullptr,
-            /*resolver=*/nullptr,
+            resolver,
             /*soc_descriptor=*/nullptr);
     }
 
@@ -96,6 +99,17 @@ TEST_P(RtlSimTlbWindowFlags, ConfigureRejectsUnsupportedFlags) {
 
     target.flags = WindowFlags::Snoop | WindowFlags::Atomic;
     EXPECT_ANY_THROW(window->configure(target)) << "A supported flag must not smuggle an unsupported one through";
+}
+
+// The simulator does not carry user bits on the global accesses a flat-address device makes, so
+// snoop must be refused there rather than dropped on the way out.
+TEST_P(RtlSimTlbWindowFlags, FlatAddressWindowRejectsSnoop) {
+    const att::EndpointResolver resolver(att::GRENDEL_QSR1_MAP);
+    auto window = make_window(&resolver);
+
+    TargetIoWindowConfig target = make_target();
+    target.flags = WindowFlags::Snoop;
+    EXPECT_ANY_THROW(window->configure(target));
 }
 
 INSTANTIATE_TEST_SUITE_P(

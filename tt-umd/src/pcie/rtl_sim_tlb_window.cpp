@@ -62,8 +62,8 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
         flat_addr,
         data,
         static_cast<uint32_t>(size),
-        [&](uint64_t a, void* d, uint32_t n) { communicator_->global_read_words(a, d, n, user_bits); },
-        [&](uint64_t a, const void* d, uint32_t n) { communicator_->global_write_words(a, d, n, user_bits); });
+        [this](uint64_t a, void* d, uint32_t n) { communicator_->global_read_words(a, d, n); },
+        [this](uint64_t a, const void* d, uint32_t n) { communicator_->global_write_words(a, d, n); });
 }
 
 void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t size) {
@@ -77,8 +77,8 @@ void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t siz
         return;
     }
     const uint64_t flat_addr = att::resolve_translated(*resolver_, *soc_descriptor_, core, device_addr, size);
-    read_bytes_as_words(flat_addr, data, static_cast<uint32_t>(size), [&](uint64_t a, void* d, uint32_t n) {
-        communicator_->global_read_words(a, d, n, user_bits);
+    read_bytes_as_words(flat_addr, data, static_cast<uint32_t>(size), [this](uint64_t a, void* d, uint32_t n) {
+        communicator_->global_read_words(a, d, n);
     });
 }
 

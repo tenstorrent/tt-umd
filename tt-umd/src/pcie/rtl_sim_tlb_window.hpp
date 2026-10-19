@@ -28,10 +28,10 @@ class EndpointResolver;
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
  *
- * This is the one TlbWindow that can honor a WindowFlag: WindowFlags::Snoop
- * requested through configure(TargetIoWindowConfig) is translated into AXI
- * awuser/aruser bit 8 (cce_cmd_snoop) and forwarded to the communicator on
- * every access.
+ * This is the one TlbWindow that can honor a WindowFlag: on a device that sends
+ * coordinates, WindowFlags::Snoop requested through configure(TargetIoWindowConfig)
+ * is translated into AXI awuser/aruser bit 8 (cce_cmd_snoop) and forwarded to the
+ * communicator on every access.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:
@@ -61,8 +61,11 @@ public:
     void read_block(uint64_t offset, void* data, size_t size) override;
 
 protected:
-    // The RTL sim carries AXI user bits on the wire, so snoop is expressible here.
-    WindowFlags supported_window_flags() const override { return WindowFlags::Snoop; }
+    // The simulator honors AXI user bits only on tile reads and writes, not on the global accesses a
+    // flat-address device makes, so snoop is expressible only when the window sends coordinates.
+    WindowFlags supported_window_flags() const override {
+        return resolver_ == nullptr ? WindowFlags::Snoop : WindowFlags::None;
+    }
 
 private:
     /**

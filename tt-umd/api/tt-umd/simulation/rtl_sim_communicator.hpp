@@ -110,11 +110,8 @@ public:
      * @param addr Global address to read from
      * @param data Buffer to store read data
      * @param size Number of bytes to read
-     * @param user_bits_low Low 64 bits of AXI aruser (bit 8 is cce_cmd_snoop). Defaults to 0.
-     * @param user_bits_high Upper bits of AXI aruser (bits 64..127). Defaults to 0.
      */
-    void global_read_words(
-        uint64_t addr, void *data, uint32_t size, uint64_t user_bits_low = 0, uint64_t user_bits_high = 0);
+    void global_read_words(uint64_t addr, void *data, uint32_t size);
 
     /**
      * Write whole words of device memory addressed by a flat global address. @see global_read_words().
@@ -122,11 +119,8 @@ public:
      * @param addr Global address to write to
      * @param data Data to write
      * @param size Number of bytes to write
-     * @param user_bits_low Low 64 bits of AXI awuser (bit 8 is cce_cmd_snoop). Defaults to 0.
-     * @param user_bits_high Upper bits of AXI awuser (bits 64..127). Defaults to 0.
      */
-    void global_write_words(
-        uint64_t addr, const void *data, uint32_t size, uint64_t user_bits_low = 0, uint64_t user_bits_high = 0);
+    void global_write_words(uint64_t addr, const void *data, uint32_t size);
 
     /**
      * Read data from a tile core via SMN.

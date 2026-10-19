@@ -860,6 +860,12 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
             EXPECT_NE(address.value(), 0u);
             EXPECT_NE(size.value(), 0u);
             EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
+
+            // Wormhole firmware publishes an ARC-local address; the API must return it in ARC CSM NOC space,
+            // otherwise accesses through the ARC tile land in DRAM.
+            if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
+                EXPECT_GE(address.value(), wormhole::ARC_CSM_NOC_BASE_ADDRESS);
+            }
         }
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }

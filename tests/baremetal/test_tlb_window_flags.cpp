@@ -24,7 +24,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-namespace {
+namespace tlb_window_flags_test {
 
 constexpr size_t FAKE_TLB_SIZE = 1 << 21;
 
@@ -88,8 +88,6 @@ TargetIoWindowConfig make_target() {
     target.noc = NocId::NOC0;
     return target;
 }
-
-}  // namespace
 
 // The default is to support nothing, which is what silicon and TTSim rely on: a caller asking for a
 // flag the window cannot express gets an error instead of a silently unsnooped transaction.
@@ -168,3 +166,5 @@ TEST(TlbWindowFlags, FlagsAndOrderingAreIndependent) {
     EXPECT_EQ(window.get_target_config().flags, WindowFlags::Snoop);
     EXPECT_EQ(window.get_io_ordering(), IoOrdering::Posted);
 }
+
+}  // namespace tlb_window_flags_test

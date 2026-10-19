@@ -22,7 +22,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-namespace {
+namespace rtl_sim_tlb_window_test {
 
 // Arbitrary nonzero base; nothing here dereferences a TLB, so the value only feeds address math.
 constexpr uint64_t TEST_BAR0_BASE = 0x10000000ULL;
@@ -64,8 +64,6 @@ protected:
 private:
     std::shared_ptr<SimulationTlbAllocator> allocator_;
 };
-
-}  // namespace
 
 // The RTL sim carries AXI awuser/aruser on the wire, so it is the one TLB-backed IoWindow that can
 // honor WindowFlags::Snoop. Accepting it and reporting it back is what lets a caller ask for a
@@ -117,3 +115,5 @@ INSTANTIATE_TEST_SUITE_P(
     RtlSimTlbWindowFlags,
     ::testing::Values(tt::ARCH::BLACKHOLE, tt::ARCH::QUASAR),
     [](const ::testing::TestParamInfo<tt::ARCH>& info) { return std::string(tt::arch_to_str(info.param)); });
+
+}  // namespace rtl_sim_tlb_window_test

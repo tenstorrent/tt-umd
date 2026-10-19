@@ -41,6 +41,49 @@ std::unique_ptr<Pool> make_shared_pool(size_t slots, uint64_t uid, uint64_t harv
     }
 }
 
+// A tt-emule that sizes the pool's slots from the worker L1 takes the size; an older one has fixed slots.
+template <typename Pool>
+std::unique_ptr<Pool> make_private_pool(size_t slots, size_t worker_l1_size) {
+    if constexpr (std::is_constructible_v<Pool, size_t, size_t>) {
+        return std::make_unique<Pool>(slots, worker_l1_size);
+    } else {
+        return std::make_unique<Pool>(slots);
+    }
+}
+
+template <typename Pool>
+std::unique_ptr<Pool> make_sized_shared_pool(size_t slots, size_t worker_l1_size, uint64_t uid, uint64_t harvest_mask) {
+    if constexpr (std::is_constructible_v<Pool, size_t, size_t, uint64_t, uint64_t>) {
+        return std::make_unique<Pool>(slots, worker_l1_size, uid, harvest_mask);
+    } else {
+        return make_shared_pool<Pool>(slots, uid, harvest_mask);
+    }
+}
+
+template <typename Pool, typename = void>
+struct HasSlotSize : std::false_type {};
+
+template <typename Pool>
+struct HasSlotSize<Pool, std::void_t<decltype(std::declval<const Pool&>().slot_size())>> : std::true_type {};
+
+template <typename Pool>
+size_t pool_slot_size(const Pool& pool) {
+    if constexpr (HasSlotSize<Pool>::value) {
+        return pool.slot_size();
+    } else {
+        return Pool::SLOT_SIZE;
+    }
+}
+
+// A tt-emule core that observes host writes (a kernel parked on a word the host stores) gets told of each one.
+template <typename Core>
+auto notify_host_write(Core& core, uint64_t addr, size_t size, int) -> decltype(core.notify_host_write(addr, size)) {
+    return core.notify_host_write(addr, size);
+}
+
+template <typename Core>
+void notify_host_write(Core&, uint64_t, size_t, long) {}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -97,15 +140,6 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
     // sits in the scarce low-4 GB MAP_32BIT window where over-sizing costs mesh capacity.
     slot_of_ = build_worker_slot_map(soc);
     const size_t pool_size = slot_of_.size();
-    // A slot must hold a whole core's L1. A descriptor whose worker_l1_size exceeds the slot stride
-    // (e.g. tests/soc_descs/quasar_simulation_1x1.yaml, 4 MiB) would silently overrun into the next
-    // core's slot, so refuse it at construction.
-    if (static_cast<size_t>(l1_size_) > tt_emule::L1Pool::SLOT_SIZE) {
-        UMD_THROW(
-            error::RuntimeError,
-            "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
-                std::to_string(tt_emule::L1Pool::SLOT_SIZE) + " — adjacent cores' L1 would overlap");
-    }
     // Shared backing needs a stable identity; without a uid we can only be process-private.
     //
     // The harvesting masks join the key because a PEER reconstructs this chip's SocDescriptor from
@@ -138,7 +172,8 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
         shm_harvest_mask_ = tensix_mask | (dram_mask << HARVEST_FIELD_BITS) | (eth_mask << (2 * HARVEST_FIELD_BITS));
     }
     if (chip_uid.has_value() && shared_pool_requested()) {
-        worker_pool_ = make_shared_pool<tt_emule::L1Pool>(pool_size, *chip_uid, shm_harvest_mask_);
+        worker_pool_ = make_sized_shared_pool<tt_emule::L1Pool>(
+            pool_size, static_cast<size_t>(l1_size_), *chip_uid, shm_harvest_mask_);
     } else {
         // Refuse when sharing was ASKED FOR but this chip has no stable id. A process-private pool
         // is invisible to every peer, so the run would continue and drop each cross-rank write, and
@@ -149,7 +184,15 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
                 "SWEmuleChip: TT_EMULE_CHIP_SHM requests shared chip backing, but this chip has no "
                 "unique id in the cluster descriptor; a peer rank could never attach its L1");
         }
-        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+        worker_pool_ = make_private_pool<tt_emule::L1Pool>(pool_size, static_cast<size_t>(l1_size_));
+    }
+    // A slot must hold a whole core's L1. A descriptor whose worker_l1_size exceeds the slot stride would
+    // silently overrun into the next core's slot, so refuse it at construction.
+    if (static_cast<size_t>(l1_size_) > pool_slot_size(*worker_pool_)) {
+        UMD_THROW(
+            error::RuntimeError,
+            "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
+                std::to_string(pool_slot_size(*worker_pool_)) + " — adjacent cores' L1 would overlap");
     }
 }
 
@@ -250,6 +293,7 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
+    notify_host_write(*target_core, l1_dest, size, 0);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {

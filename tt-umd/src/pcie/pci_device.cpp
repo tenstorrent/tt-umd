@@ -1144,6 +1144,37 @@ int PCIDevice::export_tlb_dmabuf(
     return fd;
 }
 
+/**
+ * The library's flag is the driver's flag under another name; translating rather than handing a
+ * value through keeps this interface from inheriting the driver's numbering. A closed set of
+ * spaces also leaves no room for an unsupported bit to arrive and be quietly dropped.
+ */
+static uint32_t to_library_flags(const NocAddressSpace space) {
+    return space == NocAddressSpace::DeviceLocal ? TT_NOC_FLAG_KLA : TT_NOC_FLAG_NONE;
+}
+
+uint64_t PCIDevice::noc_read_scalar(const uint64_t addr, const uint32_t width, const NocAddressSpace space) {
+    uint64_t value = 0;
+    const int ret = tt_noc_read_scalar(tt_device_handle, addr, &value, width, to_library_flags(space));
+
+    UMD_ASSERT(
+        ret == 0,
+        error::RuntimeError,
+        fmt::format("Reading {} bytes at 0x{:x} failed: {}.", width, addr, strerror(-ret)));
+
+    return value;
+}
+
+void PCIDevice::noc_write_scalar(
+    const uint64_t addr, const uint64_t value, const uint32_t width, const NocAddressSpace space) {
+    const int ret = tt_noc_write_scalar(tt_device_handle, addr, value, width, to_library_flags(space));
+
+    UMD_ASSERT(
+        ret == 0,
+        error::RuntimeError,
+        fmt::format("Writing {} bytes at 0x{:x} failed: {}.", width, addr, strerror(-ret)));
+}
+
 void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE) {
         return;

@@ -197,19 +197,24 @@ TEST(ApiEmuleClusterTest, NonTranslatedCoreNamingStillResolvesToAPoolSlot) {
     }
 }
 
-TEST(ApiEmuleClusterTest, RefusesDescriptorWhoseL1ExceedsTheSlotStride) {
-    // quasar_simulation_1x1.yaml declares worker_l1_size 4 MiB, above the 2 MB slot stride. Before
-    // the slot map was fixed at construction this silently overran into the next core's slot.
+TEST(ApiEmuleClusterTest, SizesTheSlotFromTheDescriptorOrRefusesAnOversizedL1) {
+    // quasar_simulation_1x1.yaml declares worker_l1_size 4 MiB. A tt-emule that sizes its pool from the
+    // worker L1 builds 4 MiB slots for it; one with fixed 2 MiB slots must refuse it, or adjacent cores'
+    // L1 would overlap.
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_mock_cluster({0}, tt::ARCH::QUASAR, /*noc_translation_enabled=*/true);
-    auto build_oversized_l1_cluster = [&]() {
+    auto build_quasar_cluster = [&]() {
         ClusterOptions options{};
         options.chip_type = ChipType::SWEMULE;
         options.sdesc_path = test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml");
         options.cluster_descriptor = cluster_desc.get();
         Cluster cluster{options};
     };
-    EXPECT_THROW(build_oversized_l1_cluster(), std::exception);
+    if constexpr (std::is_constructible_v<tt_emule::L1Pool, size_t, size_t>) {
+        EXPECT_NO_THROW(build_quasar_cluster());
+    } else {
+        EXPECT_THROW(build_quasar_cluster(), std::exception);
+    }
 }
 
 TEST(ApiEmuleClusterTest, SharedBackingRefusesASynthesizedUniqueId) {

@@ -58,10 +58,8 @@ jobs:
       matrix:
         test-group: [
           {arch: wormhole_b0, card: n150, runs-on: [umd-lab, n150], timeout: 45},
-          {arch: wormhole_b0, card: n300,
-           runs-on: [umd-lab, n300], timeout: 45},
-          {arch: blackhole, card: p150,
-           runs-on: [[umd-lab, p150]], timeout: 45},
+          {arch: wormhole_b0, card: n300, runs-on: [umd-lab, n300], timeout: 45},
+          {arch: blackhole, card: p150, runs-on: [umd-lab, p150], timeout: 45},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

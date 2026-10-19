@@ -125,7 +125,7 @@ jobs:
   upload-superset:
     secrets: inherit
     needs: run-benchmarks
-    if: ${{ github.ref == 'refs/heads/main' && needs.run-benchmarks.result == 'success' }}
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
     permissions:
       contents: read
       actions: read

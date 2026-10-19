@@ -69,8 +69,17 @@ public:
      * @param addr Address to read from
      * @param data Buffer to store read data
      * @param size Number of bytes to read
+     * @param user_bits_low Low 64 bits of AXI aruser (bit 8 is cce_cmd_snoop). Defaults to 0.
+     * @param user_bits_high Upper bits of AXI aruser (bits 64..127). Defaults to 0.
      */
-    void tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+    void tile_read_bytes(
+        uint32_t x,
+        uint32_t y,
+        uint64_t addr,
+        void *data,
+        uint32_t size,
+        uint64_t user_bits_low = 0,
+        uint64_t user_bits_high = 0);
 
     /**
      * Write data to a tile core: any address and size. A partial first or last word is read, merged
@@ -81,8 +90,17 @@ public:
      * @param addr Address to write to
      * @param data Data to write
      * @param size Number of bytes to write
+     * @param user_bits_low Low 64 bits of AXI awuser (bit 8 is cce_cmd_snoop). Defaults to 0.
+     * @param user_bits_high Upper bits of AXI awuser (bits 64..127). Defaults to 0.
      */
-    void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+    void tile_write_bytes(
+        uint32_t x,
+        uint32_t y,
+        uint64_t addr,
+        const void *data,
+        uint32_t size,
+        uint64_t user_bits_low = 0,
+        uint64_t user_bits_high = 0);
 
     /**
      * Read whole words of device memory addressed by a flat global address, for a NOC that resolves
@@ -244,12 +262,40 @@ private:
     enum class AccessKind { kTile, kGlobal, kSmn };
 
     // One whole-word read or write at a word-aligned address and size. Called with request_lock_ held.
-    void read_words(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size);
-    void write_words(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size);
+    void read_words(
+        AccessKind kind,
+        tt_xy_pair core,
+        uint64_t addr,
+        void *data,
+        uint32_t size,
+        uint64_t user_bits_low,
+        uint64_t user_bits_high);
+    void write_words(
+        AccessKind kind,
+        tt_xy_pair core,
+        uint64_t addr,
+        const void *data,
+        uint32_t size,
+        uint64_t user_bits_low,
+        uint64_t user_bits_high);
 
     // Any address and size over whole-word transfers (see word_access.hpp). Called with request_lock_ held.
-    void read_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size);
-    void write_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size);
+    void read_bytes(
+        AccessKind kind,
+        tt_xy_pair core,
+        uint64_t addr,
+        void *data,
+        uint32_t size,
+        uint64_t user_bits_low,
+        uint64_t user_bits_high);
+    void write_bytes(
+        AccessKind kind,
+        tt_xy_pair core,
+        uint64_t addr,
+        const void *data,
+        uint32_t size,
+        uint64_t user_bits_low,
+        uint64_t user_bits_high);
 
     // Wait for a regular command response from the command queue.
     // Command queue is filled up by notification_handler_thread. Operations that need to wait

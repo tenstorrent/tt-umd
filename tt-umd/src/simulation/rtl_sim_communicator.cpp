@@ -31,12 +31,18 @@ namespace {
  * Create a flatbuffer for device communication.
  */
 inline flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, const std::vector<uint32_t> &vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw,
+    const std::vector<uint32_t> &vec,
+    tt_xy_pair core_,
+    uint64_t addr,
+    uint64_t size_ = 0,
+    uint64_t user_bits_low = 0,
+    uint64_t user_bits_high = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
     uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size, user_bits_low, user_bits_high);
     builder.Finish(device_cmd);
     return builder;
 }
@@ -134,7 +140,14 @@ void RtlSimCommunicator::shutdown() {
     send_command_to_simulation_host(*host_, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
-void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::read_words(
+    AccessKind kind,
+    tt_xy_pair core,
+    uint64_t addr,
+    void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     const char *name = kind == AccessKind::kGlobal ? "global" : (kind == AccessKind::kSmn ? "SMN" : "tile");
     {
         std::lock_guard<std::mutex> lock(device_lock_);
@@ -143,7 +156,8 @@ void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t a
                 *host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_READ, {0}, addr, size));
         } else {
             const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
-            send_command_to_simulation_host(*host_, create_flatbuffer(command, {0}, core, addr, size));
+            send_command_to_simulation_host(
+                *host_, create_flatbuffer(command, {0}, core, addr, size, user_bits_low, user_bits_high));
         }
     }
 
@@ -189,7 +203,14 @@ void RtlSimCommunicator::read_words(AccessKind kind, tt_xy_pair core, uint64_t a
     nng_free(msg.data, msg.size);
 }
 
-void RtlSimCommunicator::write_words(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::write_words(
+    AccessKind kind,
+    tt_xy_pair core,
+    uint64_t addr,
+    const void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     // Copied, since the caller's buffer need not be word-aligned.
     std::vector<uint32_t> words(size / sizeof(uint32_t));
     std::memcpy(words.data(), data, size);
@@ -199,44 +220,71 @@ void RtlSimCommunicator::write_words(AccessKind kind, tt_xy_pair core, uint64_t 
         send_command_to_simulation_host(*host_, create_global_flatbuffer(DEVICE_COMMAND_GLOBAL_WRITE, words, addr));
     } else {
         const DEVICE_COMMAND command = kind == AccessKind::kSmn ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
-        send_command_to_simulation_host(*host_, create_flatbuffer(command, words, core, addr));
+        send_command_to_simulation_host(
+            *host_, create_flatbuffer(command, words, core, addr, 0, user_bits_low, user_bits_high));
     }
 }
 
-void RtlSimCommunicator::read_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::read_bytes(
+    AccessKind kind,
+    tt_xy_pair core,
+    uint64_t addr,
+    void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     // The wire format carries whole words and some remotes drop a partial tail word when they turn
     // the bytes they read into words, so read the whole words covering the range; see word_access.hpp.
-    read_bytes_as_words(addr, data, size, [&](uint64_t a, void *d, uint32_t n) { read_words(kind, core, a, d, n); });
+    read_bytes_as_words(addr, data, size, [&](uint64_t a, void *d, uint32_t n) {
+        read_words(kind, core, a, d, n, user_bits_low, user_bits_high);
+    });
 }
 
-void RtlSimCommunicator::write_bytes(AccessKind kind, tt_xy_pair core, uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::write_bytes(
+    AccessKind kind,
+    tt_xy_pair core,
+    uint64_t addr,
+    const void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     // The wire format carries whole words and not every remote honours the byte count, so a partial
     // first or last word is read, merged and written back whole; see word_access.hpp.
     write_bytes_as_words(
         addr,
         data,
         size,
-        [&](uint64_t a, void *d, uint32_t n) { read_words(kind, core, a, d, n); },
-        [&](uint64_t a, const void *d, uint32_t n) { write_words(kind, core, a, d, n); });
+        [&](uint64_t a, void *d, uint32_t n) { read_words(kind, core, a, d, n, user_bits_low, user_bits_high); },
+        [&](uint64_t a, const void *d, uint32_t n) {
+            write_words(kind, core, a, d, n, user_bits_low, user_bits_high);
+        });
 }
 
-void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::tile_read_bytes(
+    uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size, uint64_t user_bits_low, uint64_t user_bits_high) {
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
-    read_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
+    read_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size, user_bits_low, user_bits_high);
 }
 
-void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::tile_write_bytes(
+    uint32_t x,
+    uint32_t y,
+    uint64_t addr,
+    const void *data,
+    uint32_t size,
+    uint64_t user_bits_low,
+    uint64_t user_bits_high) {
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
-    write_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size);
+    write_bytes(AccessKind::kTile, tt_xy_pair{x, y}, addr, data, size, user_bits_low, user_bits_high);
 }
 
 void RtlSimCommunicator::global_read_words(uint64_t addr, void *data, uint32_t size) {
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from global address {:#x}", size, addr);
-    read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
+    read_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, 0, 0);
 }
 
 void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uint32_t size) {
@@ -244,19 +292,19 @@ void RtlSimCommunicator::global_write_words(uint64_t addr, const void *data, uin
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to global address {:#x}", size, addr);
-    write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size);
+    write_words(AccessKind::kGlobal, tt_xy_pair{0, 0}, addr, data, size, 0, 0);
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
-    read_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
+    read_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size, 0, 0);
 }
 
 void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> request_lock(request_lock_);
     log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
-    write_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size);
+    write_bytes(AccessKind::kSmn, tt_xy_pair{x, y}, addr, data, size, 0, 0);
 }
 
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {

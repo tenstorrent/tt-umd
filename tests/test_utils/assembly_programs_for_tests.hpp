@@ -146,20 +146,15 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
 };
 
 /*
-This program is architecture-agnostic and configures all RISC cores to execute an infinite loop
-at the same address (0x4C = 76 bytes from start of L1).
+These programs park every non-BRISC RISC core: they point the TRISC and NCRISC reset PCs at their own
+trailing `jal zero, 0` and enable the overrides, so a core released from reset spins instead of running
+stale L1. Loaded at 0x20, the 12-word program puts that self-loop at 0x4C.
 
-The 0x4C value is intentional: with the 12-word program loaded at 0x20 (runtime-inserted
-architecture-specific `lui` + 11 instructions below), 0x4C is the address of the trailing
-`jal zero, 0` instruction, so all override PCs start in the self-loop.
+The reset PC registers sit at different addresses per architecture, so each needs its own program:
+  - Wormhole:  Tensix config registers at 0xFFEF'0000, word indices 158-163 (offsets 0x278-0x28C).
+  - Blackhole: RISC-V debug registers at 0xFFB1'2000, offsets 0x228-0x23C.
 
-The first instruction (lui a5, <base>) sets the architecture-specific base address:
-  - Wormhole (WH):  a5 = 0xFFEF'0000  (instruction: 0xffef07b7)
-  - Blackhole (BH): a5 = 0xFFB1'2000  (instruction: 0xffb127b7)
-
-All subsequent register offsets are calculated relative to this base address.
-
-pseudo-source code:
+pseudo-source code (Wormhole offsets):
     int main() {
         static constexpr unsigned int TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*161};
         static constexpr unsigned int NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*163};
@@ -185,9 +180,8 @@ pseudo-source code:
         while (true);
     }
 */
-inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
-    // First instruction is architecture-specific and added at runtime:
-    // Wormhole: 0xffef07b7 (lui a5, 0xffef0)  |  Blackhole: 0xffb127b7 (lui a5, 0xffb12).
+inline constexpr std::array<uint32_t, 12> wh_brisc_park_program{
+    0xffef07b7,  // lui a5, 0xffef0
     0x00700713,  // li a4, 7
     0x28e7a223,  // sw a4, 644(a5)
     0x00100713,  // li a4, 1
@@ -201,9 +195,20 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     0x0000006f   // j .L2 (jump back to itself - infinite loop)
 };
 
-// Architecture-specific first instructions for brisc_configuration_program_default.
-inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
-inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12
+inline constexpr std::array<uint32_t, 12> bh_brisc_park_program{
+    0xffb127b7,  // lui a5, 0xffb12
+    0x00700713,  // li a4, 7
+    0x22e7aa23,  // sw a4, 564(a5)
+    0x00100713,  // li a4, 1
+    0x22e7ae23,  // sw a4, 572(a5)
+    0x00078713,  // mv a4, a5
+    0x04c00793,  // li a5, 0x4C
+    0x22f72423,  // sw a5, 552(a4)
+    0x22f72623,  // sw a5, 556(a4)
+    0x22f72823,  // sw a5, 560(a4)
+    0x22f72c23,  // sw a5, 568(a4)
+    0x0000006f   // j .L2 (jump back to itself - infinite loop)
+};
 
 // Trampoline instruction: jumps from address 0x0 to 0x20, skipping over firmware data at 0x10.
 inline constexpr uint32_t BRISC_TRAMPOLINE_JMP = 0x0200006f;  // jal zero, 0x20

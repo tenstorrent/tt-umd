@@ -33,6 +33,9 @@ endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
+# tt-umd links tt-kmd-lib privately, so the Grendel DMA loopback test reaches its headers only
+# because libtt-umd.so re-exports them. Depend on it directly instead.
+target_link_libraries(api_tests PRIVATE tt-kmd-lib::tt-kmd-lib)
 set_target_properties(
     api_tests
     PROPERTIES

@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -50,27 +51,62 @@ namespace {
 constexpr uint64_t SMC_SPA_BASE = 0x1202000000ULL;
 constexpr uint64_t SMC_LOCAL_BASE = 0x08000000ULL;
 
-// Every address below has to name a region the package actually maps. On the emulator an access
-// to an unmodelled address can hang the machine rather than fail, so this is checked before the
-// access is issued rather than discovered by issuing it.
+// Every address these tests may touch, and in which direction.
 //
-// It throws rather than asserting, because a gtest ASSERT here would return from this function
-// and leave the caller free to go on and issue the access -- the one thing the check exists to
+// find_region() says only that an address falls in a region the package maps, which is just as
+// true of the SEP SRAM and the SMC mailbox named above -- the two that wedged the emulator and
+// answered all-ones. A typo that lands on one of those passes a region check, so the addresses
+// are named here one at a time and the region check stays on as a second opinion.
+//
+// They are written out rather than derived from the helpers below, because an allowlist computed
+// from the same expression as the access it guards would accept whatever that expression
+// produced, typo and all.
+const std::set<uint64_t> READABLE_ADDRESSES = {
+    0x1202002800,  // SMC cold scratch 0
+    0x1202002804,  // SMC cold scratch 1
+    0x1202002808,  // SMC cold scratch 2
+    0x120200280c,  // SMC cold scratch 3
+    0x1202002810,  // SMC cold scratch 4
+    0x1202002814,  // SMC cold scratch 5
+    0x1202002818,  // SMC cold scratch 6
+    0x120200281c,  // SMC cold scratch 7
+    0x1202010100,  // SMC cpu_ctrl scratch 0, the firmware init sentinel
+};
+
+// The cpu_ctrl bank is absent: chippy's ker_load_fw test polls it and takes the whole emulator
+// down with it when it sees a sentinel, and cold scratch 0 is absent because the tool that
+// established these addresses starts its write list at 1.
+const std::set<uint64_t> WRITABLE_ADDRESSES = {
+    0x1202002804,  // SMC cold scratch 1
+    0x1202002808,  // SMC cold scratch 2
+    0x120200280c,  // SMC cold scratch 3
+    0x1202002810,  // SMC cold scratch 4
+    0x1202002814,  // SMC cold scratch 5
+    0x1202002818,  // SMC cold scratch 6
+    0x120200281c,  // SMC cold scratch 7
+};
+
+// Throws rather than asserting, because a gtest ASSERT here would return from this function and
+// leave the caller free to go on and issue the access -- the one thing the check exists to
 // prevent. A throw leaves the caller's statement unreached and still fails the test.
-void require_reachable(uint64_t spa) {
-    if (keraunos::find_region(spa) != nullptr) {
+void require_allowed(const std::set<uint64_t>& allowed, uint64_t spa, const char* direction) {
+    if (allowed.count(spa) != 0 && keraunos::find_region(spa) != nullptr) {
         return;
     }
 
     std::ostringstream message;
-    message << "0x" << std::hex << spa << " is outside every mapped region.";
+    message << "0x" << std::hex << spa << " is not on the " << direction << " allowlist.";
     throw std::runtime_error(message.str());
 }
 
+void require_readable(uint64_t spa) { require_allowed(READABLE_ADDRESSES, spa, "read"); }
+
+void require_writable(uint64_t spa) { require_allowed(WRITABLE_ADDRESSES, spa, "write"); }
+
 /** Every word a multi-word transfer will touch, before any of it is issued. */
-void require_range_reachable(uint64_t spa, size_t size) {
+void require_range_writable(uint64_t spa, size_t size) {
     for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
-        require_reachable(spa + offset);
+        require_writable(spa + offset);
     }
 }
 
@@ -109,8 +145,8 @@ protected:
 
     uint32_t read32(uint64_t addr, NocId noc = NocId::NOC0) {
         // A local address has already been rebased out of the system physical range, so it is the
-        // system physical form that the region table can speak about.
-        require_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
+        // system physical form the allowlist and the region table can speak about.
+        require_readable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
 
         uint32_t value = 0;
         device_->read_from_device(&value, ORIGIN, addr, sizeof(value), noc);
@@ -118,7 +154,7 @@ protected:
     }
 
     void write32(uint64_t addr, uint32_t value, NocId noc = NocId::NOC0) {
-        require_reachable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
+        require_writable(noc == NocId::SYSTEM_NOC ? addr - SMC_LOCAL_BASE + SMC_SPA_BASE : addr);
 
         device_->write_to_device(&value, ORIGIN, addr, sizeof(value), noc);
     }
@@ -147,6 +183,7 @@ TEST_F(GrendelDeviceIOTest, ReadsTheFirmwareInitSentinel) {
     const uint32_t sentinel = read32(CPUCTRL_SCRATCH_BASE);
 
     EXPECT_NE(sentinel, 0xffffffffu) << "All-ones is what a refused or unmodelled access returns.";
+    EXPECT_NE(sentinel, 0u) << "Zero is what a wrong address or an inactive path returns.";
 }
 
 TEST_F(GrendelDeviceIOTest, RoundTripsAScratchRegister) {
@@ -228,7 +265,7 @@ TEST_F(GrendelDeviceIOTest, RejectsACoordinateOtherThanTheOrigin) {
 TEST_F(GrendelDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
-    require_range_reachable(base, bytes);
+    require_range_writable(base, bytes);
 
     std::vector<uint32_t> originals;
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
@@ -251,7 +288,7 @@ TEST_F(GrendelDeviceIOTest, ReadsTheScratchBankInOneTransfer) {
 TEST_F(GrendelDeviceIOTest, WritesTheScratchBankInOneTransfer) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
-    require_range_reachable(base, bytes);
+    require_range_writable(base, bytes);
 
     std::vector<uint32_t> originals;
     for (uint32_t i = FIRST_WRITABLE_COLD_SCRATCH; i <= LAST_WRITABLE_COLD_SCRATCH; i++) {
@@ -281,7 +318,7 @@ TEST_F(GrendelDeviceIOTest, WritesTheScratchBankInOneTransfer) {
 TEST_F(GrendelDeviceIOTest, ServesAWindowOverTheScratchBank) {
     const uint64_t base = cold_scratch(FIRST_WRITABLE_COLD_SCRATCH);
     const size_t bytes = WRITABLE_COLD_SCRATCH_WORDS * sizeof(uint32_t);
-    require_range_reachable(base, bytes);
+    require_range_writable(base, bytes);
 
     TargetIoWindowConfig target{};
     target.core_start = tt_xy_pair(0, 0);

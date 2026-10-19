@@ -35,7 +35,6 @@
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
-#include "tt-umd/tt_device/protocol/kmd_scalar_noc_access.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/protocol/remote_interface.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
@@ -136,14 +135,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         case ARCH::BLACKHOLE:
             return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
-        case ARCH::QUASAR: {
-            // Grendel has no window for userspace to map, so the driver performs each access and
-            // there is no safe/unsafe pair of paths to choose between. The device goes with the
-            // accesses: closing it frees the handle they are issued on.
-            auto access = std::make_unique<KmdScalarNocAccess>(std::move(pci_device));
+        case ARCH::QUASAR:
+            // Quasar has no window for userspace to map, so the driver performs each access and
+            // there is no safe/unsafe pair of paths to choose between.
             return std::unique_ptr<TTDevice>(new TTDevice(
-                std::make_unique<GrendelTTDeviceModel>(std::move(access), device_number, soc_arch_descriptor)));
-        }
+                std::make_unique<GrendelTTDeviceModel>(std::move(pci_device), device_number, soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,

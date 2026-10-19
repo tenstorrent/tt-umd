@@ -13,6 +13,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -74,7 +75,7 @@ public:
         return true;
     }
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_address(
+    std::optional<uint64_t> get_runtime_telemetry_buffer_address(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
         return std::nullopt;
     }
@@ -84,7 +85,13 @@ public:
         return std::nullopt;
     }
 
-    uint64_t get_refclk_counter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return 0; }
+    /**
+     * Unlike the calls above, there is no no-op that would be honest here: zero is a valid reading
+     * of a stopped counter, and a caller cannot tell it apart from one this device cannot take.
+     */
+    uint64_t get_refclk_counter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        UMD_THROW(error::RuntimeError, "The refclk counter is not available on this device.");
+    }
 };
 
 }  // namespace tt::umd

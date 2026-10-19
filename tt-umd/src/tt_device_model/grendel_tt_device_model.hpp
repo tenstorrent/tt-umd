@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include "tt-umd/tt_device/protocol/kmd_scalar_noc_access.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
@@ -26,12 +26,12 @@ class SocArchDescriptor;
 class GrendelTTDeviceModel : public TTDeviceModel {
 public:
     /**
-     * @param access How an access reaches the device.
+     * @param pci_device The device this model drives. Passed on to the protocol, which owns it.
      * @param mmio_id Identifies this device and its protocol instance.
      * @param soc_arch_descriptor Caller's descriptor, or nullptr for the architecture's own.
      */
     GrendelTTDeviceModel(
-        std::shared_ptr<KmdScalarNocAccess> access,
+        std::unique_ptr<PCIDevice> pci_device,
         int mmio_id,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     ~GrendelTTDeviceModel() override;
@@ -43,15 +43,19 @@ public:
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
 
     DeviceProtocol *get_device_protocol() override;
+    PCIDevice *get_pci_device() override;
     DeviceFirmware *get_device_firmware() override;
     ArchitectureImplementation *get_architecture_impl() override;
     SocArchDescriptor *get_soc_arch_descriptor() override;
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:
-    std::shared_ptr<KmdScalarNocAccess> access_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    // Must come before protocol_: the protocol owns the device, so this records it before the
+    // ownership moves. Retained to serve get_pci_device() and the windows created here.
+    PCIDevice *pci_device_ = nullptr;
+
     std::unique_ptr<DeviceProtocol> protocol_;
     std::unique_ptr<DeviceFirmware> device_firmware_;
 };

@@ -46,6 +46,9 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
+    // The index pointed into the previous set. Keeping it can skip the first core of the new set, or run past the end
+    // of a smaller set and make get_remote_transfer_ethernet_core() throw std::out_of_range.
+    active_eth_core_idx = 0;
 }
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }

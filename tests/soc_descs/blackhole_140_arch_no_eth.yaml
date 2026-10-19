@@ -69,7 +69,7 @@ worker_l1_size:
   1572864
 
 dram_bank_size:
-  4294967296
+  4278190080
 
 eth_l1_size:
   262144

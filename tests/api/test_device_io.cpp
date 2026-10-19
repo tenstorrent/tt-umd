@@ -536,13 +536,12 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         ASSERT_FALSE(dram_cores.empty());
         const uint64_t bank_size = soc_desc.dram_bank_size;
-        // Room for the block at the bottom of the bank and the one in the middle without the two overlapping.
+        // Room for the block at the bottom of the bank and the one at the top without the two overlapping.
         ASSERT_GT(bank_size, 2 * BLOCK_SIZE);
 
-        // No probe at the top of the bank: on Blackhole dram_bank_size overstates what a DRAM core
-        // addresses, so its last bytes are not DRAM.
         expect_round_trip(*cluster, chip_id, dram_cores[0], 0x0, 0x44);
         expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size / 2, 0x55);
+        expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
     }
 }
 

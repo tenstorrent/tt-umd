@@ -62,6 +62,10 @@ public:
 
     uint32_t read32(uint64_t) override { return 0; }
 
+    void write64(uint64_t, uint64_t) override {}
+
+    uint64_t read64(uint64_t) override { return 0; }
+
     void write_register(uint64_t, const void*, size_t) override {}
 
     void read_register(uint64_t, void*, size_t) override {}

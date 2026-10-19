@@ -92,7 +92,7 @@ void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
-    auto soc_desc_path = get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    auto soc_desc_path = get_simulator_soc_descriptor_path(simulator_directory);
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
     return std::make_unique<RtlSimulationTTDevice>(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);

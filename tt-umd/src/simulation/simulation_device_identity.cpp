@@ -134,7 +134,7 @@ SimulationServerClusterDescriptor describe_cluster(const std::filesystem::path& 
     SimulationServerClusterDescriptor cluster_descriptor;
     cluster_descriptor.status = 0;
 
-    const std::string yaml_path = get_cluster_descriptor_path_from_simulator_path(simulator_directory);
+    const std::string yaml_path = get_simulator_cluster_descriptor_path(simulator_directory);
     // A simulator build need not ship a cluster_descriptor.yaml; an empty yaml tells the client to
     // fall back to a mock built from the device info, mirroring the host's own mock fallback.
     // Distinguish "definitely absent" from "couldn't tell": if exists() itself errors (permission/

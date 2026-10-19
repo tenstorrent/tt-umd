@@ -69,7 +69,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
-    auto soc_desc_path = get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    auto soc_desc_path = get_simulator_soc_descriptor_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {

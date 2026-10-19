@@ -35,12 +35,12 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
 }
 
 std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
-    return tt::umd::get_soc_descriptor_path_from_simulator_path(simulator_path);
+    return get_simulator_soc_descriptor_path(simulator_path);
 }
 
 std::string SimulationChip::get_cluster_descriptor_path_from_simulator_path(
     const std::filesystem::path& simulator_path) {
-    return tt::umd::get_cluster_descriptor_path_from_simulator_path(simulator_path);
+    return get_simulator_cluster_descriptor_path(simulator_path);
 }
 
 SimulationChip::SimulationChip(

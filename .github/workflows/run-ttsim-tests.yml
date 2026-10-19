@@ -325,7 +325,7 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
-          DEVICE_IO_TESTS: "TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
             SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
@@ -334,7 +334,7 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
-          DEVICE_IO_TESTS: "TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
             SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
@@ -666,7 +666,7 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
-          DEVICE_IO_TESTS: "TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
             SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
           build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
@@ -675,7 +675,7 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
-          DEVICE_IO_TESTS: "TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
             SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
           build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"

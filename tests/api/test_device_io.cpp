@@ -301,6 +301,11 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
         ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
 
+    const ChipId first_chip = *cluster->get_target_device_ids().begin();
+    if (use_noc0 && cluster->get_soc_descriptor(first_chip).arch == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Blackhole does not support NOC0 multicast.";
+    }
+
     test_utils::safe_test_cluster_start(cluster.get());
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
@@ -431,13 +436,13 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
+// Every combination, including the NOC0 ones Blackhole cannot serve. Which architecture is under
+// test is not knowable here -- these run before any cluster exists, and PCI enumeration reports no
+// architecture at all on a runner whose only device is a simulator -- so the test skips those once
+// it has a cluster to ask.
 static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
-    const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
     std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
-        if (use_noc0 && is_blackhole) {
-            continue;  // NOC0 multicast not supported on Blackhole
-        }
         for (bool full_grid : {false, true}) {
             for (bool sysmem_enabled : {false, true}) {
                 params.emplace_back(use_noc0, full_grid, sysmem_enabled);
@@ -536,13 +541,18 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         ASSERT_FALSE(dram_cores.empty());
         const uint64_t bank_size = soc_desc.dram_bank_size;
-        // Room for the block at the bottom of the bank and the one in the middle without the two overlapping.
+        // Room for the block at the bottom of the bank and the one at the top without the two overlapping.
         ASSERT_GT(bank_size, 2 * BLOCK_SIZE);
 
-        // No probe at the top of the bank: on Blackhole dram_bank_size overstates what a DRAM core
-        // addresses, so its last bytes are not DRAM.
         expect_round_trip(*cluster, chip_id, dram_cores[0], 0x0, 0x44);
         expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size / 2, 0x55);
+
+        // The last bytes of a bank round-trip only where dram_bank_size is the span a single DRAM
+        // core addresses. On Blackhole it is not: the probe at bank_size / 2 passes and this one
+        // reads back zeros, and the descriptor does not say where a bank's addressable top is.
+        if (options.chip_type == ChipType::SIMULATION && soc_desc.arch != tt::ARCH::BLACKHOLE) {
+            expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
+        }
     }
 }
 

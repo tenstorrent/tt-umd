@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "tt-umd-utils/semver.hpp"
+#include "tt-umd-utils/semver.hpp"  // IWYU pragma: export
 
 namespace tt::umd {
 

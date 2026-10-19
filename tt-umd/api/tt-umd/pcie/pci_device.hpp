@@ -117,6 +117,23 @@ enum class TenstorrentResetDevice : uint32_t {
     POST_RESET = 6,
 };
 
+/**
+ * Which address space a scalar NOC access names.
+ *
+ * Such an access carries no coordinate -- the address alone names its target -- so the aperture
+ * the driver programs for it is what decides how that address is read.
+ */
+enum class NocAddressSpace {
+    /** A system physical address, reached through the ordinary inbound aperture. */
+    SystemPhysical,
+
+    /**
+     * A device-local address, reached through the second inbound aperture. Only that aperture
+     * reaches the translation and firewall configuration blocks.
+     */
+    DeviceLocal,
+};
+
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -372,6 +389,38 @@ public:
      * @param size Page-aligned byte count to export; must be nonzero.
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
+
+    /** Widths the scalar NOC path serves. The driver refuses anything wider. */
+    static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
+
+    /**
+     * Read one naturally aligned location, performed by the driver on this process's behalf.
+     *
+     * Wormhole and Blackhole let userspace map a translation window and dereference it, so nothing
+     * above them needs this. Quasar does: the driver keeps the only usable inbound apertures,
+     * programs one per access and performs the access itself, so a transfer there is built out of
+     * these rather than out of loads and stores.
+     *
+     * @param addr Flat address, naturally aligned to @p width. Whatever selects the target -- a
+     *             folded-in coordinate, or a device-local address -- is already part of it.
+     * @param width Access width in bytes; 1, 2, 4 or 8.
+     * @param space Which address space @p addr names.
+     * @return The value read, zero-extended to 64 bits.
+     * @throws error::RuntimeError if the driver refuses the access.
+     */
+    uint64_t noc_read_scalar(uint64_t addr, uint32_t width, NocAddressSpace space);
+
+    /**
+     * Write one naturally aligned location; the counterpart of noc_read_scalar(), which says why
+     * this path exists.
+     *
+     * @param addr Flat address, naturally aligned to @p width.
+     * @param value Value to write; only the low @p width bytes are used.
+     * @param width Access width in bytes; 1, 2, 4 or 8.
+     * @param space Which address space @p addr names.
+     * @throws error::RuntimeError if the driver refuses the access.
+     */
+    void noc_write_scalar(uint64_t addr, uint64_t value, uint32_t width, NocAddressSpace space);
 
     /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).

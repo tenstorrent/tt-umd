@@ -304,7 +304,6 @@ tlb_data PcieProtocol::create_dma_tlb_config(
 }
 
 bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
-    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -312,8 +311,9 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         return false;
     }
 
-    // After the availability check, so a caller falling back to MMIO does not wait on other processes.
-    auto engine_lock = lock_dma_engine();
+    // After the availability check, so a caller falling back to MMIO does not wait on other threads or processes.
+    std::scoped_lock lock(dma_mutex_);
+    auto robust_lock = lock_dma_engine();
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     const size_t dmabuf_size = dma_buffer.size;
@@ -350,7 +350,6 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
 bool PcieProtocol::dma_transfer_zero_copy(
     uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
-    std::scoped_lock lock(dma_mutex_);
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (dma_buffer.buffer == nullptr) {
@@ -358,7 +357,8 @@ bool PcieProtocol::dma_transfer_zero_copy(
         return false;
     }
 
-    auto engine_lock = lock_dma_engine();
+    std::scoped_lock lock(dma_mutex_);
+    auto robust_lock = lock_dma_engine();
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 

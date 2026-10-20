@@ -91,7 +91,7 @@ public:
 
     // Takes the lock if it is free and returns right away either way. The returned lock owns the
     // mutex only if it was acquired, which the caller checks with owns_lock().
-    static std::unique_lock<MutexInterface> try_acquire_mutex(
+    [[nodiscard]] static std::unique_lock<MutexInterface> try_acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is

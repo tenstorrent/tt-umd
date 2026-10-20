@@ -81,6 +81,7 @@ GrendelJtagTTDevice::GrendelJtagTTDevice(
     set_soc_descriptor(soc_descriptor);
     address_resolver_ =
         std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_local_address_windows(soc_descriptor));
+    set_grendel_address_resolver(address_resolver_.get());
 }
 
 GrendelJtagTTDevice::~GrendelJtagTTDevice() = default;
@@ -101,6 +102,14 @@ void GrendelJtagTTDevice::read_from_device(
     std::lock_guard<std::mutex> lock(io_mutex_);
     const uint64_t flat_addr = address_resolver_->to_flat_address(core, addr, noc_id);
     memory_map_->read(flat_addr, mem_ptr, size);
+}
+
+void GrendelJtagTTDevice::read_flat_address(uint64_t addr, void* dst, size_t size) {
+    memory_map_->read(addr, dst, size);
+}
+
+void GrendelJtagTTDevice::write_flat_address(uint64_t addr, const void* src, size_t size) {
+    memory_map_->write(addr, src, size);
 }
 
 }  // namespace tt::umd

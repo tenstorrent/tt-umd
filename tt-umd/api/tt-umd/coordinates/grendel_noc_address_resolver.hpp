@@ -113,6 +113,15 @@ struct GrendelAddressWindows {
     /** Flat address within a DRAM channel's GDDR window. */
     uint64_t dram_address(uint32_t channel, uint64_t offset) const;
 
+    /**
+     * Flat address of one CCE's register-plane offset.
+     *
+     * cce_local_offset is relative to that CCE (reset vector 0x02000000, PF_CTRL 0x02200000,
+     * DMRISC remap 0x02202000). channel selects the Mimir and location the CCE on it. This is the
+     * Mimir-local config window; the package ATT does not index CCE control this way.
+     */
+    uint64_t cce_control_address(uint32_t channel, uint32_t location, uint64_t cce_local_offset) const;
+
     /** Whether an address on a DRAM coordinate selects its local RISC SRAM rather than GDDR. */
     bool is_dram_l1_address(uint64_t address) const;
 
@@ -147,6 +156,12 @@ public:
     explicit GrendelNocAddressResolver(const SocDescriptor& soc_descriptor, const GrendelAddressWindows& windows = {});
 
     uint64_t to_flat_address(const CoreCoord& core, uint64_t offset, NocId noc_id) const override;
+
+    /**
+     * Flat address of a CCE register offset on the DRAM core that selects that CCE.
+     * The core is the same TRANSLATED DRAM coordinate the CCE control plane already accepts.
+     */
+    uint64_t cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const;
 
     const GrendelAddressWindows& get_windows() const { return windows_; }
 

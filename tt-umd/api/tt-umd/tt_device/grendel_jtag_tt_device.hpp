@@ -45,6 +45,10 @@ public:
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
+protected:
+    void read_flat_address(uint64_t addr, void* dst, size_t size) override;
+    void write_flat_address(uint64_t addr, const void* src, size_t size) override;
+
 private:
     GrendelJtagTTDevice(
         const SocDescriptor& soc_descriptor,

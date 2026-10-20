@@ -326,30 +326,16 @@ inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 // That polarity is the inverse of Tensix.
 inline constexpr uint64_t CCE_RESET_VECTOR_BASE = 0x02000000;
 inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
-// SMC view of CCE0's dmrisc_addr_remap. CCE1 is one within-tile stride above it.
-// Each of the 16 entries is 0x20 bytes: start, end, remap start, attrs.
+// SMC view of one CCE's dmrisc_addr_remap. The DRAM-core coordinate selects which CCE; these
+// offsets are not folded by CCE index. CCE1 sits one 16 MiB tile above CCE0 inside the Mimir
+// config window. Each of the 16 entries is 0x20 bytes: start, end, remap start, attrs.
 inline constexpr uint64_t CCE_DMRISC_REMAP_BASE = 0x02202000;
 inline constexpr uint64_t CCE_DMRISC_REMAP_ENTRY_STRIDE = 0x20;
 inline constexpr uint64_t CCE_DMRISC_REMAP_ADDR_SHIFT = 6;
-inline constexpr uint64_t CCE_HSIO_TILE_STRIDE = 0x04000000;
 inline constexpr uint64_t CCE_WITHIN_TILE_STRIDE = 0x01000000;
-inline constexpr uint32_t CCE_PER_HSIO_TILE = 2;
 inline constexpr uint32_t CCE_NUM_HARTS = 8;
 inline constexpr uint64_t CCE_UNCORE_RELEASED = 0x1;
 inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
-
-inline constexpr uint64_t cce_control_addr(uint64_t base, uint32_t cce_index) {
-    return base + (cce_index / CCE_PER_HSIO_TILE) * CCE_HSIO_TILE_STRIDE +
-           (cce_index % CCE_PER_HSIO_TILE) * CCE_WITHIN_TILE_STRIDE;
-}
-
-inline constexpr uint64_t cce_pf_ctrl_reset_addr(uint32_t cce_index) {
-    return cce_control_addr(CCE_PF_CTRL_RESET_BASE, cce_index);
-}
-
-inline constexpr uint64_t cce_reset_vector_addr(uint32_t cce_index) {
-    return cce_control_addr(CCE_RESET_VECTOR_BASE, cce_index);
-}
 
 inline constexpr bool is_cce_reset_vector_addr(uint64_t addr) {
     return addr >= CCE_RESET_VECTOR_BASE &&

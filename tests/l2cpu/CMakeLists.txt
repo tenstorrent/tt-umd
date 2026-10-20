@@ -3,6 +3,7 @@ add_executable(
     test_l2cpu_loader.cpp
     test_l2cpu_dma.cpp
     test_l2cpu_niu.cpp
+    test_l2cpu_vcopy.cpp
 )
 target_link_libraries(l2cpu_tests PRIVATE test_common)
 set_target_properties(

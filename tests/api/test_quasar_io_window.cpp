@@ -179,23 +179,23 @@ TEST_F(QuasarIoWindow, AttributeFieldsReachTheDriver) {
     config.local_offset = window_base_;
 
     // The default every window gets today. It has to keep working.
-    config.no_cacheable = 0;
-    config.qosid = 0;
+    config.snoop = 0;
+    config.sec_group_id = 0;
     ASSERT_NO_THROW(window_->configure(config));
     window_->write32(offset_of(cold_scratch(1)), SENTINEL);
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
 
-    // qosid is four bits wide.
-    config.qosid = 16;
-    EXPECT_THROW(window_->configure(config), std::exception) << "qosid 16 should not fit";
+    // sec_group_id is four bits wide.
+    config.sec_group_id = 16;
+    EXPECT_THROW(window_->configure(config), std::exception) << "sec_group_id 16 should not fit";
 
-    // no_cacheable is one bit, expressed as 0 or 1.
-    config.qosid = 0;
-    config.no_cacheable = 2;
-    EXPECT_THROW(window_->configure(config), std::exception) << "no_cacheable 2 is not a boolean";
+    // snoop is one bit, expressed as 0 or 1.
+    config.sec_group_id = 0;
+    config.snoop = 2;
+    EXPECT_THROW(window_->configure(config), std::exception) << "snoop 2 is not a boolean";
 
     // And the window still works once a sane configuration is put back.
-    config.no_cacheable = 0;
+    config.snoop = 0;
     ASSERT_NO_THROW(window_->configure(config));
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
 }

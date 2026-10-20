@@ -109,8 +109,12 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // address, so the coordinate has to be flattened into the address before the access is issued.
     // Installed here, in the base's protected slot, so host_read/host_write apply it while the
     // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
+    UMD_ASSERT(
+        soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
+        error::RuntimeError,
+        "EmuTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
     auto resolver =
-        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
+        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(soc_descriptor));
     set_grendel_address_resolver(resolver.get());
     noc_address_resolver_ = std::move(resolver);
 

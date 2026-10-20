@@ -129,7 +129,8 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     }
     // Quasar's NOC ATT resolves a flat 64-bit address into a destination (x, y) plus a local
     // address, so the driver has to flatten the coordinate into the address before issuing it.
-    noc_address_resolver_ = std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor());
+    noc_address_resolver_ =
+        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(get_soc_descriptor()));
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {

@@ -36,6 +36,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
@@ -1098,6 +1099,49 @@ TEST(TestDeviceIO, DMA2) {
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
                                          << op.address << " size=" << std::dec << op.data.size();
         }
+    }
+}
+
+class DmaWriteOrderingTest : public ::testing::TestWithParam<IoOrdering> {};
+
+// A DMA write lands intact in Tensix L1 whichever ordering it requests.
+TEST_P(DmaWriteOrderingTest, WriteReadsBack) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+    const std::vector<uint8_t> pattern(64 * 1024, 0xA5);
+
+    cluster->dma_write_to_device(pattern.data(), pattern.size(), 0, tensix_core, SAFE_IO_L1_ADDRESS, GetParam());
+
+    std::vector<uint8_t> readback(pattern.size(), 0x00);
+    read_data_based_on_architecture(*cluster, tensix_core, readback.data(), SAFE_IO_L1_ADDRESS, readback.size());
+    EXPECT_EQ(readback, std::vector<uint8_t>(64 * 1024, 0xA5));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Orderings,
+    DmaWriteOrderingTest,
+    ::testing::Values(IoOrdering::Relaxed, IoOrdering::Strict),
+    [](const ::testing::TestParamInfo<IoOrdering>& info) {
+        return info.param == IoOrdering::Strict ? std::string("Strict") : std::string("Relaxed");
+    });
+
+// Strict DMA writes complete in issue order, so the second of two back-to-back writes to the same
+// address is the one that remains.
+TEST(TestDeviceIO, DmaStrictBackToBackWritesKeepLastWrite) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+    const std::vector<uint8_t> first(64 * 1024, 0x11);
+    const std::vector<uint8_t> second(64 * 1024, 0x22);
+
+    for (int i = 0; i < 100; ++i) {
+        cluster->dma_write_to_device(
+            first.data(), first.size(), 0, tensix_core, SAFE_IO_L1_ADDRESS, IoOrdering::Strict);
+        cluster->dma_write_to_device(
+            second.data(), second.size(), 0, tensix_core, SAFE_IO_L1_ADDRESS, IoOrdering::Strict);
+
+        std::vector<uint8_t> readback(second.size(), 0x00);
+        read_data_based_on_architecture(*cluster, tensix_core, readback.data(), SAFE_IO_L1_ADDRESS, readback.size());
+        ASSERT_EQ(readback, std::vector<uint8_t>(64 * 1024, 0x22)) << "iteration " << i;
     }
 }
 

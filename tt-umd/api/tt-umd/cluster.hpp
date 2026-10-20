@@ -478,8 +478,17 @@ public:
      * @param chip Chip to target; must be local, i.e. attached via PCIe.
      * @param core Core to target.
      * @param addr Address to write to.
+     * @param ordering Ordering of the device-side writes the transfer issues. Strict keeps them in issue
+     * order at a throughput cost. It does not order them against writes issued through other paths,
+     * such as write_to_device.
      */
-    void dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr);
+    void dma_write_to_device(
+        const void* src,
+        size_t size,
+        ChipId chip,
+        CoreCoord core,
+        uint64_t addr,
+        IoOrdering ordering = IoOrdering::Relaxed);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).

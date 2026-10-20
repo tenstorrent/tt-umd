@@ -28,6 +28,7 @@
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -80,8 +81,8 @@ std::optional<uint32_t> cce_index(TTDevice& device, CoreCoord core) {
         return std::nullopt;
     }
 
-    // Logical DRAM is (channel, location): a Mimir is one channel carrying both its CCEs, so the
-    // two coordinates have to be folded back into the flat CCE index cce_control_addr expects.
+    // Logical DRAM is (channel, location): a Mimir is one channel carrying both its CCEs. The
+    // control plane uses this index for the remap's Mimir number. The register address does not.
     const CoreCoord logical = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
     const uint32_t locations_per_channel = std::max<uint32_t>(soc.get_grid_size(CoreType::DRAM).y, 1);
     return static_cast<uint32_t>(logical.x * locations_per_channel + logical.y);
@@ -117,25 +118,23 @@ bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core,
 }
 
 void TTDevice::write_cce_reset_vector_register(
-    CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector) {
+    CoreCoord core, uint32_t /*cce_index*/, uint32_t hart, uint64_t reset_vector) {
     const uint64_t register_addr =
-        grendel::cce_reset_vector_addr(cce_index) + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
-    get_device_protocol()->write_ctrl(
-        &reset_vector, resolve_coordinate(core, NocId::NOC0), register_addr, sizeof(reset_vector), NocId::NOC0);
+        grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
+    write_cce_local(core, register_addr, &reset_vector, sizeof(reset_vector));
 }
 
 void TTDevice::write_cce_dmrisc_remap_entry(
     CoreCoord core,
-    uint32_t cce_index,
+    uint32_t /*cce_index*/,
     uint32_t entry,
     uint64_t region_start,
     uint64_t region_end,
     uint64_t local_base) {
-    const uint64_t entry_addr = grendel::cce_control_addr(grendel::CCE_DMRISC_REMAP_BASE, cce_index) +
-                                entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
-    const xy_pair xy = resolve_coordinate(core, NocId::NOC0);
+    const uint64_t entry_addr =
+        grendel::CCE_DMRISC_REMAP_BASE + entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
     auto write_reg = [&](uint64_t offset, uint64_t value) {
-        get_device_protocol()->write_ctrl(&value, xy, entry_addr + offset, sizeof(value), NocId::NOC0);
+        write_cce_local(core, entry_addr + offset, &value, sizeof(value));
     };
     // Address registers store the byte address >> 6 in bits [63:6]. A 64-byte-aligned address
     // written as itself lands in that field.
@@ -183,11 +182,10 @@ void TTDevice::release_cce_uncore_for_firmware_load(CoreCoord core) {
 }
 
 void TTDevice::apply_cce_pf_ctrl_reset(
-    CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release, bool reset_uncore) {
-    const uint64_t addr = grendel::cce_pf_ctrl_reset_addr(cce_index);
-    const xy_pair xy = resolve_coordinate(core, NocId::NOC0);
+    CoreCoord core, uint32_t /*cce_index*/, uint64_t hart_bits, bool release, bool reset_uncore) {
+    const uint64_t addr = grendel::CCE_PF_CTRL_RESET_BASE;
     uint64_t current = 0;
-    get_device_protocol()->read_ctrl(&current, xy, addr, sizeof(current), NocId::NOC0);
+    read_cce_local(core, addr, &current, sizeof(current));
     uint64_t next = current;
     // Bit 0 is the uncore. Same polarity as the hart bits: 1 = released.
     if (reset_uncore) {
@@ -204,7 +202,41 @@ void TTDevice::apply_cce_pf_ctrl_reset(
             next &= ~hart_bits;
         }
     }
-    get_device_protocol()->write_ctrl(&next, xy, addr, sizeof(next), NocId::NOC0);
+    write_cce_local(core, addr, &next, sizeof(next));
+}
+
+void TTDevice::set_grendel_address_resolver(GrendelNocAddressResolver* resolver) {
+    grendel_address_resolver_ = resolver;
+}
+
+void TTDevice::read_flat_address(uint64_t addr, void* /*dst*/, size_t size) {
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("Flat read of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
+}
+
+void TTDevice::write_flat_address(uint64_t addr, const void* /*src*/, size_t size) {
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("Flat write of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
+}
+
+void TTDevice::read_cce_local(CoreCoord core, uint64_t cce_local_offset, void* dst, size_t size) {
+    UMD_ASSERT(
+        grendel_address_resolver_ != nullptr,
+        error::RuntimeError,
+        "CCE control requires the Mimir-local address resolver.");
+    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, cce_local_offset);
+    read_flat_address(flat, dst, size);
+}
+
+void TTDevice::write_cce_local(CoreCoord core, uint64_t cce_local_offset, const void* src, size_t size) {
+    UMD_ASSERT(
+        grendel_address_resolver_ != nullptr,
+        error::RuntimeError,
+        "CCE control requires the Mimir-local address resolver.");
+    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, cce_local_offset);
+    write_flat_address(flat, src, size);
 }
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {

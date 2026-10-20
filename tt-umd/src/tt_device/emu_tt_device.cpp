@@ -113,8 +113,12 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
     // The base resolver is the package ATT map selected by TT_UMD_NOC_ATT; a lone Mimir uses its
     // own windows. Keep the resolver on this device (the base slot is an EndpointResolver) and
     // publish it so the shared CCE control plane can flatten register offsets.
+    UMD_ASSERT(
+        soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
+        error::RuntimeError,
+        "EmuTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
     impl_->address_resolver =
-        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_address_windows(soc_descriptor));
+        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(soc_descriptor));
     set_grendel_address_resolver(impl_->address_resolver.get());
 
     // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.

@@ -62,6 +62,10 @@ std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
         soc_descriptor.get_cores(CoreType::SMC).size() == 1,
         error::RuntimeError,
         "The initial Grendel JTAG attach path supports exactly one Mimir chiplet.");
+    UMD_ASSERT(
+        soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
+        error::RuntimeError,
+        "GrendelJtagTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
 
     auto transport = make_grendel_jtag_transport(host, port, chiplet_number, version);
     auto protocol = make_grendel_jtag_protocol(
@@ -80,7 +84,7 @@ GrendelJtagTTDevice::GrendelJtagTTDevice(
     memory_map_(std::move(memory_map)) {
     set_soc_descriptor(soc_descriptor);
     address_resolver_ =
-        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), mimir_local_address_windows(soc_descriptor));
+        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(soc_descriptor));
     set_grendel_address_resolver(address_resolver_.get());
 }
 

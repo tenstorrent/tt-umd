@@ -76,10 +76,13 @@ GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descr
     windows.mesh_y_size = 1;
     windows.dram_base = kMimirGddrDramLocalBase;
     windows.dram_stride = soc_descriptor.get_arch_descriptor().get_dram_bank_size();
+    // The 0x2000000000 tag stays on this path. The package ATT uses the real CCE SRAM window.
     windows.dram_l1_noc_offset = kMimirCceL1NocOffset;
     windows.dram_l1_base = kMimirCceSramLocalBase;
     windows.dram_l1_stride = kMimirCceSramStride;
     windows.dram_l1_size = kMimirCceSramStride;
+    windows.mimir_config_base = kMimirConfigLocalBase;
+    windows.mimir_config_stride = kMimirConfigSize;
 
     const tt_xy_pair grid = soc_descriptor.get_grid_size(CoreType::SMC);
     windows.neo_x_start = std::max<uint32_t>(grid.x, 1) + 1;
@@ -87,6 +90,15 @@ GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descr
     windows.neo_x_count = 1;
     windows.neo_y_count = 1;
     return windows;
+}
+
+GrendelAddressWindows address_windows_for(const SocDescriptor& soc_descriptor) {
+    if (soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal) {
+        return mimir_local_address_windows(soc_descriptor);
+    }
+    // The package table is the qsr.s1 default, including CCE SRAM, Mimir config and SMC. DRAM bank
+    // size stays the table's 8 GiB stride; the descriptor's dram_bank_size is the Mimir-local one.
+    return GrendelAddressWindows{};
 }
 
 bool GrendelAddressWindows::is_in_neo_grid(uint32_t noc0_x, uint32_t noc0_y) const {
@@ -146,23 +158,18 @@ uint64_t GrendelAddressWindows::dram_address(uint32_t channel, uint64_t offset) 
 
 uint64_t GrendelAddressWindows::cce_control_address(
     uint32_t channel, uint32_t location, uint64_t cce_local_offset) const {
-    // Chippy's Mimir config aperture is 128 MiB at local 0, with CCE1 one 16 MiB tile above CCE0.
-    // The package ATT indexes config by mesh tile, not by DRAM channel, so this mapping is only
-    // the Mimir-local window.
-    UMD_ASSERT(
-        config_base == kMimirConfigLocalBase && config_stride == kMimirConfigSize,
-        error::RuntimeError,
-        "CCE control addresses are resolved through the Mimir-local config window.");
+    // CCE1 is one 16 MiB tile above CCE0 inside the Mimir config aperture. On a Mimir-local package
+    // that aperture is chiplet-local 0. On the package ATT it is 0x1300000000 per Mimir.
     const uint64_t local = static_cast<uint64_t>(location) * grendel::CCE_WITHIN_TILE_STRIDE + cce_local_offset;
     UMD_ASSERT(
-        local < config_stride,
+        mimir_config_stride != 0 && local < mimir_config_stride,
         error::RuntimeError,
         fmt::format(
             "CCE control offset 0x{:x} at location {} does not fit the Mimir config window of 0x{:x}.",
             cce_local_offset,
             location,
-            config_stride));
-    return config_base + static_cast<uint64_t>(channel) * config_stride + local;
+            mimir_config_stride));
+    return mimir_config_base + static_cast<uint64_t>(channel) * mimir_config_stride + local;
 }
 
 bool GrendelAddressWindows::is_dram_l1_address(uint64_t address) const {

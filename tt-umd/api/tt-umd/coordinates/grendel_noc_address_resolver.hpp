@@ -72,13 +72,19 @@ struct GrendelAddressWindows {
     uint64_t dram_base = 0x1000000000000ULL;
     uint64_t dram_stride = 0x200000000ULL;
 
-    // Optional SRAM behind a DRAM endpoint, analogous to Blackhole DRISC L1. The caller uses
-    // dram_l1_noc_offset as a non-overlapping address-space tag; the resolver strips that tag and
-    // maps the access to dram_l1_base + channel * dram_l1_stride. A zero size disables this window.
-    uint64_t dram_l1_noc_offset = 0;
-    uint64_t dram_l1_base = 0;
-    uint64_t dram_l1_stride = 0;
-    uint64_t dram_l1_size = 0;
+    // CCE SRAM behind a DRAM endpoint. qsr.s1 address_map.csv, space=CCE: 0x1280000000, 4 MiB per
+    // CCE, local 0x40000000. The host passes dram_l1_noc_offset plus a byte offset inside one CCE;
+    // the resolver adds the CCE index. On the package ATT that offset is the window base itself.
+    // A zero size disables this window.
+    uint64_t dram_l1_noc_offset = 0x1280000000ULL;
+    uint64_t dram_l1_base = 0x1280000000ULL;
+    uint64_t dram_l1_stride = 0x400000ULL;
+    uint64_t dram_l1_size = 0x400000ULL;
+
+    // Mimir config aperture, lane 0. qsr.s1 address_map.csv, space=Config chiplet=Mimir: 0x1300000000,
+    // 128 MiB per Mimir, local 0. Lane 1 is the same local map at 0x1380000000.
+    uint64_t mimir_config_base = 0x1300000000ULL;
+    uint64_t mimir_config_stride = 0x8000000ULL;
 
     // Package-frame coordinate of the Quasar mesh origin (topology.yaml placement.quasar_origin).
     uint32_t quasar_origin_x = 1;
@@ -117,8 +123,9 @@ struct GrendelAddressWindows {
      * Flat address of one CCE's register-plane offset.
      *
      * cce_local_offset is relative to that CCE (reset vector 0x02000000, PF_CTRL 0x02200000,
-     * DMRISC remap 0x02202000). channel selects the Mimir and location the CCE on it. This is the
-     * Mimir-local config window; the package ATT does not index CCE control this way.
+     * DMRISC remap 0x02202000). channel selects the Mimir and location the CCE on it. The address
+     * lands in the Mimir config window: chiplet-local on a Mimir-local package, and the package
+     * ATT window (0x1300000000) otherwise.
      */
     uint64_t cce_control_address(uint32_t channel, uint32_t location, uint64_t cce_local_offset) const;
 
@@ -137,6 +144,12 @@ struct GrendelAddressWindows {
  * chippy (emu_axi or JTAG2AXI), rather than through a Quasar ATT.
  */
 GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descriptor);
+
+/**
+ * Windows selected by the descriptor's address_space. mimir_local keeps the 0x2000000000 CCE SRAM
+ * tag. full_package, and a descriptor that omits the key, use the qsr.s1 table.
+ */
+GrendelAddressWindows address_windows_for(const SocDescriptor& soc_descriptor);
 
 /**
  * Grendel/Quasar NocAddressResolver: selects an ATT global window from the core's CoreType and

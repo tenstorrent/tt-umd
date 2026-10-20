@@ -328,6 +328,20 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
             SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["smc"].as<std::vector<std::string>>());
     }
 
+    if (device_descriptor_yaml["address_space"].IsDefined()) {
+        const std::string address_space = device_descriptor_yaml["address_space"].as<std::string>();
+        if (address_space == "mimir_local") {
+            grendel_address_space_ = GrendelAddressSpace::MimirLocal;
+        } else if (address_space == "full_package") {
+            grendel_address_space_ = GrendelAddressSpace::FullPackage;
+        } else {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "address_space must be mimir_local or full_package, got '{}'.", address_space));
+        }
+    }
+
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {
         noc0_x_to_noc1_x_ = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
         noc0_y_to_noc1_y_ = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();

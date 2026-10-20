@@ -63,6 +63,15 @@ struct L2CPUPll {
 // Reset must be released at <= 1/4 of the frequency the logic was timed at (~1.75 GHz). 200 MHz is from clock.py.
 inline constexpr L2CPUPll PLL_200MHZ = {128, {15, 15, 15, 15}};
 
+// Operating clock: 1750 MHz, as tt-bh-linux clock.py and tt-llm-engine run the X280. The ARC firmware's own setting is
+// 800 MHz (fbdiv 64, postdivs 1).
+inline constexpr L2CPUPll PLL_1750MHZ = {140, {1, 1, 1, 1}};
+inline constexpr uint32_t L2CPU_OPERATING_MHZ = 1750;
+
+// How long ARC telemetry may take to report a new L2CPU clock. tt-llm-engine's set_pll waits up to 4 s.
+inline constexpr auto CLOCK_CONFIRM_TIMEOUT = std::chrono::seconds(4);
+inline constexpr uint32_t CLOCK_TOLERANCE_MHZ = 25;
+
 // PLL lock time after an fbdiv change, per SharePoint "PLL Programming".
 inline constexpr auto PLL_LOCK_TIME = std::chrono::microseconds(300);
 
@@ -133,6 +142,67 @@ inline void set_l2cpu_pll(TTDevice* tt_device, const CoreCoord& arc_core, const 
     for (size_t i = 0; i < target.postdivs.size(); i++) {
         step_postdiv(i, false);
     }
+}
+
+// Raises PLL4 to the operating clock, 1750 MHz, for all four tiles, and confirms it by register readback and by the
+// ARC telemetry of tile idx (which reads 0 while the tile is held in reset).
+//
+// The ARC firmware puts PLL4 back to its own 800 MHz whenever it handles a power-state message, and tt-kmd sends one
+// on every open of /dev/tenstorrent/N (tt-llm-engine x280/include/x280/device/x280_runtime.hpp). L2CPUDeviceTest sends
+// more in SetUp and TearDown. So every test that times a kernel calls this after it boots or attaches, and any later
+// process, Probe included, reads 800 MHz again.
+//
+// Nothing else may open the device during the ~25 ms ramp: tt-llm-engine warns that a power message in the middle of a
+// PLL change can leave the ARC firmware answering PCIe with errors until `tt-smi -r`. Call through
+// ASSERT_NO_FATAL_FAILURE.
+inline void set_l2cpu_operating_clock(TTDevice* tt_device, size_t idx) {
+    const CoreCoord arc_core = tt_device->get_soc_descriptor().get_cores(CoreType::ARC).at(0);
+    const L2CPUPll before = read_l2cpu_pll(tt_device, arc_core);
+    set_l2cpu_pll(tt_device, arc_core, PLL_1750MHZ);
+    const L2CPUPll after = read_l2cpu_pll(tt_device, arc_core);
+    ASSERT_EQ(after.fbdiv, PLL_1750MHZ.fbdiv);
+    ASSERT_EQ(after.postdivs, PLL_1750MHZ.postdivs);
+
+    // tt-llm-engine confirms the clock through telemetry because the register readback can be stale.
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
+    ASSERT_NE(telemetry, nullptr);
+    const auto clock_tag = static_cast<uint8_t>(TelemetryTag::L2CPUCLK0 + idx);
+    if (!telemetry->is_entry_available(clock_tag)) {
+        log_warning(
+            tt::LogUMD,
+            "PLL4 fbdiv {} -> {}, postdivs [{}, {}, {}, {}]; no L2CPUCLK{} telemetry to confirm it.",
+            before.fbdiv,
+            after.fbdiv,
+            after.postdivs[0],
+            after.postdivs[1],
+            after.postdivs[2],
+            after.postdivs[3],
+            idx);
+        return;
+    }
+    auto off_target = [](uint32_t mhz) {
+        return mhz + CLOCK_TOLERANCE_MHZ < L2CPU_OPERATING_MHZ || mhz > L2CPU_OPERATING_MHZ + CLOCK_TOLERANCE_MHZ;
+    };
+    uint32_t mhz = telemetry->read_entry(clock_tag);
+    const auto deadline = std::chrono::steady_clock::now() + CLOCK_CONFIRM_TIMEOUT;
+    while (off_target(mhz) && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        mhz = telemetry->read_entry(clock_tag);
+    }
+    log_info(
+        tt::LogUMD,
+        "L2CPU clock: PLL4 fbdiv {} -> {}, postdivs [{}, {}, {}, {}]; telemetry L2CPUCLK{} = {} MHz.",
+        before.fbdiv,
+        after.fbdiv,
+        after.postdivs[0],
+        after.postdivs[1],
+        after.postdivs[2],
+        after.postdivs[3],
+        idx,
+        mhz);
+    EXPECT_FALSE(off_target(mhz)) << "PLL4 reads back 1750 MHz settings, but telemetry reports L2CPU" << idx << " at "
+                                  << mhz << " MHz after " << CLOCK_CONFIRM_TIMEOUT.count()
+                                  << " s. The timings of this test may not be at 1750 MHz.";
 }
 
 struct ElfSegment {
@@ -236,15 +306,15 @@ inline void check_l2cpu_bootable(TTDevice* tt_device, size_t idx, const ElfImage
 }
 
 // One-shot boot of L2CPU tile idx: lowers the PLL, makes the whole L3 a cache, loads the ELF into local DRAM through
-// the L2CPU tile, runs after_load, sets the reset vectors, releases reset and restores the PLL. Run
-// check_l2cpu_bootable first. Call through ASSERT_NO_FATAL_FAILURE.
+// the L2CPU tile, runs after_load, sets the reset vectors, releases reset and raises the PLL to the operating clock
+// (1750 MHz). Run check_l2cpu_bootable first. Call through ASSERT_NO_FATAL_FAILURE.
 inline void boot_l2cpu(
     TTDevice* tt_device, size_t idx, const ElfImage& elf, const std::function<void()>& after_load = {}) {
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
     const CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC).at(0);
     const CoreCoord l2cpu_core(L2CPU_TILES[idx], CoreType::L2CPU, CoordSystem::NOC0);
 
-    // 2. Lower the L2CPU PLL. Step 6 restores original_pll.
+    // 2. Lower the L2CPU PLL. After a chip reset it starts at the ARC firmware's 800 MHz.
     const L2CPUPll original_pll = read_l2cpu_pll(tt_device, arc_core);
     log_info(
         tt::LogUMD,
@@ -319,20 +389,9 @@ inline void boot_l2cpu(
     ASSERT_EQ(reset_after, reset_release)
         << "L2CPU_RESET reads back 0x" << std::hex << reset_after << ", wanted 0x" << reset_release << ".";
 
-    // 6. Raise the PLL back to the setting saved in step 2 (firmware leaves 800 MHz), then check it landed.
-    set_l2cpu_pll(tt_device, arc_core, original_pll);
-
-    const L2CPUPll restored_pll = read_l2cpu_pll(tt_device, arc_core);
-    log_info(
-        tt::LogUMD,
-        "PLL4 restored: fbdiv={} postdivs=[{}, {}, {}, {}].",
-        restored_pll.fbdiv,
-        restored_pll.postdivs[0],
-        restored_pll.postdivs[1],
-        restored_pll.postdivs[2],
-        restored_pll.postdivs[3]);
-    ASSERT_EQ(restored_pll.fbdiv, original_pll.fbdiv);
-    ASSERT_EQ(restored_pll.postdivs, original_pll.postdivs);
+    // 6. Raise the PLL to the operating clock and confirm it. Until 2026-10-20 this restored step 2's setting, so every
+    // earlier result was measured at the firmware's 800 MHz.
+    ASSERT_NO_FATAL_FAILURE(set_l2cpu_operating_clock(tt_device, idx));
 }
 
 // Opens the first PCIe Blackhole device and keeps it busy for the test. Skips without one.

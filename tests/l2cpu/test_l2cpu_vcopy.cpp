@@ -234,8 +234,8 @@ protected:
             status.mtval);
     }
 
-    // Leaves the kernel idle and sets next_txn_id_ to an id it has not served. Call through ASSERT_NO_FATAL_FAILURE;
-    // skips when the tile needs booting and TT_UMD_L2CPU_VCOPY_ELF is not set.
+    // Leaves the kernel idle at the operating clock (1750 MHz) and sets next_txn_id_ to an id it has not served. Call
+    // through ASSERT_NO_FATAL_FAILURE; skips when the tile needs booting and TT_UMD_L2CPU_VCOPY_ELF is not set.
     void boot_or_attach() {
         const CoreCoord arc_core = tt_device_->get_soc_descriptor().get_cores(CoreType::ARC).at(0);
         uint32_t l2cpu_reset = 0;
@@ -264,6 +264,8 @@ protected:
             tt_device_->read_from_device(&request, local_dram(), MAILBOX, sizeof(request));
             next_txn_id_ = std::max(status.txn_id, request.doorbell) + 1;
             log_info(tt::LogUMD, "Attached to the running vector-copy kernel; next txn {}.", next_txn_id_);
+            // This test's device open put the clock back to the firmware's 800 MHz; booting raises it in boot_l2cpu.
+            ASSERT_NO_FATAL_FAILURE(set_l2cpu_operating_clock(tt_device_.get(), IDX));
             return;
         }
 

@@ -23,6 +23,7 @@
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -98,11 +99,46 @@ void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, s
     tt_device_->read_from_device(dest, core, l1_src, size, get_selected_noc_id());
 }
 
+// Whether [addr, addr + size) lies entirely in the core's L1 or DRAM bank, where nothing is a register.
+static bool is_in_core_memory(
+    const SocDescriptor& soc_descriptor, const CoreCoord& core, uint64_t addr, uint64_t size) {
+    uint64_t memory_size = 0;
+    switch (core.core_type) {
+        case CoreType::TENSIX:
+            memory_size = soc_descriptor.worker_l1_size;
+            break;
+        case CoreType::ETH:
+        case CoreType::ACTIVE_ETH:
+        case CoreType::IDLE_ETH:
+            memory_size = soc_descriptor.eth_l1_size;
+            break;
+        case CoreType::DRAM:
+            memory_size = soc_descriptor.dram_bank_size;
+            break;
+        default:
+            return false;
+    }
+    return addr < memory_size && size <= memory_size - addr;
+}
+
+// Every tunnelled write or read is one ethernet command, so a register-width access per word costs one command per
+// 4 bytes. Within a core's L1 or DRAM bank there are no registers to keep that width for, so those go out as block
+// commands. The tunnel runs commands in order, so the access stays ordered with the ones around it.
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+    if (is_in_core_memory(get_soc_descriptor(), core, reg_dest, size)) {
+        validate_register_access(reg_dest, size);
+        tt_device_->write_to_device(src, core, reg_dest, size, get_selected_noc_id());
+        return;
+    }
     tt_device_->write_to_device_reg(src, core, reg_dest, size, get_selected_noc_id());
 }
 
 void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+    if (is_in_core_memory(get_soc_descriptor(), core, reg_src, size)) {
+        validate_register_access(reg_src, size);
+        tt_device_->read_from_device(dest, core, reg_src, size, get_selected_noc_id());
+        return;
+    }
     tt_device_->read_from_device_reg(dest, core, reg_src, size, get_selected_noc_id());
 }
 

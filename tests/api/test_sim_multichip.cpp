@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -718,6 +719,45 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
             << "remote chip " << chip << " does not tunnel over both N300 links";
     }
 }
+
+// A remote chip sends a register access that lies in L1 as block commands rather than one command per word. The data
+// has to land the same either way, including from a start that is not 32-byte aligned, where the tunnel sends words
+// up to the first aligned address and a block after it.
+class TTSimRemoteL1RegisterAccessTest : public TTSimDiscoveryTest, public ::testing::WithParamInterface<uint64_t> {};
+
+TEST_P(TTSimRemoteL1RegisterAccessTest, RoundTrips) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    const std::set<ChipId> remote_chips = cluster.get_target_remote_device_ids();
+    if (remote_chips.empty()) {
+        GTEST_SKIP() << "This image models no chip reached over ethernet.";
+    }
+
+    const uint64_t addr = GetParam();
+    std::vector<uint32_t> pattern(78);
+    std::iota(pattern.begin(), pattern.end(), 0xC0DE0000);
+    const uint32_t size = static_cast<uint32_t>(pattern.size() * sizeof(uint32_t));
+
+    for (const ChipId chip : remote_chips) {
+        const CoreCoord tensix_core = cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
+        cluster.write_to_device_reg(pattern.data(), size, chip, tensix_core, addr);
+        cluster.wait_for_non_mmio_flush(chip);
+
+        std::vector<uint32_t> readback(pattern.size(), 0);
+        cluster.read_from_device(readback.data(), chip, tensix_core, addr, size);
+        EXPECT_EQ(readback, pattern) << "chip " << chip;
+
+        std::vector<uint32_t> reg_readback(pattern.size(), 0);
+        cluster.read_from_device_reg(reg_readback.data(), chip, tensix_core, addr, size);
+        EXPECT_EQ(reg_readback, pattern) << "chip " << chip;
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Alignment, TTSimRemoteL1RegisterAccessTest, ::testing::Values(0x1000, 0x1010));
 
 // Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
 // serves exists, so it sizes their sysmem provisionally and the cluster corrects it afterwards. Left

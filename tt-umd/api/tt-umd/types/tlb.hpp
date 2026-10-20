@@ -49,6 +49,12 @@ struct tlb_data {
     uint64_t static_vc_buddy = 0;
     uint64_t static_vc_class = 0;
 
+    // Per-window transaction attributes. Only architectures that configure a window
+    // through the driver carry these; where a window has nowhere to put them, a
+    // nonzero value is refused rather than dropped.
+    uint64_t no_cacheable = 0;
+    uint64_t qosid = 0;
+
     // Orderings.
     static constexpr uint64_t Relaxed = 0;
     static constexpr uint64_t Strict = 1;

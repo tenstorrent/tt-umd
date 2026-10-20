@@ -291,7 +291,9 @@ struct tenstorrent_noc_tlb_config {
 	__u8 ordering;
 	__u8 linked;
 	__u8 static_vc;
-	__u8 reserved0[3];
+	__u8 no_cacheable;
+	__u8 qosid;
+	__u8 reserved0;
 	__u32 reserved1[2];
 };
 

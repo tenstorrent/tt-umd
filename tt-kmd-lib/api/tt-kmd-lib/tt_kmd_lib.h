@@ -48,6 +48,9 @@ typedef struct tt_noc_addr_config_t {
     uint8_t mcast;     /**< 1 to enable multicast */
     uint8_t ordering;  /**< Ordering semantics; see `enum tt_noc_ordering` */
     uint8_t static_vc; /**< 1 to enable static virtual channel */
+    /** 1 marks accesses through the window non-cacheable; 0 leaves them cacheable. */
+    uint8_t no_cacheable;
+    uint8_t qosid; /**< QoS class for accesses through the window, 0-15 */
 } tt_noc_addr_config_t;
 
 /**

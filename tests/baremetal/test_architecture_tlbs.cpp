@@ -10,6 +10,7 @@
 
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/types/arch.hpp"
 
@@ -62,4 +63,56 @@ TEST(ArchitectureTlbs, ConfigRegisterAddressMatchesArchitectureDefinition) {
         blackhole_tlbs.get_configuration(blackhole::TLB_BASE_INDEX_2M).cfg_addr, blackhole::DYNAMIC_TLB_2M_CFG_ADDR);
     EXPECT_EQ(
         blackhole_tlbs.get_configuration(blackhole::TLB_BASE_INDEX_4G).cfg_addr, blackhole::DYNAMIC_TLB_4G_CFG_ADDR);
+}
+
+// Quasar's windows are the driver's TLBAppIn0 entries, so this table has to describe the bank the
+// driver actually hands out: one size, BAR0 only, nothing in BAR4.
+TEST(ArchitectureTlbs, QuasarExposesOneBankOfSixteenMegabyteWindows) {
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(tt::ARCH::QUASAR);
+
+    ASSERT_EQ(tlbs.size_classes.size(), 1u);
+
+    const TlbSizeClass& windows = tlbs.size_classes.front();
+    EXPECT_EQ(windows.size, grendel::TLB_16M_SIZE);
+    EXPECT_EQ(windows.size, 16ULL * 1024 * 1024);
+    EXPECT_EQ(windows.count, grendel::TLB_COUNT_16M);
+    EXPECT_EQ(windows.base_index, grendel::TLB_BASE_INDEX_16M);
+    EXPECT_EQ(windows.bar_offset, grendel::DYNAMIC_TLB_16M_BASE);
+    EXPECT_FALSE(windows.in_bar4);
+
+    // There is no second size for a cached window to come from.
+    EXPECT_EQ(tlbs.cached_window_size, windows.size);
+}
+
+// A window's BAR0 offset is its entry number scaled by the window size. The kernel driver derives
+// the same offset in describe_tlb, and if the two disagree a mapped window quietly reaches the
+// wrong place, so pin the derivation instead of trusting it.
+TEST(ArchitectureTlbs, QuasarWindowOffsetIsItsEntryNumber) {
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(tt::ARCH::QUASAR);
+
+    // 164 is the driver's own window and 165 the first it hands out: the boundary worth naming.
+    for (const uint32_t entry : {0u, 1u, 164u, 165u, grendel::TLB_COUNT_16M - 1}) {
+        EXPECT_EQ(tlbs.get_configuration(entry).tlb_offset, uint64_t{entry} << grendel::TLB_16M_SHIFT)
+            << "entry " << entry;
+    }
+}
+
+// How a window gets programmed turns on this flag, and either way round it fails quietly: Quasar
+// would store into BAR0 addresses that are not configuration registers at all, while Wormhole and
+// Blackhole would hand the driver work they are perfectly able to do themselves.
+TEST(ArchitectureTlbs, ConfigRegistersAreHostWritableOnlyWhereTheHostCanReachThem) {
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).cfg_registers_host_writable);
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).cfg_registers_host_writable);
+
+    // Quasar keeps them behind a control plane that only the kernel driver maps.
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::QUASAR).cfg_registers_host_writable);
+}
+
+// Zero rather than a plausible-looking address, so anything that reads these on Quasar gets an
+// obviously wrong answer rather than a quietly wrong one.
+TEST(ArchitectureTlbs, QuasarHasNoConfigRegisterAddress) {
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(tt::ARCH::QUASAR);
+
+    EXPECT_EQ(tlbs.static_cfg_addr, 0u);
+    EXPECT_EQ(tlbs.cfg_reg_size_bytes, 0u);
 }

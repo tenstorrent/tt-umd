@@ -226,23 +226,17 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
     ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     // Not get_local_chip(): a simulated gateway is a SimulationChip, not a LocalChip.
     Chip* gateway_chip = get_chip(gateway_id);
-    SysmemManager* sysmem_manager = usable_sysmem_manager(gateway_chip);
-    if (remote_tt_device != nullptr) {
-        // Topology discovery already reached this chip, but its RemoteCommunication was created before sysmem
-        // managers existed, so wire in the gateway's now.
-        if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
-            remote_communication->set_sysmem_manager(sysmem_manager);
-        }
-    } else {
-        auto remote_communication = RemoteCommunication::create_remote_communication(
-            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
-        remote_communication->set_remote_transfer_ethernet_cores(
-            gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+    if (remote_tt_device == nullptr) {
         // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
         // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
         // construct one.
-        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+        remote_tt_device = TTDevice::create_simulation_remote(
+            RemoteCommunication::create_remote_communication(
+                gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id)),
+            soc_desc);
+    }
+    if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
+        connect_remote_communication_to_gateway(remote_communication);
     }
 
     ChipInfo chip_info;
@@ -337,14 +331,28 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         LocalChip* gateway_chip = get_local_chip(gateway_id);
         if (tt_device != nullptr) {
             if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
-                // Remote communications created during topology discovery start without one, since sysmem
-                // managers don't exist yet at that point; the owning Cluster wires in the gateway's sysmem manager
-                // afterwards.
-                remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
+                connect_remote_communication_to_gateway(remote_communication);
             }
         }
         return RemoteChip::create(std::move(tt_device), gateway_chip);
     }
+}
+
+void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remote_communication) {
+    // The gateway is the MMIO chip the RemoteCommunication talks through. Topology discovery builds it on whichever
+    // MMIO chip reached the remote chip first, which need not be the one get_closest_mmio_capable_chip() names.
+    for (const ChipId gateway_id : local_chip_ids_) {
+        Chip* gateway_chip = get_chip(gateway_id);
+        if (gateway_chip->get_tt_device() == remote_communication->get_local_device()) {
+            remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
+            remote_communication->set_remote_transfer_ethernet_cores(
+                gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+            return;
+        }
+    }
+    UMD_THROW(
+        error::RuntimeError, "RemoteCommunication talks through a device that is not an MMIO chip of this cluster.");
 }
 
 SocDescriptor Cluster::construct_soc_descriptor(

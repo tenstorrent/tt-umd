@@ -50,6 +50,7 @@
 #include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
 #endif
@@ -692,6 +693,29 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsAreBuiltAsRemoteChips) {
             << "remote chip " << chip << " has no RemoteCommunication to flush through";
         EXPECT_TRUE(remote_communication->has_sysmem_manager())
             << "remote chip " << chip << " is not wired to its gateway's sysmem manager";
+    }
+}
+
+// Discovery reaches a remote chip over the first trained gateway link it finds, but each link's ethernet core has its
+// own command queue, so the chip has to tunnel over all of them. wh_x2 is the only image with a chip reached over
+// ethernet: the remote half of an N300, joined to its gateway by two links.
+TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path_;
+    options.num_host_mem_ch_per_mmio_device = 1;
+    Cluster cluster(options);
+
+    const std::set<ChipId> remote_chips = cluster.get_target_remote_device_ids();
+    if (remote_chips.empty()) {
+        GTEST_SKIP() << "This image models no chip reached over ethernet.";
+    }
+
+    for (const ChipId chip : remote_chips) {
+        RemoteCommunication* remote_communication = cluster.get_chip(chip)->get_tt_device()->get_remote_communication();
+        ASSERT_NE(remote_communication, nullptr) << "remote chip " << chip << " has no RemoteCommunication";
+        EXPECT_EQ(remote_communication->get_remote_transfer_ethernet_cores().size(), 2u)
+            << "remote chip " << chip << " does not tunnel over both N300 links";
     }
 }
 

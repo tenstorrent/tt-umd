@@ -48,6 +48,10 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
 }
 
+const std::vector<tt_xy_pair>& RemoteCommunication::get_remote_transfer_ethernet_cores() const {
+    return remote_transfer_eth_cores_;
+}
+
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
 void RemoteCommunication::set_sysmem_manager(SysmemManager* sysmem_manager) { sysmem_manager_ = sysmem_manager; }

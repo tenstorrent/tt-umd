@@ -772,6 +772,11 @@ private:
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<TTDevice> tt_device = nullptr);
+    // Points a remote chip's RemoteCommunication at the sysmem manager of the gateway it talks through, and spreads
+    // its transfers over every active link of that gateway. Topology discovery creates the RemoteCommunication before
+    // sysmem managers exist and knowing only the links trained by then, so it is completed here from the final
+    // topology.
+    void connect_remote_communication_to_gateway(RemoteCommunication* remote_communication);
 #ifdef TT_UMD_BUILD_SIMULATION
     // Builds the RemoteChip for a non-MMIO chip in a multichip ttsim cluster. remote_tt_device is the device
     // topology discovery created for the chip, if any; its RemoteCommunication is wired to the gateway's sysmem

@@ -21,6 +21,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"
 
 using namespace tt::umd;
@@ -198,4 +199,33 @@ TEST_F(QuasarIoWindow, AttributeFieldsReachTheDriver) {
     config.snoop = 0;
     ASSERT_NO_THROW(window_->configure(config));
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
+}
+
+// WindowFlags::Snoop end to end: accepted by the window, carried to the driver, and reported back.
+//
+// The window is deliberately not accessed while the flag is set. The snoop bit becomes a nonzero
+// attribute in the TLB entry, and the simulator aborts the whole VM on an access through an entry
+// whose attributes are not zero -- programming it is fine, reading through it is not. So the flag
+// is set, checked, and cleared before any data moves.
+TEST_F(QuasarIoWindow, SnoopFlagIsCarriedToTheWindow) {
+    TargetIoWindowConfig target;
+    target.core_start = tt_xy_pair(0, 0);  // the address is flat; a coordinate is refused
+    target.addr = window_base_;
+    target.noc = NocId::NOC0;
+    target.flags = WindowFlags::Snoop;
+
+    // Relaxed because nothing on this architecture programs ordering, so asking for Strict would
+    // promise a guarantee the window was never configured for.
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
+    EXPECT_NE(window_->get_target_config().flags & WindowFlags::Snoop, WindowFlags::None)
+        << "the window should report the flag it was configured with";
+
+    // Clear it before touching the window again, then confirm the window still works.
+    target.flags = WindowFlags::None;
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
+    EXPECT_EQ(window_->get_target_config().flags & WindowFlags::Snoop, WindowFlags::None);
+
+    constexpr uint32_t SENTINEL = 0x5000FEEDu;
+    window_->write32(offset_of(cold_scratch(2)), SENTINEL);
+    EXPECT_EQ(window_->read32(offset_of(cold_scratch(2))), SENTINEL);
 }

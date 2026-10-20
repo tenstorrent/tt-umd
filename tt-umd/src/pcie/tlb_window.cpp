@@ -52,6 +52,9 @@ tlb_data TlbWindow::make_tlb_config(
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(flags));
+    // Carried in the window's own configuration rather than on the transaction, so an
+    // architecture that has nowhere to put it rejects the flag before reaching here.
+    config.snoop = (flags & WindowFlags::Snoop) != WindowFlags::None ? 1 : 0;
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;

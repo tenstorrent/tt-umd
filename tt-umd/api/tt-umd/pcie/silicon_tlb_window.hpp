@@ -55,6 +55,11 @@ public:
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
+protected:
+    // Snoop lives in the window's configuration on an architecture whose entries carry the NOC
+    // security header; elsewhere there is no field for it and the base class refuses it.
+    WindowFlags supported_window_flags() const override;
+
 private:
     // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
     // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.

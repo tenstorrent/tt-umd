@@ -705,7 +705,8 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
     return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
-void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+void TTDevice::dma_write(
+    const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
@@ -714,7 +715,8 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
         LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success =
+        get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id, ordering);
     if (dma_success) {
         return;
     }

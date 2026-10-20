@@ -68,7 +68,7 @@ public:
     // DmaInterface.
     [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
     [[nodiscard]] bool dma_write(
-        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id, IoOrdering ordering) override;
     [[nodiscard]] bool dma_multicast_write(
         const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
         override;
@@ -97,7 +97,8 @@ private:
         tt_xy_pair core_end,
         NocId noc_id,
         WindowFlags flags,
-        std::optional<tt_xy_pair> core_start = std::nullopt);
+        std::optional<tt_xy_pair> core_start = std::nullopt,
+        IoOrdering ordering = IoOrdering::Relaxed);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 

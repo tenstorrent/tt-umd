@@ -106,7 +106,7 @@ void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_s
     tt_device_->read_from_device_reg(dest, core, reg_src, size, get_selected_noc_id());
 }
 
-void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, IoOrdering ordering) {
     UMD_THROW(error::RuntimeError, "DMA operations are not available on remote chips.");
 }
 

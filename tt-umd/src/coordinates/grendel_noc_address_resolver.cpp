@@ -12,6 +12,7 @@
 
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 
 namespace tt::umd {
 
@@ -143,6 +144,27 @@ uint64_t GrendelAddressWindows::dram_address(uint32_t channel, uint64_t offset) 
     return dram_base + static_cast<uint64_t>(channel) * dram_stride + offset;
 }
 
+uint64_t GrendelAddressWindows::cce_control_address(
+    uint32_t channel, uint32_t location, uint64_t cce_local_offset) const {
+    // Chippy's Mimir config aperture is 128 MiB at local 0, with CCE1 one 16 MiB tile above CCE0.
+    // The package ATT indexes config by mesh tile, not by DRAM channel, so this mapping is only
+    // the Mimir-local window.
+    UMD_ASSERT(
+        config_base == kMimirConfigLocalBase && config_stride == kMimirConfigSize,
+        error::RuntimeError,
+        "CCE control addresses are resolved through the Mimir-local config window.");
+    const uint64_t local = static_cast<uint64_t>(location) * grendel::CCE_WITHIN_TILE_STRIDE + cce_local_offset;
+    UMD_ASSERT(
+        local < config_stride,
+        error::RuntimeError,
+        fmt::format(
+            "CCE control offset 0x{:x} at location {} does not fit the Mimir config window of 0x{:x}.",
+            cce_local_offset,
+            location,
+            config_stride));
+    return config_base + static_cast<uint64_t>(channel) * config_stride + local;
+}
+
 bool GrendelAddressWindows::is_dram_l1_address(uint64_t address) const {
     return dram_l1_size != 0 && address >= dram_l1_noc_offset && address - dram_l1_noc_offset < dram_l1_size;
 }
@@ -182,6 +204,15 @@ void GrendelAddressWindows::validate() const {
         neo_x_count > 0 && neo_y_count > 0,
         error::RuntimeError,
         "Grendel address windows: the NEO grid extent must be non-zero.");
+}
+
+uint64_t GrendelNocAddressResolver::cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const {
+    // Chips flatten a CoreCoord to an xy_pair before the control plane sees it, so the coordinate
+    // arrives TRANSLATED even when its coord_system field says otherwise.
+    const CoreCoord logical = soc_descriptor_->translate_coord_to(
+        tt_xy_pair(core.x, core.y), CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
+    return windows_.cce_control_address(
+        static_cast<uint32_t>(logical.x), static_cast<uint32_t>(logical.y), cce_local_offset);
 }
 
 GrendelNocAddressResolver::GrendelNocAddressResolver(

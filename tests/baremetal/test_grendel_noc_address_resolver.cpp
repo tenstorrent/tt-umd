@@ -67,6 +67,26 @@ TEST(GrendelNocAddressResolver, DramWindowIsIndexedByChannel) {
     EXPECT_EQ(windows.dram_address(3, 0), 0x1000600000000ULL);
 }
 
+// CCE register offsets are relative to one CCE. The channel selects the Mimir and the location
+// selects the CCE. The same number as a GDDR offset stays in the DRAM window.
+TEST(GrendelNocAddressResolver, CceControlOffsetIsRelativeToOneCce) {
+    GrendelAddressWindows windows = qsr_s1_windows();
+    windows.config_base = 0;
+    windows.config_stride = 0x8000000ULL;
+
+    EXPECT_EQ(windows.cce_control_address(0, 0, 0x02000000), 0x02000000ULL);
+    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02000000), 0x03000000ULL);
+    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02200000), 0x03200000ULL);
+    EXPECT_EQ(windows.cce_control_address(1, 0, 0x02200000), 0x0A200000ULL);
+    EXPECT_EQ(windows.cce_control_address(1, 1, 0x02000000), 0x0B000000ULL);
+
+    EXPECT_EQ(windows.dram_address(0, 0x02000000), windows.dram_base + 0x02000000ULL);
+    EXPECT_NE(windows.dram_address(0, 0x02000000), windows.cce_control_address(0, 0, 0x02000000));
+
+    EXPECT_THROW(windows.cce_control_address(0, 8, 0x02000000), std::exception);
+    EXPECT_THROW(qsr_s1_windows().cce_control_address(0, 0, 0x02000000), std::exception);
+}
+
 TEST(GrendelNocAddressResolver, DramCoreL1TagSelectsPerChannelSram) {
     GrendelAddressWindows windows = qsr_s1_windows();
     windows.dram_l1_noc_offset = 0x2000000000ULL;

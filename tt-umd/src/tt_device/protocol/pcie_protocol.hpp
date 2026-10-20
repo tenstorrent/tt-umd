@@ -16,6 +16,7 @@
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/lock_manager.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 
@@ -101,6 +102,9 @@ private:
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
+    // Keeps other processes off this device's DMA engine. Taken while holding dma_mutex_, never before it.
+    std::unique_lock<MutexInterface> lock_dma_engine();
+
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
 
@@ -108,6 +112,7 @@ private:
     DmaTransferStrategy dma_strategy_;
     bool use_safe_api_;
     std::mutex io_lock_;
+    // Keeps threads of this process off the DMA engine and the DMA TLB window.
     std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;

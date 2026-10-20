@@ -41,7 +41,6 @@
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "tt_device_error.hpp"

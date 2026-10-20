@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "device_memcpy.hpp"
+#include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -382,6 +383,13 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
         return;
     }
     configure_impl(new_config);
+}
+
+WindowFlags SiliconTlbWindow::supported_window_flags() const {
+    // The snoop bit lives in the window's configuration, so a window can honor it only where the
+    // architecture's entries carry the NOC security header at all.
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_security_header ? WindowFlags::Snoop
+                                                                                  : WindowFlags::None;
 }
 
 }  // namespace tt::umd

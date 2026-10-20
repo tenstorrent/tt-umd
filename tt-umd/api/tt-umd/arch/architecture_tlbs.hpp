@@ -52,6 +52,11 @@ struct ArchitectureTlbs {
     // configured by asking the driver, and static_cfg_addr/cfg_reg_size_bytes mean nothing.
     bool cfg_registers_host_writable;
 
+    // Whether a window's configuration carries the NOC security header -- the snoop bit and the
+    // security group every access through it is attributed to. Where it does not, those fields
+    // have nowhere to go and a window cannot honor WindowFlags::Snoop.
+    bool carries_security_header;
+
     // Configuration of the window at the given index.
     tlb_configuration get_configuration(uint32_t tlb_index) const;
 

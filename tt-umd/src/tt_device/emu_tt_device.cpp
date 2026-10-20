@@ -6,6 +6,11 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
+#include <cctype>
+#include <exception>
+#include <string>
+
 #include "emu_axi_transport.h"  // chippy
 #include "mimir.h"              // chippy
 #include "mimir_chippy_memory.hpp"
@@ -20,6 +25,35 @@ namespace tt::umd {
 namespace {
 
 constexpr std::size_t kCcesPerMimir = 2;
+
+// A multi-chiplet server answers GET_CHIPLET with a chiplet id ("k0", "m0"). The single-chiplet
+// SiVal server answers "GET_CHIPLET called in single-chiplet model." and logs every SELECT_CHIPLET
+// it ignores. Only an id means there is a chiplet to select. A failed probe keeps selecting: the
+// MMK default chiplet is k0, and skipping the select there would program Keraunos.
+bool looks_like_chiplet_id(std::string chiplet) {
+    const auto begin = chiplet.find_first_not_of(" \t");
+    if (begin == std::string::npos) {
+        return false;
+    }
+    const auto end = chiplet.find_last_not_of(" \t");
+    chiplet = chiplet.substr(begin, end - begin + 1);
+    if (chiplet.size() < 2 || chiplet.size() > 3) {
+        return false;
+    }
+    const char kind = static_cast<char>(std::tolower(static_cast<unsigned char>(chiplet.front())));
+    if (kind != 'k' && kind != 'm' && kind != 'q') {
+        return false;
+    }
+    return std::all_of(chiplet.begin() + 1, chiplet.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+bool emu_server_selects_chiplets(const std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport>& root) {
+    try {
+        return looks_like_chiplet_id(root->get_chiplet());
+    } catch (const std::exception&) {
+        return true;
+    }
+}
 
 }  // namespace
 
@@ -49,16 +83,19 @@ struct EmuTTDevice::Impl {
     Impl(const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) :
         root_transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {
         const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+        const bool select_chiplet = emu_server_selects_chiplets(root_transport);
         std::vector<std::shared_ptr<Transport>> chiplet_transports;
         chiplet_transports.reserve(mimir_count);
         mimirs.reserve(mimir_count);
         for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
-            // Select even for a one-Mimir descriptor. The MMK server's default chiplet is k0, and
-            // a naked socket never sends SELECT_CHIPLET, so mimir_1x1.yaml would program Keraunos.
-            // A single-Mimir server ignores the select and the access still hits that die.
-            std::shared_ptr<Transport> chiplet_transport =
-                std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+            // A one-Mimir descriptor still selects on MMK: the server's default chiplet is k0, and
+            // a naked socket would program Keraunos. A single-chiplet server has nothing to select,
+            // and each SELECT_CHIPLET there is logged and ignored.
+            std::shared_ptr<Transport> chiplet_transport = root_transport;
+            if (select_chiplet) {
+                chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
                     root_transport, fmt::format("m{}", mimir_index));
+            }
             chiplet_transports.push_back(chiplet_transport);
             mimirs.push_back(
                 {.transport = chiplet_transport,

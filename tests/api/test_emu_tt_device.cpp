@@ -14,6 +14,11 @@
 //   python lib/transport/emu_axi_transport/emu_server/mock_server.py --map mimir_soc --port 8081
 //   TT_UMD_EMU_SERVER=127.0.0.1:8081 ./api_tests --gtest_filter='EmuTTDevice.*'
 //
+// Against a SiVal server, bring the model up first (bringup_mimir_1x1.py) and point the test at
+// that host:port. These tests do not send INIT: on SiVal it re-runs reset and drops that bring-up,
+// after which a CCE or GDDR access stalls the AXI master. Set TT_UMD_EMU_INIT=1 to send INIT
+// (the chippy mock treats it as a register-map reset).
+//
 // The mock server hands out a zeroed, fully writable slot for any address its RDL map does not
 // cover, so an access outside the register windows round-trips like RAM. That is what makes the
 // address assertions below meaningful: the value only comes back if UMD issued it at exactly the
@@ -67,9 +72,19 @@ SocDescriptor mimir_descriptor() {
     return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
 }
 
+bool send_init_on_connect() {
+    // Default is attach. INIT on the SiVal server resets the DUT.
+    return std::getenv("TT_UMD_EMU_INIT") != nullptr;
+}
+
+std::unique_ptr<EmuTTDevice> open_device(const SocDescriptor& soc_descriptor, const ServerEndpoint& server) {
+    return EmuTTDevice::create(soc_descriptor, server.host, server.port, send_init_on_connect());
+}
+
 std::shared_ptr<chippy::transport::TransportInterface> select_mimir(
     const std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport>& root, std::size_t mimir_index) {
-    // Matches EmuTTDevice: one Mimir still selects m0. A single-chiplet server ignores it.
+    // Explicit select for a raw cross-check. EmuTTDevice itself skips SELECT_CHIPLET when
+    // GET_CHIPLET reports a single-chiplet server.
     return std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
         root, "m" + std::to_string(mimir_index));
 }
@@ -95,7 +110,7 @@ TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
 
     const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
     const uint32_t written = 0xC0FFEE01;
@@ -125,7 +140,7 @@ TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
     const CoreCoord smc_core = soc_descriptor.get_cores(CoreType::SMC).front();
 
     const uint32_t first = 0xAAAA1111;
@@ -146,7 +161,7 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
     const auto windows = EmuTTDevice::mimir_address_windows(soc_descriptor);
     constexpr uint64_t kOffset = 0x800;
     const uint64_t address = windows.dram_l1_noc_offset + kOffset;
@@ -187,7 +202,7 @@ TEST(EmuTTDevice, SmcSramDoesNotAliasAcrossMimirs) {
     if (smc_cores.size() < 2) {
         GTEST_SKIP() << "Requires the dual-Mimir package descriptor.";
     }
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
     constexpr uint64_t kOffset = kSmcSramOffset + 0x100;
     const uint32_t first = 0x51AC0000;
     const uint32_t second = 0x51AC0001;
@@ -201,11 +216,19 @@ TEST(EmuTTDevice, SmcSramDoesNotAliasAcrossMimirs) {
     }
 }
 
+TEST(EmuTTDevice, CceHartMaskHoldsOnlyTheSelectedHart) {
+    // ALL_NEO_DMS is DM0|..|DM7. A single DM must not take the all-hart path.
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::DM0), 1ULL << 1);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::DM7), 1ULL << 8);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL) >> 1, 0xFFULL);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL_NEO_DMS) >> 1, 0xFFULL);
+}
+
 TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
     constexpr uint32_t kResetVector = 0x123400;
 
     auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
@@ -214,9 +237,11 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
             const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::TRANSLATED);
             const uint32_t expected_vector = kResetVector + (channel * locations_per_channel + location) * 0x100;
+            // The vector is a register write. Leave the harts held: releasing them fetches this
+            // address, and on a SiVal model that fetch never completes. The host AXI master then
+            // reports WR_STALL for every later client, including a Metal SRAM write at 0x40000800.
             device->write_to_device_reg(
                 &expected_vector, cce, grendel::CCE_RESET_VECTOR_BASE, sizeof(expected_vector), NocId::NOC0);
-            device->deassert_risc_reset(cce, RiscType::ALL, false);
 
             chippy::grendel::Mimir mimir(
                 select_mimir(raw, channel),
@@ -226,7 +251,22 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
             for (auto& reset_vector : chippy_cce.registers.tt_cluster_ctrl.reset_vector) {
                 EXPECT_EQ(reset_vector.read().get_data(), expected_vector);
             }
+
+            // Bring-up left every hart held and the uncore released. Holding one hart must not
+            // clear the uncore or the other harts.
+            device->assert_risc_reset(cce, RiscType::DM0);
             auto reset = chippy_cce.registers.pf_ctrl.reset.read();
+            EXPECT_EQ(reset.fields.uncore_reset, 1);
+            EXPECT_EQ(reset.fields.core_reset, 0);
+
+            // Releasing harts, or asserting RiscType::ALL (which holds the uncore), closes CCE
+            // SRAM until the model is brought up again. The mock has no harts and no AXI slave,
+            // so the full mask check stays there. TT_UMD_EMU_INIT=1 selects that path.
+            if (!send_init_on_connect()) {
+                continue;
+            }
+            device->deassert_risc_reset(cce, RiscType::ALL, false);
+            reset = chippy_cce.registers.pf_ctrl.reset.read();
             EXPECT_EQ(reset.fields.uncore_reset, 1);
             EXPECT_EQ(reset.fields.core_reset, 0xFF);
             // Full release reprograms DMRISC while the harts are still held. Entry 2 is this
@@ -249,6 +289,8 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
             reset = chippy_cce.registers.pf_ctrl.reset.read();
             EXPECT_EQ(reset.fields.uncore_reset, 0);
             EXPECT_EQ(reset.fields.core_reset, 0);
+            // Holding the uncore closes the host path to this CCE. Put it back for the mock.
+            device->release_cce_uncore_for_firmware_load(cce);
         }
     }
 }
@@ -262,7 +304,8 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
 // server's own DUT re-init -- every later access, reads included, reports the same stale stall. One
 // stray DRAM write wedges the model for the rest of the session.
 //
-// Set TT_UMD_EMU_DRAM=1 only against a model whose GDDR has been brought up.
+// Set TT_UMD_EMU_DRAM=1 only against a model whose GDDR has been brought up, and leave
+// TT_UMD_EMU_INIT unset so that bring-up is still in place.
 TEST(EmuTTDevice, DramCoresDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
     if (std::getenv("TT_UMD_EMU_DRAM") == nullptr) {
@@ -270,7 +313,7 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
     }
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
-    auto device = EmuTTDevice::create(soc_descriptor, server->host, server->port);
+    auto device = open_device(soc_descriptor, *server);
 
     const uint32_t channel_count = soc_descriptor.get_num_dram_channels();
     constexpr uint64_t kOffset = 0x800;

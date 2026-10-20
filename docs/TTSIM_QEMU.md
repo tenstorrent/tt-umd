@@ -18,8 +18,10 @@ at the same path, runs the command there and returns its exit code:
 run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 ```
 
-`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole. Quasar is not
-supported, because ttsim does not implement its host MMIO path.
+`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole, `512G` for Quasar.
+
+Three further options exist for Quasar, and are described under Grendel below: `--bar0-size`,
+`--kmd-module` and `--pre-kmd`.
 
 The simulator is never part of the image; download the one you need from the
 [ttsim releases](https://github.com/tenstorrent/ttsim/releases) and pass it in. For example, to open
@@ -34,6 +36,35 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 ```
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
+
+## Grendel
+
+A Grendel function needs three things a Wormhole or Blackhole one does not, and the runner takes an
+option for each:
+
+| Option | Why |
+| --- | --- |
+| `--bar0-size 4G` | tt-kmd reserves inbound TLB entry 164 for its own kernel window, which sits `164 << 24` = 2.56 GB into BAR0. At the default size the driver still binds, then logs `BAR0 (0x20000000) too small for AppIn0 entry 164 window; NOC access disabled` and every ioctl returns `ENODEV`. |
+| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from a branch. The released driver stays the default for every other card. |
+| `--pre-kmd /opt/grendel-att-setup` | ttsim leaves `TLB_APP_IN0` invalid and programs only a BAR4-sized ATT mask set, so BAR0 is dead until the windows firmware would have set up are written. It has to run before tt-kmd binds, because sysfs stops handing out the BAR once the driver claims the device. |
+
+```bash
+curl -L -o libttsim_qsr.so https://github.com/tenstorrent/ttsim/releases/latest/download/libttsim_qsr.so
+
+docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-ttsim-qemu:latest \
+    run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 512G --bar0-size 4G \
+    --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup -- \
+    env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
+    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*'
+```
+
+`--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device, which upstream does not
+carry yet; BAR0 is a compile-time constant there. Until it lands the Grendel CI row cannot pass, and
+is marked `continue-on-error` so it reports without failing the pipeline.
+
+`GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
+for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside
+libttsim — which takes QEMU and the guest with it rather than failing the one case.
 
 Binaries run inside an Ubuntu 22.04 guest, so build them on Ubuntu 22.04, for example in the
 `tt-umd-ci-ubuntu-22.04` image. The guest's console, including the command's output, goes to stdout.

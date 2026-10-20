@@ -165,3 +165,37 @@ TEST_F(QuasarIoWindow, EveryRegisterAgreesAcrossBothPaths) {
         }
     }
 }
+
+// The attribute fields have to actually arrive at the driver, and the driver's own
+// range check is the only oracle available: nothing here can program a nonzero
+// attribute, because the simulator requires every attribute word to be zero and
+// aborts the VM on anything else. An out-of-range value cannot be refused unless the
+// field made it across, so a refusal is evidence the plumbing is connected -- and
+// silent acceptance would mean it is not.
+TEST_F(QuasarIoWindow, AttributeFieldsReachTheDriver) {
+    constexpr uint32_t SENTINEL = 0xA77121B5u;
+
+    tlb_data config;
+    config.local_offset = window_base_;
+
+    // The default every window gets today. It has to keep working.
+    config.no_cacheable = 0;
+    config.qosid = 0;
+    ASSERT_NO_THROW(window_->configure(config));
+    window_->write32(offset_of(cold_scratch(1)), SENTINEL);
+    EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
+
+    // qosid is four bits wide.
+    config.qosid = 16;
+    EXPECT_THROW(window_->configure(config), std::exception) << "qosid 16 should not fit";
+
+    // no_cacheable is one bit, expressed as 0 or 1.
+    config.qosid = 0;
+    config.no_cacheable = 2;
+    EXPECT_THROW(window_->configure(config), std::exception) << "no_cacheable 2 is not a boolean";
+
+    // And the window still works once a sane configuration is put back.
+    config.no_cacheable = 0;
+    ASSERT_NO_THROW(window_->configure(config));
+    EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
+}

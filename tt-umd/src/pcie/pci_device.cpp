@@ -859,15 +859,50 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
+void PCIDevice::configure_tlb(
+    const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
+    const ArchitectureTlbs &arch_tlbs = get_architecture_tlbs(arch);
+    auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
+
+    // Where the configuration registers are not reachable from the host, the driver owns them and
+    // programs the window for us. The address stays a byte address: the driver aligns it to the
+    // window itself, and it refuses a coordinate, because on such an architecture the address is
+    // flat and already carries its target. Nothing is posted, so there is no read-back to do.
+    if (!arch_tlbs.cfg_registers_host_writable) {
+        UMD_ASSERT(
+            tlb_handle != nullptr,
+            error::RuntimeError,
+            fmt::format("TLB index {} has no driver handle, and {} cannot configure a window without one.",
+                        tlb_index,
+                        arch_to_str(arch)));
+
+        tt_noc_addr_config_t config = {};
+        config.addr = tlb_config.local_offset;
+
+        const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
+        UMD_ASSERT(
+            ret == 0,
+            error::RuntimeError,
+            fmt::format("Failed to configure TLB index {} at address {:#x} through the driver: {}.",
+                        tlb_index,
+                        tlb_config.local_offset,
+                        strerror(-ret)));
+
+        log_trace(LogUMD, "Configured TLB index {} via the driver at address 0x{:x}", tlb_index, config.addr);
+        return;
+    }
+
+    // The registers hold the window's index within its size class, not a byte address, so the
+    // offset is divided down before it is packed.
+    tlb_data register_config = tlb_config;
+    register_config.local_offset = tlb_config.local_offset / tlb_configuration.size;
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
-    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
+    auto [lower_64, upper_64] = register_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
+    const uint64_t tlb_cfg_reg_size_bytes = arch_tlbs.cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.

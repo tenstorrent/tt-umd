@@ -90,6 +90,7 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
         .static_vc_is_configurable = false,
         .static_cfg_addr = wormhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = wormhole::TLB_CFG_REG_SIZE_BYTES,
+        .cfg_registers_host_writable = true,
     };
 
     static const ArchitectureTlbs blackhole_tlbs = {
@@ -117,31 +118,28 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
         .static_vc_is_configurable = true,
         .static_cfg_addr = blackhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = blackhole::TLB_CFG_REG_SIZE_BYTES,
+        .cfg_registers_host_writable = true,
     };
 
+    // One bank of equal-sized windows, and no virtual channel to choose: the driver programs
+    // the window, and the configuration it accepts carries an address and nothing else. The
+    // register layout is empty for the same reason -- nothing here is ever packed into a register.
     static const ArchitectureTlbs grendel_tlbs = {
         .size_classes =
             {{
-                 .size = 2 * ONE_MB,
-                 .count = grendel::TLB_COUNT_2M,
-                 .base_index = grendel::TLB_BASE_INDEX_2M,
-                 .bar_offset = grendel::DYNAMIC_TLB_2M_BASE,
-                 .in_bar4 = false,
-                 .register_layout = grendel::TLB_2M_OFFSET,
-             },
-             {
-                 .size = 4 * ONE_GB,
-                 .count = grendel::TLB_COUNT_4G,
-                 .base_index = grendel::TLB_BASE_INDEX_4G,
-                 .bar_offset = grendel::DYNAMIC_TLB_4G_BASE,
-                 .in_bar4 = true,
-                 .register_layout = grendel::TLB_4G_OFFSET,
-             }},
+                .size = grendel::TLB_16M_SIZE,
+                .count = grendel::TLB_COUNT_16M,
+                .base_index = grendel::TLB_BASE_INDEX_16M,
+                .bar_offset = grendel::DYNAMIC_TLB_16M_BASE,
+                .in_bar4 = false,
+                .register_layout = {},
+            }},
         .cached_window_size = grendel::STATIC_TLB_SIZE,
-        .use_static_vc = true,
-        .static_vc_is_configurable = true,
+        .use_static_vc = false,
+        .static_vc_is_configurable = false,
         .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = grendel::TLB_CFG_REG_SIZE_BYTES,
+        .cfg_registers_host_writable = false,
     };
 
     switch (arch) {

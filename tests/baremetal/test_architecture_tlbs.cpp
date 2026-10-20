@@ -116,3 +116,14 @@ TEST(ArchitectureTlbs, QuasarHasNoConfigRegisterAddress) {
     EXPECT_EQ(tlbs.static_cfg_addr, 0u);
     EXPECT_EQ(tlbs.cfg_reg_size_bytes, 0u);
 }
+
+// Whether a window can honor WindowFlags::Snoop turns on this, so a wrong value either refuses a
+// flag the hardware could have carried or accepts one it has nowhere to put.
+TEST(ArchitectureTlbs, SecurityHeaderIsCarriedOnlyWhereTheEntryHasRoomForIt) {
+    // A Wormhole or Blackhole TLB register has no attribute field at all.
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).carries_security_header);
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).carries_security_header);
+
+    // Quasar's entry carries attr[4:0], which lands on the NOC's security header.
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::QUASAR).carries_security_header);
+}

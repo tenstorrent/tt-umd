@@ -737,6 +737,8 @@ int tt_tlb_map(tt_device_t* dev, tt_tlb_t* tlb, tt_noc_addr_config_t* config) {
     configure_tlb.in.config.mcast = config->mcast;
     configure_tlb.in.config.ordering = config->ordering;
     configure_tlb.in.config.static_vc = config->static_vc;
+    configure_tlb.in.config.snoop = config->snoop;
+    configure_tlb.in.config.sec_group_id = config->sec_group_id;
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_CONFIGURE_TLB, &configure_tlb) != 0) {
         return -errno;

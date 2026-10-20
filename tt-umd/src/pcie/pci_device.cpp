@@ -879,6 +879,8 @@ void PCIDevice::configure_tlb(
 
         tt_noc_addr_config_t config = {};
         config.addr = tlb_config.local_offset;
+        config.snoop = static_cast<uint8_t>(tlb_config.snoop);
+        config.sec_group_id = static_cast<uint8_t>(tlb_config.sec_group_id);
 
         const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
         UMD_ASSERT(

@@ -49,6 +49,13 @@ struct tlb_data {
     uint64_t static_vc_buddy = 0;
     uint64_t static_vc_class = 0;
 
+    // The NOC security header a window's accesses carry: whether they are snoopable
+    // for cache coherency, and the security group they are attributed to. Only
+    // architectures that configure a window through the driver carry these; where a
+    // window has nowhere to put them, a nonzero value is refused rather than dropped.
+    uint64_t snoop = 0;
+    uint64_t sec_group_id = 0;
+
     // Orderings.
     static constexpr uint64_t Relaxed = 0;
     static constexpr uint64_t Strict = 1;

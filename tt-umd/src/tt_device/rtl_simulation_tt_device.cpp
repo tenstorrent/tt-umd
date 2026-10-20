@@ -188,7 +188,6 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     if (!map_name.has_value()) {
         return;
     }
-
     const auto* const known = std::find_if(
         std::begin(ATT_MAPS), std::end(ATT_MAPS), [&](const NamedAttMap& map) { return *map_name == map.name; });
     std::vector<std::string> names;

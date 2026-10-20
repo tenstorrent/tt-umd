@@ -26,6 +26,18 @@ class Node;
 
 namespace tt::umd {
 
+/**
+ * Which address table a Grendel or Quasar package uses.
+ *
+ * MimirLocal is the chiplet-local AXI map behind chippy. FullPackage is the qsr.s1 NOC address
+ * translation table. A descriptor that omits the key is FullPackage, which is what the Quasar
+ * simulation descriptors already are.
+ */
+enum class GrendelAddressSpace {
+    FullPackage,
+    MimirLocal,
+};
+
 //! CoreDescriptor contains information regarding a single core on the SOC.
 struct CoreDescriptor {
     tt_xy_pair coord = tt_xy_pair(0, 0);
@@ -88,6 +100,8 @@ public:
     const std::vector<tt_xy_pair>& get_dispatch_cores() const { return dispatch_cores_; }
 
     const std::vector<tt_xy_pair>& get_smc_cores() const { return smc_cores_; }
+
+    GrendelAddressSpace get_grendel_address_space() const { return grendel_address_space_; }
 
     // Memory sizes.
     uint32_t get_worker_l1_size() const { return worker_l1_size_; }
@@ -162,6 +176,7 @@ private:
     std::vector<tt_xy_pair> l2cpu_cores_;
     std::vector<tt_xy_pair> dispatch_cores_;
     std::vector<tt_xy_pair> smc_cores_;
+    GrendelAddressSpace grendel_address_space_ = GrendelAddressSpace::FullPackage;
     uint32_t worker_l1_size_ = 0;
     uint32_t eth_l1_size_ = 0;
     uint64_t dram_bank_size_ = 0;

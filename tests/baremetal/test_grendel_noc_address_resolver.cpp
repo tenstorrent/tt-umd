@@ -71,8 +71,8 @@ TEST(GrendelNocAddressResolver, DramWindowIsIndexedByChannel) {
 // selects the CCE. The same number as a GDDR offset stays in the DRAM window.
 TEST(GrendelNocAddressResolver, CceControlOffsetIsRelativeToOneCce) {
     GrendelAddressWindows windows = qsr_s1_windows();
-    windows.config_base = 0;
-    windows.config_stride = 0x8000000ULL;
+    windows.mimir_config_base = 0;
+    windows.mimir_config_stride = 0x8000000ULL;
 
     EXPECT_EQ(windows.cce_control_address(0, 0, 0x02000000), 0x02000000ULL);
     EXPECT_EQ(windows.cce_control_address(0, 1, 0x02000000), 0x03000000ULL);
@@ -84,7 +84,29 @@ TEST(GrendelNocAddressResolver, CceControlOffsetIsRelativeToOneCce) {
     EXPECT_NE(windows.dram_address(0, 0x02000000), windows.cce_control_address(0, 0, 0x02000000));
 
     EXPECT_THROW(windows.cce_control_address(0, 8, 0x02000000), std::exception);
-    EXPECT_THROW(qsr_s1_windows().cce_control_address(0, 0, 0x02000000), std::exception);
+}
+
+// address_map.csv, space=CCE. The host offset is the ATT base of CCE0; the CCE index selects the slot.
+TEST(GrendelNocAddressResolver, PackageCceSramMatchesGoldenAddressMap) {
+    const GrendelAddressWindows windows = qsr_s1_windows();
+
+    EXPECT_EQ(windows.dram_l1_noc_offset, 0x1280000000ULL);
+    EXPECT_EQ(windows.dram_l1_address(0, windows.dram_l1_noc_offset), 0x1280000000ULL);
+    EXPECT_EQ(windows.dram_l1_address(1, windows.dram_l1_noc_offset), 0x1280400000ULL);
+    EXPECT_EQ(windows.dram_l1_address(2, windows.dram_l1_noc_offset), 0x1280800000ULL);
+    EXPECT_EQ(windows.dram_l1_address(3, windows.dram_l1_noc_offset), 0x1280c00000ULL);
+    EXPECT_TRUE(windows.is_dram_l1_address(0x1280000800ULL));
+    EXPECT_FALSE(windows.is_dram_l1_address(0x2000000800ULL));
+}
+
+// address_map.csv, space=Config chiplet=Mimir, lane 0. CCE registers are local offsets inside that
+// 128 MiB aperture.
+TEST(GrendelNocAddressResolver, PackageMimirConfigCarriesCceControl) {
+    const GrendelAddressWindows windows = qsr_s1_windows();
+
+    EXPECT_EQ(windows.cce_control_address(0, 0, 0x02000000), 0x1302000000ULL);
+    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02000000), 0x1303000000ULL);
+    EXPECT_EQ(windows.cce_control_address(1, 0, 0x02200000), 0x130A200000ULL);
 }
 
 TEST(GrendelNocAddressResolver, DramCoreL1TagSelectsPerChannelSram) {

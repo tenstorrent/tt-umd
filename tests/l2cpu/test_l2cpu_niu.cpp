@@ -23,7 +23,8 @@
 // ISA docs and the L2CPU hardware designers say the X280 reaches the NOC only through AXI (TLB windows and the
 // DMAC), but nobody has recorded a hardware result. This test boots x280_experiments/03_niu, which programs NIU #0
 // command buffer 0 for a copy write, a read and an inline write, and then checks from the host whether any of them
-// moved data. Everything below mirrors that kernel's README.md; keep them in sync.
+// moved data. It tries the inline write first: it needs no local fetch, so it shows whether the NIU can send
+// anything at all. Everything below mirrors that kernel's README.md; keep them in sync.
 
 namespace {
 
@@ -67,7 +68,8 @@ struct NiuStep {
     uint32_t counter_index;
     uint32_t counter_before;
     uint32_t counter_after;
-    uint32_t reserved0[2];
+    uint32_t cmd_buf;  // Command buffer used: 0 (+0x000) or 1 (+0x800).
+    uint32_t reserved0;
     uint64_t ready_ticks;
     uint64_t response_ticks;
     uint64_t trap_mcause;
@@ -92,18 +94,19 @@ struct NiuResults {
 static_assert(offsetof(NiuResults, niu0) == 0x100);
 static_assert(offsetof(NiuResults, steps) == 0x900);
 
-constexpr uint64_t NIU_KERNEL_MAGIC = 0x0000'0280'4E49'0001;
+// Low 16 bits: layout version. 2 runs the inline write first; version 1 ran the copy write first.
+constexpr uint64_t NIU_KERNEL_MAGIC = 0x0000'0280'4E49'0002;
 constexpr uint64_t NIU_PARAMS_MAGIC = 0x0000'0280'504E'0001;
 
 // States. STATE_TRAP (8) shows up only while the kernel moves past a step that trapped.
 constexpr uint64_t STATE_DONE = 2;
 constexpr uint64_t STATE_BAD_PARAMS = 3;
 
-constexpr size_t STEP_WRITE = 2;
+constexpr size_t STEP_INLINE = 2;
 constexpr size_t STEP_READ = 3;
-constexpr size_t STEP_INLINE = 4;
+constexpr size_t STEP_WRITE = 4;
 constexpr std::array<const char*, NUM_STEPS> STEP_NAMES = {
-    "probe NIU #0", "probe NIU #1", "copy write", "read", "inline write"};
+    "probe NIU #0", "probe NIU #1", "inline write", "read", "copy write"};
 
 constexpr uint32_t OUTCOME_TRAPPED = 5;
 
@@ -283,16 +286,17 @@ protected:
 
     static void log_step(size_t index, const NiuStep& step) {
         const char* outcome = outcome_name(step.outcome);
-        if (index < STEP_WRITE) {
+        if (index < STEP_INLINE) {
             log_info(tt::LogUMD, "Step {} ({}): {}.", index, STEP_NAMES[index], outcome);
             return;
         }
         log_info(
             tt::LogUMD,
-            "Step {} ({}): {}. NOC_CMD_CTRL 0x{:x} before, 0x{:x} after {:.1f} us; {} 0x{:x} -> 0x{:x} after {:.1f} "
-            "us more.",
+            "Step {} ({}, command buffer {}): {}. NOC_CMD_CTRL 0x{:x} before, 0x{:x} after {:.1f} us; {} 0x{:x} -> "
+            "0x{:x} after {:.1f} us more.",
             index,
             STEP_NAMES[index],
+            step.cmd_buf,
             outcome,
             step.cmd_ctrl_before,
             step.cmd_ctrl,
@@ -371,7 +375,8 @@ TEST_F(L2CPUNiuTest, CommandBufferFromX280) {
         log_step(i, results->steps[i]);
     }
 
-    ASSERT_EQ(header.magic, NIU_KERNEL_MAGIC) << "No heartbeat from the NIU kernel.";
+    ASSERT_EQ(header.magic, NIU_KERNEL_MAGIC)
+        << (header.magic == 0 ? "No heartbeat from the NIU kernel." : "The NIU kernel has another layout version.");
     ASSERT_NE(header.state, STATE_BAD_PARAMS) << "The kernel rejected its parameters.";
     ASSERT_EQ(header.state, STATE_DONE) << "The kernel did not finish: it hangs in step " << header.step << " ("
                                         << (header.step < NUM_STEPS ? STEP_NAMES[header.step] : "?")

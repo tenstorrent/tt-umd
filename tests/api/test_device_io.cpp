@@ -301,6 +301,11 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
         ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
 
+    const ChipId first_chip = *cluster->get_target_device_ids().begin();
+    if (use_noc0 && cluster->get_soc_descriptor(first_chip).arch == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Blackhole does not support NOC0 multicast.";
+    }
+
     test_utils::safe_test_cluster_start(cluster.get());
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
@@ -431,13 +436,13 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
+// Every combination, including the NOC0 ones Blackhole cannot serve. Which architecture is under
+// test is not knowable here -- these run before any cluster exists, and PCI enumeration reports no
+// architecture at all on a runner whose only device is a simulator -- so the test skips those once
+// it has a cluster to ask.
 static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
-    const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
     std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
-        if (use_noc0 && is_blackhole) {
-            continue;  // NOC0 multicast not supported on Blackhole
-        }
         for (bool full_grid : {false, true}) {
             for (bool sysmem_enabled : {false, true}) {
                 params.emplace_back(use_noc0, full_grid, sysmem_enabled);
@@ -545,7 +550,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
         // The last bytes of a bank round-trip only where dram_bank_size is the span a single DRAM
         // core addresses. On Blackhole it is not: the probe at bank_size / 2 passes and this one
         // reads back zeros, and the descriptor does not say where a bank's addressable top is.
-        if (options.chip_type == ChipType::SIMULATION) {
+        if (options.chip_type == ChipType::SIMULATION && soc_desc.arch != tt::ARCH::BLACKHOLE) {
             expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
         }
     }

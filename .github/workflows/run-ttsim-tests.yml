@@ -321,19 +321,23 @@ jobs:
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
+      - name: Run UMD device IO tests on tt-sim wormhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+            SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole
+      - name: Run UMD device IO tests on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+            SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1
@@ -658,19 +662,23 @@ jobs:
           cmake --preset simulation -DTT_UMD_ENABLE_UNITY_BUILD=ON
           cmake --build --preset simulation --target api_tests
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
+      - name: Run UMD device IO tests on tt-sim wormhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+            SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole
+      - name: Run UMD device IO tests on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          DEVICE_IO_TESTS: "*TestDeviceIOFixture.*:*TestMulticastWriteFixture.*:TestDeviceIO.DMA*:\
+            SiliconAndSimulationCluster/ClusterReadWriteL1Test.*/Simulation"
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1

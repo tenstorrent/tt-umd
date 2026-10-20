@@ -26,9 +26,11 @@ DeviceL1AddressParams GrendelImplementation::get_l1_address_params() const {
 namespace grendel {
 
 uint64_t cce_hart_release_bits(RiscType risc_type) {
+    // ALL and ALL_DATA_MOVEMENT are their own bits. ALL_NEO_DMS is DM0|..|DM7, so a
+    // nonzero overlap would also match a single DM and hold every hart.
     if ((risc_type & RiscType::ALL) != RiscType::NONE ||
         (risc_type & RiscType::ALL_DATA_MOVEMENT) != RiscType::NONE ||
-        (risc_type & RiscType::ALL_NEO_DMS) != RiscType::NONE) {
+        (risc_type & RiscType::ALL_NEO_DMS) == RiscType::ALL_NEO_DMS) {
         return ((1ULL << CCE_NUM_HARTS) - 1) << 1;
     }
 

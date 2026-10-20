@@ -56,21 +56,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # n150 is pinned to its dedicated runner via the n150-umd-perf label
-        # (the host with the calibrated baseline). n300 / p150b still use their
-        # existing pool labels until those dedicated runners come online.
-        # Runners outside the tt-ubuntu-*-stable pool need in-service, which
-        # their pool uses to mark the machines that may take general CI jobs.
-        # Only n150 has a baseline in
-        # tests/microbenchmark/baselines/, so only n150 is subject to
-        # regression-check — the other archs' bench results land in artifacts
-        # but are silently ignored by summarize_regressions for now.
         test-group: [
-          {arch: wormhole_b0, card: n150-umd-perf, runs-on: [n150-umd-perf, in-service], timeout: 45},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable,
-           runs-on: [tt-ubuntu-2204-n300-viommu-stable], timeout: 45},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable,
-           runs-on: [tt-ubuntu-2204-p150b-viommu-stable], timeout: 45},
+          {arch: wormhole_b0, card: n150, runs-on: [umd-lab, n150], timeout: 45},
+          {arch: wormhole_b0, card: n300, runs-on: [umd-lab, n300], timeout: 45},
+          {arch: blackhole, card: p150, runs-on: [umd-lab, p150], timeout: 45},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
@@ -91,9 +80,9 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150-umd-perf},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
+          {arch: wormhole_b0, card: n150},
+          {arch: wormhole_b0, card: n300},
+          {arch: blackhole, card: p150},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

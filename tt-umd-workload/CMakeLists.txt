@@ -6,16 +6,11 @@ cmake_minimum_required(VERSION 3.25)
 
 # Workload driver API (Cluster and Chips) built on top of tt-umd.
 # Built into the tt-umd library for now, so its consumers keep linking only tt-umd. tt-umd links this component, so
-# this component takes tt-umd's headers, including the private ones, and its build settings directly.
+# this component takes tt-umd's headers, including the private ones, directly.
 add_library(tt-umd-workload OBJECT)
 add_library(tt-umd-workload::tt-umd-workload ALIAS tt-umd-workload)
 
-target_sources(
-    tt-umd-workload
-    PRIVATE
-        src/cluster.cpp
-        $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:src/simulation/simulation_chip.cpp>
-)
+target_sources(tt-umd-workload PRIVATE src/cluster.cpp)
 
 target_include_directories(
     tt-umd-workload
@@ -27,8 +22,6 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}/tt-umd/src/common
 )
 
-target_compile_definitions(tt-umd-workload PRIVATE $<TARGET_PROPERTY:tt-umd,COMPILE_DEFINITIONS>)
-
 target_link_libraries(
     tt-umd-workload
     PRIVATE
@@ -36,8 +29,21 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
-        $<$<BOOL:${TT_UMD_ENABLE_TRACY}>:TracyClient>
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(tt-umd-workload PRIVATE src/simulation/simulation_chip.cpp)
+    target_compile_definitions(tt-umd-workload PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
+
+if(TT_UMD_BUILD_EMULE)
+    target_compile_definitions(tt-umd-workload PRIVATE TT_UMD_BUILD_EMULE)
+endif()
+
+if(TT_UMD_ENABLE_TRACY)
+    target_link_libraries(tt-umd-workload PRIVATE TracyClient)
+    target_compile_definitions(tt-umd-workload PRIVATE TRACY_ENABLE)
+endif()
 
 target_sources(
     tt-umd-workload

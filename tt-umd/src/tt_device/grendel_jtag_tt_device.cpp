@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -59,23 +60,39 @@ std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
         fmt::format(
             "GrendelJtagTTDevice requires a QUASAR (or GRENDEL package) descriptor, got {}.",
             arch_to_str(soc_descriptor.arch)));
+    const auto& channels = soc_descriptor.get_arch_descriptor().get_mimir_channels();
+    const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
     UMD_ASSERT(
-        soc_descriptor.get_cores(CoreType::SMC).size() == 1,
+        channels.size() == mimir_count && !channels.empty(),
         error::RuntimeError,
-        "The initial Grendel JTAG attach path supports exactly one Mimir chiplet.");
-    // This OpenOCD socket carries one chiplet's local AXI map.
+        fmt::format(
+            "GrendelJtagTTDevice expected one mimir_channels entry per Mimir, found {} entries for {} SMC cores.",
+            channels.size(),
+            mimir_count));
+    // Each OpenOCD socket carries one chiplet's local AXI map.
     UMD_ASSERT(
         soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
         error::RuntimeError,
         "GrendelJtagTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
 
-    auto transport = make_grendel_jtag_transport(host, port, chiplet_number, version);
+    // One attached chiplet keeps the caller's TAP index. A second chiplet in the descriptor is
+    // attached at the TAP number in its chiplet id, so m1 opens chiplet 1 rather than being refused.
+    std::vector<std::shared_ptr<chippy::transport::TransportInterface>> transports;
+    transports.reserve(channels.size());
+    uint32_t first_tap = chiplet_number;
+    for (const auto& channel : channels) {
+        const uint32_t tap = channels.size() == 1
+                                 ? chiplet_number
+                                 : static_cast<uint32_t>(std::stoul(channel.chiplet.substr(1)));
+        if (transports.empty()) {
+            first_tap = tap;
+        }
+        transports.push_back(make_grendel_jtag_transport(host, port, tap, version));
+    }
     auto protocol = make_grendel_jtag_protocol(
-        [transport](tt_xy_pair) { return transport; }, static_cast<int>(chiplet_number));
+        [transports](tt_xy_pair) { return transports.front(); }, static_cast<int>(first_tap));
     auto address_transport = make_grendel_flat_address_transport(
-        soc_descriptor,
-        std::vector<std::shared_ptr<chippy::transport::TransportInterface>>{transport},
-        "GrendelJtagTTDevice");
+        soc_descriptor, std::move(transports), "GrendelJtagTTDevice");
     return std::unique_ptr<GrendelJtagTTDevice>(
         new GrendelJtagTTDevice(soc_descriptor, std::move(protocol), std::move(address_transport)));
 }

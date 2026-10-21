@@ -96,3 +96,19 @@ arch_name: QUASAR
 
 # Chiplet-local AXI behind chippy. Omitting this selects full_package.
 address_space: mimir_local
+
+# Channel is not the SPA instance or the chippy id; both are recorded here.
+# MMK wires M0 D2D1 to M1 D2D0. M0 D2D0 has no Mimir peer.
+mimir_channels:
+  - channel: 0
+    instance: 0
+    chiplet: m0
+    routes:
+      - peer: 1
+        d2d: 1
+  - channel: 1
+    instance: 1
+    chiplet: m1
+    routes:
+      - peer: 0
+        d2d: 0

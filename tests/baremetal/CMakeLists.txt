@@ -6,7 +6,7 @@ set(BAREMETAL_TESTS_SRCS
     test_att_resolver.cpp
     test_grendel_att_map.cpp
     test_horizon_x2_att_map.cpp
-    test_ip_layout.cpp
+    test_ip_block_layout.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp
     test_core_coord_translation_wh.cpp
@@ -51,7 +51,7 @@ if(TT_UMD_BUILD_SIMULATION)
         PRIVATE
             test_simulation_tlb_allocator.cpp
             test_rtl_sim_att_program.cpp
-            test_rtl_sim_ip_layout.cpp
+            test_rtl_sim_ip_block_layout.cpp
             test_rtl_sim_session.cpp
             test_word_access.cpp
     )

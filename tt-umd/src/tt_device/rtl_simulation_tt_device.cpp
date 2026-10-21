@@ -129,7 +129,7 @@ static constexpr ChipId DEFAULT_CHIP_ID = 0;
 namespace {
 
 // The access point a device talks over: its first. The others are known but not used yet.
-const RtlSimAccessPoint& io_access_point(const IpLayoutDevice& layout_device) {
+const RtlSimAccessPoint& io_access_point(const IpBlockLayoutDevice& layout_device) {
     UMD_ASSERT(
         !layout_device.access_points.empty(),
         error::RuntimeError,
@@ -189,7 +189,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::shared_ptr<RtlSimSession>& session,
-    const IpLayoutDevice& layout_device,
+    const IpBlockLayoutDevice& layout_device,
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
@@ -204,7 +204,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const RtlSimSocket& socket,
-    const IpLayoutDevice& layout_device,
+    const IpBlockLayoutDevice& layout_device,
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
@@ -224,7 +224,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels,
     std::optional<RtlSimSocket> socket,
-    std::optional<IpLayoutDevice> layout_device,
+    std::optional<IpBlockLayoutDevice> layout_device,
     std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor),

@@ -53,9 +53,9 @@ struct AccessPointLocation {
  * Current consumers assume one connection per IP. An implementation with several would need rework
  * of components tied to the fd, e.g. DMA pinning and sysmem, which are per connection.
  */
-class IpLayout {
+class IpBlockLayout {
 public:
-    virtual ~IpLayout() = default;
+    virtual ~IpBlockLayout() = default;
 
     /** The access points are AccessPointId 0..get_num_access_points()-1. */
     virtual size_t get_num_access_points() const = 0;
@@ -71,6 +71,6 @@ public:
  * or one listing an access point twice, an unknown access point, or an access point not owned by
  * exactly one device.
  */
-void validate_ip_layout(const IpLayout& layout);
+void validate_ip_block_layout(const IpBlockLayout& layout);
 
 }  // namespace tt::umd

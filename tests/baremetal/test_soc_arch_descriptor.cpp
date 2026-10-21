@@ -356,6 +356,7 @@ TEST(SocArchDescriptor, QuasarSimulation1x1) {
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(1, 3));
+    EXPECT_TRUE(desc.get_mimir_channels().empty());
 
     // 1 tensix core: (0,1).
     ASSERT_EQ(desc.get_tensix_cores().size(), 1);
@@ -433,4 +434,35 @@ TEST(SocArchDescriptor, AllSocDescriptors) {
     for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
         EXPECT_NO_THROW(SocArchDescriptor{soc_desc_yaml}) << "Failed to load: " << soc_desc_yaml;
     }
+}
+
+TEST(SocArchDescriptor, Mimir1x1RecordsOneChiplet) {
+    const SocArchDescriptor desc(test_utils::GetSocDescAbsPath("mimir_1x1.yaml"));
+    ASSERT_EQ(desc.get_mimir_channels().size(), 1u);
+    const MimirChannel& channel = desc.get_mimir_channels()[0];
+    EXPECT_EQ(channel.channel, 0u);
+    EXPECT_EQ(channel.instance, 0u);
+    EXPECT_EQ(channel.chiplet, "m0");
+    EXPECT_TRUE(channel.routes.empty());
+}
+
+TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
+    const SocArchDescriptor desc(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml"));
+    ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
+
+    const MimirChannel& first = desc.get_mimir_channels()[0];
+    EXPECT_EQ(first.channel, 0u);
+    EXPECT_EQ(first.instance, 0u);
+    EXPECT_EQ(first.chiplet, "m0");
+    ASSERT_EQ(first.routes.size(), 1u);
+    EXPECT_EQ(first.routes[0].peer_instance, 1u);
+    EXPECT_EQ(first.routes[0].d2d, 1u);
+
+    const MimirChannel& second = desc.get_mimir_channels()[1];
+    EXPECT_EQ(second.channel, 1u);
+    EXPECT_EQ(second.instance, 1u);
+    EXPECT_EQ(second.chiplet, "m1");
+    ASSERT_EQ(second.routes.size(), 1u);
+    EXPECT_EQ(second.routes[0].peer_instance, 0u);
+    EXPECT_EQ(second.routes[0].d2d, 0u);
 }

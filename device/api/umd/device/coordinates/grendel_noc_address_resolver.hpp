@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include "umd/device/coordinates/noc_address_resolver.hpp"
@@ -138,6 +139,31 @@ struct GrendelAddressWindows {
     /** Throw if the table is internally inconsistent (non power-of-two stride, empty grid). */
     void validate() const;
 };
+
+// One DMRISC remap entry. Addresses are bytes; the register stores them >> 6.
+struct CceDmriscRemapEntry {
+    uint64_t region_start = 0;
+    uint64_t region_end = 0;
+    uint64_t local_base = 0;
+};
+
+/**
+ * Remap entries for one Mimir SPA instance: config, both CCE SRAMs, then that Mimir's GDDR.
+ * SPA bounds come from the package windows. Local bases are the chiplet AXI targets.
+ */
+inline std::array<CceDmriscRemapEntry, 3> cce_dmrisc_remap_entries(
+    const GrendelAddressWindows& windows, uint32_t instance) {
+    const uint64_t config = windows.mimir_config_base + static_cast<uint64_t>(instance) * windows.mimir_config_stride;
+    // Both CCEs on the Mimir share one remap window. Each CCE SRAM slot is dram_l1_stride.
+    const uint64_t sram_span = 2 * windows.dram_l1_stride;
+    const uint64_t sram = windows.dram_l1_base + static_cast<uint64_t>(instance) * sram_span;
+    const uint64_t gddr = windows.dram_base + static_cast<uint64_t>(instance) * windows.dram_stride;
+    return {{
+        {config, config + windows.mimir_config_stride, 0},
+        {sram, sram + sram_span, 0x40000000ULL},
+        {gddr, gddr + windows.dram_stride, 0x800000000ULL},
+    }};
+}
 
 /**
  * Local-address windows used when a one- or two-Mimir package is reached directly through

@@ -148,26 +148,24 @@ void TTDevice::write_cce_dmrisc_remap_entry(
 void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index) {
     const uint32_t locations_per_channel =
         std::max<uint32_t>(get_soc_descriptor().get_grid_size(CoreType::DRAM).y, 1);
-    const uint32_t mimir = cce_index / locations_per_channel;
+    const uint32_t channel = cce_index / locations_per_channel;
+    // The SPA instance comes from the descriptor. A descriptor that omits mimir_channels (the
+    // Quasar simulation packages) still numbers the instance by DRAM channel.
+    uint32_t instance = channel;
+    const auto& channels = get_soc_descriptor().get_arch_descriptor().get_mimir_channels();
+    if (!channels.empty()) {
+        UMD_ASSERT(
+            channel < channels.size(),
+            error::RuntimeError,
+            fmt::format("CCE channel {} is outside the {} mimir_channels entries.", channel, channels.size()));
+        instance = channels[channel].instance;
+    }
 
-    // 1 GB/channel geometry, matching set_mimir_cce_remappers: one 128 MB config window, one 8 MB
-    // SRAM window covering both CCEs on the Mimir, and one 8 GiB GDDR window. Local targets are
-    // the chiplet-local bases (config 0, CCE0 SRAM 0x40000000, GDDR 0x800000000).
-    constexpr uint64_t kConfigSpaBase = 0x1300000000ULL;
-    constexpr uint64_t kConfigStride = 0x8000000ULL;
-    constexpr uint64_t kSramSpaBase = 0x1280000000ULL;
-    constexpr uint64_t kSramStride = 0x800000ULL;
-    constexpr uint64_t kSramLocal = 0x40000000ULL;
-    constexpr uint64_t kGddrSpaBase = 0x1000000000000ULL;
-    constexpr uint64_t kGddrSpan = 0x200000000ULL;
-    constexpr uint64_t kGddrLocal = 0x800000000ULL;
-
-    const uint64_t config = kConfigSpaBase + mimir * kConfigStride;
-    write_cce_dmrisc_remap_entry(core, cce_index, 0, config, config + kConfigStride, 0);
-    const uint64_t sram = kSramSpaBase + mimir * kSramStride;
-    write_cce_dmrisc_remap_entry(core, cce_index, 1, sram, sram + kSramStride, kSramLocal);
-    const uint64_t gddr = kGddrSpaBase + mimir * kGddrSpan;
-    write_cce_dmrisc_remap_entry(core, cce_index, 2, gddr, gddr + kGddrSpan, kGddrLocal);
+    const auto entries = cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance);
+    for (uint32_t entry = 0; entry < entries.size(); ++entry) {
+        write_cce_dmrisc_remap_entry(
+            core, cce_index, entry, entries[entry].region_start, entries[entry].region_end, entries[entry].local_base);
+    }
 }
 
 void TTDevice::release_cce_uncore_for_firmware_load(CoreCoord core) {

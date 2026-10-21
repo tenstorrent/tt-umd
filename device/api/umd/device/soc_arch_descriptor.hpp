@@ -37,6 +37,21 @@ enum class GrendelAddressSpace {
     MimirLocal,
 };
 
+// D2D port on one Mimir that reaches another Mimir's SPA instance.
+struct MimirD2dRoute {
+    uint32_t peer_instance = 0;
+    uint32_t d2d = 0;
+};
+
+// One DRAM channel's place in the package. channel is the UMD DRAM channel, instance is the SPA
+// Mimir number, and chiplet is the chippy id ("m0"). These are not implied by the channel index.
+struct MimirChannel {
+    uint32_t channel = 0;
+    uint32_t instance = 0;
+    std::string chiplet;
+    std::vector<MimirD2dRoute> routes;
+};
+
 //! CoreDescriptor contains information regarding a single core on the SOC.
 struct CoreDescriptor {
     tt_xy_pair coord = tt_xy_pair(0, 0);
@@ -101,6 +116,10 @@ public:
     const std::vector<tt_xy_pair>& get_smc_cores() const { return smc_cores_; }
 
     GrendelAddressSpace get_grendel_address_space() const { return grendel_address_space_; }
+
+    // Empty when the descriptor omits mimir_channels (Quasar simulation). Otherwise one entry per
+    // DRAM channel, stored so index == channel.
+    const std::vector<MimirChannel>& get_mimir_channels() const { return mimir_channels_; }
 
     // Memory sizes.
     uint32_t get_worker_l1_size() const { return worker_l1_size_; }
@@ -173,6 +192,7 @@ private:
     std::vector<tt_xy_pair> dispatch_cores_;
     std::vector<tt_xy_pair> smc_cores_;
     GrendelAddressSpace grendel_address_space_ = GrendelAddressSpace::FullPackage;
+    std::vector<MimirChannel> mimir_channels_;
     uint32_t worker_l1_size_ = 0;
     uint32_t eth_l1_size_ = 0;
     uint64_t dram_bank_size_ = 0;

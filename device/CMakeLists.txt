@@ -370,6 +370,8 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         GRENDEL_CHIPPY_SRCS
         tt_device/protocol/grendel_jtag_protocol.cpp
         tt_device/grendel_jtag_tt_device.cpp
+        tt_device/grendel_tt_device.cpp
+        tt_device/grendel_flat_address.cpp
         tt_device/mimir_chippy_memory.cpp
     )
     if(TT_UMD_BUILD_SIMULATION)

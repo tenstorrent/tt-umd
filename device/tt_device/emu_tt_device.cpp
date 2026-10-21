@@ -9,12 +9,12 @@
 #include <algorithm>
 #include <cctype>
 #include <exception>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "emu_axi_transport.h"  // chippy
-#include "mimir_chippy_memory.hpp"
-#include "umd/device/coordinates/grendel_noc_address_resolver.hpp"
+#include "grendel_flat_address.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
@@ -58,37 +58,6 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
     return mimir_local_address_windows(soc_descriptor);
 }
 
-// Owns one socket per Mimir. In MMK the server exposes each Mimir's identical local AXI map
-// behind SELECT_CHIPLET, so the synthetic non-overlapping windows emitted by the resolver are
-// translated back to a selected chiplet's local address by MimirChippyMemoryMap.
-struct EmuTTDevice::Impl {
-    using Transport = chippy::transport::TransportInterface;
-
-    std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport> root_transport;
-    std::unique_ptr<MimirChippyMemoryMap> memory;
-
-    Impl(const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port) :
-        root_transport(std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port)) {
-        const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
-        const bool select_chiplet = emu_server_selects_chiplets(root_transport);
-        std::vector<std::shared_ptr<Transport>> chiplet_transports;
-        chiplet_transports.reserve(mimir_count);
-        for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
-            // A one-Mimir descriptor still selects on MMK: the server's default chiplet is k0, and
-            // a naked socket would program Keraunos. A single-chiplet server has nothing to select,
-            // and each SELECT_CHIPLET there is logged and ignored.
-            std::shared_ptr<Transport> chiplet_transport = root_transport;
-            if (select_chiplet) {
-                chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
-                    root_transport, fmt::format("m{}", mimir_index));
-            }
-            chiplet_transports.push_back(std::move(chiplet_transport));
-        }
-        memory = std::make_unique<MimirChippyMemoryMap>(
-            soc_descriptor, std::move(chiplet_transports), "EmuTTDevice");
-    }
-};
-
 /* static */ std::unique_ptr<EmuTTDevice> EmuTTDevice::create(
     const SocDescriptor& soc_descriptor, const std::string& host, uint32_t port, bool send_init) {
     UMD_ASSERT(
@@ -97,34 +66,45 @@ struct EmuTTDevice::Impl {
         fmt::format(
             "EmuTTDevice requires a QUASAR (or GRENDEL package) descriptor, got {}.",
             arch_to_str(soc_descriptor.arch)));
-    return std::unique_ptr<EmuTTDevice>(
-        new EmuTTDevice(soc_descriptor, std::make_unique<Impl>(soc_descriptor, host, port), send_init));
-}
-
-EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Impl> impl, bool send_init) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), impl_(std::move(impl)) {
-    set_soc_descriptor(soc_descriptor);
-
-    // Grendel's NOC ATT resolves a flat 64-bit address into a destination (x, y) plus a local
-    // address, so the coordinate has to be flattened into the address before the access is issued.
-    // Installed here, in the base's protected slot, so host_read/host_write apply it while the
-    // CoreCoord -- and so its CoreType, which selects the window -- is still intact.
+    // These sockets carry a chiplet-local AXI map. A package ATT address would miss every window.
     UMD_ASSERT(
         soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
         error::RuntimeError,
         "EmuTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
-    auto resolver =
-        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(soc_descriptor));
-    set_grendel_address_resolver(resolver.get());
-    noc_address_resolver_ = std::move(resolver);
+
+    auto root_transport = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port);
+    const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+    const bool select_chiplet = emu_server_selects_chiplets(root_transport);
+    std::vector<std::shared_ptr<chippy::transport::TransportInterface>> chiplet_transports;
+    chiplet_transports.reserve(mimir_count);
+    for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
+        // A one-Mimir descriptor still selects on MMK: the server's default chiplet is k0, and
+        // a naked socket would program Keraunos. A single-chiplet server has nothing to select,
+        // and each SELECT_CHIPLET there is logged and ignored.
+        std::shared_ptr<chippy::transport::TransportInterface> chiplet_transport = root_transport;
+        if (select_chiplet) {
+            chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+                root_transport, fmt::format("m{}", mimir_index));
+        }
+        chiplet_transports.push_back(std::move(chiplet_transport));
+    }
+    auto address_transport =
+        make_grendel_flat_address_transport(soc_descriptor, std::move(chiplet_transports), "EmuTTDevice");
+    auto device = std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(address_transport)));
 
     // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.
     // On the SiVal servers INIT re-runs the reset phase, which drops any bring-up an earlier client
     // performed, so it is suppressed when the caller attaches to an already-brought-up model.
     if (send_init) {
-        impl_->root_transport->initialize();
+        root_transport->initialize();
     }
+    return device;
 }
+
+EmuTTDevice::EmuTTDevice(
+    const SocDescriptor& soc_descriptor, std::unique_ptr<FlatAddressTransport> address_transport) :
+    GrendelTTDevice(
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor), soc_descriptor, std::move(address_transport)) {}
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the
 // session for whoever owns the server: the mock server sets its shutdown event, and on a real run
@@ -135,32 +115,5 @@ EmuTTDevice::EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<Im
 // chippy's transport exposes no close-without-QUIT, and ~EmuAxiTransport is defaulted, so the
 // socket is released when the process exits rather than here. Worth a small chippy addition.
 EmuTTDevice::~EmuTTDevice() = default;
-
-SimulationBackendType EmuTTDevice::backend_type() const { return SimulationBackendType::EMU_AXI; }
-
-bool EmuTTDevice::should_use_cached_tlb_window() { return false; }
-
-std::unique_ptr<TlbWindow> EmuTTDevice::create_tlb_window(
-    int /*tlb_index*/, size_t /*size*/, TlbMapping /*mapping*/, tlb_data /*config*/) {
-    // Unreachable while should_use_cached_tlb_window() is false, but the base declares it pure
-    // virtual for the backends that do allocate windows.
-    UMD_THROW(error::RuntimeError, "Grendel addresses cores by flat address and has no TLB windows.");
-}
-
-// `core` arrives already translated and `addr` already flattened by the base, so the coordinate is
-// deliberately unused: on Grendel the destination travels inside the address, not beside it.
-void EmuTTDevice::tile_read_bytes(tt_xy_pair /*core*/, uint64_t addr, void* mem_ptr, size_t size) {
-    impl_->memory->read(addr, mem_ptr, size);
-}
-
-void EmuTTDevice::tile_write_bytes(tt_xy_pair /*core*/, uint64_t addr, const void* mem_ptr, size_t size) {
-    impl_->memory->write(addr, mem_ptr, size);
-}
-
-void EmuTTDevice::read_flat_address(uint64_t addr, void* dst, size_t size) { impl_->memory->read(addr, dst, size); }
-
-void EmuTTDevice::write_flat_address(uint64_t addr, const void* src, size_t size) {
-    impl_->memory->write(addr, src, size);
-}
 
 }  // namespace tt::umd

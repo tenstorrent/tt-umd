@@ -6,11 +6,12 @@
 
 #include <fmt/format.h>
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "grendel_flat_address.hpp"
 #include "protocol/grendel_jtag_protocol_impl.hpp"
-#include "mimir_chippy_memory.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/firmware/simulation_device_firmware.hpp"
@@ -61,6 +62,7 @@ std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
         soc_descriptor.get_cores(CoreType::SMC).size() == 1,
         error::RuntimeError,
         "The initial Grendel JTAG attach path supports exactly one Mimir chiplet.");
+    // This OpenOCD socket carries one chiplet's local AXI map.
     UMD_ASSERT(
         soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal,
         error::RuntimeError,
@@ -69,50 +71,23 @@ std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
     auto transport = make_grendel_jtag_transport(host, port, chiplet_number, version);
     auto protocol = make_grendel_jtag_protocol(
         [transport](tt_xy_pair) { return transport; }, static_cast<int>(chiplet_number));
-    auto memory_map = std::make_unique<MimirChippyMemoryMap>(
-        soc_descriptor, std::vector<std::shared_ptr<MimirChippyMemoryMap::Transport>>{transport}, "GrendelJtagTTDevice");
+    auto address_transport = make_grendel_flat_address_transport(
+        soc_descriptor,
+        std::vector<std::shared_ptr<chippy::transport::TransportInterface>>{transport},
+        "GrendelJtagTTDevice");
     return std::unique_ptr<GrendelJtagTTDevice>(
-        new GrendelJtagTTDevice(soc_descriptor, std::move(protocol), std::move(memory_map)));
+        new GrendelJtagTTDevice(soc_descriptor, std::move(protocol), std::move(address_transport)));
 }
 
 GrendelJtagTTDevice::GrendelJtagTTDevice(
     const SocDescriptor& soc_descriptor,
     std::unique_ptr<GrendelJtagProtocol> protocol,
-    std::unique_ptr<MimirChippyMemoryMap> memory_map) :
-    TTDevice(std::make_unique<GrendelJtagTTDeviceModel>(soc_descriptor.arch, std::move(protocol))),
-    memory_map_(std::move(memory_map)) {
-    set_soc_descriptor(soc_descriptor);
-    address_resolver_ =
-        std::make_unique<GrendelNocAddressResolver>(get_soc_descriptor(), address_windows_for(soc_descriptor));
-    set_grendel_address_resolver(address_resolver_.get());
-}
+    std::unique_ptr<FlatAddressTransport> address_transport) :
+    GrendelTTDevice(
+        std::make_unique<GrendelJtagTTDeviceModel>(soc_descriptor.arch, std::move(protocol)),
+        soc_descriptor,
+        std::move(address_transport)) {}
 
 GrendelJtagTTDevice::~GrendelJtagTTDevice() = default;
-
-void GrendelJtagTTDevice::write_to_device(
-    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(io_mutex_);
-    const uint64_t flat_addr = address_resolver_->to_flat_address(core, addr, noc_id);
-    memory_map_->write(flat_addr, mem_ptr, size);
-}
-
-void GrendelJtagTTDevice::read_from_device(
-    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::mutex> lock(io_mutex_);
-    const uint64_t flat_addr = address_resolver_->to_flat_address(core, addr, noc_id);
-    memory_map_->read(flat_addr, mem_ptr, size);
-}
-
-void GrendelJtagTTDevice::read_flat_address(uint64_t addr, void* dst, size_t size) {
-    memory_map_->read(addr, dst, size);
-}
-
-void GrendelJtagTTDevice::write_flat_address(uint64_t addr, const void* src, size_t size) {
-    memory_map_->write(addr, src, size);
-}
 
 }  // namespace tt::umd

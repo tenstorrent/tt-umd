@@ -121,7 +121,7 @@ target_sources(
         src/topology/topology_discovery_blackhole.cpp
         src/topology/topology_discovery_wormhole.cpp
         src/topology/topology_discovery_error.cpp
-        src/topology/ip_layout.cpp
+        src/topology/ip_block_layout.cpp
         src/tt_device/remote_communication.cpp
         src/tt_device/remote_communication_legacy_firmware.cpp
         src/jtag/jtag_device.cpp
@@ -150,7 +150,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/rtl_sim_communicator.cpp
             src/simulation/rtl_sim_session.cpp
             src/simulation/rtl_sim_att_program.cpp
-            src/simulation/rtl_sim_ip_layout.cpp
+            src/simulation/rtl_sim_ip_block_layout.cpp
             src/tt_device/simulation_tt_device.cpp
             src/tt_device/reset/tt_sim_risc_reset.cpp
             src/tt_device/reset/rtl_sim_risc_reset.cpp
@@ -267,7 +267,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/topology/topology_discovery.hpp
                 api/tt-umd/topology/topology_discovery_options.hpp
                 api/tt-umd/topology/topology_discovery_error.hpp
-                api/tt-umd/topology/ip_layout.hpp
+                api/tt-umd/topology/ip_block_layout.hpp
                 api/tt-umd/utils/common.hpp
                 api/tt-umd/utils/error.hpp
                 api/tt-umd/utils/mmio_timeout_config.hpp
@@ -351,7 +351,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
-                api/umd/device/topology/ip_layout.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_discovery_error.hpp
                 api/umd/device/topology/topology_discovery_options.hpp

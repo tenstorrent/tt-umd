@@ -390,6 +390,29 @@ std::string SocDescriptor::serialize() const {
         << (get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal ? "mimir_local"
                                                                                                  : "full_package");
 
+    const auto& mimir_channels = get_arch_descriptor().get_mimir_channels();
+    if (!mimir_channels.empty()) {
+        out << YAML::Key << "mimir_channels" << YAML::Value << YAML::BeginSeq;
+        for (const auto& channel : mimir_channels) {
+            out << YAML::BeginMap;
+            out << YAML::Key << "channel" << YAML::Value << channel.channel;
+            out << YAML::Key << "instance" << YAML::Value << channel.instance;
+            out << YAML::Key << "chiplet" << YAML::Value << channel.chiplet;
+            if (!channel.routes.empty()) {
+                out << YAML::Key << "routes" << YAML::Value << YAML::BeginSeq;
+                for (const auto& route : channel.routes) {
+                    out << YAML::BeginMap;
+                    out << YAML::Key << "peer" << YAML::Value << route.peer_instance;
+                    out << YAML::Key << "d2d" << YAML::Value << route.d2d;
+                    out << YAML::EndMap;
+                }
+                out << YAML::EndSeq;
+            }
+            out << YAML::EndMap;
+        }
+        out << YAML::EndSeq;
+    }
+
     out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;
 
     out << YAML::Key << "noc" << YAML::Value << YAML::BeginMap;

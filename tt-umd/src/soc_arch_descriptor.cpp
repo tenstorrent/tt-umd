@@ -7,6 +7,8 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <set>
@@ -22,6 +24,84 @@
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+bool is_mimir_chiplet_id(const std::string& chiplet) {
+    if (chiplet.size() < 2 || chiplet.size() > 3 || chiplet.front() != 'm') {
+        return false;
+    }
+    return std::all_of(chiplet.begin() + 1, chiplet.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+std::vector<MimirChannel> parse_mimir_channels(const YAML::Node& node, std::size_t channel_count) {
+    UMD_ASSERT(
+        node.IsSequence(),
+        error::RuntimeError,
+        "mimir_channels must be a sequence, one entry per DRAM channel.");
+    UMD_ASSERT(
+        channel_count > 0,
+        error::RuntimeError,
+        "mimir_channels is set but the descriptor has no DRAM channels.");
+    UMD_ASSERT(
+        node.size() == channel_count,
+        error::RuntimeError,
+        fmt::format("mimir_channels has {} entries; the descriptor has {} DRAM channels.", node.size(), channel_count));
+
+    std::vector<MimirChannel> channels(channel_count);
+    std::vector<char> seen(channel_count, 0);
+    std::unordered_set<uint32_t> instances;
+    for (const auto& entry : node) {
+        UMD_ASSERT(
+            entry["channel"] && entry["instance"] && entry["chiplet"],
+            error::RuntimeError,
+            "Each mimir_channels entry needs channel, instance, and chiplet.");
+        const auto channel = entry["channel"].as<uint32_t>();
+        UMD_ASSERT(
+            channel < channel_count && seen[channel] == 0,
+            error::RuntimeError,
+            fmt::format("mimir_channels channel {} is missing, repeated, or out of range.", channel));
+        seen[channel] = 1;
+        MimirChannel parsed;
+        parsed.channel = channel;
+        parsed.instance = entry["instance"].as<uint32_t>();
+        parsed.chiplet = entry["chiplet"].as<std::string>();
+        UMD_ASSERT(
+            instances.insert(parsed.instance).second,
+            error::RuntimeError,
+            fmt::format("mimir_channels instance {} is listed more than once.", parsed.instance));
+        UMD_ASSERT(
+            is_mimir_chiplet_id(parsed.chiplet),
+            error::RuntimeError,
+            fmt::format("mimir_channels chiplet '{}' is not a Mimir id such as m0.", parsed.chiplet));
+        if (entry["routes"]) {
+            UMD_ASSERT(entry["routes"].IsSequence(), error::RuntimeError, "mimir_channels routes must be a sequence.");
+            for (const auto& route : entry["routes"]) {
+                UMD_ASSERT(
+                    route["peer"] && route["d2d"],
+                    error::RuntimeError,
+                    "Each mimir_channels route needs peer and d2d.");
+                parsed.routes.push_back(MimirD2dRoute{route["peer"].as<uint32_t>(), route["d2d"].as<uint32_t>()});
+            }
+        }
+        channels[channel] = std::move(parsed);
+    }
+
+    for (const auto& channel : channels) {
+        for (const auto& route : channel.routes) {
+            UMD_ASSERT(
+                route.peer_instance != channel.instance && instances.count(route.peer_instance) == 1,
+                error::RuntimeError,
+                fmt::format(
+                    "mimir_channels instance {} route peer {} is not another Mimir in this descriptor.",
+                    channel.instance,
+                    route.peer_instance));
+        }
+    }
+    return channels;
+}
+
+}  // namespace
 
 SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
     arch_ = arch_enum;
@@ -340,6 +420,11 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
                 fmt::format(
                     "address_space must be mimir_local or full_package, got '{}'.", address_space));
         }
+    }
+
+    if (device_descriptor_yaml["mimir_channels"].IsDefined()) {
+        mimir_channels_ =
+            parse_mimir_channels(device_descriptor_yaml["mimir_channels"], dram_cores_.size());
     }
 
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {

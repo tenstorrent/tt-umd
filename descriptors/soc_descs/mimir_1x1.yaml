@@ -79,3 +79,9 @@ arch_name: QUASAR
 
 # Chiplet-local AXI behind chippy. Omitting this selects full_package.
 address_space: mimir_local
+
+# Channel 0 is SPA instance 0 and chippy chiplet m0. Nothing to route to.
+mimir_channels:
+  - channel: 0
+    instance: 0
+    chiplet: m0

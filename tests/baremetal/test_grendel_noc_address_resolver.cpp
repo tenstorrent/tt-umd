@@ -219,3 +219,21 @@ TEST(GrendelNocAddressResolver, MeshAndDramIngressRowsDoNotCollideInPackageFrame
     // The south ingress coordinate is a distinct point that is not a mesh tile at all.
     EXPECT_FALSE(windows.is_in_mesh(7, 0));
 }
+
+TEST(GrendelNocAddressResolver, CceDmriscRemapUsesPackageWindows) {
+    const auto first = cce_dmrisc_remap_entries(GrendelAddressWindows{}, 0);
+    EXPECT_EQ(first[0].region_start, 0x1300000000ULL);
+    EXPECT_EQ(first[0].region_end, 0x1300000000ULL + 0x8000000ULL);
+    EXPECT_EQ(first[0].local_base, 0u);
+    EXPECT_EQ(first[1].region_start, 0x1280000000ULL);
+    EXPECT_EQ(first[1].region_end, 0x1280000000ULL + 0x800000ULL);
+    EXPECT_EQ(first[1].local_base, 0x40000000ULL);
+    EXPECT_EQ(first[2].region_start, 0x1000000000000ULL);
+    EXPECT_EQ(first[2].region_end, 0x1000000000000ULL + 0x200000000ULL);
+    EXPECT_EQ(first[2].local_base, 0x800000000ULL);
+
+    const auto second = cce_dmrisc_remap_entries(GrendelAddressWindows{}, 1);
+    EXPECT_EQ(second[0].region_start, 0x1308000000ULL);
+    EXPECT_EQ(second[1].region_start, 0x1280800000ULL);
+    EXPECT_EQ(second[2].region_start, 0x1000200000000ULL);
+}

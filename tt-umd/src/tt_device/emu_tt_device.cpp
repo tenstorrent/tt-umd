@@ -73,18 +73,27 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
         "EmuTTDevice talks to a chiplet-local AXI map. The descriptor must set address_space: mimir_local.");
 
     auto root_transport = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(host, port);
+    const auto& channels = soc_descriptor.get_arch_descriptor().get_mimir_channels();
     const std::size_t mimir_count = soc_descriptor.get_cores(CoreType::SMC).size();
+    UMD_ASSERT(
+        channels.size() == mimir_count,
+        error::RuntimeError,
+        fmt::format(
+            "EmuTTDevice expected one mimir_channels entry per Mimir, found {} entries for {} SMC cores.",
+            channels.size(),
+            mimir_count));
     const bool select_chiplet = emu_server_selects_chiplets(root_transport);
     std::vector<std::shared_ptr<chippy::transport::TransportInterface>> chiplet_transports;
-    chiplet_transports.reserve(mimir_count);
-    for (std::size_t mimir_index = 0; mimir_index < mimir_count; ++mimir_index) {
+    chiplet_transports.reserve(channels.size());
+    for (const auto& channel : channels) {
         // A one-Mimir descriptor still selects on MMK: the server's default chiplet is k0, and
         // a naked socket would program Keraunos. A single-chiplet server has nothing to select,
-        // and each SELECT_CHIPLET there is logged and ignored.
+        // and each SELECT_CHIPLET there is logged and ignored. The id comes from the descriptor,
+        // so channel 0 is not assumed to be m0.
         std::shared_ptr<chippy::transport::TransportInterface> chiplet_transport = root_transport;
         if (select_chiplet) {
             chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
-                root_transport, fmt::format("m{}", mimir_index));
+                root_transport, channel.chiplet);
         }
         chiplet_transports.push_back(std::move(chiplet_transport));
     }

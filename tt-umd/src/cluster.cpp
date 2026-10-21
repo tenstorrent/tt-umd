@@ -38,7 +38,7 @@
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "simulation/eth_ipc.hpp"
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
@@ -484,9 +484,9 @@ Cluster::Cluster(ClusterOptions options) {
                 // layout, each on its own socket of one shared simulator run.
                 const bool is_rtl_build_with_ip_layout =
                     options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() != ".so" &&
-                    std::filesystem::exists(options.simulator_directory / RtlSimIpLayout::FILE_NAME);
+                    std::filesystem::exists(options.simulator_directory / RtlSimIpBlockLayout::FILE_NAME);
                 if (is_rtl_build_with_ip_layout) {
-                    const RtlSimIpLayout layout(options.simulator_directory);
+                    const RtlSimIpBlockLayout layout(options.simulator_directory);
                     // The layout's devices in id order; a mock chip stands for the device at its place here.
                     std::vector<IpDeviceId> layout_devices;
                     std::unordered_set<ChipId> mock_chips;

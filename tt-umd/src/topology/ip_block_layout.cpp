@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 
 #include <fmt/format.h>
 
@@ -14,7 +14,7 @@
 
 namespace tt::umd {
 
-void validate_ip_layout(const IpLayout& layout) {
+void validate_ip_block_layout(const IpBlockLayout& layout) {
     const std::map<IpDeviceId, std::vector<AccessPointId>> devices = layout.get_devices();
     UMD_ASSERT(!devices.empty(), error::RuntimeError, "IP layout has no devices.");
 

@@ -118,7 +118,7 @@ public:
     // Pool slot for a worker core in TRANSLATED naming, or nullopt if it has none.
     std::optional<size_t> slot_of(tt_xy_pair translated_core_xy) const;
 
-    // Slots in the worker pool; with SLOT_SIZE this is the shared segment's exact size.
+    // Slots in the worker pool; times the pool's slot size this is the shared segment's exact size.
     size_t num_pool_slots() const;
 
     // Identity of this chip's shared segment: the harvesting mask folded exactly as the ctor folds it.

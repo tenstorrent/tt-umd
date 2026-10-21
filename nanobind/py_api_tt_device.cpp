@@ -15,9 +15,9 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"

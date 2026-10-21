@@ -218,7 +218,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/chip_helpers/system_memory_allocator.hpp
                 api/tt-umd/chip_helpers/sysmem_buffer.hpp
                 api/tt-umd/chip_helpers/simulation_tlb_allocator.hpp
-                api/tt-umd/cluster.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp
@@ -267,7 +266,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/power_state.hpp
                 api/tt-umd/types/register_access_width.hpp
                 api/tt-umd/types/risc_type.hpp
-                api/tt-umd/simulation/simulation_chip.hpp
                 api/tt-umd/simulation/simulation_connector.hpp
                 api/tt-umd/simulation/simulation_client.hpp
                 api/tt-umd/simulation/simulation_device_identity.hpp

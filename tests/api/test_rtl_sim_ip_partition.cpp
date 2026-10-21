@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "simulation/rtl_sim_ip_layout.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 
 using namespace tt::umd;
 

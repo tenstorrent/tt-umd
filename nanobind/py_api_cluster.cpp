@@ -8,7 +8,7 @@
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/set.h>
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 
 namespace nb = nanobind;

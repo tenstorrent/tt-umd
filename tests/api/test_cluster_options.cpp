@@ -7,7 +7,7 @@
 #include <optional>
 #include <type_traits>
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 
 using namespace tt::umd;

@@ -37,8 +37,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "tt-umd/cluster.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd-workload/cluster.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"

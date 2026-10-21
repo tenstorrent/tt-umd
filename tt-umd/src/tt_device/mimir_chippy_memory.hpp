@@ -15,7 +15,7 @@
 #include "address_translation.h"  // chippy
 #include "transport_interface.h"  // chippy
 
-#include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
+#include "flat_address_transport.hpp"
 
 namespace tt::umd {
 
@@ -28,7 +28,7 @@ class SocDescriptor;
  * bulk_read_bytes / bulk_write_bytes path. Unaligned or partial transfers fall back to
  * TransportInterface::read/write with a 4-byte minimum word size.
  */
-class MimirChippyMemoryMap {
+class MimirChippyMemoryMap : public FlatAddressTransport {
 public:
     using Transport = chippy::transport::TransportInterface;
 
@@ -37,8 +37,8 @@ public:
         std::vector<std::shared_ptr<Transport>> chiplet_transports,
         std::string device_name);
 
-    void read(uint64_t flat_address, void* dst, std::size_t size) const;
-    void write(uint64_t flat_address, const void* src, std::size_t size);
+    void read(uint64_t flat_address, void* dst, std::size_t size) const override;
+    void write(uint64_t flat_address, const void* src, std::size_t size) override;
 
 private:
     using ChippyMemory = chippy::address_translation::Memory<std::uint32_t>;

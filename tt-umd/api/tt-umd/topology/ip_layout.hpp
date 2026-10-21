@@ -21,8 +21,8 @@ namespace tt::umd {
 enum class AccessPointId : uint32_t {};
 
 /**
- * Ordinal of a device (one ATT view) within one IP, 0..N-1. Not an mmio id, not a ChipId: Cluster assigns
- * a ChipId per (IP, IpDeviceId).
+ * Ordinal of a device within one IP, 0..N-1. A device is one ATT view, not an IP block: an IP holds one or
+ * more devices. Not an mmio id, not a ChipId: Cluster assigns a ChipId per (IP, IpDeviceId).
  */
 enum class IpDeviceId : uint32_t {};
 

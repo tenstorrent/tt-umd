@@ -5,7 +5,7 @@ The access points may be reached over one or more host connections (e.g. `/dev/t
 Mapping an access point to its connection is up to the implementation.
 
 - **Access point:** a host access resource over which the IP is reached, identified by `AccessPointId`. The id is an opaque ordinal (`0..N-1`) and does not correspond to a location in the IP.
-- **Device:** one ATT view, identified by `IpDeviceId`, an ordinal within the IP. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster assigns a `ChipId` per (IP, `IpDeviceId`).
+- **Device:** one ATT view, not an IP block (an IP holds one or more devices), identified by `IpDeviceId`, an ordinal within the IP. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster assigns a `ChipId` per (IP, `IpDeviceId`).
 - **Location:** `get_location()` returns an access point's `coord` and `flat_address`. Each field is set once known:
   - `coord`: the access point's tile, in the frame of the device it belongs to.
   - `flat_address`: the global address at which the host reaches the access point through the ATT. It is distinct for every access point. It is unset when the ATT is off (gasket mode) or when the host is coupled to the access point directly.

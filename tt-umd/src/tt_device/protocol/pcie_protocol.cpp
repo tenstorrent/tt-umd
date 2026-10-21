@@ -38,8 +38,6 @@ namespace {
 
 constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
 
-// WARNING: Busy-wait poll. Consider adding _mm_pause() or adaptive polling to reduce
-// CPU and memory bus contention.
 template <typename IsComplete>
 void wait_for_dma_completion(IsComplete is_complete) {
     const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;

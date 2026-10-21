@@ -18,9 +18,6 @@ struct DmaBuffer;
  * Programs the Blackhole-specific DMA controller via BAR2 (uncached).
  * D2H is not supported. H2D uses MSI-based interrupt setup and polls
  * the XFERSIZE register for completion.
- *
- * A start programs a transfer and returns while it runs; the matching is_complete reports whether it
- * has finished. The caller keeps a single transfer in flight.
  */
 struct BlackholeDmaTransfer {
     [[noreturn]] void d2h_start(volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size);

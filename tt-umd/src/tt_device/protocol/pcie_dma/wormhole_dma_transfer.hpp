@@ -17,10 +17,6 @@ struct DmaBuffer;
  *
  * Programs the DesignWare DMA controller via BAR2 (uncached) using IMWR-based
  * completion signaling. Supports both D2H (write engine) and H2D (read engine).
- *
- * A start programs a transfer and returns while it runs; the matching is_complete reports whether it
- * has finished. The caller keeps a single transfer in flight, since both directions share one
- * completion flag.
  */
 struct WormholeDmaTransfer {
     void d2h_start(volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size);

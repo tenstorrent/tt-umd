@@ -25,10 +25,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tt-umd/cluster.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/risc_type.hpp"
@@ -62,10 +62,10 @@ protected:
     static void SetUpTestSuite() {
         const char* simulator = std::getenv("TT_UMD_SIMULATOR");
         if (simulator == nullptr ||
-            !std::filesystem::exists(std::filesystem::path(simulator) / RtlSimIpLayout::FILE_NAME)) {
+            !std::filesystem::exists(std::filesystem::path(simulator) / RtlSimIpBlockLayout::FILE_NAME)) {
             return;
         }
-        layout_ = std::make_unique<RtlSimIpLayout>(simulator);
+        layout_ = std::make_unique<RtlSimIpBlockLayout>(simulator);
 
         ClusterOptions options;
         options.chip_type = ChipType::SIMULATION;
@@ -115,7 +115,7 @@ protected:
         return ((value >> TSC_DM_UNCORE_BIT) & 1) != 0;
     }
 
-    static inline std::unique_ptr<RtlSimIpLayout> layout_;
+    static inline std::unique_ptr<RtlSimIpBlockLayout> layout_;
     static inline std::unique_ptr<Cluster> cluster_;
 };
 

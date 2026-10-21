@@ -32,7 +32,7 @@
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/io_window_config.hpp"
@@ -364,7 +364,7 @@ TEST_F(RtlSimSessionTest, DeviceTalksOverItsFirstAccessPoint) {
     auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
     const SocDescriptor soc_descriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x3.yaml")));
-    const IpLayoutDevice layout_device{IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}, {AccessPointId{1}, "ut_b"}}};
+    const IpBlockLayoutDevice layout_device{IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}, {AccessPointId{1}, "ut_b"}}};
     auto device = std::make_unique<RtlSimulationTTDevice>(session, layout_device, dir_, soc_descriptor, 0);
     EXPECT_EQ(session->get_num_sockets(), 1);
 
@@ -385,7 +385,7 @@ TEST_F(RtlSimSessionTest, DeviceGivesItsAccessPointsFlatAddresses) {
     auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
     const SocDescriptor soc_descriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
-    const IpLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_b"}}};
+    const IpBlockLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_b"}}};
     setenv("TT_UMD_NOC_ATT", "horizon_2x3", 1);
     const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
     unsetenv("TT_UMD_NOC_ATT");
@@ -421,7 +421,7 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
     auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
     const SocDescriptor soc_descriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
-    const IpLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_a"}}};
+    const IpBlockLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_a"}}};
     setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
     const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
     unsetenv("TT_UMD_NOC_ATT");

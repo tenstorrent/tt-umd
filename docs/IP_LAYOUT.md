@@ -1,6 +1,6 @@
 # IP layout
 
-`IpLayout` ([ip_layout.hpp](../tt-umd/api/tt-umd/topology/ip_layout.hpp)) describes how an IP's access points split it into devices.
+`IpBlockLayout` ([ip_block_layout.hpp](../tt-umd/api/tt-umd/topology/ip_block_layout.hpp)) describes how an IP's access points split it into devices.
 The access points may be reached over one or more host connections (e.g. `/dev/tenstorrent/<N>` fds, or one simulator run).
 Mapping an access point to its connection is up to the implementation.
 
@@ -31,7 +31,7 @@ Programming the ATTs so that a device's ranges reach only its own tiles splits o
 
 ## RTL simulation / emulation
 
-`RtlSimIpLayout` reads `<simulator_directory>/ip_layout.yaml`.
+`RtlSimIpBlockLayout` reads `<simulator_directory>/ip_layout.yaml`.
 
 Each access point has two sides:
 
@@ -130,7 +130,7 @@ A build with an `ip_layout.yaml` opens as one chip per device. A process opens t
 
 ## Validation
 
-`validate_ip_layout()` throws when:
+`validate_ip_block_layout()` throws when:
 
 - there are no devices;
 - device ids aren't `0..N-1`;

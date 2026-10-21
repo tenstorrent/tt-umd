@@ -252,6 +252,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/simulation_tt_device.hpp
                 api/tt-umd/tt_device/emu_tt_device.hpp
                 api/tt-umd/tt_device/grendel_jtag_tt_device.hpp
+                api/tt-umd/tt_device/grendel_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
                 api/tt-umd/simulation/simulation_host.hpp
@@ -385,6 +386,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/umd/device/tt_device/emu_tt_device.hpp
                 api/umd/device/tt_device/grendel_jtag_tt_device.hpp
+                api/umd/device/tt_device/grendel_tt_device.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
@@ -476,6 +478,8 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         GRENDEL_CHIPPY_SRCS
         src/tt_device/protocol/grendel_jtag_protocol.cpp
         src/tt_device/grendel_jtag_tt_device.cpp
+        src/tt_device/grendel_tt_device.cpp
+        src/tt_device/grendel_flat_address.cpp
         src/tt_device/mimir_chippy_memory.cpp
     )
     if(TT_UMD_BUILD_SIMULATION)

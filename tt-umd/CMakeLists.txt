@@ -185,11 +185,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
-                api/tt-umd/chip/chip.hpp
-                api/tt-umd/chip/local_chip.hpp
-                api/tt-umd/chip/mock_chip.hpp
-                api/tt-umd/chip/sw_emule_chip.hpp
-                api/tt-umd/chip/remote_chip.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp
                 api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp

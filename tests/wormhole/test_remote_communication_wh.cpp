@@ -18,8 +18,8 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd/chip/local_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"

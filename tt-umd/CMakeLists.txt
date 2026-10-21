@@ -35,31 +35,19 @@ if(TT_UMD_BUILD_SIMULATION)
     add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
-if(TT_UMD_BUILD_STATIC)
-    add_library(tt-umd STATIC)
-else()
-    add_library(tt-umd SHARED)
-endif()
-add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
+# The UMD core, built into the tt-umd library together with the workload layer that builds on top of it (see
+# tt-umd-workload).
+add_library(tt-umd-base OBJECT)
+add_library(${PROJECT_NAME}::tt-umd-base ALIAS tt-umd-base)
 
-# Set version
-set_target_properties(
-    tt-umd
-    PROPERTIES
-        VERSION
-            ${umd_VERSION}
-        SOVERSION
-            ${umd_VERSION_MAJOR}
-)
-
-# Enable unity builds for faster compilation 
-# Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
+# Enable unity builds for faster compilation
+# Note: Requires TT_ENABLE_UNITY_BUILD function from parent project
 if(COMMAND TT_ENABLE_UNITY_BUILD)
-    tt_enable_unity_build(tt-umd)
+    tt_enable_unity_build(tt-umd-base)
 endif()
 
 target_sources(
-    tt-umd
+    tt-umd-base
     PRIVATE
         src/arch/architecture_implementation.cpp
         src/arch/architecture_registers.cpp
@@ -151,7 +139,7 @@ target_sources(
 
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
-        tt-umd
+        tt-umd-base
         PRIVATE
             src/simulation/simulation_connector.cpp
             src/simulation/simulation_server_protocol.cpp
@@ -177,17 +165,17 @@ if(TT_UMD_BUILD_SIMULATION)
             src/pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADERS}
     )
-    target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_EMULE)
-    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
-    target_link_libraries(tt-umd PRIVATE tt-emule::headers)
+    target_compile_definitions(tt-umd-base PRIVATE TT_UMD_BUILD_EMULE)
+    target_link_libraries(tt-umd-base PRIVATE tt-emule::headers)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
-        tt-umd
+        tt-umd-base
         PUBLIC
             FILE_SET api
             TYPE HEADERS
@@ -423,7 +411,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
 endif()
 
 target_include_directories(
-    tt-umd
+    tt-umd-base
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
     PRIVATE
@@ -433,7 +421,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-    tt-umd
+    tt-umd-base
     PUBLIC
         fmt::fmt-header-only
     PRIVATE
@@ -444,18 +432,13 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-target_link_libraries(tt-umd PRIVATE umd_asio_lib)
+target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 
-target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
+target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
-target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)
-target_include_directories(tt-umd PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
-
-# tt-umd-workload ships inside tt-umd until its consumers link it directly. Its headers are exposed to consumers only,
-# so that tt-umd sources cannot depend on it.
-target_link_libraries(tt-umd PRIVATE tt-umd-workload::tt-umd-workload)
-target_include_directories(tt-umd INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-workload/api>)
+target_link_libraries(tt-umd-base PRIVATE tt-umd-utils::tt-umd-utils)
+target_include_directories(tt-umd-base PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 check_function_exists(
     backtrace
@@ -465,13 +448,13 @@ check_function_exists(
 if(NOT HAVE_BACKTRACE)
     find_library(EXECINFO_LIB execinfo)
     if(EXECINFO_LIB)
-        target_link_libraries(tt-umd PRIVATE ${EXECINFO_LIB})
+        target_link_libraries(tt-umd-base PRIVATE ${EXECINFO_LIB})
     endif()
 endif()
 
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
-        tt-umd
+        tt-umd-base
         PRIVATE
             flatbuffers::flatbuffers
             nng
@@ -480,53 +463,18 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_ENABLE_TRACY)
-    target_link_libraries(tt-umd PRIVATE TracyClient)
-    target_compile_definitions(tt-umd PRIVATE TRACY_ENABLE)
+    target_link_libraries(tt-umd-base PRIVATE TracyClient)
+    target_compile_definitions(tt-umd-base PRIVATE TRACY_ENABLE)
 endif()
 
-# Install functionality requires CMake 3.23+ for FILE_SET support
-# Skip install for static libraries as they are typically used for internal linking only
+# Installs the headers only: the objects are part of the tt-umd library.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
     install(
         TARGETS
-            tt-umd
-        EXPORT ${PROJECT_NAME}Targets
-        ARCHIVE
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            COMPONENT umd-dev
-        LIBRARY
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            COMPONENT umd-runtime
+            tt-umd-base
         FILE_SET
         api
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
             COMPONENT umd-dev
-    )
-
-    install(
-        EXPORT ${PROJECT_NAME}Targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-        NAMESPACE ${PROJECT_NAME}::
-        COMPONENT umd-dev
-    )
-else()
-    # Warn user that install functionality is not available
-    message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
-endif()
-
-if(TT_UMD_BUILD_STATIC)
-    set_target_properties(
-        tt-umd
-        PROPERTIES
-            ARCHIVE_OUTPUT_DIRECTORY
-                ${PROJECT_BINARY_DIR}/lib
-    )
-else()
-    set_target_properties(
-        tt-umd
-        PROPERTIES
-            LIBRARY_OUTPUT_DIRECTORY
-                ${PROJECT_BINARY_DIR}/lib
     )
 endif()

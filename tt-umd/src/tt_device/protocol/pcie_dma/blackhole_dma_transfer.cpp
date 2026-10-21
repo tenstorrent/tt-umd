@@ -15,8 +15,9 @@ namespace tt::umd {
 
 namespace {
 
-// Bytes the read channel has left to move; the engine counts it down to 0 as the transfer completes.
-constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
+// MSI message data the engine writes into the completion flag when a transfer is done. Any value works
+// as long as it is not 0, which is what the flag is cleared to before each transfer.
+constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 
 }  // namespace
 
@@ -33,6 +34,7 @@ void BlackholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
     static constexpr uint32_t EN_OFF_RDCH_0 = 0x100;
     static constexpr uint32_t DOORBELL_OFF_RDCH_0 = 0x104;
+    static constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
     static constexpr uint32_t SAR_LOW_OFF_RDCH_0 = 0x120;
     static constexpr uint32_t SAR_HIGH_OFF_RDCH_0 = 0x124;
     static constexpr uint32_t DAR_LOW_OFF_RDCH_0 = 0x128;
@@ -43,6 +45,8 @@ void BlackholeDmaTransfer::h2d_start(
     static constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
     static constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
     static constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
+
+    *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) = 0;
 
     auto write_reg = [&](uint32_t offset, uint32_t value) {
         *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
@@ -59,8 +63,8 @@ void BlackholeDmaTransfer::h2d_start(
     write_reg(
         MSI_ABORT_HIGH_OFF_RDCH_0,
         static_cast<uint32_t>(((dma_buffer.completion_pa + sizeof(uint32_t)) >> 32) & 0xFFFFFFFF));
-    // MSI message data written on completion (unused for polling, set to 0).
-    write_reg(MSI_MSGD_OFF_RDCH_0, 0);
+    // MSI message data written to the completion flag when the transfer is done.
+    write_reg(MSI_MSGD_OFF_RDCH_0, DMA_COMPLETION_VALUE);
     // Enable the DMA read channel.
     write_reg(EN_OFF_RDCH_0, 0x1);
     // Set the source address (host physical address of the DMA buffer).
@@ -74,8 +78,8 @@ void BlackholeDmaTransfer::h2d_start(
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
 }
 
-bool BlackholeDmaTransfer::h2d_is_complete(const volatile uint8_t* bar2, const DmaBuffer& /*dma_buffer*/) {
-    return *reinterpret_cast<const volatile uint32_t*>(bar2 + XFERSIZE_OFF_RDCH_0) == 0;
+bool BlackholeDmaTransfer::h2d_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
+    return *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
 }
 
 }  // namespace tt::umd

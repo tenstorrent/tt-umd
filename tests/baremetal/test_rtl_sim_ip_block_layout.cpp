@@ -74,6 +74,13 @@ TEST(RtlSimIpBlockLayout, ExplicitDeviceIds) {
     EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP1}}, {DEV1, {AP0}}}));
 }
 
+// Devices may sit on different IP blocks, each device on one.
+TEST(RtlSimIpBlockLayout, DevicesOnTwoIpBlocks) {
+    const RtlSimIpBlockLayout layout(layout_dir("two_ip_blocks"));
+
+    EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP0}}, {DEV1, {AP1}}}));
+}
+
 TEST(RtlSimIpBlockLayout, MissingFile) { EXPECT_THAT(error_of(""), HasSubstr("ip_layout.yaml not found.")); }
 
 TEST(RtlSimIpBlockLayout, DuplicateDeviceId) {
@@ -90,6 +97,14 @@ TEST(RtlSimIpBlockLayout, SparseDeviceIds) {
 
 TEST(RtlSimIpBlockLayout, MissingHostAccess) {
     EXPECT_THAT(error_of("missing_host_access"), HasSubstr("access point 1 has no host_access."));
+}
+
+TEST(RtlSimIpBlockLayout, MissingIpBlock) {
+    EXPECT_THAT(error_of("missing_ip_block"), HasSubstr("access point 1 has no ip_block."));
+}
+
+TEST(RtlSimIpBlockLayout, DeviceSpansIpBlocks) {
+    EXPECT_THAT(error_of("device_spans_ip_blocks"), HasSubstr("device 0 spans IP blocks 0 and 1."));
 }
 
 TEST(RtlSimIpBlockLayout, MissingSocDescriptor) {

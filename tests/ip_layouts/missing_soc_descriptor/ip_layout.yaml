@@ -1,4 +1,5 @@
 access_points:
   - host_access: col0
+    ip_block: 0
 devices:
   - access_points: [0]

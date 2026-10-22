@@ -33,17 +33,19 @@ Programming the ATTs so that a device's ranges reach only its own tiles splits o
 
 `RtlSimIpBlockLayout` reads `<simulator_directory>/ip_layout.yaml`.
 
-Each access point has two sides:
+Each access point has these fields:
 
+- `ip_block`: the IP block the access point belongs to, numbered from 0.
 - `host_access`: how the host reaches the access point. Its meaning is up to the implementation: in RTL simulation/emulation it names the socket (UMD serves `NNG_SOCKET_ADDR_<host_access>`, matching the simulator's device id); on silicon it could be, for example, the AXI base address of the IP block in the host's address space.
 - `coord`: the access point's NOC2AXI tile, in the frame of the device it belongs to.
 - `flat_address`: the access point's global address through the ATT, distinct for every access point. Omitted here: each Horizon socket is coupled directly to its column's NOC2AXI, with no shared host address space in front of it.
 
-`host_access` is required. `coord` and `flat_address` are optional, since they may be unknown until the ATT is known.
+`ip_block` and `host_access` are required, `ip_block: 0` included, so that every layout states its IP blocks. `coord` and `flat_address` are optional, since they may be unknown until the ATT is known.
 
 Other rules:
 
-- An access point's id is its position in `access_points`.
+- An access point's id (`AccessPointId`) is its position in the top-level `access_points` list, from 0. A device's `access_points` lists its access points by these ids.
+- A device's access points must all be on one IP block: a device is a view of one IP block.
 - A device's id is its `id` field, or its position in `devices` when no device has one. Give every device an `id`, or none. Ids must be `0..N-1`, each once.
 - Each device needs a `soc_descriptor`. Its path is relative to `simulator_directory`, and the file must exist.
 
@@ -52,8 +54,10 @@ One device (the whole IP), reached over both columns' NOC2AXI tiles:
 ```yaml
 access_points:
   - host_access: col0            # socket NNG_SOCKET_ADDR_col0
+    ip_block: 0
     coord: [0, 2]                # NOC2AXI tile, in the device's frame
   - host_access: col1
+    ip_block: 0
     coord: [1, 2]
 devices:
   - access_points: [0, 1]
@@ -65,8 +69,10 @@ Two devices, one per column (ATT split). Both use the same soc descriptor, since
 ```yaml
 access_points:
   - host_access: col0            # left column's NOC2AXI
+    ip_block: 0
     coord: [0, 2]
   - host_access: col1            # right column's NOC2AXI, (0, 2) in its device's frame
+    ip_block: 0
     coord: [0, 2]
 devices:
   - access_points: [0]
@@ -100,13 +106,17 @@ A map has one table for every access point, or one per access point of the build
 
 ```yaml
 access_points:
-  - host_access: dev0_port0      # device 0 column 0
+  - host_access: dev0_port0      # IP block 0, column 0
+    ip_block: 0
     coord: [0, 2]
-  - host_access: dev0_port1      # device 0 column 1
+  - host_access: dev0_port1      # IP block 0, column 1
+    ip_block: 0
     coord: [0, 2]
-  - host_access: dev1_port0      # device 1 column 0
+  - host_access: dev1_port0      # IP block 1, column 0
+    ip_block: 1
     coord: [0, 2]
-  - host_access: dev1_port1      # device 1 column 1
+  - host_access: dev1_port1      # IP block 1, column 1
+    ip_block: 1
     coord: [0, 2]
 devices:
   - access_points: [0]

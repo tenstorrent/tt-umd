@@ -40,7 +40,7 @@ Each access point has these fields:
 - `coord`: the access point's NOC2AXI tile, in the frame of the device it belongs to.
 - `flat_address`: the access point's global address through the ATT, the base of its table's L1 window in the `TT_UMD_NOC_ATT` map, distinct for every access point.
 
-`ip_block` and `host_access` are required, `ip_block: 0` included, so that every layout states its IP blocks. `flat_address` is required when `TT_UMD_NOC_ATT` names a map with a table per access point, and a device opens only if each of its access points states the address that map gives; it is ignored otherwise. `coord` is optional.
+`ip_block` and `host_access` are required, `ip_block: 0` included, so that every layout states its IP blocks. `flat_address` is required when `TT_UMD_NOC_ATT` names a map with a table per access point, and a device opens only if each of its access points states the address that map gives; it is ignored otherwise. On Horizon, opening also reads every Tensix and Dispatch tile's own coordinate through each access point's table, and fails if the build's ATT sends that address to another tile. `coord` is optional.
 
 Other rules:
 

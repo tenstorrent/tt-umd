@@ -40,10 +40,14 @@ class SimulationClient;
 class SocDescriptor;
 class TlbWindow;
 
-/** One of a device's access points: its id in the build's ip_layout.yaml and the socket that reaches it. */
+/**
+ * One of a device's access points: its id in the build's ip_layout.yaml, the socket that reaches it, and
+ * the flat address the file states for it.
+ */
 struct RtlSimAccessPoint {
     AccessPointId id;
     std::string host_access;
+    std::optional<uint64_t> flat_address;
 };
 
 /** A device of the build's ip_layout.yaml: its id and its access points, in the order the file lists them. */

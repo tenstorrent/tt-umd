@@ -483,8 +483,7 @@ TEST_P(RtlSimSessionColumnLayoutTest, AccessPointReachesItsColumn) {
         std::optional<uint64_t>(address));
 }
 
-// Device 0 columns 0 and 1, device 1 column 0, then device 1 column 1 over device 0's crossbar and
-// over its own NOC2AXI.
+// Device 0 columns 0 and 1, then device 1 columns 0 and 1.
 INSTANTIATE_TEST_SUITE_P(
     InLayoutOrder,
     RtlSimSessionColumnLayoutTest,
@@ -492,7 +491,6 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(0u, uint64_t{0x10'4005'0000}),
         std::make_tuple(1u, uint64_t{0x11'4005'0000}),
         std::make_tuple(2u, uint64_t{0x20'4005'0000}),
-        std::make_tuple(3u, uint64_t{0x21'4005'0000}),
-        std::make_tuple(4u, uint64_t{0x21'4005'0000})));
+        std::make_tuple(3u, uint64_t{0x21'4005'0000})));
 
 }  // namespace

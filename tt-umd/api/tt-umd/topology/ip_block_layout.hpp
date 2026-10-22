@@ -30,9 +30,9 @@ enum class IpDeviceId : uint32_t {};
  * Location of an access point. Each field is set once known.
  *
  * coord: the access point's tile, in the frame of the device it belongs to.
- * flat_address: the global address at which the host reaches the access point through the ATT;
- * distinct for every access point. Unset when the ATT is off (gasket mode) or when the host is
- * coupled to the access point directly.
+ * flat_address: the global address at which the host reaches the access point through the ATT, the
+ * base of its window onto the device's L1; distinct for every access point. Unset when the ATT is
+ * off (gasket mode).
  */
 struct AccessPointLocation {
     std::optional<tt_xy_pair> coord;

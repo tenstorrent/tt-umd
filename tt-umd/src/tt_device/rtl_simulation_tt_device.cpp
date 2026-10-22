@@ -109,6 +109,28 @@ const att::MapData& table_for(const NamedAttMap& map, AccessPointId access_point
     return *map.tables[index];
 }
 
+// ip_layout.yaml must state where @p map puts each access point: the base of its table's L1 window.
+// A map with one table for every access point gives them no addresses of their own, so it is not
+// checked.
+void check_flat_address(const NamedAttMap& map, const RtlSimAccessPoint& access_point) {
+    if (map.tables.size() == 1) {
+        return;
+    }
+    const uint64_t l1_window_base =
+        table_for(map, access_point.id).windows[static_cast<size_t>(att::WindowClass::WORKER)].compare;
+    UMD_ASSERT(
+        access_point.flat_address == l1_window_base,
+        error::RuntimeError,
+        fmt::format(
+            "{} names ATT map '{}', which puts access point {}'s L1 window at 0x{:x}, but ip_layout.yaml gives it "
+            "flat_address {}.",
+            NOC_ATT_MAP_ENV_VAR,
+            map.name,
+            static_cast<uint32_t>(access_point.id),
+            l1_window_base,
+            access_point.flat_address.has_value() ? fmt::format("0x{:x}", *access_point.flat_address) : "none"));
+}
+
 }  // namespace
 
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
@@ -286,6 +308,7 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
         return;
     }
     for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
+        check_flat_address(*known, access_point);
         access_point_resolvers_.emplace(access_point.id, table_for(*known, access_point.id));
     }
     noc_address_resolver_ =

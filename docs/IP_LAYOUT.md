@@ -8,7 +8,7 @@ Mapping an access point to its connection is up to the implementation.
 - **Device:** one ATT view, not an IP block (an IP holds one or more devices), identified by `IpDeviceId`, an ordinal within the IP. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster assigns a `ChipId` per (IP, `IpDeviceId`).
 - **Location:** `get_location()` returns an access point's `coord` and `flat_address`. Each field is set once known:
   - `coord`: the access point's tile, in the frame of the device it belongs to.
-  - `flat_address`: the global address at which the host reaches the access point through the ATT. It is distinct for every access point. It is unset when the ATT is off (gasket mode) or when the host is coupled to the access point directly.
+  - `flat_address`: the global address at which the host reaches the access point through the ATT: the base of its window onto the device's L1. It is distinct for every access point. It is unset when the ATT is off (gasket mode).
 
 The layout states the expected configuration. Checking it against the ATT is a separate step.
 
@@ -38,9 +38,9 @@ Each access point has these fields:
 - `ip_block`: the IP block the access point belongs to, numbered from 0.
 - `host_access`: how the host reaches the access point. Its meaning is up to the implementation: in RTL simulation/emulation it names the socket (UMD serves `NNG_SOCKET_ADDR_<host_access>`, matching the simulator's device id); on silicon it could be, for example, the AXI base address of the IP block in the host's address space.
 - `coord`: the access point's NOC2AXI tile, in the frame of the device it belongs to.
-- `flat_address`: the access point's global address through the ATT, distinct for every access point. Omitted here: each Horizon socket is coupled directly to its column's NOC2AXI, with no shared host address space in front of it.
+- `flat_address`: the access point's global address through the ATT, the base of its table's L1 window in the `TT_UMD_NOC_ATT` map, distinct for every access point.
 
-`ip_block` and `host_access` are required, `ip_block: 0` included, so that every layout states its IP blocks. `coord` and `flat_address` are optional, since they may be unknown until the ATT is known.
+`ip_block` and `host_access` are required, `ip_block: 0` included, so that every layout states its IP blocks. `flat_address` is required when `TT_UMD_NOC_ATT` names a map with a table per access point, and a device opens only if each of its access points states the address that map gives; it is ignored otherwise. `coord` is optional.
 
 Other rules:
 
@@ -109,15 +109,19 @@ access_points:
   - host_access: dev0_port0      # IP block 0, column 0
     ip_block: 0
     coord: [0, 2]
+    flat_address: 0x1040000000
   - host_access: dev0_port1      # IP block 0, column 1
     ip_block: 0
     coord: [0, 2]
+    flat_address: 0x1140000000
   - host_access: dev1_port0      # IP block 1, column 0
     ip_block: 1
     coord: [0, 2]
+    flat_address: 0x2040000000
   - host_access: dev1_port1      # IP block 1, column 1
     ip_block: 1
     coord: [0, 2]
+    flat_address: 0x2140000000
 devices:
   - access_points: [0]
     soc_descriptor: soc_descriptor_column.yaml

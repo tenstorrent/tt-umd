@@ -315,8 +315,9 @@ void SWEmuleChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_
     read_from_device(core, dest, reg_src, size);
 }
 
-void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    write_to_device(core, src, addr, size);
+void SWEmuleChip::dma_write_to_device(
+    const void* src, size_t size, CoreCoord core, uint64_t addr, IoOrdering ordering) {
+    write_to_device(core, src, addr, size, ordering);
 }
 
 void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {

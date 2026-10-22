@@ -37,6 +37,7 @@
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/eth_training_status.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
@@ -196,9 +197,16 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Target core coordinate on the device.
      * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param ordering Ordering of the device-side writes the transfer issues. Strict keeps them in issue order
+     * at a throughput cost. It does not order them against writes issued through other paths.
      */
     virtual void dma_write(
-        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *src,
+        uint64_t dst_addr,
+        size_t size,
+        CoreCoord core,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::Relaxed);
 
     /**
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.

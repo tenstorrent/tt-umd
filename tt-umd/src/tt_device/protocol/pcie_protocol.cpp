@@ -221,7 +221,8 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
     return pci_device_->export_tlb_dmabuf(window_size, config, window_offset, size);
 }
 
-bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+bool PcieProtocol::dma_write(
+    const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id, IoOrdering ordering) {
     // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).
     // dma_transfer uses void* to handle both H2D (read) and D2H (write) in a single function.
     // TODO: Split dma_transfer into separate H2D/D2H functions to remove this cast.
@@ -229,7 +230,7 @@ bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt
         const_cast<void*>(src),  // NOLINT
         size,
         dst_addr,
-        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite),
+        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite, std::nullopt, ordering),
         DmaDirection::H2D);
 }
 
@@ -287,13 +288,19 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
 // (the target core). When core_start is provided, the transfer becomes a multicast to the
 // core range [core_start, core_end].
 tlb_data PcieProtocol::create_dma_tlb_config(
-    uint64_t addr, tt_xy_pair core_end, NocId noc_id, WindowFlags flags, std::optional<tt_xy_pair> core_start) {
+    uint64_t addr,
+    tt_xy_pair core_end,
+    NocId noc_id,
+    WindowFlags flags,
+    std::optional<tt_xy_pair> core_start,
+    IoOrdering ordering) {
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core_end.x;
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
-    config.ordering = tlb_data::Relaxed;
+    // IoOrdering carries the TLB encoding, as the static_asserts in tlb_window.cpp check.
+    config.ordering = static_cast<uint64_t>(ordering);
     config.set_static_vc(get_architecture_tlbs(pci_device_->get_arch()).get_static_vc(flags));
     if (core_start) {
         config.x_start = core_start->x;

@@ -272,8 +272,8 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         *get_cached_wc_tlb_window(), dest, translated_core, l1_src, size, get_selected_noc_id(), ordering);
 }
 
-void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_write(src, addr, size, core, get_selected_noc_id());
+void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr, IoOrdering ordering) {
+    tt_device_->dma_write(src, addr, size, core, get_selected_noc_id(), ordering);
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {

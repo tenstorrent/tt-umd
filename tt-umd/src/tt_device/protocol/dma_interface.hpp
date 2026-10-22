@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
@@ -44,10 +45,11 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Target core coordinates.
      * @param noc_id NOC to route through.
+     * @param ordering Ordering of the device-side writes the transfer issues.
      * @return true on success; false if DMA is unavailable.
      */
     [[nodiscard]] virtual bool dma_write(
-        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+        const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id, IoOrdering ordering) = 0;
 
     /**
      * @brief Multicast Host-to-Device DMA via internal staging buffer.

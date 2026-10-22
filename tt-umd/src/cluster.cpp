@@ -1341,9 +1341,10 @@ void Cluster::write_to_device_reg(
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
-void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+void Cluster::dma_write_to_device(
+    const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    get_chip(chip)->dma_write_to_device(src, size, core, addr);
+    get_chip(chip)->dma_write_to_device(src, size, core, addr, ordering);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {

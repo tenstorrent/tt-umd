@@ -197,19 +197,59 @@ TEST(ApiEmuleClusterTest, NonTranslatedCoreNamingStillResolvesToAPoolSlot) {
     }
 }
 
-TEST(ApiEmuleClusterTest, RefusesDescriptorWhoseL1ExceedsTheSlotStride) {
-    // quasar_simulation_1x1.yaml declares worker_l1_size 4 MiB, above the 2 MB slot stride. Before
-    // the slot map was fixed at construction this silently overran into the next core's slot.
+namespace {
+
+// quasar_simulation_2x3.yaml declares worker_l1_size 4 MiB and two Tensix workers.
+std::unique_ptr<Cluster> make_quasar_2x3_cluster(ClusterDescriptor& cluster_desc) {
+    ClusterOptions options{};
+    options.chip_type = ChipType::SWEMULE;
+    options.sdesc_path = test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml");
+    options.cluster_descriptor = &cluster_desc;
+    return std::make_unique<Cluster>(options);
+}
+
+}  // namespace
+
+TEST(ApiEmuleClusterTest, WorkerL1LargerThan2MiBDoesNotOverlapTheNextCore) {
+    if constexpr (!std::is_constructible_v<tt_emule::L1Pool, size_t, size_t>) {
+        GTEST_SKIP() << "The supplied tt-emule dependency has fixed 2 MiB L1 slots";
+    }
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_mock_cluster({0}, tt::ARCH::QUASAR, /*noc_translation_enabled=*/true);
-    auto build_oversized_l1_cluster = [&]() {
-        ClusterOptions options{};
-        options.chip_type = ChipType::SWEMULE;
-        options.sdesc_path = test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml");
-        options.cluster_descriptor = cluster_desc.get();
-        Cluster cluster{options};
-    };
-    EXPECT_THROW(build_oversized_l1_cluster(), std::exception);
+    std::unique_ptr<Cluster> cluster = make_quasar_2x3_cluster(*cluster_desc);
+    const ChipId chip_id = *cluster->get_target_device_ids().begin();
+    const SocDescriptor& soc = cluster->get_soc_descriptor(chip_id);
+    const std::vector<CoreCoord> cores = soc.get_cores(CoreType::TENSIX);
+    ASSERT_GE(cores.size(), 2u);
+
+    // Mark the start of every core's L1, then fill the rest of every core's L1 but the last core's. If a
+    // core's L1 runs into the next core's, the fill overwrites that core's mark.
+    const size_t l1_size = static_cast<size_t>(soc.worker_l1_size);
+    constexpr size_t kMarkSize = 64;
+    auto mark = [](size_t core) { return std::vector<uint8_t>(kMarkSize, static_cast<uint8_t>(core + 1)); };
+    for (size_t c = 0; c < cores.size(); ++c) {
+        const std::vector<uint8_t> data = mark(c);
+        cluster->write_to_device(data.data(), data.size(), chip_id, cores[c], 0);
+    }
+    const std::vector<uint8_t> fill(l1_size - kMarkSize, 0xA5);
+    for (size_t c = 0; c + 1 < cores.size(); ++c) {
+        cluster->write_to_device(fill.data(), fill.size(), chip_id, cores[c], kMarkSize);
+    }
+    for (size_t c = 0; c < cores.size(); ++c) {
+        std::vector<uint8_t> read_back(kMarkSize, 0);
+        cluster->read_from_device(read_back.data(), chip_id, cores[c], 0, read_back.size());
+        EXPECT_EQ(read_back, mark(c)) << "core (" << cores[c].x << "," << cores[c].y
+                                      << ") start of L1 was overwritten by another core";
+    }
+}
+
+TEST(ApiEmuleClusterTest, FixedSlotPoolRefusesAWorkerL1LargerThanItsSlot) {
+    if constexpr (std::is_constructible_v<tt_emule::L1Pool, size_t, size_t>) {
+        GTEST_SKIP() << "The supplied tt-emule dependency sizes its L1 slots from the worker L1";
+    }
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        ClusterDescriptor::create_mock_cluster({0}, tt::ARCH::QUASAR, /*noc_translation_enabled=*/true);
+    EXPECT_THROW(make_quasar_2x3_cluster(*cluster_desc), std::exception);
 }
 
 TEST(ApiEmuleClusterTest, SharedBackingRefusesASynthesizedUniqueId) {

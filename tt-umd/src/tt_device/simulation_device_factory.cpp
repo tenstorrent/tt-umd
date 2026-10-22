@@ -123,6 +123,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
         if (att_program.has_value()) {
             att_program->apply(ip_device_id, *rtl_devices.at(chip_id)->get_communicator());
         }
+        rtl_devices.at(chip_id)->check_att_matches_map();
         devices[chip_id] = std::move(rtl_devices.at(chip_id));
     }
     return devices;

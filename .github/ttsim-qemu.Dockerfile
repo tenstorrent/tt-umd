@@ -12,6 +12,9 @@
 ARG UBUNTU_VERSION=22.04
 ARG TTSIM_QEMU_COMMIT=cade2422b833f77e5afddcec7da6916993bc2416
 ARG TT_KMD_TAG=ttkmd-2.11.0
+# Keraunos support is in no tt-kmd release yet, so the Grendel row builds a second module from a
+# branch. Every other card keeps the released driver above.
+ARG TT_KMD_KERAUNOS_REF=joelsmith/keraunos2
 
 # Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu. ttsim-qemu is Tenstorrent's fork of
 # QEMU that adds a `ttsim` PCI device, which forwards the guest's BAR accesses to libttsim and the
@@ -62,6 +65,19 @@ RUN ls /lib/modules > /kver \
     && git clone --depth 1 --branch ${TT_KMD_TAG} https://github.com/tenstorrent/tt-kmd.git /tt-kmd \
     && make -C /tt-kmd KDIR=/lib/modules/"$(cat /kver)"/build
 
+# Stage 2b: tt-kmd with Keraunos support, kept as a separate module so the released driver stays
+# what every other card loads. The same stage builds the Grendel bring-up helper, because it is the
+# only one with a compiler and the guest deliberately has none.
+FROM kmd AS kmd-keraunos
+
+ARG TT_KMD_KERAUNOS_REF
+
+RUN git clone --depth 1 --branch ${TT_KMD_KERAUNOS_REF} https://github.com/tenstorrent/tt-kmd.git /tt-kmd-keraunos \
+    && make -C /tt-kmd-keraunos KDIR=/lib/modules/"$(cat /kver)"/build
+
+COPY grendel-att-setup.c /grendel-att-setup.c
+RUN gcc -O2 -Wall -Wextra -o /grendel-att-setup /grendel-att-setup.c
+
 # Stage 3: the guest root filesystem. It boots as an initramfs, so it needs no disk image, and PID 1
 # is ttsim-vm-init.sh instead of an init system.
 FROM ubuntu:${UBUNTU_VERSION} AS guest
@@ -76,6 +92,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=kmd /tt-kmd/tenstorrent.ko /opt/tenstorrent.ko
+COPY --from=kmd-keraunos /tt-kmd-keraunos/tenstorrent.ko /opt/tenstorrent-keraunos.ko
+COPY --from=kmd-keraunos /grendel-att-setup /opt/grendel-att-setup
 COPY ttsim-vm-init.sh /init
 RUN chmod +x /init
 

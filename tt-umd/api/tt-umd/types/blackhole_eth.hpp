@@ -185,5 +185,14 @@ static_assert(
 static_assert(
     BOOT_RESULTS_ADDR + offsetof(eth_status_t, port_status) == 0x7CC04,
     "eth_status_t.port_status address must be 0x7CC04");
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(eth_status_t, train_status) == 0x7CC08,
+    "eth_status_t.train_status address must be 0x7CC08");
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(eth_status_t, train_speed) == 0x7CC0C,
+    "eth_status_t.train_speed address must be 0x7CC0C");
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(boot_results_t, serdes_results) + offsetof(serdes_results_t, target_speed) == 0x7CC8C,
+    "serdes_results_t.target_speed address must be 0x7CC8C");
 
 }  // namespace tt::umd::blackhole

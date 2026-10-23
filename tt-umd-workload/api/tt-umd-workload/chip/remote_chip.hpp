@@ -11,7 +11,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

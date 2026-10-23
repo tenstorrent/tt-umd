@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/timeouts.hpp"

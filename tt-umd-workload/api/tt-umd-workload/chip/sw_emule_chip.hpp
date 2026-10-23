@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 
 namespace tt_emule {

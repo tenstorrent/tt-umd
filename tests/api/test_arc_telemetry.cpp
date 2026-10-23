@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/chip/remote_chip.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

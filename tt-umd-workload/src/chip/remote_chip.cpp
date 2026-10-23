@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/remote_chip.hpp"
+#include "tt-umd-workload/chip/remote_chip.hpp"
 
 #include <cstdint>
 #include <memory>

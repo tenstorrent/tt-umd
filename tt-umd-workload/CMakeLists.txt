@@ -28,7 +28,15 @@ if(COMMAND TT_ENABLE_UNITY_BUILD)
     tt_enable_unity_build(tt-umd)
 endif()
 
-target_sources(tt-umd PRIVATE src/cluster.cpp)
+target_sources(
+    tt-umd
+    PRIVATE
+        src/chip/chip.cpp
+        src/chip/local_chip.cpp
+        src/chip/mock_chip.cpp
+        src/chip/remote_chip.cpp
+        src/cluster.cpp
+)
 
 target_include_directories(
     tt-umd
@@ -59,7 +67,9 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_EMULE)
+    target_sources(tt-umd PRIVATE src/chip/sw_emule_chip.cpp)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
+    target_link_libraries(tt-umd PRIVATE tt-emule::headers)
 endif()
 
 if(TT_UMD_ENABLE_TRACY)
@@ -73,7 +83,14 @@ target_sources(
         FILE_SET api
         TYPE HEADERS
         BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
-        FILES api/tt-umd-workload/cluster.hpp api/tt-umd-workload/simulation/simulation_chip.hpp
+        FILES
+            api/tt-umd-workload/chip/chip.hpp
+            api/tt-umd-workload/chip/local_chip.hpp
+            api/tt-umd-workload/chip/mock_chip.hpp
+            api/tt-umd-workload/chip/remote_chip.hpp
+            api/tt-umd-workload/chip/sw_emule_chip.hpp
+            api/tt-umd-workload/cluster.hpp
+            api/tt-umd-workload/simulation/simulation_chip.hpp
 )
 
 # Skip install for static libraries as they are typically used for internal linking only

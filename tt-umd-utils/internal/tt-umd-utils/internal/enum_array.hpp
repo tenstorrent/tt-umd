@@ -10,8 +10,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "cpp_compat.hpp"
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
+#include "tt-umd-utils/internal/cpp_compat.hpp"
 
 namespace tt::umd {
 

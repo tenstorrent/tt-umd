@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "eth_ipc.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "tt-umd/utils/error.hpp"
 
 // NOLINTBEGIN.
@@ -253,8 +253,7 @@ void TTSimCommunicator::initialize() {
     const bool image_hosts_multiple_chips =
         image_endpoint_count_.has_value()
             ? *image_endpoint_count_ > 1
-            : std::filesystem::exists(
-                  SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+            : std::filesystem::exists(get_simulator_cluster_descriptor_path(simulator_directory_));
     const bool self_describing_multi_mmio = num_chips_ > 1 && image_hosts_multiple_chips;
     if (self_describing_multi_mmio) {
         std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);

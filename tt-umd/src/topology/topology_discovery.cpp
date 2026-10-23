@@ -22,6 +22,7 @@
 
 #include "common/utils.hpp"
 #include "firmware/erisc_firmware.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
 #include "topology/topology_utils.hpp"
@@ -31,7 +32,6 @@
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery_error.hpp"
@@ -116,7 +116,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             "Discovering a simulator needs a SoC descriptor path: a simulator's architecture is "
             "declared by its descriptor rather than probed from a bus.");
         current_arch = SocDescriptor::get_arch_from_soc_descriptor_path(
-            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulation->simulator_path));
+            get_simulator_soc_descriptor_path(options.simulation->simulator_path));
 #else
         UMD_THROW(
             error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");

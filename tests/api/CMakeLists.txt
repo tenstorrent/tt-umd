@@ -1,4 +1,5 @@
 set(API_TESTS_SRCS
+    test_quasar_io_window.cpp
     test_chip.cpp
     test_cluster_descriptor.cpp
     test_cluster.cpp

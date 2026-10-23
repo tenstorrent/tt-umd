@@ -16,6 +16,7 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -33,7 +34,6 @@
 #include "tt-umd/utils/mmio_timeout_config.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -28,6 +28,7 @@
 
 #include "common/utils.hpp"
 #include "tt-umd-utils/internal/disjoint_set.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"

@@ -130,7 +130,10 @@ bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device(uint32_t dram_membar_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
+    // A transport that reports no host memory channels has no sysmem to pin, and the barriers
+    // initialize_membars() resets live in core memory this path cannot reach yet. JTAG is in the
+    // same position, so both leave the device started with neither.
+    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG || sysmem_manager_ == nullptr) {
         return;
     }
 

@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -32,6 +33,22 @@
 #include "utils.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
+
+template <typename IsComplete>
+void wait_for_dma_completion(IsComplete is_complete) {
+    const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;
+    while (!is_complete()) {
+        if (std::chrono::steady_clock::now() > deadline) {
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
+        }
+    }
+}
+
+}  // namespace
 
 DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
     switch (arch) {
@@ -425,7 +442,10 @@ void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, cons
         UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
     }
 
-    std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+    std::visit([&](auto& strategy) { strategy.d2h_start(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+    wait_for_dma_completion([&] {
+        return std::visit([&](auto& strategy) { return strategy.d2h_is_complete(bar2, dma_buffer); }, dma_strategy_);
+    });
 }
 
 void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
@@ -448,7 +468,10 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
         UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
     }
 
-    std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+    std::visit([&](auto& strategy) { strategy.h2d_start(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
+    wait_for_dma_completion([&] {
+        return std::visit([&](auto& strategy) { return strategy.h2d_is_complete(bar2, dma_buffer); }, dma_strategy_);
+    });
 }
 
 }  // namespace tt::umd

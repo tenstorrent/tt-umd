@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -489,22 +490,17 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
     uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms) {
     constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
+    // Polls the telemetry copy rather than the live ARC readout: telemetry lags a clock change, so
+    // returning only once it has caught up keeps every later get_clock read consistent with the
+    // state just set. Read through the provider, which maps the tag per firmware version.
     uint32_t aiclk = 0;
     const bool settled = utils::poll_until(
         [&] {
-            // Wormhole reads AICLK through an ARC message rather than telemetry. The 0xFFFF pair
-            // packs to the firmware's no-argument sentinel, exactly as TTDevice::get_clock sends it;
-            // a failed read throws rather than settling on garbage, as the deleted path did.
-            DeviceCommandResult result = send_device_command(
-                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-                {0xFFFF, 0xFFFF},
-                timeout::ARC_MESSAGE_TIMEOUT,
-                noc_id);
-            if (result.exit_code != 0) {
-                UMD_THROW(
-                    error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
+            const std::optional<uint32_t> telemetry_aiclk = firmware_info_provider_->get_aiclk(noc_id);
+            if (!telemetry_aiclk.has_value()) {
+                UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Wormhole device.");
             }
-            aiclk = result.return_values.at(0);
+            aiclk = *telemetry_aiclk;
             return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
         },
         timeout_ms,

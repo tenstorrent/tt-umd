@@ -27,6 +27,7 @@
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -117,7 +118,7 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_tt_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
-    return TTDevice::create(std::move(remote_communication));
+    return create_tt_device(std::move(remote_communication));
 }
 
 // Create remote TTDevice from explicit EthCoord (rack, shelf, x, y). Does not set
@@ -131,7 +132,7 @@ std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chi
             std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
                 " architecture.");
     }
-    return TTDevice::create(std::move(remote_communication));
+    return create_tt_device(std::move(remote_communication));
 }
 
 void bind_tt_device(nb::module_ &m) {
@@ -247,7 +248,7 @@ void bind_tt_device(nb::module_ &m) {
                const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
                 // None enables the safe API wherever it is supported, which is PCIe only.
                 bool resolved_use_safe_api = use_safe_api.value_or(device_type == IODeviceType::PCIe);
-                return TTDevice::create(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
+                return create_tt_device(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
             },
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,

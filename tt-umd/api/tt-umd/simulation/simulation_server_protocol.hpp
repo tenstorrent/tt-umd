@@ -64,13 +64,14 @@ struct SimulationServerResponse {
 // Device identity a host serves in reply to a GetDeviceInfo request; mirrors
 // wire::SimulationServerDeviceInfo. Everything a client needs to build a matching SocDescriptor.
 struct SimulationServerDeviceInfo {
-    // 0 on success; nonzero signals a host-side failure (e.g. the host had no YAML to serve).
+    // 0 on success; nonzero signals a host-side failure.
     int32_t status = 0;
     // tt::ARCH value of the served device.
     int32_t arch = 0;
     // Which simulator the host runs, so the client instantiates the matching device class.
     SimulationBackendType backend_type = SimulationBackendType::TTSIM;
-    // Full text of the host's SoC descriptor YAML file, so the client can build a matching one.
+    // Full text of the host's SoC descriptor YAML file, so the client can build a matching one. Empty
+    // when the host uses its architecture's built-in descriptor.
     std::string soc_descriptor_yaml;
     // Whether the host applies NOC translation.
     bool noc_translation_enabled = false;

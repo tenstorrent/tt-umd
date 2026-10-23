@@ -350,8 +350,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::sig("def noc_write(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> "
                     "None"),
             "Write arbitrary-length data to a core at the specified address")
-        // A NOC request to register space must be exactly one register wide, which noc_read/noc_write do not
-        // guarantee for multi-register transfers.
         .def(
             "read_from_device_reg",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {

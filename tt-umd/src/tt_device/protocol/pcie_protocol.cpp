@@ -39,16 +39,6 @@ namespace {
 
 constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
 
-template <typename IsComplete>
-void wait_for_dma_completion(IsComplete is_complete) {
-    const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;
-    while (!is_complete()) {
-        if (std::chrono::steady_clock::now() > deadline) {
-            UMD_THROW(error::RuntimeError, "DMA timeout.");
-        }
-    }
-}
-
 }  // namespace
 
 DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
@@ -392,9 +382,9 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
         if (direction == DmaDirection::H2D) {
             std::memcpy(dma_buffer.buffer, buf, transfer_size);
-            dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
-        } else {
-            dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+        }
+        run_dma_transfer(direction, dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+        if (direction == DmaDirection::D2H) {
             std::memcpy(buf, dma_buffer.buffer, transfer_size);
         }
 
@@ -432,11 +422,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
         const auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
         const size_t transfer_size = std::min(size, tlb_window->get_size());
 
-        if (direction == DmaDirection::H2D) {
-            dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
-        } else {
-            dma_d2h_transfer(iova, static_cast<uint32_t>(axi_address), transfer_size);
-        }
+        run_dma_transfer(direction, iova, static_cast<uint32_t>(axi_address), transfer_size);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -596,14 +582,14 @@ bool PcieProtocol::dma_is_complete(DmaDirection direction) {
         dma_strategy_);
 }
 
-void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    program_dma_engine(DmaDirection::D2H, dst, src, size);
-    wait_for_dma_completion([&] { return dma_is_complete(DmaDirection::D2H); });
-}
-
-void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    program_dma_engine(DmaDirection::H2D, src, dst, size);
-    wait_for_dma_completion([&] { return dma_is_complete(DmaDirection::H2D); });
+void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size) {
+    program_dma_engine(direction, host_addr, axi_addr, size);
+    const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;
+    while (!dma_is_complete(direction)) {
+        if (std::chrono::steady_clock::now() > deadline) {
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
+        }
+    }
 }
 
 }  // namespace tt::umd

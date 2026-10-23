@@ -102,8 +102,8 @@ private:
     void program_dma_engine(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size);
     bool dma_is_complete(DmaDirection direction);
 
-    void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
-    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
+    // Program a transfer and wait for it to finish.
+    void run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size);
 
     void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);

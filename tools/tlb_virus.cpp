@@ -20,6 +20,7 @@
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
 
@@ -42,7 +43,7 @@ int main(int argc, char* argv[]) {
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
-            auto tt_device = TTDevice::create(pci_device_id);
+            auto tt_device = create_tt_device(pci_device_id);
             std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();

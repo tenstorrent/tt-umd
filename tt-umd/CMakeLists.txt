@@ -80,6 +80,7 @@ target_sources(
         src/types/tlb.cpp
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
+        src/tt_device/tt_device_factory.cpp
         src/tt_device/tt_device_error.cpp
         src/tt_device/reset/classic_tile_risc_reset.cpp
         src/tt_device/reset/tsc_risc_reset.cpp
@@ -220,6 +221,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp
+                api/tt-umd/tt_device/tt_device_factory.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp
                 api/tt-umd/tt_device/reset/risc_reset.hpp
                 api/tt-umd/tt_device/hang_detection/hang_detector.hpp

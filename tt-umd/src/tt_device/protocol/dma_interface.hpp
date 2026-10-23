@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
@@ -20,7 +21,7 @@ namespace tt::umd {
  * - Bounce buffer: copies through an internal pinned staging buffer. Returns false if DMA is
  *   unavailable, letting the caller fall back.
  * - Zero-copy: operates directly on caller-managed pinned memory identified by IOVA, bypassing
- *   the staging buffer.
+ *   the staging buffer. Also available asynchronously, as a start/check pair per direction.
  */
 class DmaInterface {
 public:
@@ -103,6 +104,38 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         NocId noc_id) = 0;
+
+    /**
+     * @brief Starts a zero-copy H2D DMA transfer, without waiting for it.
+     *
+     * The device runs one transfer at a time, and a transfer must not cross a boundary of the DMA
+     * window (2 MiB on Blackhole, 16 MiB on Wormhole). The thread that started it owns it: only that
+     * thread is told it finished. Host memory must stay pinned and unchanged until then.
+     *
+     * @return true if the transfer was started; false if the device is busy, so nothing was started
+     *         and the caller can retry.
+     * @throws if DMA is unavailable on this device, or the transfer is invalid.
+     */
+    [[nodiscard]] virtual bool dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
+     * @brief Zero-copy D2H counterpart of dma_write_zero_copy_start(). Host memory must not be read
+     * until the transfer finishes.
+     */
+    [[nodiscard]] virtual bool dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
+     * @brief Reports on the H2D transfer in flight, without waiting. The owning thread is told
+     * FINISHED or ERROR exactly once; other threads only observe.
+     */
+    [[nodiscard]] virtual DmaTransferState dma_write_zero_copy_check() = 0;
+
+    /**
+     * @brief D2H counterpart of dma_write_zero_copy_check().
+     */
+    [[nodiscard]] virtual DmaTransferState dma_read_zero_copy_check() = 0;
 };
 
 }  // namespace tt::umd

@@ -36,6 +36,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
@@ -266,6 +267,50 @@ public:
      */
     virtual void dma_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Starts a zero-copy Host-to-Device DMA transfer and returns without waiting.
+     *
+     * The device runs one DMA transfer at a time. The calling thread owns the transfer it starts: only its
+     * dma_write_zero_copy_check() calls see it finish, so it has to keep checking until FINISHED or ERROR.
+     * Source memory has to stay pinned and unchanged until then. A blocking DMA call from the owning thread
+     * while its transfer is in flight throws, since only it could finish the transfer.
+     *
+     * The transfer must not cross a boundary of the DMA window, an aligned 2 MiB block of the core's address
+     * space on Blackhole and 16 MiB on Wormhole; split larger transfers into several.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target device core. Must be a multiple of 4.
+     * @param size Number of bytes to transfer. Must be a non-zero multiple of 4.
+     * @param core Target core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @return true if the transfer started; false if the device is busy, in which case nothing was started
+     *         and the call can be retried.
+     */
+    bool dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Device-to-Host counterpart of dma_write_zero_copy_start(). Destination memory must not be
+     * read until the transfer finishes. Not supported on Blackhole.
+     */
+    bool dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Reports on the Host-to-Device transfer in flight on this device, without waiting.
+     *
+     * The thread that started the transfer gets FINISHED or ERROR exactly once, after which the device is free
+     * and later checks return IDLE. Any other thread of this process gets IN_PROGRESS while a Host-to-Device
+     * transfer is in flight and IDLE otherwise. Transfers started by other processes are not reported; whether
+     * the device is free is told by the return value of dma_write_zero_copy_start().
+     */
+    DmaTransferState dma_write_zero_copy_check();
+
+    /**
+     * @brief Device-to-Host counterpart of dma_write_zero_copy_check().
+     */
+    DmaTransferState dma_read_zero_copy_check();
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid

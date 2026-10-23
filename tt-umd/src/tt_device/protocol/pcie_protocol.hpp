@@ -5,16 +5,20 @@
  */
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <thread>
+#include <utility>
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
@@ -78,6 +82,12 @@ public:
     bool dma_multicast_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id)
         override;
+    [[nodiscard]] bool dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] bool dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
+    [[nodiscard]] DmaTransferState dma_write_zero_copy_check() override;
+    [[nodiscard]] DmaTransferState dma_read_zero_copy_check() override;
 
 private:
     TlbWindow* get_cached_tlb_window();
@@ -86,13 +96,27 @@ private:
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);
 
+    enum class DmaDirection { H2D, D2H };
+
+    // Program a transfer into the engine, or report whether it finished. Callers keep the engine to themselves.
+    void program_dma_engine(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size);
+    bool dma_is_complete(DmaDirection direction);
+
     void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
     void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
 
     void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);
 
-    enum class DmaDirection { H2D, D2H };
+    // The asynchronous zero-copy transfer on the engine. Only the owner thread is told it finished.
+    struct InFlightDma {
+        std::thread::id owner;
+        DmaDirection direction;
+        std::chrono::steady_clock::time_point deadline;
+        // Keeps other processes off the engine, from the start until the owner's check sees the transfer end.
+        std::unique_lock<MutexInterface> pcie_dma_lock;
+    };
+
     tlb_data create_dma_tlb_config(
         uint64_t addr,
         tt_xy_pair core_end,
@@ -101,9 +125,14 @@ private:
         std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
+    bool dma_zero_copy_start(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
+    DmaTransferState dma_zero_copy_check(DmaDirection direction);
 
     // Keeps other processes off this device's DMA engine. Taken while holding dma_mutex_, never before it.
     std::unique_lock<MutexInterface> lock_dma_engine();
+    // Takes the engine for a blocking transfer: waits out an asynchronous one in flight, then holds dma_mutex_ and
+    // the PCIE_DMA lock. Throws if the calling thread owns that transfer, since only it could finish it.
+    std::pair<std::unique_lock<std::mutex>, std::unique_lock<MutexInterface>> lock_dma_for_blocking_transfer();
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
@@ -114,6 +143,7 @@ private:
     std::mutex io_lock_;
     // Keeps threads of this process off the DMA engine and the DMA TLB window.
     std::mutex dma_mutex_;
+    std::optional<InFlightDma> in_flight_dma_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 

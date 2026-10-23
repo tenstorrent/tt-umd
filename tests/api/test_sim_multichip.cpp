@@ -42,12 +42,12 @@
 #include <functional>
 
 #include "simulation/eth_ipc.hpp"
+#include "tt-umd-workload/cluster.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip/chip.hpp"
 #include "tt-umd/chip/remote_chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"

@@ -13,7 +13,7 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/fetch_local_files.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/types/communication_protocol.hpp"

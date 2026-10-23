@@ -16,7 +16,7 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"

@@ -15,8 +15,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/chip/chip.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"

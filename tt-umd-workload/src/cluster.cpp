@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -47,12 +47,12 @@
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "io_window/io_window_target.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"

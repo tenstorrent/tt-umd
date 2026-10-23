@@ -11,7 +11,7 @@
 #include <string>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 
 using namespace tt::umd;
 

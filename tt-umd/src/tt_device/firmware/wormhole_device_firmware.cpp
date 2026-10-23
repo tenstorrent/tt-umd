@@ -728,6 +728,9 @@ void WormholeDeviceFirmware::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_
 }
 
 std::optional<uint64_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
         return std::nullopt;
     }
@@ -739,6 +742,9 @@ std::optional<uint64_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_add
 }
 
 std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
         return std::nullopt;
     }

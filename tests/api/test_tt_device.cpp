@@ -23,6 +23,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -373,6 +374,8 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_THROW(tt_device->get_clock(), err);
         EXPECT_THROW(tt_device->get_max_clock_freq(), err);
         EXPECT_THROW(tt_device->get_firmware_version(), err);
+        EXPECT_THROW(tt_device->get_device_firmware()->get_runtime_telemetry_buffer_size(), err);
+        EXPECT_THROW(tt_device->get_device_firmware()->get_runtime_telemetry_buffer_address(), err);
 
         // Initialize device.
         ASSERT_NO_THROW(tt_device->init_tt_device());

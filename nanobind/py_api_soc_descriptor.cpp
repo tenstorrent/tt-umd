@@ -112,6 +112,11 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def_prop_ro("unpacker_version", &SocArchDescriptor::get_unpacker_version, release_gil())
         .def_prop_ro("dst_size_alignment", &SocArchDescriptor::get_dst_size_alignment, release_gil())
         .def_prop_ro("packer_version", &SocArchDescriptor::get_packer_version, release_gil())
+        .def_prop_ro(
+            "ip_variant",
+            &SocArchDescriptor::get_ip_variant,
+            release_gil(),
+            "IP variant, or None for the default design of the arch")
         .def_prop_ro("trisc_sizes", &SocArchDescriptor::get_trisc_sizes, release_gil())
         .def_prop_ro("device_descriptor_file_path", &SocArchDescriptor::get_device_descriptor_file_path, release_gil())
         .def_prop_ro("worker_grid_size", &SocArchDescriptor::get_worker_grid_size, release_gil())

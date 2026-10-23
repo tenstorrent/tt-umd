@@ -351,6 +351,41 @@ void bind_tt_device(nb::module_ &m) {
                     "None"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
+            "read_from_device_reg",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
+                tt_xy_pair core = {core_x, core_y};
+                std::vector<uint8_t> buffer(size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device_reg(buffer.data(), core, addr, size, get_selected_noc_id());
+                }
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read registers from a core at the specified address with one 32-bit access per register. addr and size "
+            "must be multiples of 4.")
+        .def(
+            "write_to_device_reg",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
+                PyBufferView buffer(data);
+                tt_xy_pair core = {core_x, core_y};
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device_reg(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
+                }
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::sig("def write_to_device_reg(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
+            "Write registers to a core at the specified address with one 32-bit access per register. addr and the data "
+            "size must be multiples of 4. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
+        .def(
             "noc_broadcast",
             [](TTDevice &self, uint64_t addr, nb::handle data) -> void {
                 PyBufferView buffer(data);

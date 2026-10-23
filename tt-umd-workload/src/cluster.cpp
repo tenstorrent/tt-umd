@@ -41,6 +41,7 @@
 #include "simulation/rtl_sim_ip_layout.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -242,7 +243,7 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
         // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
         // construct one.
-        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+        remote_tt_device = create_simulation_remote_tt_device(std::move(remote_communication), soc_desc);
     }
 
     ChipInfo chip_info;

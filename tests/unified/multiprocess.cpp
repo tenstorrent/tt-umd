@@ -29,6 +29,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -229,7 +230,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids.at(0));
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -255,7 +256,7 @@ TEST(Multiprocess, LongLivedMonitor) {
 
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids.at(0));
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -355,7 +356,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
                       << std::endl;
 
             // Each process creates its own TTDevice object with the same PCIDevice.
-            std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            std::unique_ptr<TTDevice> tt_device = create_tt_device(test_device_id);
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
 
@@ -430,7 +431,7 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
             std::cout << "Process " << process_id << " with pid " << pid << ": Starting DMA operations" << std::endl;
 
             // Each process creates its own TTDevice object with the same PCIDevice.
-            std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            std::unique_ptr<TTDevice> tt_device = create_tt_device(test_device_id);
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
 
@@ -570,7 +571,7 @@ protected:
     static void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
         CoreCoord core;
         {
-            std::unique_ptr<TTDevice> probe_device = TTDevice::create(pci_device_id);
+            std::unique_ptr<TTDevice> probe_device = create_tt_device(pci_device_id);
             probe_device->init_tt_device();
             std::vector<CoreCoord> cores =
                 probe_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -589,7 +590,7 @@ protected:
         // window back to KMD, which then hands the id to another worker while its config still
         // points at the previous owner's core.
         for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
-            std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+            std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
 
             std::fill(
                 payload.begin(),

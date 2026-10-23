@@ -38,6 +38,7 @@
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
@@ -260,7 +261,7 @@ void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
 
     // Checked before the io_device_type switch below, and deliberately so: a simulator reports PCIe
-    // as its transport, but TTDevice::create(device_id, ...) would try to open /dev/tenstorrent for
+    // as its transport, but create_tt_device(device_id, ...) would try to open /dev/tenstorrent for
     // it. A simulator image enumerates its own endpoints instead.
     if (options.simulation.has_value()) {
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -303,7 +304,7 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+            create_tt_device(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(

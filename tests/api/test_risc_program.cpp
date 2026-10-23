@@ -27,6 +27,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -406,7 +407,7 @@ TEST(TestRiscProgram, ClusterDestructorClosesDevice) {
     }
 
     // init_tt_device() is required: without the SocDescriptor it builds, the device cannot translate tensix_core.
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
     tt_device->init_tt_device();
 
     const RiscType reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(

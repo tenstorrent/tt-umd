@@ -5,7 +5,7 @@
 // Safe-I/O warm-reset tests.
 //
 // KMD invalidates a device's PCIe mappings when it resets the device, so any host dereference of
-// those mappings afterwards raises SIGBUS. The safe API (TTDevice::create(..., use_safe_api=true))
+// those mappings afterwards raises SIGBUS. The safe API (create_tt_device(..., use_safe_api=true))
 // exists to turn that into a catchable error: it installs a process-wide SIGBUS handler and puts
 // every window into IoSafety::Enabled, where each operation runs under a sigsetjmp guard that
 // converts the signal into SigbusError.
@@ -60,6 +60,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -107,7 +108,7 @@ bool wait_for_condition(Predicate predicate, const std::chrono::milliseconds tim
 // a Cluster's descriptor: the board type needs one initialised device, whereas building a Cluster
 // runs a full topology discovery.
 bool is_galaxy_board(int pci_device_id) {
-    auto tt_device = TTDevice::create(pci_device_id);
+    auto tt_device = create_tt_device(pci_device_id);
     tt_device->init_tt_device();
     return is_galaxy_board_type(tt_device->get_board_type());
 }
@@ -177,7 +178,7 @@ protected:
     // and selects IoSafety::Enabled for the windows these devices do I/O through.
     void open_safe_devices() {
         for (int pci_device_id : pci_device_ids_) {
-            auto tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe, /*use_safe_api=*/true);
+            auto tt_device = create_tt_device(pci_device_id, IODeviceType::PCIe, /*use_safe_api=*/true);
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
             tensix_core_ = tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];

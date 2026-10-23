@@ -31,6 +31,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -47,7 +48,7 @@ TEST(ApiSysmemManager, BasicIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
         // Initializes system memory with one channel.

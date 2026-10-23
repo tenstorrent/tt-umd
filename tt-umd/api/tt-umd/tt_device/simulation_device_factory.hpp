@@ -51,7 +51,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
  * Enumerate a simulator image's host-visible endpoints and create one device per endpoint.
  *
  * The counterpart, for a backend with no OS device enumeration, of PCIDevice::enumerate_devices()
- * followed by TTDevice::create() per device. The image reports how many chips it models, so the
+ * followed by create_tt_device() per device. The image reports how many chips it models, so the
  * caller does not have to be told by a cluster descriptor.
  *
  * @param simulator_path Path to the libttsim .so.

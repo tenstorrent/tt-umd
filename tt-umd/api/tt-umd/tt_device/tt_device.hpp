@@ -65,21 +65,8 @@ struct CoreCoord;
 class TTDevice {
 public:
     /**
-     * @brief Factory method to create a TTDevice instance.
-     *
-     * Creates and returns a unique pointer to a TTDevice object configured with the
-     * specified parameters. This is the primary way to instantiate TTDevice objects.
-     *
-     * @param device_number The device identifier/index to connect to, specific to the I/O device interface.
-     * @param device_type The type of I/O device interface to use. (default: PCIe)
-     * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
-     *                     Available only for PCIe I/O device type. (default: false)
-     * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
-     *                            If nullptr, a default descriptor will be used. (default: nullptr)
-     *
-     * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
-     *
-     * @throws May throw exceptions if device creation fails or device_number is invalid.
+     * @brief Deprecated aliases of the creation functions in tt_device_factory.hpp, kept until
+     * out-of-tree callers move over. Call those directly instead.
      */
     static std::unique_ptr<TTDevice> create(
         int device_number,
@@ -92,14 +79,20 @@ public:
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // A remote TTDevice is normally initialized over ARC (init_tt_device), which constructs its SocDescriptor.
-    // Simulated remote chips have no ARC to probe, so the caller supplies the full descriptor directly. This is a
-    // dedicated factory (compiled in only for simulation builds) rather than an overload of the silicon create()
-    // above, so the simulation-only flow stays fully separated from the silicon path.
-    // TODO: temporary - remove once ttsim provides a mocked ARC that can serve the SocDescriptor like silicon does.
     static std::unique_ptr<TTDevice> create_simulation_remote(
         std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+
+    // Builds the one device that is never initialized over ARC, so it is the only caller outside the
+    // hierarchy that may assign the SoC descriptor itself.
+    friend std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
 #endif  // TT_UMD_BUILD_SIMULATION
+
+    // Every TTDevice is built around a model, which supplies its identity and the components it
+    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
+    // architecture descriptor. Assembly - probing the architecture, picking the transport and the
+    // concrete model - lives in tt_device_factory.hpp, not here.
+    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual ~TTDevice() = default;
 
@@ -511,11 +504,6 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    // Every TTDevice is built around a model, which supplies its identity and the components it
-    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
-    // architecture descriptor.
-    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
-
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.

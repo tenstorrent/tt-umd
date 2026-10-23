@@ -166,6 +166,9 @@ class TestSocDescriptor(unittest.TestCase):
                 )
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
+    def test_ip_variant_is_none_without_soc_descriptor_file(self):
+        self.assertIsNone(tt_umd.SocArchDescriptor(tt_umd.ARCH.QUASAR).ip_variant)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,9 +25,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
-constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
-constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
-
 namespace tt::umd {
 
 // Bare soname (no slash), so dlopen resolves it through the RPATH/RUNPATH and the standard loader search paths.
@@ -47,19 +44,6 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         }
 
         jlink_devices.push_back(jlink_id);
-        uint32_t efuse = jtag->read_axi(WORMHOLE_ARC_EFUSE_HARVESTING);
-
-        uint32_t bad_mem_bits = efuse & 0x3FF;
-        uint32_t bad_logic_bits = (efuse >> 10) & 0x3FF;
-
-        /* each set bit inidicates a bad row */
-        uint32_t bad_row_bits = (bad_mem_bits | bad_logic_bits);
-
-        /* efuse_harvesting is the raw harvesting value from the efuse, it is
-         * used for creating device soc descriptor, as UMD expects value in this
-         * format */
-        efuse_harvesting.push_back(bad_row_bits);
-
         jtag->close_jlink();
     }
     if (jlink_devices.empty()) {
@@ -108,20 +92,12 @@ JtagDevice::~JtagDevice() {
 
 uint32_t JtagDevice::get_device_cnt() const { return jlink_devices.size(); }
 
-std::optional<uint32_t> JtagDevice::get_efuse_harvesting(uint8_t chip_id) const {
-    if (chip_id >= get_device_cnt()) {
-        return std::nullopt;
-    }
-
-    return efuse_harvesting[chip_id];
-}
-
 void JtagDevice::select_device(uint8_t chip_id) {
     if (chip_id >= get_device_cnt()) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
+                "JtagDevice::select_device: Device with chip_id {} doesn't exist. "
                 "There are currently {} registered devices.",
                 chip_id,
                 get_device_cnt()));
@@ -144,13 +120,6 @@ tt::ARCH JtagDevice::get_jtag_arch(uint8_t chip_id) {
     select_device(chip_id);
     return device_family_to_arch.at((DeviceFamily)jtag->get_device_family());
 }
-
-int JtagDevice::open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number) {
-    jtag->close_jlink();
-    return jtag->open_jlink_by_serial_wrapper(serial_number);
-}
-
-int JtagDevice::open_jlink_wrapper(uint8_t chip_id) { return jtag->open_jlink_wrapper(); }
 
 // TODO: implement std::optional type return in JTAG library itself.
 // For now JTAG library handles it by exiting the program on error.
@@ -288,13 +257,6 @@ void JtagDevice::read(
     }
 }
 
-std::optional<std::vector<uint32_t>> JtagDevice::enumerate_jlink() { return jtag->enumerate_jlink(); }
-
-void JtagDevice::close_jlink(uint8_t chip_id) {
-    select_device(chip_id);
-    jtag->close_jlink();
-}
-
 std::optional<uint32_t> JtagDevice::read_id_raw(uint8_t chip_id) {
     select_device(chip_id);
     return jtag->read_id_raw();
@@ -303,21 +265,6 @@ std::optional<uint32_t> JtagDevice::read_id_raw(uint8_t chip_id) {
 std::optional<uint32_t> JtagDevice::read_id(uint8_t chip_id) {
     select_device(chip_id);
     return jtag->read_id();
-}
-
-std::optional<uint8_t> JtagDevice::get_current_device_idx() const { return curr_device_idx; }
-
-int JtagDevice::get_device_id(uint8_t chip_id) const {
-    if (chip_id >= get_device_cnt()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
-                "There are currently {} registered devices.",
-                chip_id,
-                get_device_cnt()));
-    }
-    return jlink_devices[chip_id];
 }
 
 std::unordered_set<int> JtagDevice::get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const {

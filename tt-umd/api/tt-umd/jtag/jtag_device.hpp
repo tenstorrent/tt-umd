@@ -36,15 +36,9 @@ public:
         const std::filesystem::path& binary_directory = jtag_library_path,
         const std::unordered_set<int>& jtag_target_devices = {});
 
-    void close_device() {}
-
     uint32_t get_device_cnt() const;
-    std::optional<uint32_t> get_efuse_harvesting(uint8_t chip_id) const;
 
     tt::ARCH get_jtag_arch(uint8_t chip_id);
-
-    int open_jlink_by_serial_wrapper(uint8_t chip_id, unsigned int serial_number);
-    int open_jlink_wrapper(uint8_t chip_id);
 
     /*
      * chip_id -> J-link device index in vector of devices.
@@ -85,12 +79,8 @@ public:
     void read(
         uint8_t chip_id, void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size, uint8_t noc_id = 0);
 
-    std::optional<std::vector<uint32_t>> enumerate_jlink();
-    void close_jlink(uint8_t chip_id);
     std::optional<uint32_t> read_id_raw(uint8_t chip_id);
     std::optional<uint32_t> read_id(uint8_t chip_id);
-    std::optional<uint8_t> get_current_device_idx() const;
-    int get_device_id(uint8_t chip_id) const;
     bool is_hardware_hung(uint8_t chip_id);
     static std::filesystem::path jtag_library_path;
 
@@ -99,7 +89,6 @@ private:
     std::unordered_set<int> get_jtag_visible_devices(const std::unordered_set<int>& jtag_target_devices) const;
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;
-    std::vector<uint32_t> efuse_harvesting;
     static std::optional<uint8_t> curr_device_idx;
 };
 

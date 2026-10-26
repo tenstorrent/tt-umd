@@ -13,6 +13,16 @@ jobs:
       GITLAB_HOST: yyz-gitlab.local.tenstorrent.com
       GITLAB_PROJECT_ID: "843"
     steps:
+      - name: Diagnose GitLab credentials
+        env:
+          GITLAB_USER: ${{ secrets.GITLAB_DEPLOY_USER_JTAG }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_DEPLOY_TOKEN_JTAG }}
+        run: |
+          echo "user length: ${#GITLAB_USER} (expected 22)"
+          echo "token length: ${#GITLAB_TOKEN} (expected 25)"
+          curl -s -o /dev/null -w "HTTP status: %{http_code}\n" -u "${GITLAB_USER}:${GITLAB_TOKEN}" \
+            "https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages?package_name=tt-exalens-jtag" || true
+
       - name: Fetch libtt_umd_jtag
         run: |
           curl --fail -L -u "${{ secrets.GITLAB_DEPLOY_USER_JTAG }}:${{ secrets.GITLAB_DEPLOY_TOKEN_JTAG }}" \

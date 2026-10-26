@@ -14,12 +14,16 @@
 
 namespace tt::umd {
 
+class TTDeviceModel;
+
 /**
  * emu_axi protocol for a GrendelTTDevice.
  *
  * Connects to chippy's TCP command server (a SiVal test server, or mock_server.py). The sockets
  * are chiplet-local, so the descriptor must set address_space: mimir_local. Reads and writes live
- * on GrendelTTDevice. chippy stays inside the translation unit.
+ * on GrendelTTDevice. The device model serves an emu protocol over those same sockets, so a
+ * TTDevice call that still goes through DeviceProtocol reaches the emulator. chippy stays
+ * inside the translation unit.
  */
 class EmuTTDevice : public GrendelTTDevice {
 public:
@@ -47,7 +51,10 @@ public:
     static GrendelAddressWindows mimir_address_windows(const SocDescriptor& soc_descriptor);
 
 private:
-    EmuTTDevice(const SocDescriptor& soc_descriptor, std::unique_ptr<FlatAddressTransport> address_transport);
+    EmuTTDevice(
+        const SocDescriptor& soc_descriptor,
+        std::unique_ptr<TTDeviceModel> model,
+        std::unique_ptr<FlatAddressTransport> address_transport);
 };
 
 }  // namespace tt::umd

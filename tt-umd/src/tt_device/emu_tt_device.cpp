@@ -15,9 +15,14 @@
 
 #include "emu_axi_transport.h"  // chippy
 #include "grendel_flat_address.hpp"
+#include "mimir_chippy_memory.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device_model/simulation_tt_device_model.hpp"
+#include "tt_device/firmware/simulation_device_firmware.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -51,6 +56,90 @@ bool emu_server_selects_chiplets(const std::shared_ptr<chippy::transport::emu_ax
         return true;
     }
 }
+
+// Ready at construction. The chippy sockets already exist, and TTDevice calls this protocol
+// without a separate attach step.
+class EmuAxiProtocol : public DeviceProtocol {
+public:
+    EmuAxiProtocol(
+        const SocDescriptor& soc_descriptor,
+        const std::vector<std::shared_ptr<chippy::transport::TransportInterface>>& transports) :
+        soc_(soc_descriptor),
+        resolver_(soc_, address_windows_for(soc_)),
+        memory_(soc_, transports, "EmuAxiProtocol") {}
+
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        memory_.read(flat_address(core, addr, noc_id), dst, size);
+    }
+
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        memory_.write(flat_address(core, addr, noc_id), src, size);
+    }
+
+    void read_ctrl(
+        void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
+        validate_register_access(addr, size, width);
+        read_data(dst, core, addr, size, noc_id);
+    }
+
+    void write_ctrl(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
+        override {
+        validate_register_access(addr, size, width);
+        write_data(src, core, addr, size, noc_id);
+    }
+
+    bool write_to_core_range(
+        const void* /*src*/,
+        tt_xy_pair /*core_start*/,
+        tt_xy_pair /*core_end*/,
+        uint64_t /*addr*/,
+        size_t /*size*/,
+        NocId /*noc_id*/) override {
+        return false;
+    }
+
+    int get_mmio_id() override { return 0; }
+
+private:
+    uint64_t flat_address(tt_xy_pair core, uint64_t addr, NocId noc_id) const {
+        // DEFAULT_NOC and NOC0 are the same value. Chippy's AXI map is not a second NOC.
+        UMD_ASSERT(
+            noc_id == NocId::NOC0,
+            error::RuntimeError,
+            fmt::format("EmuAxiProtocol supports only NOC0 (got {}).", noc_to_str(noc_id)));
+        // The caller already translated the coordinate. LITERAL keeps the resolver from translating
+        // it again, and the descriptor says which core type sits there.
+        return resolver_.to_flat_address(CoreCoord(core), addr, noc_id);
+    }
+
+    // Declared in this order: the resolver borrows soc_.
+    SocDescriptor soc_;
+    GrendelNocAddressResolver resolver_;
+    MimirChippyMemoryMap memory_;
+};
+
+// Same shape as GrendelJtagTTDeviceModel. The architecture comes from the implementation, and the
+// protocol is usable from construction.
+class EmuTTDeviceModel : public TTDeviceModel {
+public:
+    EmuTTDeviceModel(tt::ARCH arch, std::unique_ptr<EmuAxiProtocol> protocol) :
+        protocol_(std::move(protocol)),
+        firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
+        architecture_impl_(ArchitectureImplementation::create(arch)) {}
+
+    DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
+    DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
+    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
+    SocArchDescriptor* get_soc_arch_descriptor() override { return nullptr; }
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return nullptr; }
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig, HostIoWindowConfig) override { return nullptr; }
+
+private:
+    std::unique_ptr<EmuAxiProtocol> protocol_;
+    std::unique_ptr<SimulationDeviceFirmware> firmware_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+};
 
 }  // namespace
 
@@ -97,9 +186,14 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
         }
         chiplet_transports.push_back(std::move(chiplet_transport));
     }
+    // The protocol and the flat-address map share the sockets. Data and registers still move
+    // through the map. The protocol is what TTDevice uses when a call is not on that path.
+    auto protocol = std::make_unique<EmuAxiProtocol>(soc_descriptor, chiplet_transports);
     auto address_transport =
         make_grendel_flat_address_transport(soc_descriptor, std::move(chiplet_transports), "EmuTTDevice");
-    auto device = std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(address_transport)));
+    auto model = std::make_unique<EmuTTDeviceModel>(soc_descriptor.arch, std::move(protocol));
+    auto device =
+        std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(model), std::move(address_transport)));
 
     // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.
     // On the SiVal servers INIT re-runs the reset phase, which drops any bring-up an earlier client
@@ -111,9 +205,10 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
 }
 
 EmuTTDevice::EmuTTDevice(
-    const SocDescriptor& soc_descriptor, std::unique_ptr<FlatAddressTransport> address_transport) :
-    GrendelTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor), soc_descriptor, std::move(address_transport)) {}
+    const SocDescriptor& soc_descriptor,
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<FlatAddressTransport> address_transport) :
+    GrendelTTDevice(std::move(model), soc_descriptor, std::move(address_transport)) {}
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the
 // session for whoever owns the server: the mock server sets its shutdown event, and on a real run

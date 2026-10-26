@@ -7,7 +7,7 @@ on:
 jobs:
   fetch-jtag:
     name: Fetch libtt_umd_jtag
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: tt-ubuntu-2204-n300-stable
     env:
       JTAG_VERSION: v0.1.0
       GITLAB_HOST: yyz-gitlab.local.tenstorrent.com

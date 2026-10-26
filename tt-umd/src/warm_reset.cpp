@@ -45,6 +45,7 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
+#include "warm_reset_completion.hpp"
 
 namespace tt::umd {
 
@@ -142,7 +143,7 @@ int wait_for_pci_bdf_to_reappear(
     bool device_reappeared = false;
     int interface_id = -1;
 
-    while (std::chrono::steady_clock::now() < deadline) {
+    while (true) {
         // Use glob to find matching paths.
         glob_t glob_result;
         std::string pattern = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/tenstorrent!*", bdf);
@@ -170,11 +171,11 @@ int wait_for_pci_bdf_to_reappear(
 
         globfree(&glob_result);
 
-        if (!device_reappeared) {
-            std::this_thread::sleep_for(timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL);
-            continue;
+        // Checked after the first look so a zero timeout still finds a device that is already back.
+        if (device_reappeared || std::chrono::steady_clock::now() >= deadline) {
+            break;
         }
-        break;
+        std::this_thread::sleep_for(timeout::WARM_RESET_REAPPEAR_POLL_INTERVAL);
     }
 
     if (!device_reappeared) {
@@ -280,6 +281,44 @@ bool wait_for_reset_marker(
     return reset_complete;
 }
 
+// Waits for every reset device and sends POST_RESET to each one that came back, so one device that
+// stays down does not leave the rest blocked by the KMD. Returns false naming each device that did not.
+// Only the reset devices carry a reset marker, so a dead neighbour that was not reset is not waited on.
+static bool complete_warm_reset_for_devices(
+    const std::unordered_set<int>& reset_pci_ids,
+    const std::map<int, std::string>& pci_bdfs,
+    std::chrono::milliseconds reappear_timeout,
+    std::chrono::milliseconds post_reset_delay,
+    bool ignore_post_reset_failures) {
+    std::map<int, std::string> devices;
+    for (auto pci_id : reset_pci_ids) {
+        devices.emplace(pci_id, pci_bdfs.count(pci_id) ? pci_bdfs.at(pci_id) : std::string("unknown"));
+    }
+    const auto failed_bdfs = complete_warm_reset(
+        devices,
+        reappear_timeout,
+        timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT,
+        [](const std::string& bdf, std::chrono::milliseconds timeout) {
+            return wait_for_pci_bdf_to_reappear(bdf, timeout) != -1;
+        },
+        [](const std::string& bdf, std::chrono::milliseconds timeout) { return wait_for_reset_marker(bdf, timeout); },
+        [&](const std::unordered_set<int>& recovered) {
+            std::this_thread::sleep_for(post_reset_delay);
+            PCIDevice::send_reset_ioctl_to_devices(
+                recovered, TenstorrentResetDevice::POST_RESET, ignore_post_reset_failures);
+        });
+    if (!failed_bdfs.empty()) {
+        log_error(
+            tt::LogUMD,
+            "Reset failed for {} of {} devices, which did not come back: {}",
+            failed_bdfs.size(),
+            devices.size(),
+            fmt::join(failed_bdfs, ", "));
+        return false;
+    }
+    return true;
+}
+
 bool WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids,
     bool reset_m3,
@@ -327,21 +366,12 @@ bool WarmReset::warm_reset_arch_agnostic(
     std::this_thread::sleep_for(post_reset_wait);
     log_debug(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
-    for (auto& pci_bdf : pci_bdfs) {
-        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
-        if (new_id == -1) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
-        }
-
-        if (!wait_for_reset_marker(pci_bdf.second)) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
-        }
-    }
-
-    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
-    return true;
+    return complete_warm_reset_for_devices(
+        pci_device_id_set,
+        pci_bdfs,
+        timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT,
+        /*post_reset_delay=*/std::chrono::milliseconds(0),
+        /*ignore_post_reset_failures=*/true);
 }
 
 bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
@@ -565,23 +595,13 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr RESET_TIME = 0xF;
     const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
 
-    for (auto& pci_bdf : pci_bdfs) {
-        auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms);
-        if (new_id == -1) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
-        }
-
-        if (!wait_for_reset_marker(pci_bdf.second)) {
-            log_error(tt::LogUMD, "Reset failed.");
-            return false;
-        }
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    PCIDevice::send_reset_ioctl_to_devices(
-        pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
-    return reset_success;
+    const bool all_devices_back = complete_warm_reset_for_devices(
+        pci_device_id_set,
+        pci_bdfs,
+        timeout_ms,
+        /*post_reset_delay=*/std::chrono::milliseconds(100),
+        /*ignore_post_reset_failures=*/false);
+    return reset_success && all_devices_back;
 }
 
 // Free helper function for extracting pid.

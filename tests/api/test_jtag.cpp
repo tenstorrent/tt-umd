@@ -62,7 +62,7 @@ protected:
             return;
         }
 
-        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
+        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate().serials;
 
         if (jlink_serials.empty()) {
             log_warning(tt::LogUMD, "Jlink devices discovered but not usable with current Jtag implementation.");
@@ -232,7 +232,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
         GTEST_SKIP() << "JTAG library " << JtagDevice::jtag_library_path.string() << " cannot be loaded";
     }
 
-    if (JtagDevice::enumerate().empty()) {
+    if (JtagDevice::enumerate().serials.empty()) {
         GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
     }
 

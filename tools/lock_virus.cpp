@@ -65,7 +65,7 @@ static void report_device_locks(int device_id, IODeviceType device_type) {
 // library it needs is loaded at runtime and is absent on most systems.
 static std::vector<int> enumerate_jtag_devices() {
     try {
-        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
+        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate().serials;
         return std::vector<int>(jlink_serials.begin(), jlink_serials.end());
     } catch (const std::exception& e) {
         log_debug(tt::LogUMD, "JTAG devices could not be enumerated: {}", e.what());

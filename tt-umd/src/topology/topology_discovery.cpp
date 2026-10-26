@@ -77,13 +77,10 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
             return pci_devices_info.begin()->second.get_arch();
         }
         case IODeviceType::JTAG: {
-            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate();
-            if (jlink_serials.empty()) {
-                return ARCH::Invalid;
-            }
+            // Invalid when there are no usable J-Links.
+            const tt::ARCH arch = JtagDevice::enumerate().arch;
             // This guard previously compared the architecture before it had been probed, so it
             // could never fire. Comparing the probed value is what it was meant to do.
-            const tt::ARCH arch = JtagDevice::create(jlink_serials.front())->get_jtag_arch();
             UMD_ASSERT(
                 arch != tt::ARCH::BLACKHOLE,
                 error::RuntimeError,
@@ -284,7 +281,7 @@ void TopologyDiscovery::get_connected_devices() {
             break;
         }
         case IODeviceType::JTAG: {
-            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path);
+            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path).serials;
             local_device_ids.assign(jlink_serials.begin(), jlink_serials.end());
             break;
         }

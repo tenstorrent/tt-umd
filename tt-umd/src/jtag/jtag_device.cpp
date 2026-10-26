@@ -5,6 +5,7 @@
 #include "tt-umd/jtag/jtag_device.hpp"
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -28,6 +29,15 @@
 #include "utils.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// The serial is used as the device id across UMD, which is an int.
+bool fits_device_id(uint32_t jlink_serial) {
+    return jlink_serial <= static_cast<uint32_t>(std::numeric_limits<int>::max());
+}
+
+}  // namespace
 
 // Bare soname (no slash), so dlopen resolves it through the RPATH/RUNPATH and the standard loader search paths.
 /* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("libtt_umd_jtag.so");
@@ -54,7 +64,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_library, uint32_t serial) :
     return std::make_unique<Jtag>(actual_path.c_str());
 }
 
-/* static */ std::vector<uint32_t> JtagDevice::enumerate(
+/* static */ JtagDevices JtagDevice::enumerate(
     const std::filesystem::path& binary_directory, const std::unordered_set<int>& jtag_target_devices) {
     std::unique_ptr<Jtag> jtag = load_jtag_library(binary_directory);
 
@@ -65,6 +75,10 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_library, uint32_t serial) :
     std::vector<uint32_t> usable_serials;
     std::optional<tt::ARCH> arch;
     for (uint32_t jlink_serial : get_jtag_visible_devices(*jtag, jtag_target_devices)) {
+        if (!fits_device_id(jlink_serial)) {
+            log_warning(tt::LogUMD, "Skipping J-Link {} whose serial does not fit into a device id.", jlink_serial);
+            continue;
+        }
         // Underlying JTAG library uses unix-style status returns. Success is represented by 0.
         if (jtag->open_jlink_by_serial_wrapper(jlink_serial) != 0) {
             log_debug(tt::LogUMD, "Skipping J-Link {} which failed to open.", jlink_serial);
@@ -77,24 +91,34 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_library, uint32_t serial) :
             UMD_THROW(error::RuntimeError, "Jtag ERROR: Not all devices have the same architecture.");
         }
         arch = device_arch;
-
-        // The serial is used as the device id across UMD, which is an int.
-        UMD_ASSERT(
-            jlink_serial <= static_cast<uint32_t>(std::numeric_limits<int>::max()),
-            error::RuntimeError,
-            fmt::format("J-Link serial {} does not fit into a device id.", jlink_serial));
         usable_serials.push_back(jlink_serial);
     }
 
     if (usable_serials.empty()) {
         log_warning(tt::LogUMD, "There are no supported devices.");
     }
-    return usable_serials;
+    return JtagDevices{usable_serials, arch.value_or(tt::ARCH::Invalid)};
 }
 
 /* static */ std::unique_ptr<JtagDevice> JtagDevice::create(
     uint32_t serial, const std::filesystem::path& binary_directory) {
-    return std::make_unique<JtagDevice>(load_jtag_library(binary_directory), serial);
+    UMD_ASSERT(
+        fits_device_id(serial),
+        error::RuntimeError,
+        fmt::format("J-Link serial {} does not fit into a device id.", serial));
+
+    std::unique_ptr<Jtag> jtag = load_jtag_library(binary_directory);
+    // Catches callers still passing a discovery index, which would otherwise fail only on first access.
+    const std::vector<uint32_t> connected_serials = jtag->enumerate_jlink();
+    if (std::find(connected_serials.begin(), connected_serials.end(), serial) == connected_serials.end()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "No J-Link with serial {} is connected. JTAG device ids are J-Link serials, connected J-Links: [{}].",
+                serial,
+                fmt::join(connected_serials, ", ")));
+    }
+    return std::make_unique<JtagDevice>(std::move(jtag), serial);
 }
 
 JtagDevice::~JtagDevice() {

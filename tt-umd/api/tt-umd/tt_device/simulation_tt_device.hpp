@@ -145,13 +145,6 @@ protected:
     // The model this device was built with, for the components only the backend can finish wiring.
     SimulationTTDeviceModel* get_simulation_model() { return simulation_model_; }
 
-    // Remote-backend constructor: the device owns neither a local simulator nor a UMD
-    // SimulationClient. The backend is a server outside this process that the derived device
-    // reaches through its own connection (chippy's emu_axi transport), so there is no simulator
-    // directory, no sysmem manager and no client_ -- which keeps client_mode() false, so accesses
-    // take the host path and resolve addresses here rather than being forwarded to a UMD host.
-    explicit SimulationTTDevice(std::unique_ptr<TTDeviceModel> model);
-
     // Attach to / detach from the remote host in client mode. Both derived devices drive their
     // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.
     void attach_client();

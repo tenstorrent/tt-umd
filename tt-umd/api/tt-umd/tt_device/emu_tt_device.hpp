@@ -14,7 +14,7 @@
 
 namespace tt::umd {
 
-class TTDeviceModel;
+class DeviceProtocol;
 
 /**
  * emu_axi protocol for a GrendelTTDevice.
@@ -53,7 +53,7 @@ public:
 private:
     EmuTTDevice(
         const SocDescriptor& soc_descriptor,
-        std::unique_ptr<TTDeviceModel> model,
+        std::unique_ptr<DeviceProtocol> protocol,
         std::unique_ptr<FlatAddressTransport> address_transport);
 };
 

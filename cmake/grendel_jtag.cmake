@@ -217,5 +217,5 @@ ExternalProject_Add(
 umd_import_chippy_grendel("${_chippy_lib_src}" "${_chippy_build}")
 add_dependencies(umd_grendel_jtag chippy_ext)
 
-# NOTE: C++20 is NOT applied here. It is set per-source on the single Grendel
-# protocol translation unit (Issue 2) so UMD's public standard stays C++17.
+# C++20 is set per-source on the translation units that include chippy headers
+# (see tt-umd/CMakeLists.txt), so UMD's public standard stays C++17.

@@ -13,40 +13,10 @@
 
 #include "grendel_flat_address.hpp"
 #include "protocol/grendel_jtag_protocol_impl.hpp"
-#include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device/firmware/simulation_device_firmware.hpp"
 
 namespace tt::umd {
-
-namespace {
-
-class GrendelJtagTTDeviceModel : public TTDeviceModel {
-public:
-    GrendelJtagTTDeviceModel(tt::ARCH arch, std::unique_ptr<GrendelJtagProtocol> protocol) :
-        protocol_(std::move(protocol)),
-        firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
-        architecture_impl_(ArchitectureImplementation::create(arch)) {}
-
-    // TTDevice answers get_arch() and get_communication_device_id() from these two, so the model
-    // stores neither: the architecture comes from the implementation, the device id from the
-    // protocol's mmio id.
-    DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
-    DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
-    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
-    SocArchDescriptor* get_soc_arch_descriptor() override { return nullptr; }
-    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return nullptr; }
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig, HostIoWindowConfig) override { return nullptr; }
-
-private:
-    std::unique_ptr<GrendelJtagProtocol> protocol_;
-    std::unique_ptr<SimulationDeviceFirmware> firmware_;
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
-};
-
-}  // namespace
 
 std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
     const SocDescriptor& soc_descriptor,
@@ -101,10 +71,7 @@ GrendelJtagTTDevice::GrendelJtagTTDevice(
     const SocDescriptor& soc_descriptor,
     std::unique_ptr<GrendelJtagProtocol> protocol,
     std::unique_ptr<FlatAddressTransport> address_transport) :
-    GrendelTTDevice(
-        std::make_unique<GrendelJtagTTDeviceModel>(soc_descriptor.arch, std::move(protocol)),
-        soc_descriptor,
-        std::move(address_transport)) {}
+    GrendelTTDevice(std::move(protocol), soc_descriptor, std::move(address_transport)) {}
 
 GrendelJtagTTDevice::~GrendelJtagTTDevice() = default;
 

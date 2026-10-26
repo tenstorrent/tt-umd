@@ -386,9 +386,10 @@ std::string SocDescriptor::serialize() const {
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
     out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
     out << YAML::Key << "arch_name" << YAML::Value << tt::arch_to_str(arch);
-    out << YAML::Key << "address_space" << YAML::Value
-        << (get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal ? "mimir_local"
-                                                                                                 : "full_package");
+    // Omitted reads back as full_package, so only the non-default value is written.
+    if (get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal) {
+        out << YAML::Key << "address_space" << YAML::Value << "mimir_local";
+    }
 
     const auto& mimir_channels = get_arch_descriptor().get_mimir_channels();
     if (!mimir_channels.empty()) {

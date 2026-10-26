@@ -16,12 +16,9 @@
 #include "emu_axi_transport.h"  // chippy
 #include "grendel_flat_address.hpp"
 #include "mimir_chippy_memory.hpp"
-#include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
-#include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device/firmware/simulation_device_firmware.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -119,28 +116,6 @@ private:
     MimirChippyMemoryMap memory_;
 };
 
-// Same shape as GrendelJtagTTDeviceModel. The architecture comes from the implementation, and the
-// protocol is usable from construction.
-class EmuTTDeviceModel : public TTDeviceModel {
-public:
-    EmuTTDeviceModel(tt::ARCH arch, std::unique_ptr<EmuAxiProtocol> protocol) :
-        protocol_(std::move(protocol)),
-        firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
-        architecture_impl_(ArchitectureImplementation::create(arch)) {}
-
-    DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
-    DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
-    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
-    SocArchDescriptor* get_soc_arch_descriptor() override { return nullptr; }
-    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return nullptr; }
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig, HostIoWindowConfig) override { return nullptr; }
-
-private:
-    std::unique_ptr<EmuAxiProtocol> protocol_;
-    std::unique_ptr<SimulationDeviceFirmware> firmware_;
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
-};
-
 }  // namespace
 
 GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& soc_descriptor) {
@@ -191,9 +166,8 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
     auto protocol = std::make_unique<EmuAxiProtocol>(soc_descriptor, chiplet_transports);
     auto address_transport =
         make_grendel_flat_address_transport(soc_descriptor, std::move(chiplet_transports), "EmuTTDevice");
-    auto model = std::make_unique<EmuTTDeviceModel>(soc_descriptor.arch, std::move(protocol));
-    auto device =
-        std::unique_ptr<EmuTTDevice>(new EmuTTDevice(soc_descriptor, std::move(model), std::move(address_transport)));
+    auto device = std::unique_ptr<EmuTTDevice>(
+        new EmuTTDevice(soc_descriptor, std::move(protocol), std::move(address_transport)));
 
     // INIT resets/initializes the model; send it once on the root socket, never once per chiplet.
     // On the SiVal servers INIT re-runs the reset phase, which drops any bring-up an earlier client
@@ -206,9 +180,9 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
 
 EmuTTDevice::EmuTTDevice(
     const SocDescriptor& soc_descriptor,
-    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<DeviceProtocol> protocol,
     std::unique_ptr<FlatAddressTransport> address_transport) :
-    GrendelTTDevice(std::move(model), soc_descriptor, std::move(address_transport)) {}
+    GrendelTTDevice(std::move(protocol), soc_descriptor, std::move(address_transport)) {}
 
 // Deliberately does NOT tear the transport down. chippy's teardown() sends QUIT, and QUIT ends the
 // session for whoever owns the server: the mock server sets its shutdown event, and on a real run

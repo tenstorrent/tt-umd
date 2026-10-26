@@ -30,8 +30,8 @@ constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x
 
 namespace tt::umd {
 
-/* static */ std::filesystem::path JtagDevice::jtag_library_path =
-    std::filesystem::path("./build/lib/libtt_umd_jtag.so");
+// Bare soname (no slash), so dlopen resolves it through the RPATH/RUNPATH and the standard loader search paths.
+/* static */ std::filesystem::path JtagDevice::jtag_library_path = std::filesystem::path("libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
 
 JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices) :

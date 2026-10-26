@@ -65,8 +65,7 @@ TEST(WarmResetCompletion, StuckMarkerOnFirstChipStillPostResetsTheOthers) {
 
     EXPECT_EQ(host.complete(FOUR_CHIPS), (std::vector<std::string>{"0000:01:00.0"}));
     EXPECT_EQ(
-        host.marker_checks,
-        (std::vector<std::string>{"0000:01:00.0", "0000:02:00.0", "0000:03:00.0", "0000:04:00.0"}));
+        host.marker_checks, (std::vector<std::string>{"0000:01:00.0", "0000:02:00.0", "0000:03:00.0", "0000:04:00.0"}));
     ASSERT_EQ(host.post_resets.size(), 1);
     EXPECT_EQ(host.post_resets[0], (std::unordered_set<int>{1, 2, 3}));
 }

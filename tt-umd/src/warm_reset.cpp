@@ -621,14 +621,13 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     static int constexpr RESET_TIME = 0xF;
     const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
 
-    const bool all_devices_back = complete_warm_reset_for_devices(
+    const auto missing_pci_bdfs = complete_warm_reset_for_devices(
         pci_device_id_set,
         pci_bdfs,
         timeout_ms,
         /*post_reset_delay=*/std::chrono::milliseconds(100),
-        /*ignore_post_reset_failures=*/false)
-                                      .empty();
-    return reset_success && all_devices_back;
+        /*ignore_post_reset_failures=*/false);
+    return reset_success && missing_pci_bdfs.empty();
 }
 
 // Free helper function for extracting pid.

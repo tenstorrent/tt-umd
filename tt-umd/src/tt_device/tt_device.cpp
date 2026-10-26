@@ -777,6 +777,10 @@ DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interfac
 
 DmaTransferState TTDevice::dma_read_zero_copy_check() { return get_dma_interface()->dma_read_zero_copy_check(); }
 
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+    return get_dma_interface()->dma_zero_copy_max_size(device_addr);
+}
+
 const SocDescriptor &TTDevice::get_soc_descriptor() const {
     if (!soc_descriptor_.has_value()) {
         UMD_THROW(error::UninitializedDeviceError, *this);

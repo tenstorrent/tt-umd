@@ -108,9 +108,9 @@ public:
     /**
      * @brief Starts a zero-copy H2D DMA transfer, without waiting for it.
      *
-     * The device runs one transfer at a time, and a transfer must not cross a boundary of the DMA
-     * window (2 MiB on Blackhole, 16 MiB on Wormhole). The thread that started it owns it: only that
-     * thread is told it finished. Host memory must stay pinned and unchanged until then.
+     * The device runs one transfer at a time, and a transfer can move at most dma_zero_copy_max_size()
+     * bytes. The thread that started it owns it: only that thread is told it finished. Host memory must
+     * stay pinned and unchanged until then.
      *
      * @return true if the transfer was started; false if the device is busy, so nothing was started
      *         and the caller can retry.
@@ -136,6 +136,11 @@ public:
      * @brief D2H counterpart of dma_write_zero_copy_check().
      */
     [[nodiscard]] virtual DmaTransferState dma_read_zero_copy_check() = 0;
+
+    /**
+     * @brief Most bytes a single asynchronous zero-copy transfer starting at device_addr can move.
+     */
+    [[nodiscard]] virtual size_t dma_zero_copy_max_size(uint64_t device_addr) const = 0;
 };
 
 }  // namespace tt::umd

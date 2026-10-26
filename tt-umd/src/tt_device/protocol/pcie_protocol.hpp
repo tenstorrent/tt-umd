@@ -88,6 +88,7 @@ public:
         uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
     [[nodiscard]] DmaTransferState dma_write_zero_copy_check() override;
     [[nodiscard]] DmaTransferState dma_read_zero_copy_check() override;
+    [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr) const override;
 
 private:
     TlbWindow* get_cached_tlb_window();

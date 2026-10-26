@@ -95,6 +95,29 @@ TEST_F(DmaZeroCopyAsync, WriteAcrossWindowBoundaryThrows) {
     EXPECT_EQ(tt_device_->dma_write_zero_copy_check(), DmaTransferState::IDLE);
 }
 
+// 16 MiB is a multiple of both the WH (16 MiB) and BH (2 MiB) DMA window, so an address just below it is the same
+// distance from the next window boundary on each.
+TEST_F(DmaZeroCopyAsync, MaxSizeReachesToTheNextWindowBoundary) {
+    EXPECT_EQ(tt_device_->dma_zero_copy_max_size(16 * 1024 * 1024 - 32 * 1024), size_t{32 * 1024});
+}
+
+// A transfer that crosses a window boundary goes out as one transfer per window.
+TEST_F(DmaZeroCopyAsync, WriteSplitAtWindowBoundaryLandsOnDevice) {
+    constexpr uint64_t DEVICE_ADDR = 16 * 1024 * 1024 - TRANSFER_SIZE / 2;
+    constexpr size_t HALF = TRANSFER_SIZE / 2;
+    test_utils::fill_with_random_bytes(host_, TRANSFER_SIZE);
+
+    ASSERT_TRUE(tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), DEVICE_ADDR, HALF, dram_cores_[0]));
+    ASSERT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+    ASSERT_TRUE(
+        tt_device_->dma_write_zero_copy_start(buffer_->get_iova(HALF), DEVICE_ADDR + HALF, HALF, dram_cores_[0]));
+    ASSERT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+
+    std::vector<uint8_t> readback(TRANSFER_SIZE);
+    tt_device_->read_from_device(readback.data(), dram_cores_[0], DEVICE_ADDR, TRANSFER_SIZE);
+    EXPECT_EQ(std::memcmp(readback.data(), host_, TRANSFER_SIZE), 0);
+}
+
 TEST_F(DmaZeroCopyAsync, StartWhileTransferInFlightReturnsFalse) {
     ASSERT_TRUE(tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), 0x0, TRANSFER_SIZE, dram_cores_[0]));
 

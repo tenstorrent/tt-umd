@@ -276,12 +276,10 @@ public:
      * Source memory has to stay pinned and unchanged until then. A blocking DMA call from the owning thread
      * while its transfer is in flight throws, since only it could finish the transfer.
      *
-     * The transfer must not cross a boundary of the DMA window, an aligned 2 MiB block of the core's address
-     * space on Blackhole and 16 MiB on Wormhole; split larger transfers into several.
-     *
      * @param src_iova IOVA of the source pinned host memory buffer.
      * @param dst_addr Destination address on the target device core. Must be a multiple of 4.
-     * @param size Number of bytes to transfer. Must be a non-zero multiple of 4.
+     * @param size Number of bytes to transfer. Must be a non-zero multiple of 4, and at most
+     *             dma_zero_copy_max_size(dst_addr); split larger transfers into several.
      * @param core Target core coordinate on the device.
      * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      * @return true if the transfer started; false if the device is busy, in which case nothing was started
@@ -311,6 +309,14 @@ public:
      * @brief Device-to-Host counterpart of dma_write_zero_copy_check().
      */
     DmaTransferState dma_read_zero_copy_check();
+
+    /**
+     * @brief Most bytes a single asynchronous zero-copy transfer starting at device_addr can move, in either
+     * direction.
+     *
+     * @param device_addr Address on the device core the transfer starts at.
+     */
+    size_t dma_zero_copy_max_size(uint64_t device_addr);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid

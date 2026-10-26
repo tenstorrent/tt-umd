@@ -326,6 +326,13 @@ DmaTransferState PcieProtocol::dma_write_zero_copy_check() { return dma_zero_cop
 
 DmaTransferState PcieProtocol::dma_read_zero_copy_check() { return dma_zero_copy_check(DmaDirection::D2H); }
 
+// One transfer is one engine descriptor through the DMA window, which covers an aligned block of the core's address
+// space, so it reaches from device_addr to the end of that block.
+size_t PcieProtocol::dma_zero_copy_max_size(uint64_t device_addr) const {
+    const size_t window_size = get_dma_tlb_size(pci_device_->get_arch());
+    return window_size - device_addr % window_size;
+}
+
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
 // the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
 // (the target core). When core_start is provided, the transfer becomes a multicast to the
@@ -435,16 +442,16 @@ bool PcieProtocol::dma_zero_copy_start(
             fmt::format(
                 "DMA is not available: no DMA buffer was allocated for PCI device {}.", pci_device_->get_device_num()));
     }
-    const size_t window_size = get_dma_tlb_size(pci_device_->get_arch());
-    if (size == 0 || size % 4 != 0 || addr % 4 != 0 || (addr % window_size) + size > window_size) {
+    const size_t max_size = dma_zero_copy_max_size(addr);
+    if (size == 0 || size % 4 != 0 || addr % 4 != 0 || size > max_size) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "DMA transfer of {} bytes at device address {:#x} must be non-empty, have its size and address "
-                "multiples of 4, and not cross a {} byte DMA window boundary.",
+                "multiples of 4, and move at most {} bytes from that address.",
                 size,
                 addr,
-                window_size));
+                max_size));
     }
 
     // A blocking transfer holds dma_mutex_ for as long as it runs, so the device counts as busy then too.

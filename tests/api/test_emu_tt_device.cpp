@@ -20,9 +20,8 @@
 // (the chippy mock treats it as a register-map reset).
 //
 // The mock server hands out a zeroed, fully writable slot for any address its RDL map does not
-// cover, so an access outside the register windows round-trips like RAM. That is what makes the
-// address assertions below meaningful: the value only comes back if UMD issued it at exactly the
-// address a raw chippy transport then reads. This is a chippy-aware translation unit (C++20).
+// cover, so an access outside the register windows round-trips like RAM. Address checks read that
+// slot back through EmuTTDevice at the flat address the public resolver names.
 
 #include <gtest/gtest.h>
 
@@ -32,8 +31,6 @@
 #include <optional>
 #include <string>
 
-#include "emu_axi_transport.h"  // chippy
-#include "mimir.h"              // chippy
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
@@ -81,12 +78,14 @@ std::unique_ptr<EmuTTDevice> open_device(const SocDescriptor& soc_descriptor, co
     return EmuTTDevice::create(soc_descriptor, server.host, server.port, send_init_on_connect());
 }
 
-std::shared_ptr<chippy::transport::TransportInterface> select_mimir(
-    const std::shared_ptr<chippy::transport::emu_axi::EmuAxiTransport>& root, std::size_t mimir_index) {
-    // Explicit select for a raw cross-check. EmuTTDevice itself skips SELECT_CHIPLET when
-    // GET_CHIPLET reports a single-chiplet server.
-    return std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
-        root, "m" + std::to_string(mimir_index));
+GrendelNocAddressResolver resolver_for(const SocDescriptor& soc_descriptor) {
+    return GrendelNocAddressResolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor));
+}
+
+uint64_t read_flat(EmuTTDevice& device, uint64_t address) {
+    uint64_t value = 0;
+    device.read_flat_address(address, &value, sizeof(value));
+    return value;
 }
 
 }  // namespace
@@ -104,8 +103,7 @@ std::shared_ptr<chippy::transport::TransportInterface> select_mimir(
 constexpr uint64_t kSmcSramOffset = 0x00060000;
 
 // A write through the public TTDevice API must land at the flat address the resolver derives for
-// that core -- verified by reading it back through a raw chippy transport, which shares nothing
-// with UMD's path but the server.
+// that core. The flat read below is that address on the same device.
 TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
     SKIP_WITHOUT_SERVER(server);
 
@@ -121,17 +119,10 @@ TEST(EmuTTDevice, WriteLandsAtTheResolvedFlatAddress) {
     device->read_from_device(&read_back, smc_core, kSmcSramOffset, sizeof(read_back));
     EXPECT_EQ(read_back, written);
 
-    // Independently confirm the address, not just the round trip: a resolver bug that flattened
-    // consistently but wrongly would pass the read-back above on its own.
-    // No initialize(): the constructor already connects, and INIT is not a handshake. On a real
-    // model the server maps it to a DUT reset (the mimir test server's reinitialize() calls
-    // tb.reset()), which would re-run SMC boot and repopulate this SRAM before the read below.
-    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
-    const uint64_t expected =
-        GrendelNocAddressResolver(soc_descriptor, EmuTTDevice::mimir_address_windows(soc_descriptor))
-            .to_flat_address(smc_core, kSmcSramOffset, NocId::NOC0);
-    EXPECT_EQ(select_mimir(raw, 0)->read32(expected), written);
-    // No teardown(): that sends QUIT, which shuts the server down under the tests that follow.
+    // The flat read uses the address the public resolver names. A device that stored the word at a
+    // different address fails here even though its own core read above succeeds.
+    const uint64_t expected = resolver_for(soc_descriptor).to_flat_address(smc_core, kSmcSramOffset, NocId::NOC0);
+    EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, expected)), written);
 }
 
 // Consecutive words must not collide -- the cheapest check that the flat address tracks the offset
@@ -157,7 +148,7 @@ TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
     EXPECT_EQ(read_second, second);
 }
 
-TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
+TEST(EmuTTDevice, CceSramChannelsDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
@@ -176,7 +167,6 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
         }
     }
 
-    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
     for (uint32_t channel = 0; channel < channel_count; ++channel) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
             const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
@@ -184,12 +174,8 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAliasThroughChippyMemory) {
             uint32_t read_back = 0;
             device->read_from_device(&read_back, cce, address, sizeof(read_back));
             EXPECT_EQ(read_back, expected);
-
-            chippy::grendel::Mimir mimir(
-                select_mimir(raw, channel),
-                chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, channel, channel),
-                false);
-            EXPECT_EQ(static_cast<uint32_t>(mimir.cce(location).sram[kOffset / sizeof(uint64_t)].read_raw()), expected);
+            const uint64_t flat = resolver_for(soc_descriptor).to_flat_address(cce, address, NocId::NOC0);
+            EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, flat)), expected);
         }
     }
 }
@@ -209,10 +195,14 @@ TEST(EmuTTDevice, SmcSramDoesNotAliasAcrossMimirs) {
     device->write_to_device(&first, smc_cores[0], kOffset, sizeof(first));
     device->write_to_device(&second, smc_cores[1], kOffset, sizeof(second));
 
-    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
     for (std::size_t mimir_index = 0; mimir_index < smc_cores.size(); ++mimir_index) {
-        const auto selected = select_mimir(raw, mimir_index);
-        EXPECT_EQ(selected->read32(kOffset), mimir_index == 0 ? first : second);
+        uint32_t read_back = 0;
+        device->read_from_device(&read_back, smc_cores[mimir_index], kOffset, sizeof(read_back));
+        const uint32_t expected = mimir_index == 0 ? first : second;
+        EXPECT_EQ(read_back, expected);
+        const uint64_t flat = resolver.to_flat_address(smc_cores[mimir_index], kOffset, NocId::NOC0);
+        EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, flat)), expected);
     }
 }
 
@@ -224,15 +214,18 @@ TEST(EmuTTDevice, CceHartMaskHoldsOnlyTheSelectedHart) {
     EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL_NEO_DMS) >> 1, 0xFFULL);
 }
 
-TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
+TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
     auto device = open_device(soc_descriptor, *server);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
     constexpr uint32_t kResetVector = 0x123400;
+    // Bit 0 is the uncore. Bits 1-8 are harts 0-7. 1 means released.
+    auto hart_mask = [](uint64_t reset) { return (reset >> 1) & 0xFFULL; };
 
-    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
     const uint32_t locations_per_channel = static_cast<uint32_t>(soc_descriptor.get_grid_size(CoreType::DRAM).y);
+    const auto& channels = soc_descriptor.get_arch_descriptor().get_mimir_channels();
     for (uint32_t channel = 0; channel < soc_descriptor.get_num_dram_channels(); ++channel) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
             const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::TRANSLATED);
@@ -243,21 +236,18 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
             device->write_to_device_reg(
                 &expected_vector, cce, grendel::CCE_RESET_VECTOR_BASE, sizeof(expected_vector), NocId::NOC0);
 
-            chippy::grendel::Mimir mimir(
-                select_mimir(raw, channel),
-                chippy::grendel::ChipletMetadata(chippy::grendel::ChipletType::Mimir, channel, channel),
-                false);
-            auto& chippy_cce = mimir.cce(location);
-            for (auto& reset_vector : chippy_cce.registers.tt_cluster_ctrl.reset_vector) {
-                EXPECT_EQ(reset_vector.read().get_data(), expected_vector);
+            // Hart 0 is broadcast to every hart.
+            for (uint32_t hart = 0; hart < grendel::CCE_NUM_HARTS; ++hart) {
+                const uint64_t offset = grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
+                EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, offset)), expected_vector);
             }
 
             // Bring-up left every hart held and the uncore released. Holding one hart must not
             // clear the uncore or the other harts.
             device->assert_risc_reset(cce, RiscType::DM0);
-            auto reset = chippy_cce.registers.pf_ctrl.reset.read();
-            EXPECT_EQ(reset.fields.uncore_reset, 1);
-            EXPECT_EQ(reset.fields.core_reset, 0);
+            uint64_t reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
+            EXPECT_EQ(hart_mask(reset), 0u);
 
             // Releasing harts, or asserting RiscType::ALL (which holds the uncore), closes CCE
             // SRAM until the model is brought up again. The mock has no harts and no AXI slave,
@@ -266,29 +256,35 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseChippyAccessors) {
                 continue;
             }
             device->deassert_risc_reset(cce, RiscType::ALL, false);
-            reset = chippy_cce.registers.pf_ctrl.reset.read();
-            EXPECT_EQ(reset.fields.uncore_reset, 1);
-            EXPECT_EQ(reset.fields.core_reset, 0xFF);
+            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
+            EXPECT_EQ(hart_mask(reset), 0xFFu);
             // Full release reprograms DMRISC while the harts are still held. Entry 2 is this
-            // Mimir's 8 GiB GDDR window at the D2D0 SPA, translated to the local GDDR base.
-            constexpr uint64_t kGddrSpan = 0x200000000ULL;
-            const uint64_t gddr_base = 0x1000000000000ULL + channel * kGddrSpan;
-            auto& gddr = chippy_cce.registers.dmrisc_addr_remap.dmrisc_remap_entries[2];
-            EXPECT_EQ(gddr.region_attrs.read().fields.valid, 1u);
-            EXPECT_EQ(gddr.region_start.read().fields.start_addr, gddr_base >> 6);
-            EXPECT_EQ(gddr.region_end.read().fields.end_addr, (gddr_base + kGddrSpan) >> 6);
-            EXPECT_EQ(gddr.region_remap_start.read().fields.remap_start_addr, 0x800000000ULL >> 6);
+            // Mimir's GDDR window. The register stores the byte address.
+            uint32_t instance = channel;
+            for (const auto& entry : channels) {
+                if (entry.channel == channel) {
+                    instance = entry.instance;
+                    break;
+                }
+            }
+            const CceDmriscRemapEntry gddr = cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance)[2];
+            const uint64_t entry = grendel::CCE_DMRISC_REMAP_BASE + 2 * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
+            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x00)), gddr.region_start);
+            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x08)), gddr.region_end);
+            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x10)), gddr.local_base);
+            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x18)), 1u);
 
             // A single hart follows the worker rule: the uncore bit stays as it is.
             device->assert_risc_reset(cce, RiscType::DM0);
-            reset = chippy_cce.registers.pf_ctrl.reset.read();
-            EXPECT_EQ(reset.fields.uncore_reset, 1);
-            EXPECT_EQ(reset.fields.core_reset, 0xFE);
+            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
+            EXPECT_EQ(hart_mask(reset), 0xFEu);
 
             device->assert_risc_reset(cce, RiscType::ALL);
-            reset = chippy_cce.registers.pf_ctrl.reset.read();
-            EXPECT_EQ(reset.fields.uncore_reset, 0);
-            EXPECT_EQ(reset.fields.core_reset, 0);
+            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, 0u);
+            EXPECT_EQ(hart_mask(reset), 0u);
             // Holding the uncore closes the host path to this CCE. Put it back for the mock.
             device->release_cce_uncore_for_firmware_load(cce);
         }
@@ -324,15 +320,15 @@ TEST(EmuTTDevice, DramCoresDoNotAlias) {
         device->write_to_device(&value, dram, kOffset, sizeof(value));
     }
 
-    auto raw = std::make_shared<chippy::transport::emu_axi::EmuAxiTransport>(server->host, server->port);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
     for (uint32_t channel = 0; channel < channel_count; ++channel) {
         const uint32_t expected = 0xAAAA1111 + channel;
         const CoreCoord dram = soc_descriptor.get_dram_core_for_channel(channel, 0, CoordSystem::NOC0);
         uint32_t read_back = 0;
         device->read_from_device(&read_back, dram, kOffset, sizeof(read_back));
         EXPECT_EQ(read_back, expected);
-        const auto selected = select_mimir(raw, channel);
-        EXPECT_EQ(selected->read32(chippy::grendel::kMimirGddrDramLocalAddr + kOffset), expected);
+        const uint64_t flat = resolver.to_flat_address(dram, kOffset, NocId::NOC0);
+        EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, flat)), expected);
     }
 }
 

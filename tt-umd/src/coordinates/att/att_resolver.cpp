@@ -20,6 +20,10 @@ constexpr uint32_t COORD_LIMIT = 1u << 6;
 /** Endpoint tables hold coordinates the way the hardware register does. */
 constexpr uint16_t pack_coord(uint32_t x, uint32_t y) { return static_cast<uint16_t>((y << 6) | x); }
 
+// log_debug is compiled out unless SPDLOG_ACTIVE_LEVEL includes debug. A helper that is only named
+// from that macro is referenced inside sizeof and never emitted, which -Wunneeded-internal-declaration
+// rejects. Keep the helper on the same condition as the log.
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
 const char* window_class_name(WindowClass window_class) {
     switch (window_class) {
         case WindowClass::WORKER:
@@ -33,6 +37,7 @@ const char* window_class_name(WindowClass window_class) {
     }
     return "unknown";
 }
+#endif
 
 WindowClass window_class_for(CoreType core_type) {
     switch (core_type) {
@@ -148,10 +153,11 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
             x,
             y));
 
+    const uint64_t address = window.make_address(entry->second, offset);
+#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_DEBUG
     // The wire carries the target twice -- as (x, y) and encoded in the address -- and nothing
     // downstream cross-checks them. When an access lands on the wrong core this line says whether
     // the window, the slot within it, or the backend is at fault.
-    const uint64_t address = window.make_address(entry->second, offset);
     log_debug(
         tt::LogUMD,
         "Grendel ATT: core ({}, {}) type {} -> {} window, slot {}, offset 0x{:x} -> flat 0x{:x}",
@@ -162,6 +168,7 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
         entry->second,
         offset,
         address);
+#endif
     return address;
 }
 

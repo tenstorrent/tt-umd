@@ -38,6 +38,20 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC) override;
+    void read_from_device_reg(
+        void* mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32) override;
+    void write_to_device_reg(
+        const void* mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        RegisterAccessWidth width = RegisterAccessWidth::BITS32) override;
 
     void noc_multicast_write(
         const void* src,

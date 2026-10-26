@@ -46,7 +46,7 @@ public:
         const std::filesystem::path& binary_directory = jtag_library_path,
         const std::unordered_set<int>& jtag_target_devices = {});
 
-    // Throws if no J-Link with this serial is connected.
+    // Throws if no J-Link with this serial is connected, or if TT_VISIBLE_DEVICES excludes it.
     static std::unique_ptr<JtagDevice> create(
         uint32_t serial, const std::filesystem::path& binary_directory = jtag_library_path);
 

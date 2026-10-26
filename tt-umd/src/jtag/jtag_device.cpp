@@ -118,6 +118,13 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_library, uint32_t serial) :
                 serial,
                 fmt::join(connected_serials, ", ")));
     }
+    // Keeps TT_VISIBLE_DEVICES binding for devices created directly, not only for the ones discovery returns.
+    const std::unordered_set<int> visible_serials = utils::get_visible_devices({});
+    if (!visible_serials.empty() && visible_serials.count(static_cast<int>(serial)) == 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("J-Link with serial {} is excluded by {}.", serial, utils::TT_VISIBLE_DEVICES_ENV));
+    }
     return std::make_unique<JtagDevice>(std::move(jtag), serial);
 }
 

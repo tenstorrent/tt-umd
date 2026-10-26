@@ -1,0 +1,23 @@
+# Checks that CI can authenticate against GitLab and download the libtt_umd_jtag package.
+name: Test GitLab JTAG Fetch
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  fetch-jtag:
+    name: Fetch libtt_umd_jtag
+    runs-on: ubuntu-latest
+    env:
+      JTAG_VERSION: ${{ vars.JTAG_VERSION }}
+      GITLAB_HOST: ${{ vars.GITLAB_HOST_JTAG }}
+      GITLAB_PROJECT_ID: ${{ vars.GITLAB_PROJECT_ID_JTAG }}
+    steps:
+      - name: Fetch libtt_umd_jtag
+        run: |
+          curl --fail -L -u "${{ secrets.GITLAB_DEPLOY_USER_JTAG }}:${{ secrets.GITLAB_DEPLOY_TOKEN_JTAG }}" \
+            -o jtag.tar.gz \
+            "https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/tt-exalens-jtag/${JTAG_VERSION}/libtt_umd_jtag-${JTAG_VERSION}-ubuntu22.04-x86_64.tar.gz"
+          mkdir jtag
+          tar -xzf jtag.tar.gz -C jtag
+          ls -R jtag

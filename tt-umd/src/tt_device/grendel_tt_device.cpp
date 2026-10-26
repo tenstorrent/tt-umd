@@ -6,6 +6,7 @@
 
 #include "flat_address_transport.hpp"
 #include "noc_access.hpp"
+#include "utils.hpp"
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -45,6 +46,26 @@ void GrendelTTDevice::write_to_device(
     }
     std::lock_guard<std::mutex> lock(io_mutex_);
     address_transport_->write(flat_address(core, addr, noc_id), mem_ptr, size);
+}
+
+void GrendelTTDevice::read_from_device_reg(
+    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
+    const size_t access_size = register_access_size(width);
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        read_from_device(static_cast<uint8_t*>(mem_ptr) + offset, core, addr + offset, access_size, noc_id);
+    }
+}
+
+void GrendelTTDevice::write_to_device_reg(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
+    const size_t access_size = register_access_size(width);
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        write_to_device(static_cast<const uint8_t*>(mem_ptr) + offset, core, addr + offset, access_size, noc_id);
+    }
 }
 
 void GrendelTTDevice::read_flat_address(uint64_t addr, void* dst, size_t size) {

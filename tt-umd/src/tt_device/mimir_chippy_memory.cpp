@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "mimir.h"  // chippy
+#include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"

@@ -7,11 +7,11 @@ on:
 jobs:
   fetch-jtag:
     name: Fetch libtt_umd_jtag
-    runs-on: ubuntu-latest
+    runs-on: tt-ubuntu-2204-large-stable
     env:
-      JTAG_VERSION: ${{ vars.JTAG_VERSION }}
-      GITLAB_HOST: ${{ vars.GITLAB_HOST_JTAG }}
-      GITLAB_PROJECT_ID: ${{ vars.GITLAB_PROJECT_ID_JTAG }}
+      JTAG_VERSION: v0.1.0
+      GITLAB_HOST: yyz-gitlab.local.tenstorrent.com
+      GITLAB_PROJECT_ID: "843"
     steps:
       - name: Fetch libtt_umd_jtag
         run: |

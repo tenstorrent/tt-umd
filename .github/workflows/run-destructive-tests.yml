@@ -20,7 +20,8 @@ on:
           - tt-ubuntu-2204-n150-stable
           - tt-ubuntu-2204-n300-stable
           - tt-ubuntu-2204-p150b-stable
-          - P300-viommu
+          # P300-viommu is temporarily disabled (MINFRA-2135).
+          # - P300-viommu
       build-type:
         description: 'CMake build type'
         required: true
@@ -72,14 +73,14 @@ jobs:
     strategy:
       fail-fast: false
       # Manual dispatch runs on the single chosen card; the weekly schedule fans out
-      # across the default card set (n150, n300, p150, p300). Galaxy is left out: every test skips there.
+      # across the default card set (n150, n300, p150). Galaxy is left out: every test skips there.
+      # P300-viommu is temporarily disabled (MINFRA-2135).
       matrix:
         card: >-
           ${{ fromJSON(github.event_name == 'schedule' && '[
           "tt-ubuntu-2204-n150-stable",
           "tt-ubuntu-2204-n300-stable",
-          "tt-ubuntu-2204-p150b-stable",
-          "P300-viommu"
+          "tt-ubuntu-2204-p150b-stable"
           ]' || format('["{0}"]', github.event.inputs.card)) }}
     # Runners outside the tt-ubuntu-*-stable pool need in-service, which their pool uses to mark the
     # machines that may take general CI jobs.

@@ -27,6 +27,12 @@ inline const std::unordered_map<DeviceFamily, tt::ARCH> device_family_to_arch = 
 
 namespace tt::umd {
 
+// J-Links found by JtagDevice::enumerate().
+struct JtagDevices {
+    std::vector<uint32_t> serials;  // Ascending.
+    tt::ARCH arch;                  // Shared by all of them, Invalid when there are none.
+};
+
 // A single J-Link probe, identified by its serial number. The serial is what names the device everywhere in UMD,
 // since it is the only identifier that stays the same across instances and processes.
 class JtagDevice {
@@ -34,12 +40,13 @@ public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_library, uint32_t serial);
     ~JtagDevice();
 
-    // Serials of the connected J-Links that can be opened and pass the target device filter (TT_VISIBLE_DEVICES
-    // when jtag_target_devices is empty), in ascending order. Throws if their architectures differ.
-    static std::vector<uint32_t> enumerate(
+    // The connected J-Links that can be opened, have a serial usable as a device id and pass the target device filter
+    // (TT_VISIBLE_DEVICES when jtag_target_devices is empty). Throws if their architectures differ.
+    static JtagDevices enumerate(
         const std::filesystem::path& binary_directory = jtag_library_path,
         const std::unordered_set<int>& jtag_target_devices = {});
 
+    // Throws if no J-Link with this serial is connected.
     static std::unique_ptr<JtagDevice> create(
         uint32_t serial, const std::filesystem::path& binary_directory = jtag_library_path);
 

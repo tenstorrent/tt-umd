@@ -247,7 +247,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("use_safe_api") = true,
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
-            release_gil())
+            release_gil(),
+            "Creates a TTDevice. device_number is the PCIe device number, or the J-Link serial number for JTAG.")
         .def(
             "set_power_state",
             &TTDevice::set_power_state,

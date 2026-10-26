@@ -5,6 +5,9 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <string>
@@ -129,4 +132,60 @@ TEST(WarmResetCompletion, DeadChipSpendsTheSharedDeadlineOnce) {
     EXPECT_EQ(marker_timeouts[1], 0ms);
     EXPECT_EQ(marker_timeouts[2], 0ms);
     EXPECT_LT(std::chrono::steady_clock::now() - start, 2 * MARKER_TIMEOUT);
+}
+
+namespace {
+
+// Fakes the sysfs PCI tree: a removable entry for each chip still on the bus and the bus rescan file.
+class RemoveAndRescanPci : public ::testing::Test {
+protected:
+    void SetUp() override {
+        sysfs_root = std::filesystem::path(::testing::TempDir()) /
+                     ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::filesystem::remove_all(sysfs_root);
+        std::filesystem::create_directories(sysfs_root / "bus/pci/devices");
+        std::ofstream(sysfs_root / "bus/pci/rescan");
+    }
+
+    void TearDown() override { std::filesystem::remove_all(sysfs_root); }
+
+    void add_device(const std::string& bdf) {
+        std::filesystem::create_directories(sysfs_root / "bus/pci/devices" / bdf);
+        std::ofstream(sysfs_root / "bus/pci/devices" / bdf / "remove");
+    }
+
+    std::string read(const std::filesystem::path& relative) {
+        std::ifstream file(sysfs_root / relative);
+        return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    }
+
+    std::filesystem::path sysfs_root;
+};
+
+}  // namespace
+
+// A chip whose warm reset left it on the bus in a bad state is removed so the rescan probes it afresh, and a chip
+// that already left the bus is brought back by the rescan alone.
+TEST_F(RemoveAndRescanPci, RemovesChipsStillOnTheBusAndRescans) {
+    add_device("0000:47:00.0");
+
+    const auto missing = remove_and_rescan_pci(
+        sysfs_root,
+        {"0000:47:00.0", "0000:48:00.0"},
+        REAPPEAR_TIMEOUT,
+        [](const std::string&, std::chrono::milliseconds) { return true; });
+
+    EXPECT_TRUE(missing.empty());
+    EXPECT_EQ(read("bus/pci/devices/0000:47:00.0/remove"), "1\n");
+    EXPECT_EQ(read("bus/pci/rescan"), "1\n");
+}
+
+TEST_F(RemoveAndRescanPci, ChipThatDoesNotReappearIsReported) {
+    const auto missing = remove_and_rescan_pci(
+        sysfs_root,
+        {"0000:47:00.0", "0000:48:00.0"},
+        REAPPEAR_TIMEOUT,
+        [](const std::string& bdf, std::chrono::milliseconds) { return bdf != "0000:47:00.0"; });
+
+    EXPECT_EQ(missing, (std::vector<std::string>{"0000:47:00.0"}));
 }

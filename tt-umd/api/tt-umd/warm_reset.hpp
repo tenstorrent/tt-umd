@@ -15,6 +15,14 @@
 
 namespace tt::umd {
 
+// Outcome of a warm reset. Every reset device not named in missing_pci_bdfs came back and is usable.
+struct WarmResetResult {
+    // False whenever the reset did not fully complete, including failures that name no device.
+    bool success = false;
+    // Reset devices that did not come back, so the caller can escalate for these only.
+    std::vector<std::string> missing_pci_bdfs;
+};
+
 class WarmReset {
 public:
     static bool warm_reset(
@@ -22,6 +30,21 @@ public:
         bool reset_m3 = false,
         bool secondary_bus_reset = true,
         std::chrono::milliseconds m3_delay = timeout::WARM_RESET_M3_TIMEOUT);
+
+    // Same as warm_reset(), and names each device that did not come back. A device that does not come back
+    // does not keep the others from being brought back.
+    static WarmResetResult warm_reset_with_result(
+        std::vector<int> pci_device_ids = {},
+        bool reset_m3 = false,
+        bool secondary_bus_reset = true,
+        std::chrono::milliseconds m3_delay = timeout::WARM_RESET_M3_TIMEOUT);
+
+    // Removes each listed device that is still on the PCIe bus, rescans the bus and waits up to timeout_ms for
+    // every listed device to come back. Meant for devices a warm reset did not bring back, including ones that
+    // left the bus. Requires root. Returns the BDFs still missing; all of them when not permitted.
+    static std::vector<std::string> rescan_pci_bdfs(
+        const std::vector<std::string>& pci_bdfs,
+        std::chrono::milliseconds timeout_ms = timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT);
 
     // Resets devices identified by their UMD chip IDs (indices into the list returned by
     // PCIDevice::enumerate_devices(), corresponding to /dev/tenstorrent/<N> device numbers).
@@ -53,7 +76,7 @@ private:
 
     static bool warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3);
 
-    static bool warm_reset_arch_agnostic(
+    static WarmResetResult warm_reset_arch_agnostic(
         std::vector<int> pci_device_ids,
         bool reset_m3,
         std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT,

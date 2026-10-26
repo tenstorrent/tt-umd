@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <string>
@@ -15,6 +17,12 @@
 namespace tt::umd {
 
 using ResetDeviceCheck = std::function<bool(const std::string& bdf, std::chrono::milliseconds timeout)>;
+
+inline std::chrono::milliseconds time_left(std::chrono::steady_clock::time_point deadline) {
+    return std::max(
+        std::chrono::milliseconds(0),
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()));
+}
 
 /**
  * Finish a warm reset of `devices` (PCI index -> BDF): wait for each device to reappear and for its reset
@@ -31,12 +39,6 @@ inline std::vector<std::string> complete_warm_reset(
     const ResetDeviceCheck& reappeared,
     const ResetDeviceCheck& marker_cleared,
     const std::function<void(const std::unordered_set<int>&)>& post_reset) {
-    const auto time_left = [](std::chrono::steady_clock::time_point deadline) {
-        return std::max(
-            std::chrono::milliseconds(0),
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()));
-    };
-
     std::vector<std::string> failed_bdfs;
     std::map<int, std::string> reappeared_devices;
     const auto reappear_deadline = std::chrono::steady_clock::now() + reappear_timeout;
@@ -62,6 +64,36 @@ inline std::vector<std::string> complete_warm_reset(
         post_reset(recovered);
     }
     return failed_bdfs;
+}
+
+/**
+ * Remove each device in `bdfs` that is still listed under `sysfs_root`, rescan the PCI bus and wait for each
+ * device to reappear, on one deadline shared by all devices. Removing a device that is still listed makes the
+ * rescan probe it afresh, which a device left in a bad state by a failed reset needs.
+ *
+ * @return BDFs of the devices that did not reappear; empty when all did.
+ */
+inline std::vector<std::string> remove_and_rescan_pci(
+    const std::filesystem::path& sysfs_root,
+    const std::vector<std::string>& bdfs,
+    std::chrono::milliseconds timeout,
+    const ResetDeviceCheck& reappeared) {
+    const auto devices_dir = sysfs_root / "bus" / "pci" / "devices";
+    for (const auto& bdf : bdfs) {
+        if (const auto remove = devices_dir / bdf / "remove"; std::filesystem::exists(remove)) {
+            std::ofstream(remove) << "1\n";
+        }
+    }
+    std::ofstream(sysfs_root / "bus" / "pci" / "rescan") << "1\n";
+
+    std::vector<std::string> missing_bdfs;
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    for (const auto& bdf : bdfs) {
+        if (!reappeared(bdf, time_left(deadline))) {
+            missing_bdfs.push_back(bdf);
+        }
+    }
+    return missing_bdfs;
 }
 
 }  // namespace tt::umd

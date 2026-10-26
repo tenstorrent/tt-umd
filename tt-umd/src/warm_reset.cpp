@@ -53,29 +53,34 @@ namespace tt::umd {
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
 bool WarmReset::warm_reset(
     std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
+    return warm_reset_with_result(std::move(pci_device_ids), reset_m3, secondary_bus_reset, m3_delay).success;
+}
+
+WarmResetResult WarmReset::warm_reset_with_result(
+    std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
     // If pci_device_ids is empty, enumerate all devices.
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
     if (pci_device_ids.empty()) {
         log_info(LogUMD, "No PCI devices found.");
-        return false;
+        return {};
     }
 
     if constexpr (utils::is_arm_platform()) {
         if (!utils::is_ampereone()) {
             log_warning(LogUMD, "Warm reset is not supported on this ARM platform. Skipping reset.");
-            return false;
+            return {};
         }
     }
 
-    bool reset_success = false;
+    WarmResetResult result;
 
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        reset_success = warm_reset_arch_agnostic(pci_device_ids, reset_m3, m3_delay, secondary_bus_reset);
+        result = warm_reset_arch_agnostic(pci_device_ids, reset_m3, m3_delay, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -86,23 +91,22 @@ bool WarmReset::warm_reset(
         log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                reset_success = warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+                result.success = warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
                 break;
             case ARCH::BLACKHOLE:
                 if (reset_m3) {
                     log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
                 }
-                reset_success = warm_reset_blackhole_legacy(pci_device_ids);
+                result.success = warm_reset_blackhole_legacy(pci_device_ids);
                 break;
             default:
                 log_warning(tt::LogUMD, "Unknown architecture '{}'. Skipping reset actions.", arch_to_str(arch));
-                reset_success = false;
         }
     }
 
     log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
-    return reset_success;
+    return result;
 }
 
 bool WarmReset::warm_reset_chip_id(
@@ -242,6 +246,27 @@ bool WarmReset::warm_reset_sysfs(std::vector<int> pci_device_ids) {
     return true;
 }
 
+std::vector<std::string> WarmReset::rescan_pci_bdfs(
+    const std::vector<std::string>& pci_bdfs, std::chrono::milliseconds timeout_ms) {
+    if (pci_bdfs.empty()) {
+        return {};
+    }
+    if (access("/sys/bus/pci/rescan", W_OK) != 0) {
+        log_warning(LogUMD, "PCIe rescan needs root; cannot rescan devices: {}", fmt::join(pci_bdfs, ", "));
+        return pci_bdfs;
+    }
+
+    log_info(LogUMD, "Removing and rescanning PCIe devices: {}", fmt::join(pci_bdfs, ", "));
+    auto missing_pci_bdfs =
+        remove_and_rescan_pci("/sys", pci_bdfs, timeout_ms, [](const std::string& bdf, std::chrono::milliseconds t) {
+            return wait_for_pci_bdf_to_reappear(bdf, t) != -1;
+        });
+    if (!missing_pci_bdfs.empty()) {
+        log_error(LogUMD, "Devices still missing after PCIe rescan: {}", fmt::join(missing_pci_bdfs, ", "));
+    }
+    return missing_pci_bdfs;
+}
+
 // Offset of the PCI Command register within a device's config space.
 constexpr off_t PCI_CONFIG_COMMAND_OFFSET = 4;
 // Bit within the PCI Command register's low byte that firmware repurposes as the
@@ -282,9 +307,9 @@ bool wait_for_reset_marker(
 }
 
 // Waits for every reset device and sends POST_RESET to each one that came back, so one device that
-// stays down does not leave the rest blocked by the KMD. Returns false naming each device that did not.
+// stays down does not leave the rest blocked by the KMD. Returns the BDFs of the devices that did not.
 // Only the reset devices carry a reset marker, so a dead neighbour that was not reset is not waited on.
-static bool complete_warm_reset_for_devices(
+static std::vector<std::string> complete_warm_reset_for_devices(
     const std::unordered_set<int>& reset_pci_ids,
     const std::map<int, std::string>& pci_bdfs,
     std::chrono::milliseconds reappear_timeout,
@@ -314,12 +339,11 @@ static bool complete_warm_reset_for_devices(
             failed_bdfs.size(),
             devices.size(),
             fmt::join(failed_bdfs, ", "));
-        return false;
     }
-    return true;
+    return failed_bdfs;
 }
 
-bool WarmReset::warm_reset_arch_agnostic(
+WarmResetResult WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids,
     bool reset_m3,
     std::chrono::milliseconds reset_m3_timeout,
@@ -366,12 +390,14 @@ bool WarmReset::warm_reset_arch_agnostic(
     std::this_thread::sleep_for(post_reset_wait);
     log_debug(tt::LogUMD, "{} seconds elapsed after reset execution.", post_reset_wait_seconds.count());
 
-    return complete_warm_reset_for_devices(
+    auto missing_pci_bdfs = complete_warm_reset_for_devices(
         pci_device_id_set,
         pci_bdfs,
         timeout::WARM_RESET_DEVICES_REAPPEAR_TIMEOUT,
         /*post_reset_delay=*/std::chrono::milliseconds(0),
         /*ignore_post_reset_failures=*/true);
+    const bool success = missing_pci_bdfs.empty();
+    return {success, std::move(missing_pci_bdfs)};
 }
 
 bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
@@ -600,7 +626,8 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         pci_bdfs,
         timeout_ms,
         /*post_reset_delay=*/std::chrono::milliseconds(100),
-        /*ignore_post_reset_failures=*/false);
+        /*ignore_post_reset_failures=*/false)
+                                      .empty();
     return reset_success && all_devices_back;
 }
 

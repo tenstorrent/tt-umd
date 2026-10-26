@@ -48,8 +48,6 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :
     TTDevice(std::move(model.model)), client_(std::move(client)), simulation_model_(model.simulation_model) {}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
-
 SimulationTTDevice::~SimulationTTDevice() = default;
 
 void SimulationTTDevice::attach_client() { client_->attach(); }
@@ -151,12 +149,6 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
 void SimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    // This override replaces TTDevice::write_to_device wholesale, so the CCE reset-vector handling
-    // that lives there has to be repeated. Without it a vector write reaches the CCE's SRAM as
-    // ordinary data and the harts keep booting from whatever vector bring-up left behind.
-    if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
-        return;
-    }
     // Client and host are disjoint paths with nothing shared; dispatch on the named role rather
     // than a bare client_ null-check. Each helper takes device_lock itself (the client path always;
     // the host path after its is_device_closed() gate), so the lock is never dropped on either.

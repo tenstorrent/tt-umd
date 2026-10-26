@@ -21,9 +21,9 @@
 namespace tt::umd {
 
 /**
- * Supplies the chippy transport used to reach a given core. In production this
- * closes over a chippy Grendel (Issue: connection factory); tests inject a
- * provider that returns a chippy::transport::MockTransportInterface.
+ * Supplies the chippy transport used to reach a given core. GrendelJtagTTDevice closes over
+ * its per-chiplet transports; tests inject a provider that returns a
+ * chippy::transport::MockTransportInterface.
  */
 using SmnTransportProvider = std::function<std::shared_ptr<chippy::transport::TransportInterface>(tt_xy_pair)>;
 

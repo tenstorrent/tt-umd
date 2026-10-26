@@ -14,13 +14,13 @@
 
 namespace tt::umd {
 
+class DeviceProtocol;
 class FlatAddressTransport;
 class GrendelNocAddressResolver;
-class TTDeviceModel;
 
 /**
- * One Grendel device: a protocol (the TTDeviceModel), a resolver, and a flat-address transport
- * chosen from the descriptor's address space.
+ * One Grendel device: a protocol, a resolver, and a flat-address transport chosen from the
+ * descriptor's address space.
  *
  * Emulation, JTAG, and a later PCIe or FPGA protocol construct this. They do not implement
  * reads and writes themselves. A new way to reach the package adds a protocol and, when that
@@ -72,7 +72,7 @@ public:
 
 protected:
     GrendelTTDevice(
-        std::unique_ptr<TTDeviceModel> model,
+        std::unique_ptr<DeviceProtocol> protocol,
         const SocDescriptor& soc_descriptor,
         std::unique_ptr<FlatAddressTransport> address_transport);
 
@@ -80,6 +80,9 @@ protected:
     void write_flat_address(uint64_t addr, const void* src, size_t size) override;
 
 private:
+    // Tests read a flat address the resolver already produced. read_from_device would translate it again.
+    friend struct GrendelTTDeviceTestAccess;
+
     uint64_t flat_address(CoreCoord core, uint64_t addr, NocId noc_id) const;
 
     std::unique_ptr<GrendelNocAddressResolver> address_resolver_;

@@ -31,6 +31,7 @@
 #include <optional>
 #include <string>
 
+#include "grendel_tt_device_test_access.hpp"  // internal: GrendelTTDeviceTestAccess
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
@@ -84,7 +85,7 @@ GrendelNocAddressResolver resolver_for(const SocDescriptor& soc_descriptor) {
 
 uint64_t read_flat(EmuTTDevice& device, uint64_t address) {
     uint64_t value = 0;
-    device.read_flat_address(address, &value, sizeof(value));
+    GrendelTTDeviceTestAccess::read_flat(device, address, &value, sizeof(value));
     return value;
 }
 

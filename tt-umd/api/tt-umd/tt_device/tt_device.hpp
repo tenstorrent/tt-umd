@@ -529,29 +529,23 @@ protected:
     // call this itself, or its CCEs boot from whatever vector bring-up left behind.
     bool apply_cce_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
-    // Per-CCE register write. cce_index is not part of the address: core selects the CCE and the
-    // resolver adds that CCE's place in the Mimir config window.
-    void write_cce_reset_vector_register(
-        CoreCoord core, uint32_t cce_index, uint32_t hart, uint64_t reset_vector);
+    // Per-CCE register write. core selects the CCE, and the resolver adds that CCE's place in the
+    // Mimir config window.
+    void write_cce_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector);
 
     // PF_CTRL_RESET assert/release. hart_bits is the PF_CTRL bit mask (bits 1-8 are harts 0-7).
     // reset_uncore also drives bit 0, with the same polarity as the harts: 1 = released. A full
     // reset (RiscType::ALL) passes reset_uncore, matching Quasar worker DM uncore; a partial hart
     // selection leaves the uncore bit unchanged.
-    void apply_cce_pf_ctrl_reset(
-        CoreCoord core, uint32_t cce_index, uint64_t hart_bits, bool release, bool reset_uncore);
+    void apply_cce_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore);
 
     // One DMRISC remap entry. Addresses are bytes; the register stores them >> 6.
     void write_cce_dmrisc_remap_entry(
-        CoreCoord core,
-        uint32_t cce_index,
-        uint32_t entry,
-        uint64_t region_start,
-        uint64_t region_end,
-        uint64_t local_base);
+        CoreCoord core, uint32_t entry, uint64_t region_start, uint64_t region_end, uint64_t local_base);
 
-    // Entries 0 (config), 1 (both CCE SRAMs) and 2 (this Mimir's 8 GiB GDDR window).
-    void program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index);
+    // Entries 0 (config), 1 (both CCE SRAMs) and 2 (this Mimir's 8 GiB GDDR window). channel is
+    // the CCE's DRAM channel, which selects the Mimir's SPA instance.
+    void program_cce_dmrisc_remap(CoreCoord core, uint32_t channel);
 
     // Mimir-local CCE control uses this resolver. Null on devices that are not a Mimir package.
     void set_grendel_address_resolver(class GrendelNocAddressResolver* resolver);

@@ -41,9 +41,8 @@ inline constexpr uint16_t kDefaultOpenOcdTclPort = 6666;
  * grendel_jtag_protocol_impl.hpp) — no chippy type appears in this public header,
  * and UMD's public API stays C++17.
  *
- * Construction is not public here: the production entry point (create()) is added
- * alongside the chippy connection factory; tests construct via
- * GrendelJtagProtocolTestAccess with an injected transport provider.
+ * create() opens one OpenOCD connection. GrendelJtagTTDevice and the tests construct through
+ * make_grendel_jtag_protocol() in the internal header, so they can supply the transport for each core.
  *
  * Access constraints inherited from the chippy transport, which differ from the PCIe path:
  * addresses must be 4-byte aligned, a write whose size is not a multiple of 4 zero-fills the rest

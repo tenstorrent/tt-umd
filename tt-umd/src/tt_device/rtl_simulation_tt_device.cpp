@@ -171,9 +171,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
-    // Deliberately no flat-address resolver in client mode: the client sends the translated
-    // coordinate plus the core-local address, and the host resolves it in host_write/host_read.
-    // Installing one here would flatten an address the host then flattens again.
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -188,6 +185,7 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     if (!map_name.has_value()) {
         return;
     }
+
     const auto* const known = std::find_if(
         std::begin(ATT_MAPS), std::end(ATT_MAPS), [&](const NamedAttMap& map) { return *map_name == map.name; });
     std::vector<std::string> names;

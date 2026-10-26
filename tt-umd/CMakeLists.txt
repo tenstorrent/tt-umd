@@ -481,13 +481,8 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         src/tt_device/grendel_tt_device.cpp
         src/tt_device/grendel_flat_address.cpp
         src/tt_device/mimir_chippy_memory.cpp
+        src/tt_device/emu_tt_device.cpp
     )
-    if(TT_UMD_BUILD_SIMULATION)
-        # The emu backend derives from SimulationTTDevice, which only exists in a simulation
-        # build -- it is a pre-silicon backend, so it belongs to that layer rather than beside
-        # the silicon protocol.
-        list(APPEND GRENDEL_CHIPPY_SRCS src/tt_device/emu_tt_device.cpp)
-    endif()
     target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})
 
     set(GRENDEL_CHIPPY_COMPILE_OPTIONS "-std=c++20")

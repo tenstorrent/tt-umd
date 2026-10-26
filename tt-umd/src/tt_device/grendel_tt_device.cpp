@@ -6,18 +6,55 @@
 
 #include "flat_address_transport.hpp"
 #include "noc_access.hpp"
-#include "utils.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/firmware/simulation_device_firmware.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
+namespace {
+
+class GrendelTTDeviceModel : public TTDeviceModel {
+public:
+    GrendelTTDeviceModel(tt::ARCH arch, std::unique_ptr<DeviceProtocol> protocol) :
+        protocol_(std::move(protocol)),
+        firmware_(std::make_unique<SimulationDeviceFirmware>(arch)),
+        architecture_impl_(ArchitectureImplementation::create(arch)) {}
+
+    // TTDevice answers get_arch() and get_communication_device_id() from these two, so the model
+    // stores neither: the architecture comes from the implementation, the device id from the
+    // protocol's mmio id.
+    DeviceProtocol* get_device_protocol() override { return protocol_.get(); }
+
+    DeviceFirmware* get_device_firmware() override { return firmware_.get(); }
+
+    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
+
+    SocArchDescriptor* get_soc_arch_descriptor() override { return nullptr; }
+
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return nullptr; }
+
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig, HostIoWindowConfig) override { return nullptr; }
+
+private:
+    std::unique_ptr<DeviceProtocol> protocol_;
+    std::unique_ptr<SimulationDeviceFirmware> firmware_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+};
+
+}  // namespace
+
 GrendelTTDevice::GrendelTTDevice(
-    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<DeviceProtocol> protocol,
     const SocDescriptor& soc_descriptor,
     std::unique_ptr<FlatAddressTransport> address_transport) :
-    TTDevice(std::move(model)), address_transport_(std::move(address_transport)) {
+    TTDevice(std::make_unique<GrendelTTDeviceModel>(soc_descriptor.arch, std::move(protocol))),
+    address_transport_(std::move(address_transport)) {
     set_soc_descriptor(soc_descriptor);
     // The resolver borrows the descriptor stored on this device, not the caller's copy.
     address_resolver_ =

@@ -67,7 +67,7 @@
 namespace tt::umd {
 namespace {
 
-std::optional<uint32_t> cce_index(TTDevice& device, CoreCoord core) {
+std::optional<uint32_t> cce_channel(TTDevice &device, CoreCoord core) {
     const tt::ARCH arch = device.get_arch();
     if (arch != tt::ARCH::QUASAR && arch != tt::ARCH::GRENDEL) {
         return std::nullopt;
@@ -81,11 +81,8 @@ std::optional<uint32_t> cce_index(TTDevice& device, CoreCoord core) {
         return std::nullopt;
     }
 
-    // Logical DRAM is (channel, location): a Mimir is one channel carrying both its CCEs. The
-    // control plane uses this index for the remap's Mimir number. The register address does not.
-    const CoreCoord logical = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
-    const uint32_t locations_per_channel = std::max<uint32_t>(soc.get_grid_size(CoreType::DRAM).y, 1);
-    return static_cast<uint32_t>(logical.x * locations_per_channel + logical.y);
+    // Logical DRAM is (channel, location): a Mimir is one channel carrying both its CCEs.
+    return static_cast<uint32_t>(soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x);
 }
 
 }  // namespace
@@ -97,8 +94,7 @@ bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core,
     if (!grendel::is_cce_reset_vector_addr(addr)) {
         return false;
     }
-    const auto index = cce_index(*this, core);
-    if (!index.has_value()) {
+    if (!cce_channel(*this, core).has_value()) {
         return false;
     }
 
@@ -111,26 +107,20 @@ bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core,
     const uint32_t first_hart = static_cast<uint32_t>(hart_offset / grendel::CCE_HART_RESET_VECTOR_STRIDE);
     const uint32_t last_hart = (hart_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
-        write_cce_reset_vector_register(core, *index, hart, reset_vector);
+        write_cce_reset_vector_register(core, hart, reset_vector);
     }
     tt_driver_atomics::sfence();
     return true;
 }
 
-void TTDevice::write_cce_reset_vector_register(
-    CoreCoord core, uint32_t /*cce_index*/, uint32_t hart, uint64_t reset_vector) {
+void TTDevice::write_cce_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector) {
     const uint64_t register_addr =
         grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
     write_cce_local(core, register_addr, &reset_vector, sizeof(reset_vector));
 }
 
 void TTDevice::write_cce_dmrisc_remap_entry(
-    CoreCoord core,
-    uint32_t /*cce_index*/,
-    uint32_t entry,
-    uint64_t region_start,
-    uint64_t region_end,
-    uint64_t local_base) {
+    CoreCoord core, uint32_t entry, uint64_t region_start, uint64_t region_end, uint64_t local_base) {
     const uint64_t entry_addr =
         grendel::CCE_DMRISC_REMAP_BASE + entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
     auto write_reg = [&](uint64_t offset, uint64_t value) {
@@ -145,10 +135,7 @@ void TTDevice::write_cce_dmrisc_remap_entry(
     write_reg(0x18, valid);
 }
 
-void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index) {
-    const uint32_t locations_per_channel =
-        std::max<uint32_t>(get_soc_descriptor().get_grid_size(CoreType::DRAM).y, 1);
-    const uint32_t channel = cce_index / locations_per_channel;
+void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t channel) {
     // The SPA instance comes from the descriptor. A descriptor that omits mimir_channels (the
     // Quasar simulation packages) still numbers the instance by DRAM channel.
     uint32_t instance = channel;
@@ -164,23 +151,22 @@ void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t cce_index) {
     const auto entries = cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance);
     for (uint32_t entry = 0; entry < entries.size(); ++entry) {
         write_cce_dmrisc_remap_entry(
-            core, cce_index, entry, entries[entry].region_start, entries[entry].region_end, entries[entry].local_base);
+            core, entry, entries[entry].region_start, entries[entry].region_end, entries[entry].local_base);
     }
 }
 
 void TTDevice::release_cce_uncore_for_firmware_load(CoreCoord core) {
-    const auto index = cce_index(*this, core);
-    if (!index.has_value()) {
+    const auto channel = cce_channel(*this, core);
+    if (!channel.has_value()) {
         return;
     }
     // Harts stay held. The DMRISC block only answers once the uncore is released.
-    apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
-    program_cce_dmrisc_remap(core, *index);
+    apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+    program_cce_dmrisc_remap(core, *channel);
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::apply_cce_pf_ctrl_reset(
-    CoreCoord core, uint32_t /*cce_index*/, uint64_t hart_bits, bool release, bool reset_uncore) {
+void TTDevice::apply_cce_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore) {
     const uint64_t addr = grendel::CCE_PF_CTRL_RESET_BASE;
     uint64_t current = 0;
     read_cce_local(core, addr, &current, sizeof(current));
@@ -794,16 +780,16 @@ RiscReset *TTDevice::get_risc_reset() {
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
-    if (const auto index = cce_index(*this, core)) {
+    if (cce_channel(*this, core).has_value()) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
         // RiscType::ALL on a Quasar worker resets the DM harts and then the DM uncore.
         // A CCE full reset follows that order. A partial hart selection does not touch uncore.
         const bool reset_uncore = selected_riscs == RiscType::ALL;
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/false, /*reset_uncore=*/false);
+            apply_cce_pf_ctrl_reset(core, hart_bits, /*release=*/false, /*reset_uncore=*/false);
         }
         if (reset_uncore) {
-            apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/false, /*reset_uncore=*/true);
+            apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/false, /*reset_uncore=*/true);
         }
         tt_driver_atomics::sfence();
         return;
@@ -812,7 +798,7 @@ void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, 
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
-    if (const auto index = cce_index(*this, core)) {
+    if (const auto channel = cce_channel(*this, core)) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
         // Release uncore before the harts, matching the Quasar worker RiscType::ALL order.
         const bool reset_uncore = selected_riscs == RiscType::ALL;
@@ -820,11 +806,11 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
             // Uncore first, then DMRISC while the harts are still held, then the harts. Asserting
             // the uncore drops the remap block; the entries have to be written again before any
             // hart runs.
-            apply_cce_pf_ctrl_reset(core, *index, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
-            program_cce_dmrisc_remap(core, *index);
+            apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+            program_cce_dmrisc_remap(core, *channel);
         }
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, *index, hart_bits, /*release=*/true, /*reset_uncore=*/false);
+            apply_cce_pf_ctrl_reset(core, hart_bits, /*release=*/true, /*reset_uncore=*/false);
         }
         tt_driver_atomics::sfence();
         return;

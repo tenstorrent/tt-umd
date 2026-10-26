@@ -29,19 +29,16 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
-    list(APPEND API_TESTS_SRCS test_grendel_jtag_protocol.cpp)
-    list(APPEND API_TESTS_SRCS test_grendel_flat_address.cpp)
-    if(TT_UMD_BUILD_SIMULATION)
-        list(APPEND API_TESTS_SRCS test_emu_tt_device.cpp)
-    endif()
+    set(GRENDEL_CHIPPY_TEST_SRCS test_grendel_jtag_protocol.cpp test_grendel_flat_address.cpp test_emu_tt_device.cpp)
+    list(APPEND API_TESTS_SRCS ${GRENDEL_CHIPPY_TEST_SRCS})
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
-    # The Grendel protocol unit test is chippy-aware -> C++20, and needs the
-    # internal (non-public) protocol impl header.
+    # The Grendel tests include chippy headers, which need C++20, and the internal
+    # protocol and transport headers.
     target_link_libraries(api_tests PRIVATE umd_grendel_jtag)
     target_include_directories(
         api_tests
@@ -49,10 +46,6 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
             ${PROJECT_SOURCE_DIR}/tt-umd/src/tt_device
             ${PROJECT_SOURCE_DIR}/tt-umd/src/tt_device/protocol
     )
-    set(GRENDEL_CHIPPY_TEST_SRCS test_grendel_jtag_protocol.cpp test_grendel_flat_address.cpp)
-    if(TT_UMD_BUILD_SIMULATION)
-        list(APPEND GRENDEL_CHIPPY_TEST_SRCS test_emu_tt_device.cpp)
-    endif()
     set_source_files_properties(
         ${GRENDEL_CHIPPY_TEST_SRCS}
         PROPERTIES

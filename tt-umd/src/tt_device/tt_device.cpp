@@ -56,6 +56,7 @@
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
 #include "tt_device_model/blackhole_tt_device_model.hpp"
+#include "tt_device_model/grendel_tt_device_model.hpp"
 #include "tt_device_model/wormhole_tt_device_model.hpp"
 #include "utils.hpp"
 
@@ -126,6 +127,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         case ARCH::BLACKHOLE:
             return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
+        case ARCH::QUASAR:
+            // Quasar has no window for userspace to map, so the driver performs each access and
+            // there is no safe/unsafe pair of paths to choose between.
+            return std::unique_ptr<TTDevice>(new TTDevice(
+                std::make_unique<GrendelTTDeviceModel>(std::move(pci_device), device_number, soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,

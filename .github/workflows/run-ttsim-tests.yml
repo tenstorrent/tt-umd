@@ -673,6 +673,15 @@ jobs:
         run: |
           build/test/umd/api/api_tests --gtest_filter="$DEVICE_IO_TESTS"
 
+      # sim_bh ships no soc_descriptor.yaml here, so this host serves the built-in descriptor and the
+      # client rebuilds it from the arch alone.
+      - name: Run UMD SimulationConnector tests on tt-sim blackhole
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1
         env:

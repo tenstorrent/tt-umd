@@ -161,7 +161,7 @@ void TTSimTTDevice::initialize_backend() {
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == TT_PCI_VENDOR_ID, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {

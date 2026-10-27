@@ -23,6 +23,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -211,6 +212,14 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
     EXPECT_EQ(info.eth_harvesting_mask, soc.harvesting_masks.eth_harvesting_mask);
     EXPECT_EQ(info.l2cpu_harvesting_mask, soc.harvesting_masks.l2cpu_harvesting_mask);
     EXPECT_EQ(info.pcie_harvesting_mask, soc.harvesting_masks.pcie_harvesting_mask);
+
+    // Whether the host serves its YAML or relies on the built-in descriptor, the client rebuilds the
+    // host's layout from what it served.
+    const SocDescriptor rebuilt = build_soc_descriptor(info);
+    EXPECT_EQ(rebuilt.get_arch_descriptor().get_grid_size(), soc.get_arch_descriptor().get_grid_size());
+    EXPECT_EQ(rebuilt.get_cores(tt::CoreType::TENSIX).size(), soc.get_cores(tt::CoreType::TENSIX).size());
+    EXPECT_EQ(rebuilt.get_cores(tt::CoreType::DRAM).size(), soc.get_cores(tt::CoreType::DRAM).size());
+    EXPECT_EQ(rebuilt.get_cores(tt::CoreType::ETH).size(), soc.get_cores(tt::CoreType::ETH).size());
 }
 
 // End to end through the client device: hosting from the .so and then discovering the socket

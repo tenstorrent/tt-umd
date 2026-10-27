@@ -30,7 +30,10 @@ inline std::string find_simulator_soc_descriptor_path(const std::filesystem::pat
 
 // The simulator's architecture: declared by its soc_descriptor.yaml when it ships one, else read from
 // the PCI device id its libttsim image reports, the way KMD tells silicon apart. The first call for an
-// image without a descriptor has to come before any simulator is brought up in this process.
+// image without a descriptor has to come before any simulator is brought up in this process: it starts
+// and stops the image to read its config space, and the answer is cached for later calls.
+// Throws error::RuntimeError if that first call comes after a simulator is already running, if an RTL
+// simulator ships no descriptor, or if the image's device id has no built-in SoC descriptor.
 tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path);
 
 inline std::string get_simulator_cluster_descriptor_path(const std::filesystem::path& simulator_path) {

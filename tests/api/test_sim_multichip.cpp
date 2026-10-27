@@ -42,6 +42,7 @@
 #include <functional>
 
 #include "simulation/eth_ipc.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
@@ -485,7 +486,7 @@ protected:
                             "rather than discovered.";
         }
 
-        arch_ = SimulationChip::get_arch_from_simulator_path(simulator_path_);
+        arch_ = get_simulator_arch(simulator_path_);
         if (arch_ == ARCH::QUASAR) {
             GTEST_SKIP() << "TTSim models neither ARC nor Ethernet for Quasar, so there is no firmware to discover "
                             "a topology from.";

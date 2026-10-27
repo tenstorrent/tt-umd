@@ -23,6 +23,7 @@
 
 #include "eth_ipc.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/utils/error.hpp"
 
 // NOLINTBEGIN.
@@ -517,16 +518,15 @@ uint16_t TTSimCommunicator::read_pci_device_id(const std::filesystem::path &simu
         error::RuntimeError,
         fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
     const uint32_t vendor_and_device_id = probe.first_endpoint_id;
-    constexpr uint16_t TENSTORRENT_VENDOR_ID = 0x1e52;
     const uint16_t vendor_id = static_cast<uint16_t>(vendor_and_device_id & 0xFFFF);
     UMD_ASSERT(
-        vendor_id == TENSTORRENT_VENDOR_ID,
+        vendor_id == TT_PCI_VENDOR_ID,
         error::RuntimeError,
         fmt::format(
             "Simulator {} reports PCI vendor id {:#x} rather than Tenstorrent's {:#x}.",
             simulator_path.string(),
             vendor_id,
-            TENSTORRENT_VENDOR_ID));
+            TT_PCI_VENDOR_ID));
     return static_cast<uint16_t>(vendor_and_device_id >> 16);
 }
 

@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-kmd-lib/pci_ids.h"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -29,24 +29,16 @@ tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path) {
             get_simulator_soc_descriptor_path(simulator_path)));
 
     const uint16_t device_id = TTSimCommunicator::read_pci_device_id(simulator_path);
-    tt::ARCH arch = tt::ARCH::Invalid;
-    switch (device_id) {
-        case TT_WORMHOLE_PCI_DEVICE_ID:
-            arch = tt::ARCH::WORMHOLE_B0;
-            break;
-        case TT_BLACKHOLE_PCI_DEVICE_ID:
-            arch = tt::ARCH::BLACKHOLE;
-            break;
-        default:
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "Simulator {} reports PCI device id {:#x}, which has no built-in SoC descriptor. Place its "
-                    "soc_descriptor.yaml at {}.",
-                    simulator_path.string(),
-                    device_id,
-                    get_simulator_soc_descriptor_path(simulator_path)));
-    }
+    const tt::ARCH arch = arch_from_pci_device_id(device_id);
+    UMD_ASSERT(
+        arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format(
+            "Simulator {} reports PCI device id {:#x}, which has no built-in SoC descriptor. Place its "
+            "soc_descriptor.yaml at {}.",
+            simulator_path.string(),
+            device_id,
+            get_simulator_soc_descriptor_path(simulator_path)));
     log_debug(
         LogUMD, "Simulator {} reports PCI device id {:#x}: {}", simulator_path.string(), device_id, arch_to_str(arch));
     return arch;

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -148,6 +150,24 @@ TEST_F(DmaZeroCopyAsync, BlockingDmaFromTheOwningThreadThrows) {
         std::exception);
 
     EXPECT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+}
+
+// The device stays busy until the owner sees its transfer finish, so a blocking DMA from another thread waits for it.
+TEST_F(DmaZeroCopyAsync, BlockingDmaFromAnotherThreadWaitsForTheOwner) {
+    ASSERT_TRUE(tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), 0x0, TRANSFER_SIZE, dram_cores_[0]));
+
+    std::atomic<bool> blocking_done = false;
+    std::thread blocking([&] {
+        tt_device_->dma_write_zero_copy(buffer_->get_iova(TRANSFER_SIZE), 0x0, TRANSFER_SIZE, dram_cores_[1]);
+        blocking_done = true;
+    });
+    // Gives the blocking call time to reach its wait; the hardware transfer is long done by now.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_FALSE(blocking_done);
+
+    EXPECT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+    blocking.join();
+    EXPECT_TRUE(blocking_done);
 }
 
 TEST_F(DmaZeroCopyAsync, ReadLandsInHostMemory) {

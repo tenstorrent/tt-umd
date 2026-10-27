@@ -300,8 +300,9 @@ public:
      *
      * The thread that started the transfer gets FINISHED or ERROR exactly once, after which the device is free
      * and later checks return IDLE. Any other thread of this process gets IN_PROGRESS while a Host-to-Device
-     * transfer is in flight and IDLE otherwise. Transfers started by other processes are not reported; whether
-     * the device is free is told by the return value of dma_write_zero_copy_start().
+     * transfer, or a blocking transfer in either direction, is in flight and IDLE otherwise. Transfers started by other
+     * processes are not reported; whether the device is free is told by the return value of
+     * dma_write_zero_copy_start().
      */
     [[nodiscard]] DmaTransferState dma_write_zero_copy_check();
 

@@ -483,7 +483,10 @@ bool PcieProtocol::dma_zero_copy_start(
 }
 
 DmaTransferState PcieProtocol::dma_zero_copy_check(DmaDirection direction) {
-    std::scoped_lock lock(dma_mutex_);
+    std::unique_lock lock(dma_mutex_, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        return DmaTransferState::IN_PROGRESS;
+    }
     if (!in_flight_dma_.has_value() || in_flight_dma_->direction != direction) {
         return DmaTransferState::IDLE;
     }

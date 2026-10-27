@@ -39,6 +39,7 @@
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "simulation/eth_ipc.hpp"
 #include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
@@ -541,28 +542,28 @@ Cluster::Cluster(ClusterOptions options) {
 
                 if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
                     // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
-                    // below are populated from the simulator-provided data instead of a default arch descriptor
-                    // (matches the fallback path's sdesc_path resolution).
+                    // below are populated from the simulator-provided data when it ships one (matches the
+                    // fallback path's sdesc_path resolution).
                     if (options.sdesc_path.empty()) {
-                        options.sdesc_path =
-                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                        options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
                     }
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                         ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
                     break;
                 }
 
+                // Without a soc_descriptor.yaml the per-chip SocDescriptors are built from the architecture
+                // the cluster descriptor records for each chip.
                 if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-                    options.sdesc_path =
-                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
                 }
 
                 // Nothing declared this simulator's topology, so ask the simulator: enumerate its chips and
                 // walk them the way silicon is walked. Quasar is excluded because TTSim models no ARC or
                 // Ethernet for it, so there is no firmware to discover a topology from -- it falls through to
                 // the mock descriptor below, as does RTL simulation. Lifting the exclusion is #3404.
-                const bool discoverable = is_ttsim_build && SocDescriptor::get_arch_from_soc_descriptor_path(
-                                                                options.sdesc_path) != tt::ARCH::QUASAR;
+                const bool discoverable =
+                    is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
@@ -597,11 +598,9 @@ Cluster::Cluster(ClusterOptions options) {
                 auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
                 if (options.chip_type == ChipType::SIMULATION) {
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path =
-                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-                    }
-                    arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+                    arch = options.sdesc_path.empty()
+                               ? get_simulator_arch(options.simulator_directory)
+                               : SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
                 }
 #endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
@@ -639,6 +638,24 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+    // Without a SoC descriptor, each chip's descriptor is built from the architecture the cluster
+    // descriptor records, which nothing else checks against the image the chips will run on.
+    if (options.chip_type == ChipType::SIMULATION && options.sdesc_path.empty() &&
+        options.simulator_directory.extension() == ".so") {
+        const tt::ARCH image_arch = get_simulator_arch(options.simulator_directory);
+        for (const ChipId chip_id : cluster_desc->get_all_chips()) {
+            UMD_ASSERT(
+                cluster_desc->get_arch(chip_id) == image_arch,
+                error::RuntimeError,
+                fmt::format(
+                    "Cluster descriptor gives chip {} architecture {}, but simulator {} is {}.",
+                    chip_id,
+                    arch_to_str(cluster_desc->get_arch(chip_id)),
+                    options.simulator_directory.string(),
+                    arch_to_str(image_arch)));
+        }
+    }
+
     // Simulated devices size their system memory as they are constructed, and discovery constructs
     // them before the descriptor that the auto-detect above reads exists. A discovered simulator is
     // not necessarily all-MMIO -- wh_x2 models a second chip reached over ethernet, which groups

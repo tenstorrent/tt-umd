@@ -6,8 +6,12 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
+#include <type_traits>
 
+#include "common/noc_address_space.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 
@@ -38,7 +42,19 @@ NocAddressSpace accept_target(const TargetIoWindowConfig& config) {
         error::RuntimeError,
         "There is no multicast on this path, so a window cannot cover a grid of cores.");
 
-    return PCIDevice::noc_address_space(config.noc.value_or(NocId::NOC0));
+    // The direction field is advice: WindowFlags leaves an implementation that gains nothing from it
+    // free to ignore the field, and the reconfiguring helpers stamp UnicastRead or UnicastWrite on
+    // every transfer they make. Atomic and Snoop are not advice -- they ask for a transaction the
+    // driver's scalar access has no way to mark -- so they are refused rather than quietly dropped.
+    const WindowFlags unsupported = config.flags & ~WindowFlags::DirectionMask;
+    UMD_ASSERT(
+        unsupported == WindowFlags::None,
+        error::RuntimeError,
+        fmt::format(
+            "A scalar access carries no transaction attributes, so flags 0x{:x} cannot be honoured.",
+            static_cast<std::underlying_type_t<WindowFlags>>(unsupported)));
+
+    return noc_address_space(config.noc.value_or(NocId::NOC0));
 }
 
 }  // namespace
@@ -140,9 +156,18 @@ TargetIoWindowConfig KmdNocWindow::get_target_config() const { return config_; }
 
 IoOrdering KmdNocWindow::get_io_ordering() const { return IoOrdering::Strict; }
 
-// What this window accepts offsets within: the caller's requested size, or 0 when the caller left
-// the choice here and it is bounded only by the target's translation.
-size_t KmdNocWindow::get_size() const { return size_; }
+// What this window accepts offsets within: the caller's requested size, or, when the caller left the
+// choice here, everything still addressable from the current base. Valid offsets are [0, get_size()),
+// so reporting 0 for the unbounded case would claim there are none, and a caller sizing its chunks
+// off this -- transfer_and_reconfigure does -- would never advance.
+size_t KmdNocWindow::get_size() const {
+    if (size_ != 0) {
+        return size_;
+    }
+
+    const uint64_t addressable = std::numeric_limits<uint64_t>::max() - config_.addr;
+    return static_cast<size_t>(std::min<uint64_t>(addressable, std::numeric_limits<size_t>::max()));
+}
 
 HostMemoryCaching KmdNocWindow::get_memory_caching_type() const { return HostMemoryCaching::UC; }
 

@@ -23,11 +23,14 @@ namespace tt::umd {
  * the cost is not: a block transfer is one round trip per word.
  *
  * The address is flat and names its own target, so a window carries no coordinate: only the origin
- * is accepted, and a multicast grid cannot be represented at all.
+ * is accepted, and a multicast grid cannot be represented at all. A scalar access has nowhere to
+ * carry transaction attributes either, so Atomic and Snoop are refused; the direction field is
+ * advice this window has nothing to gain from, and is ignored as WindowFlags permits.
  *
  * Its base is whatever it was last configured with. Nothing is allocated to bound it, so the size
- * is the span the window accepts offsets within: whatever the caller asked for, or unbounded when
- * the caller asked for nothing and left the choice here. A mapped window cannot offer the latter.
+ * is the span the window accepts offsets within: whatever the caller asked for, or, when the caller
+ * asked for nothing and left the choice here, the rest of the address space from the base. A mapped
+ * window cannot offer the latter.
  */
 class KmdNocWindow : public IoWindow {
 public:
@@ -55,7 +58,7 @@ public:
     void write_aligned(uint64_t offset, const void* data, size_t size) override;
     void read_aligned(uint64_t offset, void* data, size_t size) override;
 
-    /** @throws error::RuntimeError for a target this path cannot represent. */
+    /** @throws error::RuntimeError for a target or an attribute this path cannot represent. */
     void configure(const TargetIoWindowConfig& config) override;
     void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
 

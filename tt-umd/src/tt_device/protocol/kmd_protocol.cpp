@@ -9,6 +9,7 @@
 #include <cstring>
 #include <utility>
 
+#include "common/noc_address_space.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -52,7 +53,7 @@ void KmdProtocol::validate(tt_xy_pair core, uint64_t addr, size_t size, uint32_t
 
 void KmdProtocol::read_ctrl(
     void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    const NocAddressSpace space = PCIDevice::noc_address_space(noc_id);
+    const NocAddressSpace space = noc_address_space(noc_id);
     const auto access_width = static_cast<uint32_t>(register_access_size(width));
     validate(core, addr, size, access_width);
 
@@ -66,7 +67,7 @@ void KmdProtocol::read_ctrl(
 
 void KmdProtocol::write_ctrl(
     const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    const NocAddressSpace space = PCIDevice::noc_address_space(noc_id);
+    const NocAddressSpace space = noc_address_space(noc_id);
     const auto access_width = static_cast<uint32_t>(register_access_size(width));
     validate(core, addr, size, access_width);
 

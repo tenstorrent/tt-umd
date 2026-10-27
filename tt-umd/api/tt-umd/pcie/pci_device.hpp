@@ -22,7 +22,6 @@
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/host_memory.hpp"
-#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/utils/semver.hpp"
 
@@ -422,14 +421,6 @@ public:
      * @throws error::RuntimeError if the driver refuses the access.
      */
     void noc_write_scalar(uint64_t addr, uint64_t value, uint32_t width, NocAddressSpace space);
-
-    /**
-     * The address space @p noc_id selects, so that everything issuing scalar accesses agrees on
-     * which aperture a NOC means.
-     *
-     * @throws error::RuntimeError for a NOC no inbound aperture serves.
-     */
-    static NocAddressSpace noc_address_space(NocId noc_id);
 
     /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).

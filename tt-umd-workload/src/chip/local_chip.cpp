@@ -240,12 +240,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-
+    // The coordinate travels whole: TTDevice translates it exactly as this would have, and an
+    // architecture that folds the coordinate into the address needs what the translation drops.
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, translated_core, l1_dest, size, get_selected_noc_id());
+        tt_device_->write_to_device(src, core, l1_dest, size, get_selected_noc_id());
         return;
     }
+
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     // Whatever the mode, the underlying MMIO stores are posted: the call returns once issued, not
     // once landed. This path reconfigures the window between transfers, so nothing else orders them.
@@ -264,12 +266,12 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         l1_src,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
+        tt_device_->read_from_device(dest, core, l1_src, size, get_selected_noc_id());
         return;
     }
+
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
     read_block_reconfigure(
         *get_cached_wc_tlb_window(), dest, translated_core, l1_src, size, get_selected_noc_id(), ordering);
@@ -330,12 +332,12 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device_reg(dest, translated_core, reg_src, size, get_selected_noc_id());
+        tt_device_->read_from_device_reg(dest, core, reg_src, size, get_selected_noc_id());
         return;
     }
+
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 

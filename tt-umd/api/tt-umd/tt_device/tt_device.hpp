@@ -285,14 +285,14 @@ public:
      * @return true if the transfer started; false if the device is busy, in which case nothing was started
      *         and the call can be retried.
      */
-    bool dma_write_zero_copy_start(
+    [[nodiscard]] bool dma_write_zero_copy_start(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * @brief Device-to-Host counterpart of dma_write_zero_copy_start(). Destination memory must not be
      * read until the transfer finishes. Not supported on Blackhole.
      */
-    bool dma_read_zero_copy_start(
+    [[nodiscard]] bool dma_read_zero_copy_start(
         uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
@@ -303,12 +303,12 @@ public:
      * transfer is in flight and IDLE otherwise. Transfers started by other processes are not reported; whether
      * the device is free is told by the return value of dma_write_zero_copy_start().
      */
-    DmaTransferState dma_write_zero_copy_check();
+    [[nodiscard]] DmaTransferState dma_write_zero_copy_check();
 
     /**
      * @brief Device-to-Host counterpart of dma_write_zero_copy_check().
      */
-    DmaTransferState dma_read_zero_copy_check();
+    [[nodiscard]] DmaTransferState dma_read_zero_copy_check();
 
     /**
      * @brief Most bytes a single asynchronous zero-copy transfer starting at device_addr can move, in either
@@ -316,7 +316,7 @@ public:
      *
      * @param device_addr Address on the device core the transfer starts at.
      */
-    size_t dma_zero_copy_max_size(uint64_t device_addr);
+    [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid

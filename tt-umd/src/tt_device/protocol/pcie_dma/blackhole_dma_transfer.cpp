@@ -15,8 +15,19 @@ namespace tt::umd {
 
 namespace {
 
-// Bytes the read channel has left to move; the engine counts it down to 0 as the transfer completes.
+constexpr uint32_t EN_OFF_RDCH_0 = 0x100;
+constexpr uint32_t DOORBELL_OFF_RDCH_0 = 0x104;
 constexpr uint32_t XFERSIZE_OFF_RDCH_0 = 0x11C;
+constexpr uint32_t SAR_LOW_OFF_RDCH_0 = 0x120;
+constexpr uint32_t SAR_HIGH_OFF_RDCH_0 = 0x124;
+constexpr uint32_t DAR_LOW_OFF_RDCH_0 = 0x128;
+constexpr uint32_t DAR_HIGH_OFF_RDCH_0 = 0x12C;
+constexpr uint32_t INT_SETUP_OFF_RDCH_0 = 0x188;
+constexpr uint32_t MSI_STOP_LOW_OFF_RDCH_0 = 0x190;
+constexpr uint32_t MSI_STOP_HIGH_OFF_RDCH_0 = 0x194;
+constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
+constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
+constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
 
 }  // namespace
 
@@ -31,19 +42,6 @@ bool BlackholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, con
 
 void BlackholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
-    static constexpr uint32_t EN_OFF_RDCH_0 = 0x100;
-    static constexpr uint32_t DOORBELL_OFF_RDCH_0 = 0x104;
-    static constexpr uint32_t SAR_LOW_OFF_RDCH_0 = 0x120;
-    static constexpr uint32_t SAR_HIGH_OFF_RDCH_0 = 0x124;
-    static constexpr uint32_t DAR_LOW_OFF_RDCH_0 = 0x128;
-    static constexpr uint32_t DAR_HIGH_OFF_RDCH_0 = 0x12C;
-    static constexpr uint32_t INT_SETUP_OFF_RDCH_0 = 0x188;
-    static constexpr uint32_t MSI_STOP_LOW_OFF_RDCH_0 = 0x190;
-    static constexpr uint32_t MSI_STOP_HIGH_OFF_RDCH_0 = 0x194;
-    static constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
-    static constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
-    static constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
-
     auto write_reg = [&](uint32_t offset, uint32_t value) {
         *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
     };

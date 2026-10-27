@@ -12,7 +12,8 @@ namespace tt::umd {
 
 namespace {
 
-// Written by the engine into the completion flag once a transfer, in either direction, is done.
+// Arbitrary marker programmed as the engine's done data, so the engine writes it into the completion flag when
+// a transfer, in either direction, finishes.
 constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 
 bool is_completion_flag_set(const DmaBuffer& dma_buffer) {

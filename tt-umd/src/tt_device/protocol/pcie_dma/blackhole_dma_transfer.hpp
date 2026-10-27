@@ -21,10 +21,10 @@ struct DmaBuffer;
  */
 struct BlackholeDmaTransfer {
     [[noreturn]] void d2h_start(volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size);
-    [[noreturn]] bool d2h_is_complete(const volatile uint8_t* bar2, const DmaBuffer& dma_buffer);
+    [[noreturn]] bool d2h_is_complete(const DmaBuffer& dma_buffer);
 
     void h2d_start(volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size);
-    bool h2d_is_complete(const volatile uint8_t* bar2, const DmaBuffer& dma_buffer);
+    bool h2d_is_complete(const DmaBuffer& dma_buffer);
 };
 
 }  // namespace tt::umd

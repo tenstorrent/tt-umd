@@ -68,9 +68,7 @@ void WormholeDmaTransfer::d2h_start(
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 }
 
-bool WormholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
-    return is_completion_flag_set(dma_buffer);
-}
+bool WormholeDmaTransfer::d2h_is_complete(const DmaBuffer& dma_buffer) { return is_completion_flag_set(dma_buffer); }
 
 void WormholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
@@ -112,8 +110,6 @@ void WormholeDmaTransfer::h2d_start(
     write_reg(DMA_READ_DOORBELL_OFF, 0);
 }
 
-bool WormholeDmaTransfer::h2d_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
-    return is_completion_flag_set(dma_buffer);
-}
+bool WormholeDmaTransfer::h2d_is_complete(const DmaBuffer& dma_buffer) { return is_completion_flag_set(dma_buffer); }
 
 }  // namespace tt::umd

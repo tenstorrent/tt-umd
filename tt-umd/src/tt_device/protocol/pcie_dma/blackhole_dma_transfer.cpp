@@ -40,7 +40,7 @@ void BlackholeDmaTransfer::d2h_start(
     UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
-bool BlackholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& /*dma_buffer*/) {
+bool BlackholeDmaTransfer::d2h_is_complete(const DmaBuffer& /*dma_buffer*/) {
     UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
@@ -78,7 +78,7 @@ void BlackholeDmaTransfer::h2d_start(
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
 }
 
-bool BlackholeDmaTransfer::h2d_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
+bool BlackholeDmaTransfer::h2d_is_complete(const DmaBuffer& dma_buffer) {
     return *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
 }
 

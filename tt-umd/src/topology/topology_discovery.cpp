@@ -17,6 +17,7 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,7 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery_error.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -165,6 +167,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     get_connected_devices();
     retrain_eth_cores();
     discover_remote_devices();
+    tunnel_remote_devices_over_all_gateway_links();
     log_info(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
@@ -499,6 +502,26 @@ void TopologyDiscovery::discover_remote_devices() {
     }
 
     patch_eth_connections();
+}
+
+void TopologyDiscovery::tunnel_remote_devices_over_all_gateway_links() {
+    std::unordered_map<TTDevice*, uint64_t> gateway_asic_ids;
+    for (const auto& [asic_id, tt_device] : devices) {
+        if (tt_device != nullptr && !tt_device->is_remote()) {
+            gateway_asic_ids.emplace(tt_device.get(), asic_id);
+        }
+    }
+    for (const auto& [asic_id, tt_device] : devices) {
+        RemoteCommunication* remote_communication =
+            tt_device != nullptr ? tt_device->get_remote_communication() : nullptr;
+        if (remote_communication == nullptr) {
+            continue;
+        }
+        TTDevice* gateway_device = remote_communication->get_local_device();
+        remote_communication->set_remote_transfer_ethernet_cores(
+            gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                active_eth_channels_per_device.at(gateway_asic_ids.at(gateway_device)), CoordSystem::TRANSLATED));
+    }
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {

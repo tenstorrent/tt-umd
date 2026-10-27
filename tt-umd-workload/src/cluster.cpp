@@ -230,10 +230,12 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
         // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
         // construct one.
-        remote_tt_device = TTDevice::create_simulation_remote(
-            RemoteCommunication::create_remote_communication(
-                gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id)),
-            soc_desc);
+        auto remote_communication = RemoteCommunication::create_remote_communication(
+            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id));
+        remote_communication->set_remote_transfer_ethernet_cores(
+            gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
     }
     if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
         connect_remote_communication_to_gateway(remote_communication);
@@ -345,9 +347,6 @@ void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remot
         Chip* gateway_chip = get_chip(gateway_id);
         if (gateway_chip->get_tt_device() == remote_communication->get_local_device()) {
             remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
-            remote_communication->set_remote_transfer_ethernet_cores(
-                gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
             return;
         }
     }

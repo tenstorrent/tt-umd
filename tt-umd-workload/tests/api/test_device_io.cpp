@@ -546,13 +546,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteDramAcrossItsRange) {
 
         expect_round_trip(*cluster, chip_id, dram_cores[0], 0x0, 0x44);
         expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size / 2, 0x55);
-
-        // The last bytes of a bank round-trip only where dram_bank_size is the span a single DRAM
-        // core addresses. On Blackhole it is not: the probe at bank_size / 2 passes and this one
-        // reads back zeros, and the descriptor does not say where a bank's addressable top is.
-        if (options.chip_type == ChipType::SIMULATION && soc_desc.arch != tt::ARCH::BLACKHOLE) {
-            expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
-        }
+        expect_round_trip(*cluster, chip_id, dram_cores[0], bank_size - BLOCK_SIZE, 0x66);
     }
 }
 

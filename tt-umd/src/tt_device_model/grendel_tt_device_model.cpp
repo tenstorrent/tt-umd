@@ -40,7 +40,7 @@ ArchitectureImplementation *GrendelTTDeviceModel::get_architecture_impl() { retu
 
 SocArchDescriptor *GrendelTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
-att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() { return &endpoint_resolver_; }
+const att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() { return &endpoint_resolver_; }
 
 std::shared_ptr<SocArchDescriptor> GrendelTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;

@@ -777,13 +777,34 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
     soc_descriptor_ = soc_descriptor;
 }
 
+// Wormhole and Blackhole carry the destination out of band, so the pair is the resolved coordinate
+// and the caller's address unchanged. Quasar is the opposite: its NOC decodes a flat address into a
+// destination, so the coordinate is folded into the address and the coordinate on the wire becomes
+// the origin.
+//
+// A LITERAL coordinate is never folded. It already means "device-ready by contract" to both
+// resolve_coordinate() and att::resolve_core(), which is what lets a caller address a system
+// physical range directly on an architecture that otherwise resolves by coordinate.
 std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const {
-    att::EndpointResolver *resolver = model_->get_endpoint_resolver();
+    const att::EndpointResolver *resolver = model_->get_endpoint_resolver();
 
     // No resolver, or an address the caller states is already device-ready: nothing to fold.
     if (resolver == nullptr || core.coord_system == CoordSystem::LITERAL) {
         return {resolve_coordinate(core, noc_id), addr};
     }
+
+    // What the fold produces is a system physical address, and only NOC0 routes one. The caller
+    // chooses the address space with noc_id further down, so folding for SYSTEM_NOC would hand a
+    // system physical address to the device-local aperture and land somewhere else entirely. A
+    // device-local target names itself, so it arrives LITERAL and has already returned above.
+    UMD_ASSERT(
+        noc_id != NocId::SYSTEM_NOC,
+        error::RuntimeError,
+        fmt::format(
+            "A folded address is system physical and only NOC0 carries one, so {} cannot be reached with core {}; "
+            "address a device-local target with a LITERAL coordinate.",
+            noc_to_str(noc_id),
+            core.str()));
 
     // The fold consumes the coordinate, so what travels is the origin: a Quasar address names its
     // own target and the protocol below refuses a coordinate that claims otherwise.

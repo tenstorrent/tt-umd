@@ -95,7 +95,7 @@ public:
     // coordinate out of band. Null for every architecture that routes by coordinate, which is why
     // this is an optional component rather than a step in the I/O path: a model that returns null
     // is saying "my addresses already name their target", and TTDevice leaves them alone.
-    virtual att::EndpointResolver *get_endpoint_resolver() { return nullptr; }
+    virtual const att::EndpointResolver *get_endpoint_resolver() { return nullptr; }
 
     /**
      * @brief Creates an I/O window mapping host memory to device address space.

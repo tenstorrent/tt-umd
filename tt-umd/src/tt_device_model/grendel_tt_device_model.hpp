@@ -55,7 +55,7 @@ public:
      * and a tile-local offset, so a caller's coordinate has to be folded into the address before
      * the access is issued. Offering the resolver is what asks TTDevice to do that.
      */
-    att::EndpointResolver *get_endpoint_resolver() override;
+    const att::EndpointResolver *get_endpoint_resolver() override;
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:

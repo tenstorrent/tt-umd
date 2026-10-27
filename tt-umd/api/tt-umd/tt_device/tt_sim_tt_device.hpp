@@ -99,6 +99,16 @@ public:
 
     void advance_device_execution() override;
 
+    using SimulationTTDevice::noc_multicast_write;
+    // TTSim's TLB window implements the NOC multicast bit, so multicast goes through it in one write.
+    void noc_multicast_write(
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * Get the TTSimCommunicator for low-level device operations.
      * @return Pointer to TTSimCommunicator

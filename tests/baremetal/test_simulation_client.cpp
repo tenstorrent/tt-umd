@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
@@ -67,6 +68,23 @@ TEST_F(SimulationClientTest, TransactTimesOutWhenHostNotServing) {
     SimulationClient client(path_, std::chrono::milliseconds(300));
     ASSERT_NO_THROW(client.attach());
     EXPECT_THROW(client.transact({0x01, 0x02, 0x03}), std::exception);
+}
+
+// Once the host has answered, a reply slower than the timeout is waited for rather than reported
+// as a dead host: a large read from an RTL simulator can take minutes.
+TEST_F(SimulationClientTest, TransactWaitsForSlowReplyOnceHostHasAnswered) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>& request) {
+        if (request == std::vector<uint8_t>{0x02}) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+        }
+        return request;
+    });
+    SimulationClient client(path_, std::chrono::milliseconds(300));
+    client.attach();
+
+    ASSERT_EQ(client.transact({0x01}), (std::vector<uint8_t>{0x01}));
+    EXPECT_EQ(client.transact({0x02}), (std::vector<uint8_t>{0x02}));
 }
 
 // End to end over the socket: transact() returns the host's reply, not the request it sent (the

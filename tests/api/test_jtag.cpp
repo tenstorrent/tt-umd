@@ -34,6 +34,15 @@
 using namespace tt;
 using namespace tt::umd;
 
+static bool jtag_library_loadable() {
+    try {
+        Jtag jtag(JtagDevice::jtag_library_path.c_str());
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
 class ApiJtagDeviceTest : public ::testing::Test {
 protected:
     struct DeviceData {
@@ -42,8 +51,8 @@ protected:
     };
 
     static void SetUpTestSuite() {
-        if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-            log_warning(tt::LogUMD, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
+        if (!jtag_library_loadable()) {
+            log_warning(tt::LogUMD, "JTAG library {} cannot be loaded", JtagDevice::jtag_library_path.string());
             return;
         }
 
@@ -219,8 +228,8 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
 }
 
 TEST(ApiJtagClusterTest, JtagClusterIOTest) {
-    if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-        GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();
+    if (!jtag_library_loadable()) {
+        GTEST_SKIP() << "JTAG library " << JtagDevice::jtag_library_path.string() << " cannot be loaded";
     }
 
     if (!JtagDevice::create()->get_device_cnt()) {

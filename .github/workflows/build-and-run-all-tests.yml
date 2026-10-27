@@ -181,6 +181,7 @@ jobs:
         #   PR/merge queue runtime down.
         # - bh-glx-6u is fully disabled on all events for now due to temporary issues on the
         #   machine; re-enable once it is stable (see #3413, possibly related #3458).
+        # - P300-viommu is temporarily disabled on all events; remove its entry to re-enable (MINFRA-2135).
         # - ubuntu-22.04 is the baremetal (no device) entry. TSan builds run only the unified tests,
         #   which don't run on baremetal, so a baremetal TSan job would have nothing to do.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
@@ -193,6 +194,7 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             '*|*|wh-glx-6u' \
             '*|*|bh-glx-6u' \
+            '*|*|P300-viommu' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|TSan|ubuntu-22.04' \

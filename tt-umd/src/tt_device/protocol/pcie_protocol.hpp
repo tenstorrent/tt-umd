@@ -89,11 +89,14 @@ private:
     enum class DmaDirection { H2D, D2H };
 
     // Program a transfer into the engine, or report whether it finished. Callers keep the engine to themselves.
-    void program_dma_engine(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size);
+    // host_addr is the host buffer's address as the device sees it (physical address or IOVA). tlb_window_addr is an
+    // address inside the DMA TLB window, which the caller has pointed at the target NOC location. Direction picks
+    // which of the two is the source.
+    void program_dma_engine(DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size);
     bool dma_is_complete(DmaDirection direction);
 
     // Program a transfer and wait for it to finish.
-    void run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size);
+    void run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size);
 
     void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);

@@ -28,17 +28,12 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/tlb.hpp"
+#include "tt-umd/utils/timeouts.hpp"
 #include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
-
-namespace {
-
-constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
-
-}  // namespace
 
 DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
     switch (arch) {
@@ -408,7 +403,8 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {
     return cached_dma_tlb_window_.get();
 }
 
-void PcieProtocol::program_dma_engine(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size) {
+void PcieProtocol::program_dma_engine(
+    DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size) {
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
@@ -416,7 +412,7 @@ void PcieProtocol::program_dma_engine(DmaDirection direction, uint64_t host_addr
         UMD_THROW(error::RuntimeError, "DMA buffer is not initialized.");
     }
 
-    if (axi_addr % 4 != 0) {
+    if (tlb_window_addr % 4 != 0) {
         UMD_THROW(error::RuntimeError, "DMA device address must be aligned to 4 bytes.");
     }
 
@@ -431,9 +427,9 @@ void PcieProtocol::program_dma_engine(DmaDirection direction, uint64_t host_addr
     std::visit(
         [&](auto& strategy) {
             if (direction == DmaDirection::H2D) {
-                strategy.h2d_start(bar2, dma_buffer, axi_addr, host_addr, size);
+                strategy.h2d_start(bar2, dma_buffer, tlb_window_addr, host_addr, size);
             } else {
-                strategy.d2h_start(bar2, dma_buffer, host_addr, axi_addr, size);
+                strategy.d2h_start(bar2, dma_buffer, host_addr, tlb_window_addr, size);
             }
         },
         dma_strategy_);
@@ -450,9 +446,9 @@ bool PcieProtocol::dma_is_complete(DmaDirection direction) {
         dma_strategy_);
 }
 
-void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t axi_addr, size_t size) {
-    program_dma_engine(direction, host_addr, axi_addr, size);
-    const auto deadline = std::chrono::steady_clock::now() + DMA_TIMEOUT;
+void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size) {
+    program_dma_engine(direction, host_addr, tlb_window_addr, size);
+    const auto deadline = std::chrono::steady_clock::now() + timeout::DMA_TIMEOUT;
     while (!dma_is_complete(direction)) {
         if (std::chrono::steady_clock::now() > deadline) {
             UMD_THROW(error::RuntimeError, "DMA timeout.");

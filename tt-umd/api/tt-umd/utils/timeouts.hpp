@@ -31,6 +31,8 @@ inline constexpr auto RTL_SIM_ACK_TIMEOUT = std::chrono::minutes(60);
 // contended/virtualized host (e.g. a viommu CI runner) where a single op can take several ms.
 inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(2);
 
+inline constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
+
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 // ARC clears the interrupt trigger bit quickly; this just guards against concurrent
 // processes/threads opening clusters, which causes KMD to send ARC messages that

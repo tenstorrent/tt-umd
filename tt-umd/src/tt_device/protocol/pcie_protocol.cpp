@@ -493,6 +493,7 @@ DmaTransferState PcieProtocol::dma_zero_copy_check(DmaDirection direction) {
 
     if (dma_is_complete(direction)) {
         in_flight_dma_.reset();
+        dma_idle_.notify_all();
         return DmaTransferState::FINISHED;
     }
     if (std::chrono::steady_clock::now() <= in_flight_dma_->deadline) {
@@ -502,6 +503,7 @@ DmaTransferState PcieProtocol::dma_zero_copy_check(DmaDirection direction) {
     // throws on timeout.
     log_error(LogUMD, "DMA transfer on PCI device {} timed out.", pci_device_->get_device_num());
     in_flight_dma_.reset();
+    dma_idle_.notify_all();
     return DmaTransferState::ERROR;
 }
 
@@ -522,9 +524,15 @@ PcieProtocol::lock_dma_for_blocking_transfer() {
     }
 
     while (in_flight_dma_.has_value()) {
-        lock.unlock();
-        std::this_thread::yield();
-        lock.lock();
+        if (std::chrono::steady_clock::now() > in_flight_dma_->deadline) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Asynchronous DMA transfer on PCI device {} timed out without being checked by the thread that "
+                    "started it.",
+                    pci_device_->get_device_num()));
+        }
+        dma_idle_.wait_until(lock, in_flight_dma_->deadline);
     }
     auto pcie_dma_lock = lock_dma_engine();
     return {std::move(lock), std::move(pcie_dma_lock)};

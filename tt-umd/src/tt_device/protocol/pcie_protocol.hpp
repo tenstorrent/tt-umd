@@ -6,6 +6,7 @@
 #pragma once
 
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -133,7 +134,8 @@ private:
     // Keeps other processes off this device's DMA engine. Taken while holding dma_mutex_, never before it.
     std::unique_lock<MutexInterface> lock_dma_engine();
     // Takes the engine for a blocking transfer: waits out an asynchronous one in flight, then holds dma_mutex_ and
-    // the PCIE_DMA lock. Throws if the calling thread owns that transfer, since only it could finish it.
+    // the PCIE_DMA lock. Throws if the calling thread owns that transfer, since only it could finish it, or if that
+    // transfer outlives its deadline, since its owner may have stopped checking it.
     std::pair<std::unique_lock<std::mutex>, std::unique_lock<MutexInterface>> lock_dma_for_blocking_transfer();
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
@@ -146,6 +148,8 @@ private:
     // Keeps threads of this process off the DMA engine and the DMA TLB window.
     std::mutex dma_mutex_;
     std::optional<InFlightDma> in_flight_dma_;
+    // Notified when in_flight_dma_ is cleared, to wake blocking transfers waiting for the engine.
+    std::condition_variable dma_idle_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 

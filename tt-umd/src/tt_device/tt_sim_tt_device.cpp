@@ -4,6 +4,7 @@
 
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
@@ -15,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "pcie/tt_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
@@ -69,8 +71,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
-    auto soc_desc_path = get_simulator_soc_descriptor_path(simulator_directory);
-    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    const tt::ARCH arch = get_simulator_arch(simulator_directory);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
         // Blackhole SocDescriptor construction rejects an empty eth_harvesting_mask, and this runs
@@ -80,7 +81,10 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         // descriptor built here disagree with the one discovery builds from telemetry.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
     }
-    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
+    const std::string soc_desc_path = find_simulator_soc_descriptor_path(simulator_directory);
+    auto soc_arch_descriptor = soc_desc_path.empty() ? std::make_shared<SocArchDescriptor>(arch)
+                                                     : std::make_shared<SocArchDescriptor>(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory,
         soc_descriptor,
@@ -157,7 +161,7 @@ void TTSimTTDevice::initialize_backend() {
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == TT_PCI_VENDOR_ID, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
@@ -292,6 +296,33 @@ void TTSimTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_pt
 
 void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
     communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+}
+
+void TTSimTTDevice::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    // Without a TLB window there is no NOC multicast to reach, so emulate it.
+    if (!should_use_cached_tlb_window()) {
+        multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+        return;
+    }
+    if (is_device_closed()) {
+        return;
+    }
+    // Silicon delivers a multicast to Tensix cores only, while TTSim rejects a rectangle reaching past the
+    // Tensix grid. Clipping the rectangle to that grid gives TTSim the cores silicon would write.
+    const SocDescriptor& soc_descriptor = get_soc_descriptor();
+    const tt_xy_pair start = soc_descriptor.translate_chip_coord_to_translated(core_start, noc_id);
+    const tt_xy_pair end = soc_descriptor.translate_chip_coord_to_translated(core_end, noc_id);
+    const auto [tensix_first, tensix_last] = soc_descriptor.get_bounding_rectangle();
+    const tt_xy_pair clipped_start = {
+        std::max(std::min(start.x, end.x), tensix_first.x), std::max(std::min(start.y, end.y), tensix_first.y)};
+    const tt_xy_pair clipped_end = {
+        std::min(std::max(start.x, end.x), tensix_last.x), std::min(std::max(start.y, end.y), tensix_last.y)};
+    if (clipped_start.x > clipped_end.x || clipped_start.y > clipped_end.y) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    noc_multicast_write_reconfigure(*cached_tlb_window_, src, size, clipped_start, clipped_end, addr, noc_id);
 }
 
 bool TTSimTTDevice::is_device_closed() { return communicator_->is_closed(); }

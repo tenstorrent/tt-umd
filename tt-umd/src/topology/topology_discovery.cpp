@@ -113,23 +113,16 @@ std::optional<std::string> read_pci_bdf(int pci_device_id) {
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
-    // A simulator has no bus to probe: its architecture is declared by the SoC descriptor the image
-    // ships with, which is also what its devices are built from. Reading it from there rather than
-    // from the supplied descriptor is what gives the cross-check below two things to compare -- a
-    // supplied descriptor that disagrees with the image now selects no topology at all instead of
-    // the subclass of an architecture the devices are not.
+    // A simulator's architecture is read from the image itself rather than from the supplied
+    // descriptor, which is what gives the cross-check below two things to compare -- a supplied
+    // descriptor that disagrees with the image selects no topology at all instead of the subclass
+    // of an architecture the devices are not.
     tt::ARCH current_arch = ARCH::Invalid;
     if (!options.simulation.has_value()) {
         current_arch = probe_bus_architecture(io_device_type);
     } else {
 #ifdef TT_UMD_BUILD_SIMULATION
-        UMD_ASSERT(
-            !soc_descriptor_path.empty(),
-            error::RuntimeError,
-            "Discovering a simulator needs a SoC descriptor path: a simulator's architecture is "
-            "declared by its descriptor rather than probed from a bus.");
-        current_arch = SocDescriptor::get_arch_from_soc_descriptor_path(
-            get_simulator_soc_descriptor_path(options.simulation->simulator_path));
+        current_arch = get_simulator_arch(options.simulation->simulator_path);
 #else
         UMD_THROW(
             error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");

@@ -30,6 +30,9 @@ struct tt_device_t;
 
 namespace tt::umd {
 
+// The architecture a Tenstorrent PCI device id names, or Invalid for an id UMD does not know.
+tt::ARCH arch_from_pci_device_id(uint16_t device_id);
+
 struct PciDeviceInfo {
     uint16_t vendor_id;
     uint16_t device_id;

@@ -58,13 +58,16 @@ target_sources(
         src/chip_helpers/sysmem_buffer.cpp
         src/pcie/tlb_window.cpp
         src/pcie/io_window_reconfigure.cpp
+        src/common/noc_address_space.cpp
         src/common/register_access.cpp
         src/io_window/io_window_target.cpp
+        src/io_window/kmd_noc_window.cpp
         src/pcie/device_memcpy.cpp
         src/pcie/silicon_tlb_window.cpp
         src/pcie/silicon_tlb_handle.cpp
         src/tt_device_model/wormhole_tt_device_model.cpp
         src/tt_device_model/blackhole_tt_device_model.cpp
+        src/tt_device_model/grendel_tt_device_model.cpp
         src/tt_device/ethernet_broadcast.cpp
         src/coordinates/coordinate_manager.cpp
         src/cpuset_lib.cpp
@@ -140,6 +143,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/simulation_server_protocol.cpp
             src/simulation/simulation_device_identity.cpp
             src/simulation/simulation_host.cpp
+            src/simulation/simulator_paths.cpp
             src/simulation/tt_sim_communicator.cpp
             src/simulation/rtl_sim_communicator.cpp
             src/simulation/rtl_sim_session.cpp

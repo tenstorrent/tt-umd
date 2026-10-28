@@ -230,16 +230,18 @@ static void send_reset_ioctl(int device_id, uint32_t flags) {
     }
 }
 
-tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
+tt::ARCH arch_from_pci_device_id(uint16_t device_id) {
+    if (device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
+    } else if (device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
-    } else if (this->device_id == TT_QUASAR_PCI_DEVICE_ID) {
+    } else if (device_id == TT_QUASAR_PCI_DEVICE_ID) {
         return tt::ARCH::QUASAR;
     }
     return tt::ARCH::Invalid;
 }
+
+tt::ARCH PciDeviceInfo::get_arch() const { return arch_from_pci_device_id(this->device_id); }
 
 std::vector<int> PCIDevice::enumerate_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);

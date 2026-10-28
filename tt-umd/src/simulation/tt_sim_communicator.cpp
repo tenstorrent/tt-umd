@@ -15,6 +15,7 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -22,6 +23,7 @@
 
 #include "eth_ipc.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/utils/error.hpp"
 
 // NOLINTBEGIN.
@@ -445,8 +447,17 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
-std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+const TTSimCommunicator::ImageProbe &TTSimCommunicator::probe_image(const std::filesystem::path &simulator_path) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
+
+    // An image's endpoints are fixed when it is built, so one bring-up answers every later question
+    // about it -- including those asked once a simulator is running, when probing is no longer
+    // possible. Keyed on the canonical path so every spelling of the same image finds it.
+    static std::map<std::filesystem::path, ImageProbe> probes;
+    const std::filesystem::path key = std::filesystem::weakly_canonical(simulator_path);
+    if (auto cached = probes.find(key); cached != probes.end()) {
+        return cached->second;
+    }
 
     // This starts and stops an image of its own, so a simulator already running in this process
     // would be re-initialized -- fatal inside the simulator -- and then torn down underneath the
@@ -454,8 +465,8 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
     UMD_ASSERT(
         !s_sim_initialized_,
         error::RuntimeError,
-        "enumerate_mmio_device_bdfs() must run before any simulator is brought up in this process: a "
-        "simulator is already initialized, and enumerating would re-initialize and then stop it.");
+        "Probing a simulator image must happen before any simulator is brought up in this process: a "
+        "simulator is already initialized, and probing would re-initialize and then stop it.");
 
     void *handle = dlopen(simulator_path.c_str(), RTLD_LAZY);
     if (handle == nullptr) {
@@ -471,16 +482,16 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Simulator library {} does not export the symbols needed to enumerate it.", simulator_path.string()));
+                "Simulator library {} does not export the symbols needed to probe it.", simulator_path.string()));
     }
 
-    // Config space only reports endpoints while the image is running. Starting an image that is
-    // already running is fatal inside the simulator, which is why this must run before any
-    // simulator is brought up -- see the header.
+    // Config space only answers while the image is running. Starting an image that is already
+    // running is fatal inside the simulator, which is why the first probe of an image must run
+    // before any simulator is brought up.
     sim_init();
 
-    // Stopped even if the walk below throws: config_read32 is documented to throw ConfigurationError,
-    // and a left-running image makes the next enumeration or device open hit that fatal path.
+    // Stopped even if the walk throws: config_read32 is documented to throw ConfigurationError,
+    // and a left-running image makes the next probe or device open hit that fatal path.
     // Declared after handle_guard so the image stops before its library is unloaded.
     struct SimRunGuard {
         void (*exit_fn)();
@@ -488,7 +499,35 @@ std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::f
         ~SimRunGuard() { exit_fn(); }
     } sim_run_guard{sim_exit};
 
-    return scan_pci_endpoints(config_read32);
+    ImageProbe probe;
+    probe.bdfs = scan_pci_endpoints(config_read32);
+    if (!probe.bdfs.empty()) {
+        probe.first_endpoint_id = config_read32(probe.bdfs.front(), 0);
+    }
+    return probes.emplace(key, std::move(probe)).first->second;
+}
+
+std::vector<uint32_t> TTSimCommunicator::enumerate_mmio_device_bdfs(const std::filesystem::path &simulator_path) {
+    return probe_image(simulator_path).bdfs;
+}
+
+uint16_t TTSimCommunicator::read_pci_device_id(const std::filesystem::path &simulator_path) {
+    const ImageProbe &probe = probe_image(simulator_path);
+    UMD_ASSERT(
+        !probe.bdfs.empty(),
+        error::RuntimeError,
+        fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
+    const uint32_t vendor_and_device_id = probe.first_endpoint_id;
+    const uint16_t vendor_id = static_cast<uint16_t>(vendor_and_device_id & 0xFFFF);
+    UMD_ASSERT(
+        vendor_id == TT_PCI_VENDOR_ID,
+        error::RuntimeError,
+        fmt::format(
+            "Simulator {} reports PCI vendor id {:#x} rather than Tenstorrent's {:#x}.",
+            simulator_path.string(),
+            vendor_id,
+            TT_PCI_VENDOR_ID));
+    return static_cast<uint16_t>(vendor_and_device_id >> 16);
 }
 
 std::vector<uint32_t> TTSimCommunicator::scan_pci_endpoints(

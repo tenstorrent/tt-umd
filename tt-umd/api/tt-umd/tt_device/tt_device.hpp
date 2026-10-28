@@ -541,6 +541,9 @@ private:
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
+    /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */
+    std::pair<xy_pair, uint64_t> resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const;
+
     DmaInterface *get_dma_interface();
 
     RiscReset *get_risc_reset();

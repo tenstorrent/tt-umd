@@ -23,6 +23,7 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/dma.hpp"
+#include "utils.hpp"
 
 using namespace tt::umd;
 
@@ -30,21 +31,30 @@ namespace {
 
 constexpr size_t TRANSFER_SIZE = 64 * 1024;
 
-// Polls the way the owner of a transfer does: until it reports the transfer done.
-DmaTransferState wait_for_write(TTDevice* tt_device) {
+// Polls the way the owner of a transfer does: until it reports the transfer done. Returns IN_PROGRESS on timeout.
+template <typename Check>
+DmaTransferState wait_for_transfer(Check check) {
+    static constexpr auto TIMEOUT = std::chrono::milliseconds(5'000);
+    static constexpr auto BUSY_POLL_WINDOW = std::chrono::microseconds(0);
+    static constexpr auto POLL_INTERVAL = std::chrono::microseconds(100);
     DmaTransferState state = DmaTransferState::IN_PROGRESS;
-    while (state == DmaTransferState::IN_PROGRESS) {
-        state = tt_device->dma_write_zero_copy_check();
-    }
+    utils::poll_until(
+        [&] {
+            state = check();
+            return state != DmaTransferState::IN_PROGRESS;
+        },
+        TIMEOUT,
+        BUSY_POLL_WINDOW,
+        POLL_INTERVAL);
     return state;
 }
 
+DmaTransferState wait_for_write(TTDevice* tt_device) {
+    return wait_for_transfer([&] { return tt_device->dma_write_zero_copy_check(); });
+}
+
 DmaTransferState wait_for_read(TTDevice* tt_device) {
-    DmaTransferState state = DmaTransferState::IN_PROGRESS;
-    while (state == DmaTransferState::IN_PROGRESS) {
-        state = tt_device->dma_read_zero_copy_check();
-    }
-    return state;
+    return wait_for_transfer([&] { return tt_device->dma_read_zero_copy_check(); });
 }
 
 }  // namespace

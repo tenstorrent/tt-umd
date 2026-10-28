@@ -41,18 +41,27 @@ jobs:
             echo "already-passed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-tests:
+  ensure-image:
     needs: check-previous-run
     if: ${{ needs.check-previous-run.outputs.already-passed != 'true' }}
+    permissions:
+      packages: write
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04
+
+  build-tests:
+    needs: ensure-image
     secrets: inherit
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ubuntu-24.04
+      image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       build-type: ${{ inputs.build-type || 'Release' }}
       build-wheel: false
 
   run-jtag-tests:
-    needs: build-tests
+    needs: [ensure-image, build-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -62,7 +71,7 @@ jobs:
     timeout-minutes: 30
     runs-on: [umd-lab, "${{ matrix.card }}"]
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:${{ needs.ensure-image.outputs.image-tag }}
       options: --device /dev/tenstorrent
       volumes:
         - /etc/udev/rules.d:/etc/udev/rules.d
@@ -90,11 +99,23 @@ jobs:
       - name: Untar build artifacts
         run: tar xvf artifact.tar
 
+      # The package is immutable per version, so the version is the whole cache key.
+      - name: Restore libtt_umd_jtag from cache
+        id: jtag-cache
+        uses: actions/cache@v5
+        with:
+          path: jtag.tar.gz
+          key: jtag-lib-ubuntu-${{ env.UBUNTU_VERSION }}-${{ env.JTAG_VERSION }}
+
       - name: Fetch libtt_umd_jtag
+        if: ${{ steps.jtag-cache.outputs.cache-hit != 'true' }}
         run: |
           curl --fail -L -u "${{ secrets.GITLAB_DEPLOY_USER_JTAG }}:${{ secrets.GITLAB_DEPLOY_TOKEN_JTAG }}" \
             -o jtag.tar.gz \
             "https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/tt-exalens-jtag/${JTAG_VERSION}/libtt_umd_jtag-${JTAG_VERSION}-ubuntu${UBUNTU_VERSION}-x86_64.tar.gz"
+
+      - name: Extract libtt_umd_jtag
+        run: |
           mkdir jtag
           tar -xzf jtag.tar.gz -C jtag
           ls -R jtag

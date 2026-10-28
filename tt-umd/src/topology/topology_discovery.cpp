@@ -8,7 +8,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -21,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include "common/open_device_or_skip.hpp"
 #include "common/utils.hpp"
 #include "firmware/erisc_firmware.hpp"
 #include "simulation/simulator_paths.hpp"
@@ -96,17 +94,6 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
         default:
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
     }
-}
-
-// The KMD answers the device info query even for a device it refuses to map, so a device whose open
-// failed can usually still be named by its BDF.
-std::optional<std::string> read_pci_bdf(int pci_device_id) {
-    const std::map<int, PciDeviceInfo> infos = PCIDevice::enumerate_devices_info();
-    const auto it = infos.find(pci_device_id);
-    if (it == infos.end()) {
-        return std::nullopt;
-    }
-    return it->second.pci_bdf;
 }
 
 }  // namespace
@@ -307,24 +294,9 @@ void TopologyDiscovery::get_connected_devices() {
             UMD_THROW(error::RuntimeError, "Unsupported device type.");
     }
 
-    const bool skip_failed_opens = io_device_type == IODeviceType::PCIe &&
-                                   options.device_open_failure_action == TopologyDiscoveryOptions::Action::IGNORE;
-    const std::function<std::unique_ptr<TTDevice>(int)> create_device = [this](int device_id) {
-        return TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
-    };
     for (auto& device_id : local_device_ids) {
-        std::optional<std::unique_ptr<TTDevice>> opened =
-            open_device_or_skip(device_id, skip_failed_opens, create_device, unopened_devices);
-        if (!opened) {
-            log_warning(
-                LogUMD,
-                "Skipped PCI device {} ({}): opening it failed: {}",
-                device_id,
-                read_pci_bdf(device_id).value_or("BDF unknown"),
-                unopened_devices.at(device_id));
-            continue;
-        }
-        std::unique_ptr<TTDevice> tt_device = std::move(*opened);
+        std::unique_ptr<TTDevice> tt_device =
+            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
@@ -615,23 +587,6 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, tt_device->get_chip_info().board_id);
-    }
-
-    for (const auto& [device_id, error] : unopened_devices) {
-        const auto it = pci_devices_info.find(device_id);
-        const bool has_info = it != pci_devices_info.end();
-        cluster_desc->add_unopened_device(
-            device_id,
-            has_info ? it->second.pci_bdf : "",
-            has_info ? std::optional<uint16_t>(it->second.pci_bus) : std::nullopt,
-            error);
-        const std::optional<uint8_t> tray_id = cluster_desc->unopened_devices.at(device_id).tray_id;
-        log_warning(
-            LogUMD,
-            "PCI device {} ({}, tray {}) is left out of the cluster: opening it failed.",
-            device_id,
-            has_info ? it->second.pci_bdf : "BDF unknown",
-            tray_id ? std::to_string(*tray_id) : "unknown");
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {

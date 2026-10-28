@@ -151,9 +151,6 @@ protected:
 
     std::map<uint64_t, std::vector<ClusterDescriptor::DeviceHealthError>> health_errors;
 
-    // Local PCIe devices left out because opening them failed: PCI device id -> error message.
-    std::map<int, std::string> unopened_devices;
-
     bool is_running_on_6u = false;
 
     const TopologyDiscoveryOptions options;

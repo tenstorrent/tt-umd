@@ -5,9 +5,6 @@ set(UMD_MISC_TESTS_SRCS
     test_poll_until.cpp
     test_enum_array.cpp
     test_cpp_compat.cpp
-    test_warm_reset_completion.cpp
-    test_open_device_or_skip.cpp
-    test_unopened_device_tray.cpp
 )
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})

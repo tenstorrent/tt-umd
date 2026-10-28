@@ -21,10 +21,6 @@ using release_gil = nb::call_guard<nb::gil_scoped_release>;
 using namespace tt::umd;
 
 void bind_warm_reset(nb::module_ &m) {
-    nb::class_<WarmResetResult>(m, "WarmResetResult")
-        .def_ro("success", &WarmResetResult::success)
-        .def_ro("missing_pci_bdfs", &WarmResetResult::missing_pci_bdfs);
-
     // WarmReset class binding.
     nb::class_<WarmReset>(m, "WarmReset")
         .def_static(
@@ -38,24 +34,6 @@ void bind_warm_reset(nb::module_ &m) {
             "Perform a warm reset of the device. reset_m3 flag sends specific ARC message to do a M3 board level "
             "reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset. "
             "m3_delay_s is the post-reset wait time in seconds when reset_m3 is True (default 20s).")
-        .def_static(
-            "warm_reset_with_result",
-            &WarmReset::warm_reset_with_result,
-            nb::arg("pci_device_ids") = std::vector<int>{},
-            nb::arg("reset_m3") = false,
-            nb::arg("secondary_bus_reset") = true,
-            nb::arg("m3_delay_s") = 20.0,
-            release_gil(),
-            "Same as warm_reset, but returns a WarmResetResult whose missing_pci_bdfs names each device that did "
-            "not come back. Every other reset device came back and is usable.")
-        .def_static(
-            "rescan_pci_bdfs",
-            &WarmReset::rescan_pci_bdfs,
-            nb::arg("pci_bdfs"),
-            nb::arg("timeout_s") = 10.0,
-            release_gil(),
-            "Remove each listed device still on the PCIe bus, rescan the bus and wait up to timeout_s for every "
-            "listed device to come back. Requires root. Returns the BDFs still missing.")
         .def_static(
             "warm_reset_chip_id",
             &WarmReset::warm_reset_chip_id,

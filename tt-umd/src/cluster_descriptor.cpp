@@ -16,7 +16,6 @@
 #include <fstream>
 #include <map>
 #include <memory>
-#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -1468,24 +1467,5 @@ std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
 }
 
 const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
-
-void ClusterDescriptor::add_unopened_device(
-    int pci_device_id, const std::string &pci_bdf, std::optional<uint16_t> pci_bus, std::string error) {
-    std::optional<uint8_t> tray_id;
-    for (const auto &[chip_id, board_type] : chip_board_type) {
-        if (!pci_bus.has_value()) {
-            break;
-        }
-        if (board_type == BoardType::UBB_WORMHOLE) {
-            tray_id = ubb_tray_id(wormhole::UBB_TRAY_BUS_IDS, *pci_bus);
-            break;
-        }
-        if (board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF) {
-            tray_id = ubb_tray_id(blackhole::UBB_TRAY_BUS_IDS, *pci_bus);
-            break;
-        }
-    }
-    unopened_devices[pci_device_id] = UnopenedDevice{pci_bdf, tray_id, std::move(error)};
-}
 
 }  // namespace tt::umd

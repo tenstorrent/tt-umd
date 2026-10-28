@@ -445,9 +445,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
     tt_bar_mappings_t bar_mappings{};
     int mappings_ret = tt_device_query_bar_mappings(tt_device_handle, &bar_mappings);
     if (mappings_ret != 0) {
+        // The destructor does not run for a constructor that throws; release the device here so a caller
+        // that skips this device (TopologyDiscoveryOptions::device_open_failure_action) does not leak it.
+        tt_device_close(tt_device_handle);
+        close(pci_device_file_desc);
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Query mappings failed on device {}: {}", pci_device_num, strerror(-mappings_ret)));
+            fmt::format(
+                "Query mappings failed on device {} ({}): {}", pci_device_num, info.pci_bdf, strerror(-mappings_ret)));
     }
 
     const tt_bar_mapping_t &bar0_uc_mapping = bar_mappings.resource0_uc;

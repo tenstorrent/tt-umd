@@ -39,6 +39,11 @@ std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id);
 
 void bind_topology_discovery(nb::module_& m) {
+    nb::class_<ClusterDescriptor::UnopenedDevice>(m, "UnopenedDevice")
+        .def_ro("pci_bdf", &ClusterDescriptor::UnopenedDevice::pci_bdf)
+        .def_ro("tray_id", &ClusterDescriptor::UnopenedDevice::tray_id)
+        .def_ro("error", &ClusterDescriptor::UnopenedDevice::error);
+
     nb::class_<ClusterDescriptor>(m, "ClusterDescriptor")
         .def_static(
             "create_from_yaml_content",
@@ -129,6 +134,11 @@ void bind_topology_discovery(nb::module_& m) {
             "Returns the ASIC location index within the chip's board (uint8), or 0 if unknown.")
         .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
         .def("get_health_errors", &ClusterDescriptor::get_health_errors, release_gil())
+        .def(
+            "get_unopened_devices",
+            &ClusterDescriptor::get_unopened_devices,
+            release_gil(),
+            "PCI devices left out under device_open_failure_action IGNORE, keyed by PCI device id.")
         .def_static(
             "create_constrained_cluster_descriptor",
             [](const ClusterDescriptor& full_cluster_desc, const std::unordered_set<ChipId>& target_chip_ids) {
@@ -162,6 +172,7 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("unexpected_routing_firmware_config", &TopologyDiscoveryOptions::unexpected_routing_firmware_config)
         .def_rw("eth_fw_heartbeat_failure", &TopologyDiscoveryOptions::eth_fw_heartbeat_failure)
         .def_rw("device_init_failure_action", &TopologyDiscoveryOptions::device_init_failure_action)
+        .def_rw("device_open_failure_action", &TopologyDiscoveryOptions::device_open_failure_action)
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)

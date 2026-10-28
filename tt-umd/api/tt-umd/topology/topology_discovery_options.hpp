@@ -85,6 +85,14 @@ struct TopologyDiscoveryOptions {
     Action device_init_failure_action = Action::THROW;
 
     /**
+     * @brief Action to take when opening a local PCIe device fails, as for a device the KMD still holds in its
+     * reset window or one whose config space reads all ones. IGNORE leaves the device out, logs it by PCI BDF and
+     * records it in ClusterDescriptor::get_unopened_devices(), so the other devices are still discovered.
+     * Defaults to THROW.
+     */
+    Action device_open_failure_action = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.

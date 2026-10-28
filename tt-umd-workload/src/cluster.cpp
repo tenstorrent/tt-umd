@@ -1536,6 +1536,10 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
         log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
         adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
     }
+    if (adjusted_topology_options.device_open_failure_action != TopologyDiscoveryOptions::Action::THROW) {
+        log_warning(LogUMD, "Ignoring device open failures is not supported in Cluster. Overriding to THROW.");
+        adjusted_topology_options.device_open_failure_action = TopologyDiscoveryOptions::Action::THROW;
+    }
     return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
 }
 

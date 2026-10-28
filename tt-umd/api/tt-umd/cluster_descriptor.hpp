@@ -307,6 +307,17 @@ public:
 
     const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
 
+    // A local PCIe device that topology discovery left out because opening it failed
+    // (TopologyDiscoveryOptions::device_open_failure_action IGNORE). It has no ChipId and is in no other map.
+    struct UnopenedDevice {
+        std::string pci_bdf;             // Empty when the KMD could not report it.
+        std::optional<uint8_t> tray_id;  // UBB tray 1..4, when the opened devices show a UBB board.
+        std::string error;
+    };
+
+    // Keyed by PCI device id, the number PCIDevice is opened with. Not serialized.
+    const std::map<int, UnopenedDevice> &get_unopened_devices() const { return unopened_devices; }
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 
@@ -319,6 +330,9 @@ private:
     void merge_cluster_ids();
     void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
+    // Needs chip_board_type filled: the tray is derived from the bus by the opened devices' UBB board type.
+    void add_unopened_device(
+        int pci_device_id, const std::string &pci_bdf, std::optional<uint16_t> pci_bus, std::string error);
 
     // Centralize mock/simulator-only default values that are not coming from YAML.
     void fill_mock_hardcoded_data(ChipId logical_id);
@@ -376,6 +390,7 @@ private:
 
     std::vector<ChipId> unhealthy_devices;
     std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
+    std::map<int, UnopenedDevice> unopened_devices;
 
     // Unset on descriptors written before this field existed, and on mock descriptors that were
     // never given one. Consumers fall back to whatever they used before in that case.

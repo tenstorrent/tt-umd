@@ -240,9 +240,8 @@ jobs:
           # Deliberately no cluster_descriptor.yaml: with nothing declaring the topology, UMD discovers it
           # from the image and enumerates both MMIO chips the way it does on silicon. TTSimDiscoveryTest
           # below asserts that it found them.
-          # x32 is the 6U Galaxy simulator (32 chips, all MMIO). Its topology is baked into the .so,
-          # and the tt-metal tests below supply the matching cluster descriptor through
-          # TT_METAL_MOCK_CLUSTER_DESC_PATH, so no cluster_descriptor.yaml is placed beside it.
+          # x32 is the 6U Galaxy simulator (32 chips, all MMIO). Its topology is baked into the .so and
+          # UMD discovers all 32 chips from the image's PCIe endpoints, so no cluster descriptor is given.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x32/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x32/soc_descriptor.yaml
 
@@ -554,11 +553,8 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_DISABLE_SFPLOADMACRO: 1
-          TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/wormhole/6u_cluster_desc
         run: |
           cd tt-metal
-          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
           echo "Running C++ unit tests for wormhole_b0..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
@@ -570,11 +566,8 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_DISABLE_SFPLOADMACRO: 1
-          TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/blackhole/bh_6u_cluster_desc
         run: |
           cd tt-metal
-          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"
           echo "Running C++ unit tests for blackhole..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"

@@ -10,6 +10,7 @@
 
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/pcie_dma/dma_completion.hpp"
 
 namespace tt::umd {
 
@@ -36,12 +37,14 @@ void BlackholeDmaTransfer::d2h_start(
     UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
-bool BlackholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& /*dma_buffer*/) {
+bool BlackholeDmaTransfer::d2h_is_complete(const DmaBuffer& /*dma_buffer*/) {
     UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
 void BlackholeDmaTransfer::h2d_start(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint32_t dst, uint64_t src, size_t size) {
+    *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) = 0;
+
     auto write_reg = [&](uint32_t offset, uint32_t value) {
         *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
     };
@@ -57,8 +60,8 @@ void BlackholeDmaTransfer::h2d_start(
     write_reg(
         MSI_ABORT_HIGH_OFF_RDCH_0,
         static_cast<uint32_t>(((dma_buffer.completion_pa + sizeof(uint32_t)) >> 32) & 0xFFFFFFFF));
-    // MSI message data written on completion (unused for polling, set to 0).
-    write_reg(MSI_MSGD_OFF_RDCH_0, 0);
+    // MSI message data written to the completion flag when the transfer is done.
+    write_reg(MSI_MSGD_OFF_RDCH_0, DMA_COMPLETION_VALUE);
     // Enable the DMA read channel.
     write_reg(EN_OFF_RDCH_0, 0x1);
     // Set the source address (host physical address of the DMA buffer).
@@ -72,8 +75,8 @@ void BlackholeDmaTransfer::h2d_start(
     write_reg(DOORBELL_OFF_RDCH_0, 0x1);
 }
 
-bool BlackholeDmaTransfer::h2d_is_complete(const volatile uint8_t* bar2, const DmaBuffer& /*dma_buffer*/) {
-    return *reinterpret_cast<const volatile uint32_t*>(bar2 + XFERSIZE_OFF_RDCH_0) == 0;
+bool BlackholeDmaTransfer::h2d_is_complete(const DmaBuffer& dma_buffer) {
+    return is_dma_completion_flag_set(dma_buffer);
 }
 
 }  // namespace tt::umd

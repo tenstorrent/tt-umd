@@ -7,20 +7,9 @@
 #include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt_device/protocol/pcie_dma/dma_completion.hpp"
 
 namespace tt::umd {
-
-namespace {
-
-// Arbitrary marker programmed as the engine's done data, so the engine writes it into the completion flag when
-// a transfer, in either direction, finishes.
-constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-
-bool is_completion_flag_set(const DmaBuffer& dma_buffer) {
-    return *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
-}
-
-}  // namespace
 
 // TODO: This is a temporary implementation, and ought to be replaced with a
 // driver-based technique that can take advantage of multiple channels and
@@ -68,8 +57,8 @@ void WormholeDmaTransfer::d2h_start(
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 }
 
-bool WormholeDmaTransfer::d2h_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
-    return is_completion_flag_set(dma_buffer);
+bool WormholeDmaTransfer::d2h_is_complete(const DmaBuffer& dma_buffer) {
+    return is_dma_completion_flag_set(dma_buffer);
 }
 
 void WormholeDmaTransfer::h2d_start(
@@ -112,8 +101,8 @@ void WormholeDmaTransfer::h2d_start(
     write_reg(DMA_READ_DOORBELL_OFF, 0);
 }
 
-bool WormholeDmaTransfer::h2d_is_complete(const volatile uint8_t* /*bar2*/, const DmaBuffer& dma_buffer) {
-    return is_completion_flag_set(dma_buffer);
+bool WormholeDmaTransfer::h2d_is_complete(const DmaBuffer& dma_buffer) {
+    return is_dma_completion_flag_set(dma_buffer);
 }
 
 }  // namespace tt::umd

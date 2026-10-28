@@ -437,11 +437,10 @@ void PcieProtocol::program_dma_engine(
 
 bool PcieProtocol::dma_is_complete(DmaDirection direction) {
     const DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-    const volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
     return std::visit(
         [&](auto& strategy) {
-            return direction == DmaDirection::H2D ? strategy.h2d_is_complete(bar2, dma_buffer)
-                                                  : strategy.d2h_is_complete(bar2, dma_buffer);
+            return direction == DmaDirection::H2D ? strategy.h2d_is_complete(dma_buffer)
+                                                  : strategy.d2h_is_complete(dma_buffer);
         },
         dma_strategy_);
 }

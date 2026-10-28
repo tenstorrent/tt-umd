@@ -25,6 +25,7 @@ apt-get update && apt-get install -y \
     libgtest-dev \
     libyaml-cpp-dev \
     libboost-all-dev \
+    curl \
     wget \
     yamllint \
     patchelf \

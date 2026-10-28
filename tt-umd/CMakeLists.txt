@@ -185,6 +185,37 @@ if(TT_UMD_BUILD_EMULE)
     target_link_libraries(tt-umd PRIVATE tt-emule::headers)
 endif()
 
+# The RVV fast path in device_memcpy.cpp needs to use vector intrinsics inside a function marked
+# __attribute__((target("arch=+v"))), so that a baseline rv64gc build still contains the code and
+# HWCAP can select it at run time. That combination is not guaranteed by the RISC-V C API yet (see
+# riscv-non-isa/riscv-rvv-intrinsic-doc#376), and on compilers that lack it <riscv_vector.h> can
+# fail outright rather than degrade, so probe for it instead of comparing compiler versions.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
+    include(CheckCXXSourceCompiles)
+    set(CMAKE_REQUIRED_QUIET TRUE)
+    check_cxx_source_compiles(
+        "
+        #include <riscv_vector.h>
+        #include <cstdint>
+        #include <cstddef>
+        __attribute__((target(\"arch=+v\"))) void probe(std::uint64_t* d, const std::uint8_t* s, std::size_t n) {
+            const std::size_t vl = __riscv_vsetvlmax_e8m8();
+            const vuint8m8_t v = __riscv_vle8_v_u8m8(s, vl < n ? vl : n);
+            __riscv_vse64_v_u64m8(d, __riscv_vreinterpret_v_u8m8_u64m8(v), (vl < n ? vl : n) / 8);
+        }
+        int main() { return 0; }
+        "
+        TT_UMD_HAS_RVV_TARGET_ATTR
+    )
+    unset(CMAKE_REQUIRED_QUIET)
+    if(TT_UMD_HAS_RVV_TARGET_ATTR)
+        target_compile_definitions(tt-umd PRIVATE TT_UMD_HAS_RVV_TARGET_ATTR)
+        message(STATUS "riscv64: RVV target-attribute fast path available in device_memcpy")
+    else()
+        message(STATUS "riscv64: compiler lacks RVV target-attribute support; using scalar device_memcpy")
+    endif()
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         tt-umd

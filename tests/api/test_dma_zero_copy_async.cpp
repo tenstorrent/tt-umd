@@ -107,7 +107,8 @@ TEST_F(DmaZeroCopyAsync, WriteLargerThanMaxSizeThrows) {
     EXPECT_EQ(tt_device_->dma_write_zero_copy_check(), DmaTransferState::IDLE);
 }
 
-// Starts just below 16 MiB so that on current hardware the transfer has to be split into several.
+// Each chunk runs right up to dma_zero_copy_max_size(), so the readback catches a max size larger than what actually
+// lands where it should. Starts just below 16 MiB so that current hardware splits it.
 TEST_F(DmaZeroCopyAsync, WriteSplitByMaxSizeLandsOnDevice) {
     constexpr uint64_t DEVICE_ADDR = 16 * 1024 * 1024 - TRANSFER_SIZE / 2;
     test_utils::fill_with_random_bytes(host_, TRANSFER_SIZE);

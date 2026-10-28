@@ -27,15 +27,12 @@
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
-#include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/risc_type.hpp"
-#include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -310,17 +307,14 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    tlb_data config{};
-    config.local_offset = reg_dest;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.set_static_vc(get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(WindowFlags::UnicastWrite));
-    TlbWindow* tlb_window = get_cached_uc_tlb_window();
-    tlb_window->configure(config);
-
-    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
+    write_register_reconfigure(
+        *get_cached_uc_tlb_window(),
+        src,
+        translated_core,
+        reg_dest,
+        size,
+        is_selected_noc1() ? NocId::NOC1 : NocId::NOC0,
+        RegisterAccessWidth::BITS32);
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -341,21 +335,14 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    tlb_data config{};
-    config.local_offset = reg_src;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = tlb_data::Strict;
-    config.set_static_vc(get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(WindowFlags::UnicastRead));
-    TlbWindow* tlb_window = get_cached_uc_tlb_window();
-    tlb_window->configure(config);
-
-    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
-}
-
-std::function<bool(NocId)> LocalChip::make_io_timeout_hang_check() {
-    return [this](NocId noc) -> bool { return tt_device_->is_noc_hung(noc, TTDevice::HangAction::RETURN); };
+    read_register_reconfigure(
+        *get_cached_uc_tlb_window(),
+        dest,
+        translated_core,
+        reg_src,
+        size,
+        is_selected_noc1() ? NocId::NOC1 : NocId::NOC0,
+        RegisterAccessWidth::BITS32);
 }
 
 void LocalChip::wait_for_non_mmio_flush() {}
@@ -504,23 +491,24 @@ int LocalChip::get_numa_node() {
     return pcie_interface != nullptr ? pcie_interface->get_numa_node() : -1;
 }
 
-TlbWindow* LocalChip::get_cached_wc_tlb_window() {
+std::unique_ptr<IoWindow> LocalChip::create_cached_window(HostMemoryCaching caching) {
+    // Every transfer reconfigures the window before using it, so the target it starts out with is never used.
+    return tt_device_->create_io_window(
+        TargetIoWindowConfig{},
+        HostIoWindowConfig{caching, get_architecture_tlbs(tt_device_->get_arch()).cached_window_size});
+}
+
+IoWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_architecture_tlbs(get_tt_device()->get_arch()).cached_window_size, TlbMapping::WC));
-        cached_wc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
-        return cached_wc_tlb_window.get();
+        cached_wc_tlb_window = create_cached_window(HostMemoryCaching::WC);
     }
 
     return cached_wc_tlb_window.get();
 }
 
-TlbWindow* LocalChip::get_cached_uc_tlb_window() {
+IoWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_architecture_tlbs(get_tt_device()->get_arch()).cached_window_size, TlbMapping::UC));
-        cached_uc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
-        return cached_uc_tlb_window.get();
+        cached_uc_tlb_window = create_cached_window(HostMemoryCaching::UC);
     }
 
     return cached_uc_tlb_window.get();

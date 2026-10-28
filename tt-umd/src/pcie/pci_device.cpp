@@ -417,6 +417,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     struct HandleGuard {
         tt_device_t *&handle;
         bool armed = true;
+
         ~HandleGuard() {
             if (armed && handle != nullptr) {
                 tt_device_close(handle);

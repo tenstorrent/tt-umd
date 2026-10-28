@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <unistd.h>
-
 #include <fmt/format.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -140,23 +139,27 @@ class PCIDevice {
     // Closes the device file if the constructor throws; the destructor does not run then. Released on success.
     struct FdGuard {
         explicit FdGuard(int fd) : fd(fd) {}
+
         FdGuard(const FdGuard &) = delete;
         FdGuard &operator=(const FdGuard &) = delete;
+
         ~FdGuard() {
             if (fd >= 0) {
                 ::close(fd);
             }
         }
+
         int release() {
             int f = fd;
             fd = -1;
             return f;
         }
+
         int fd;
     };
 
-    const std::string device_path;   // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;        // N in /dev/tenstorrent/N
+    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;       // N in /dev/tenstorrent/N
     FdGuard pci_device_fd_guard;
     const int pci_device_file_desc;  // Character device file descriptor
     const PciDeviceInfo info;        // PCI device info

@@ -321,9 +321,9 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     const size_t dmabuf_size = dma_buffer.size;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    const auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                      .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                      .tlb_offset;
+    const auto tlb_window_addr_base = get_architecture_tlbs(pci_device_->get_arch())
+                                          .get_configuration(tlb_window->handle_ref().get_tlb_id())
+                                          .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
 
@@ -331,13 +331,13 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         config.local_offset = addr;
         tlb_window->configure(config);
 
-        const auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+        const auto tlb_window_addr = tlb_window_addr_base + (addr & (tlb_handle_size - 1));
         const size_t transfer_size = std::min({size, tlb_window->get_size(), dmabuf_size});
 
         if (direction == DmaDirection::H2D) {
             std::memcpy(dma_buffer.buffer, buf, transfer_size);
         }
-        run_dma_transfer(direction, dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+        run_dma_transfer(direction, dma_buffer.buffer_pa, static_cast<uint32_t>(tlb_window_addr), transfer_size);
         if (direction == DmaDirection::D2H) {
             std::memcpy(buf, dma_buffer.buffer, transfer_size);
         }
@@ -364,9 +364,9 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    const auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
-                                      .get_configuration(tlb_window->handle_ref().get_tlb_id())
-                                      .tlb_offset;
+    const auto tlb_window_addr_base = get_architecture_tlbs(pci_device_->get_arch())
+                                          .get_configuration(tlb_window->handle_ref().get_tlb_id())
+                                          .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
 
@@ -374,10 +374,10 @@ bool PcieProtocol::dma_transfer_zero_copy(
         config.local_offset = addr;
         tlb_window->configure(config);
 
-        const auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+        const auto tlb_window_addr = tlb_window_addr_base + (addr & (tlb_handle_size - 1));
         const size_t transfer_size = std::min(size, tlb_window->get_size());
 
-        run_dma_transfer(direction, iova, static_cast<uint32_t>(axi_address), transfer_size);
+        run_dma_transfer(direction, iova, static_cast<uint32_t>(tlb_window_addr), transfer_size);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -404,7 +404,7 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {
 }
 
 void PcieProtocol::program_dma_engine(
-    DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size) {
+    DmaDirection direction, uint64_t iova_addr, uint32_t tlb_window_addr, size_t size) {
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
@@ -427,9 +427,9 @@ void PcieProtocol::program_dma_engine(
     std::visit(
         [&](auto& strategy) {
             if (direction == DmaDirection::H2D) {
-                strategy.h2d_start(bar2, dma_buffer, tlb_window_addr, host_addr, size);
+                strategy.h2d_start(bar2, dma_buffer, tlb_window_addr, iova_addr, size);
             } else {
-                strategy.d2h_start(bar2, dma_buffer, host_addr, tlb_window_addr, size);
+                strategy.d2h_start(bar2, dma_buffer, iova_addr, tlb_window_addr, size);
             }
         },
         dma_strategy_);
@@ -446,8 +446,8 @@ bool PcieProtocol::dma_is_complete(DmaDirection direction) {
         dma_strategy_);
 }
 
-void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t host_addr, uint32_t tlb_window_addr, size_t size) {
-    program_dma_engine(direction, host_addr, tlb_window_addr, size);
+void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t iova_addr, uint32_t tlb_window_addr, size_t size) {
+    program_dma_engine(direction, iova_addr, tlb_window_addr, size);
     const auto deadline = std::chrono::steady_clock::now() + timeout::DMA_TIMEOUT;
     while (!dma_is_complete(direction)) {
         if (std::chrono::steady_clock::now() > deadline) {

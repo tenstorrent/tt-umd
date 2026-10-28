@@ -1,0 +1,103 @@
+# Build and then run the JTAG tests on the lab machines, every day at 22:00.
+name: Build and run JTAG tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-type:
+        required: false
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+  schedule:
+    - cron: "0 22 * * *"
+      timezone: "Europe/Belgrade"
+  pull_request:
+
+jobs:
+  # Nightly runs of an unchanged main would just repeat the last result, so skip them if this commit
+  # already passed. Manual dispatches always run.
+  check-previous-run:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      already-passed: ${{ steps.query.outputs.already-passed }}
+    steps:
+      - name: Look for a successful run of this commit
+        id: query
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs_url="repos/${{ github.repository }}/actions/workflows/build-and-run-jtag-tests.yml/runs"
+          passed_runs=$(gh api "${runs_url}?head_sha=${{ github.sha }}&status=success" --jq '.total_count')
+          echo "Successful runs of ${{ github.sha }}: $passed_runs"
+          if [[ "${{ github.event_name }}" == "schedule" && "$passed_runs" -gt 0 ]]; then
+            echo "already-passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already-passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-tests:
+    needs: check-previous-run
+    if: ${{ needs.check-previous-run.outputs.already-passed != 'true' }}
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ubuntu-24.04
+      build-type: ${{ inputs.build-type || 'Release' }}
+      build-wheel: false
+
+  run-jtag-tests:
+    needs: build-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        # card: [p150, n150, n300]
+        card: [n300]
+    name: JTAG tests (${{ matrix.card }}, ubuntu-24.04)
+    timeout-minutes: 30
+    runs-on: [umd-lab, "${{ matrix.card }}"]
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+
+    env:
+      LD_LIBRARY_PATH: ./build/lib:./jtag
+      TT_LOGGER_LEVEL: info
+      UBUNTU_VERSION: "24.04"
+      JTAG_VERSION: v0.1.0
+      GITLAB_HOST: yyz-gitlab.local.tenstorrent.com
+      GITLAB_PROJECT_ID: "843"
+
+    steps:
+      - name: Cleanup workspace directory from previous runs.
+        run: rm -rf *
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifacts-ubuntu-${{ env.UBUNTU_VERSION }}-${{ inputs.build-type || 'Release' }}
+
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: Untar build artifacts
+        run: tar xvf artifact.tar
+
+      - name: Fetch libtt_umd_jtag
+        run: |
+          curl --fail -L -u "${{ secrets.GITLAB_DEPLOY_USER_JTAG }}:${{ secrets.GITLAB_DEPLOY_TOKEN_JTAG }}" \
+            -o jtag.tar.gz \
+            "https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/tt-exalens-jtag/${JTAG_VERSION}/libtt_umd_jtag-${JTAG_VERSION}-ubuntu${UBUNTU_VERSION}-x86_64.tar.gz"
+          mkdir jtag
+          tar -xzf jtag.tar.gz -C jtag
+          ls -R jtag
+
+      - name: Run JTAG tests
+        run: ./build/test/umd/api/api_tests --gtest_filter='*Jtag*'

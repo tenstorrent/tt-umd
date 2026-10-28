@@ -10,6 +10,7 @@
 
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/pcie_dma/dma_completion.hpp"
 
 namespace tt::umd {
 
@@ -28,10 +29,6 @@ constexpr uint32_t MSI_STOP_HIGH_OFF_RDCH_0 = 0x194;
 constexpr uint32_t MSI_ABORT_LOW_OFF_RDCH_0 = 0x1A0;
 constexpr uint32_t MSI_ABORT_HIGH_OFF_RDCH_0 = 0x1A4;
 constexpr uint32_t MSI_MSGD_OFF_RDCH_0 = 0x1A8;
-
-// MSI message data the engine writes into the completion flag when a transfer is done. Any value works
-// as long as it is not 0, which is what the flag is cleared to before each transfer.
-constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 
 }  // namespace
 
@@ -79,7 +76,7 @@ void BlackholeDmaTransfer::h2d_start(
 }
 
 bool BlackholeDmaTransfer::h2d_is_complete(const DmaBuffer& dma_buffer) {
-    return *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) == DMA_COMPLETION_VALUE;
+    return is_dma_completion_flag_set(dma_buffer);
 }
 
 }  // namespace tt::umd

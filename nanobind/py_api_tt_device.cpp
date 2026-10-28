@@ -796,11 +796,9 @@ void bind_tt_device(nb::module_ &m) {
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
         "create_simulation_tt_device",
-        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int, bool)>(
-            &create_simulation_tt_device),
+        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int)>(&create_simulation_tt_device),
         nb::arg("simulator_path"),
         nb::arg("num_host_mem_channels") = 0,
-        nb::arg("copy_sim_binary") = false,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Creates a simulation TTDevice from a simulator path. "
@@ -813,7 +811,6 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::create,
             nb::arg("simulator_directory"),
             nb::arg("num_host_mem_channels") = 0,
-            nb::arg("copy_sim_binary") = false,
             release_gil(),
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(

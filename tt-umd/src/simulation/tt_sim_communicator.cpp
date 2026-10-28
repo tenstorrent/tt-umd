@@ -5,15 +5,8 @@
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 
 #include <dlfcn.h>
-#include <fcntl.h>
 #include <fmt/format.h>
-#include <sys/mman.h>
-#include <sys/sendfile.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include <cerrno>
-#include <cstring>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -22,7 +15,6 @@
 #include <utility>
 
 #include "eth_ipc.hpp"
-#include "simulation/simulator_paths.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/utils/error.hpp"
 
@@ -69,13 +61,11 @@ std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
 
 TTSimCommunicator::TTSimCommunicator(
     const std::filesystem::path &simulator_directory,
-    bool copy_sim_binary,
     uint32_t chip_id,
     uint32_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) :
     simulator_directory_(simulator_directory),
-    copy_sim_binary_(copy_sim_binary),
     chip_id_(chip_id),
     num_chips_(num_chips),
     image_endpoint_count_(image_endpoint_count),
@@ -130,7 +120,6 @@ TTSimCommunicator::~TTSimCommunicator() {
         // handle belongs to shared_lib_, and initialize() clears the raw view if it never committed.
         dlclose(libttsim_handle_);
     }
-    close_simulator_binary();
     // shared_lib_ is released once this body returns.  If this was the last communicator on the shared
     // dlopen, its deleter calls libttsim_exit (which the deferred shutdown() path skipped) and dlcloses.
 }
@@ -138,9 +127,8 @@ TTSimCommunicator::~TTSimCommunicator() {
 void TTSimCommunicator::initialize() {
     std::lock_guard<std::mutex> lock(device_lock_);
 
-    // Probe the .so for multichip ABI symbols. We do this before
-    // committing to memfd-vs-direct dlopen because the shared-library path
-    // skips memfd entirely (multiple chips share one dlopen).
+    // Probe the .so for multichip ABI symbols before choosing how to load it: with the ABI, every
+    // chip shares one dlopen and is selected by id.
     //
     // If the shared handle already exists, use it for the probe directly
     // to avoid dlopen/dlclose running global constructors/destructors.
@@ -242,22 +230,28 @@ void TTSimCommunicator::initialize() {
         return;
     }
 
-    // No multichip ABI, but a *self-describing multi-MMIO* simulator: one libttsim .so image hosts
-    // several PCIe chips, addressed by PCI device (BDF) + per-device BAR window. All chips share a single
+    // No multichip ABI, and several chips opened: one libttsim .so image hosts them as PCIe chips,
+    // addressed by PCI device (BDF) + per-device BAR window. All chips share a single
     // dlopen (one shared per-chip state array). This is the BDF host-enumeration path
     // (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id, no virtual eth switch (the simulator
     // routes inter-chip eth internally).
     //
-    // Whether the image hosts several chips is a property of the image, answered by enumerating its
-    // endpoints and passing the count in. A caller that has not enumerated falls back to the older
-    // signal, a cluster_descriptor.yaml beside the .so; a cluster that replicates a single-chip .so
-    // per chip has no such file and keeps the per-chip isolated dlopen below.
-    const bool image_hosts_multiple_chips =
-        image_endpoint_count_.has_value()
-            ? *image_endpoint_count_ > 1
-            : std::filesystem::exists(get_simulator_cluster_descriptor_path(simulator_directory_));
-    const bool self_describing_multi_mmio = num_chips_ > 1 && image_hosts_multiple_chips;
-    if (self_describing_multi_mmio) {
+    // The library is loaded once per process, so every chip opened on it has to be one of its own
+    // endpoints. Asking for more chips than it exposes means the topology came from somewhere other
+    // than the image -- typically a cluster descriptor written for silicon.
+    if (num_chips_ > 1) {
+        const uint32_t endpoint_count = image_endpoint_count_.value_or(
+            static_cast<uint32_t>(enumerate_mmio_device_bdfs(simulator_directory_).size()));
+        UMD_ASSERT(
+            num_chips_ <= endpoint_count,
+            error::RuntimeError,
+            fmt::format(
+                "Simulator {} exposes {} PCI endpoint(s), but {} chips were requested over PCIe. Use a multichip "
+                "simulator build, or drop the cluster descriptor and let UMD discover the topology.",
+                simulator_directory_.string(),
+                endpoint_count,
+                num_chips_));
+
         std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!shared_lib) {
             void *handle = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
@@ -291,15 +285,7 @@ void TTSimCommunicator::initialize() {
         return;
     }
 
-    // Legacy path: per-chip memfd + dlopen.
-    if (copy_sim_binary_) {
-        create_simulator_binary();
-        copy_simulator_binary();
-        secure_simulator_binary();
-        load_simulator_library(fmt::format("/proc/self/fd/{}", copied_simulator_fd_));
-    } else {
-        load_simulator_library(simulator_directory_.string());
-    }
+    load_simulator_library(simulator_directory_.string());
 }
 
 void TTSimCommunicator::start_sim() {
@@ -693,69 +679,9 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 
-void TTSimCommunicator::create_simulator_binary() {
-    const std::string filename = simulator_directory_.stem().string();
-    const std::string extension = simulator_directory_.extension().string();
-    // Note: Using chip_id 0 for the communicator since it's not chip-specific.
-    const std::string memfd_name = (filename + "_communicator" + extension);
-    copied_simulator_fd_ = memfd_create(memfd_name.c_str(), MFD_CLOEXEC | MFD_ALLOW_SEALING);
-    if (copied_simulator_fd_ < 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to create memfd: {}", strerror(errno)));
-    }
-}
-
-off_t TTSimCommunicator::resize_simulator_binary(int src_fd) {
-    struct stat st;
-    if (fstat(src_fd, &st) < 0) {
-        close(src_fd);
-        close_simulator_binary();
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get file size: {}", strerror(errno)));
-    }
-    off_t file_size = st.st_size;
-    if (ftruncate(copied_simulator_fd_, file_size) < 0) {
-        close(src_fd);
-        close_simulator_binary();
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to allocate space in memfd: {}", strerror(errno)));
-    }
-    return file_size;
-}
-
-void TTSimCommunicator::copy_simulator_binary() {
-    int src_fd = open(simulator_directory_.c_str(), O_RDONLY | O_CLOEXEC);
-    if (src_fd < 0) {
-        close_simulator_binary();
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno)));
-    }
-    off_t file_size = resize_simulator_binary(src_fd);
-    off_t offset = 0;
-    ssize_t bytes_copied = sendfile(copied_simulator_fd_, src_fd, &offset, file_size);
-    close(src_fd);
-    if (bytes_copied < 0) {
-        close_simulator_binary();
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to copy file with sendfile: {}", strerror(errno)));
-    }
-    if (bytes_copied != file_size) {
-        close_simulator_binary();
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size));
-    }
-}
-
-void TTSimCommunicator::secure_simulator_binary() {
-    if (fcntl(copied_simulator_fd_, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL) < 0) {
-        close_simulator_binary();
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to seal memfd: {}", strerror(errno)));
-    }
-}
-
 void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path) {
     libttsim_handle_ = dlopen(path.c_str(), RTLD_LAZY);
     if (!libttsim_handle_) {
-        close_simulator_binary();
         UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
     }
     DLSYM_FUNCTION(libttsim_init)
@@ -844,13 +770,6 @@ void TTSimCommunicator::switch_drain() {
     std::lock_guard<std::mutex> lock(device_lock_);
     if (multichip_mode_ && pfn_libttsim_switch_drain_) {
         pfn_libttsim_switch_drain_();
-    }
-}
-
-void TTSimCommunicator::close_simulator_binary() {
-    if (copied_simulator_fd_ != -1) {
-        close(copied_simulator_fd_);
-        copied_simulator_fd_ = -1;
     }
 }
 

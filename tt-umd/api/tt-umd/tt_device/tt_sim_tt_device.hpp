@@ -39,7 +39,6 @@ public:
         const std::filesystem::path &simulator_directory,
         const SocDescriptor &soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
         std::optional<uint32_t> image_endpoint_count = std::nullopt,
@@ -48,7 +47,7 @@ public:
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
-        const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
+        const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0);
 
     // Factory for multichip testing: create a device with an explicit chip_id
     // so callers can open two devices with distinct IDs (chip 0 and chip 1) and
@@ -60,7 +59,6 @@ public:
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
         int num_host_mem_channels = 0,
-        bool copy_sim_binary = false,
         size_t num_chips = 1,
         std::optional<uint32_t> image_endpoint_count = std::nullopt,
         std::optional<uint32_t> pci_bdf = std::nullopt);

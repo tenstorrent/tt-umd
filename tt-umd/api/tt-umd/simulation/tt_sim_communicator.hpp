@@ -27,17 +27,14 @@ public:
      * Constructor for TTSimCommunicator.
      *
      * @param simulator_directory Path to the simulator binary/directory
-     * @param copy_sim_binary If true, copy the simulator binary to memory for
-     *   security AND the loaded .so doesn't support the multichip ABI. If
-     *   the .so exports libttsim_create_device_by_id, multichip shared-library
-     *   mode is auto-enabled at initialize() time, ignoring this flag.
      * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
      *   in multichip mode. Default 0
      *   for legacy single-chip consumers.
+     * @param num_chips How many chips are opened over PCIe on this image. Without the multichip ABI,
+     *   more than one needs an image exposing at least that many endpoints, as every chip is one of
+     *   them; initialize() throws otherwise.
      * @param image_endpoint_count How many host-visible PCI endpoints the .so exposes, as reported
-     *   by enumerate_mmio_device_bdfs(). Distinguishes an image hosting several PCIe chips from a
-     *   single-chip image replicated per chip, which selects shared-BDF addressing. Unset falls back
-     *   to the older signal, a cluster_descriptor.yaml beside the .so.
+     *   by enumerate_mmio_device_bdfs(). Unset, initialize() enumerates the image when it needs to know.
      * @param pci_bdf Bus/device/function of this chip's endpoint, as reported by
      *   enumerate_mmio_device_bdfs(). The chip id is a dense index and says nothing about where the
      *   endpoint sits, so config-space reads go to this BDF. Unset, start_sim() scans the running
@@ -46,7 +43,6 @@ public:
      */
     TTSimCommunicator(
         const std::filesystem::path &simulator_directory,
-        bool copy_sim_binary = false,
         uint32_t chip_id = 0,
         uint32_t num_chips = 1,
         std::optional<uint32_t> image_endpoint_count = std::nullopt,
@@ -240,11 +236,6 @@ private:
     static const ImageProbe &probe_image(const std::filesystem::path &simulator_path);
 
     // Library management.
-    void create_simulator_binary();
-    off_t resize_simulator_binary(int src_fd);
-    void copy_simulator_binary();
-    void secure_simulator_binary();
-    void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
 
     // In multichip mode, selects this communicator's chip before an I/O call.
@@ -258,14 +249,8 @@ private:
     // library; owned outright on the legacy per-chip path.
     void *libttsim_handle_ = nullptr;
 
-    // File descriptor for copied simulator binary.
-    int copied_simulator_fd_ = -1;
-
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
-
-    // Flag to indicate if binary should be copied to memory.
-    bool copy_sim_binary_;
 
     // --------------------------------------------------------------------------
     // Multichip model
@@ -288,7 +273,7 @@ private:
     // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
     bool multichip_mode_ = false;
-    // True when the .so has NO multichip ABI but the cluster has >1 chip: all communicators share one
+    // True when the .so has NO multichip ABI but several of its chips are opened: all communicators share one
     // dlopen and each chip is addressed by its PCI device (BDF) rather than libttsim_select_device_by_id.
     bool shared_bdf_mode_ = false;
 

@@ -58,16 +58,15 @@ bool sim_dram_teleport_enabled() {
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
-    const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     return TTSimTTDevice::create_for_chip(
-        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels, copy_sim_binary);
+        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     const std::filesystem::path& simulator_directory,
     ChipId chip_id,
     int num_host_mem_channels,
-    bool copy_sim_binary,
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
@@ -86,14 +85,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
                                                      : std::make_shared<SocArchDescriptor>(soc_desc_path);
     SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory,
-        soc_descriptor,
-        chip_id,
-        copy_sim_binary,
-        num_host_mem_channels,
-        num_chips,
-        image_endpoint_count,
-        pci_bdf);
+        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, image_endpoint_count, pci_bdf);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
@@ -115,7 +107,6 @@ TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
-    bool copy_sim_binary,
     int num_host_mem_channels,
     size_t num_chips,
     std::optional<uint32_t> image_endpoint_count,
@@ -131,10 +122,9 @@ TTSimTTDevice::TTSimTTDevice(
     // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
     // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
     // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
-    // image addressed per-chip by PCI device. Single-chip keeps the legacy path.
+    // image addressed per-chip by PCI device. Single-chip loads the library on its own.
     communicator_(std::make_unique<TTSimCommunicator>(
         simulator_directory,
-        copy_sim_binary,
         static_cast<uint32_t>(chip_id),
         static_cast<uint32_t>(num_chips),
         image_endpoint_count,

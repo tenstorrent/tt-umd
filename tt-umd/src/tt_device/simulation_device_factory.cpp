@@ -21,9 +21,9 @@
 namespace tt::umd {
 
 std::unique_ptr<TTDevice> create_simulation_tt_device(
-    const std::filesystem::path &simulator_path, int num_host_mem_channels, bool copy_sim_binary) {
+    const std::filesystem::path &simulator_path, int num_host_mem_channels) {
     if (simulator_path.extension() == ".so") {
-        return TTSimTTDevice::create(simulator_path, num_host_mem_channels, copy_sim_binary);
+        return TTSimTTDevice::create(simulator_path, num_host_mem_channels);
     }
     return RtlSimulationTTDevice::create(simulator_path, num_host_mem_channels);
 }
@@ -37,13 +37,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     std::optional<uint32_t> image_endpoint_count) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimTTDevice>(
-            simulator_directory,
-            soc_descriptor,
-            chip_id,
-            num_chips > 1,
-            num_host_mem_channels,
-            num_chips,
-            image_endpoint_count);
+            simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, image_endpoint_count);
     }
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
@@ -77,13 +71,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
         devices.emplace(
             chip_id,
             TTSimTTDevice::create_for_chip(
-                simulator_path,
-                chip_id,
-                num_host_mem_channels,
-                /*copy_sim_binary=*/false,
-                bdfs.size(),
-                endpoint_count,
-                bdfs[index]));
+                simulator_path, chip_id, num_host_mem_channels, bdfs.size(), endpoint_count, bdfs[index]));
     }
     log_debug(tt::LogEmulationDriver, "Simulator {} exposes {} endpoint(s)", simulator_path.string(), bdfs.size());
     return devices;

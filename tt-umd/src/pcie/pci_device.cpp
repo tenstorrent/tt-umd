@@ -396,7 +396,8 @@ static int open_pci_device(const std::string &device_path) {
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
+    pci_device_fd_guard(open_pci_device(device_path)),
+    pci_device_file_desc(pci_device_fd_guard.fd),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
@@ -412,10 +413,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
     int extra_flags = 0;
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
-    if (ret_code != 0) {
-        if (tt_device_handle != nullptr) {
-            tt_device_close(tt_device_handle);
+    // Closes the handle on any later throw; the destructor does not run for a constructor that throws.
+    struct HandleGuard {
+        tt_device_t *&handle;
+        bool armed = true;
+        ~HandleGuard() {
+            if (armed && handle != nullptr) {
+                tt_device_close(handle);
+                handle = nullptr;
+            }
         }
+    } handle_guard{tt_device_handle};
+
+    if (ret_code != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -445,10 +455,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     tt_bar_mappings_t bar_mappings{};
     int mappings_ret = tt_device_query_bar_mappings(tt_device_handle, &bar_mappings);
     if (mappings_ret != 0) {
-        // The destructor does not run for a constructor that throws; release the device here so a caller
-        // that skips this device (TopologyDiscoveryOptions::device_open_failure_action) does not leak it.
-        tt_device_close(tt_device_handle);
-        close(pci_device_file_desc);
+        // The guards release the device, so a caller that skips this device
+        // (TopologyDiscoveryOptions::device_open_failure_action) does not leak it.
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -548,6 +556,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     allocate_pcie_dma_buffer();
+
+    handle_guard.armed = false;
+    pci_device_fd_guard.release();
 }
 
 PCIDevice::~PCIDevice() {

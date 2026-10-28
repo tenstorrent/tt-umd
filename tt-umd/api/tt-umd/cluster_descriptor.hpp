@@ -43,6 +43,7 @@ class Cluster;
 
 class ClusterDescriptor {
     friend class TopologyDiscovery;
+    friend struct ClusterDescriptorTestAccess;
 
 public:
     /* Construction related functions. */

@@ -72,18 +72,12 @@ jobs:
     runs-on: [umd-lab, "${{ matrix.card }}"]
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:${{ needs.ensure-image.outputs.image-tag }}
-      # The host's udev rules give the jlink group access to the J-Link probe (a USB device), so the container runs
-      # as gh-runner with that group added. The uid and gid differ between hosts, so the host's passwd and group
-      # files are mounted to resolve the names. Mounting the whole USB bus (rather than --device on one node) keeps
-      # the probe reachable when it re-enumerates, and the cgroup rule (USB major 189) grants access to the new nodes.
+      # The J-Link probe is a USB device. Mounting the whole bus (rather than --device on one node) keeps it
+      # reachable when it re-enumerates, and the cgroup rule (USB major 189) grants access to the new nodes.
       options: >-
-        --user gh-runner
-        --group-add jlink
         --device /dev/tenstorrent
         --device-cgroup-rule="c 189:* rmw"
       volumes:
-        - /etc/passwd:/etc/passwd:ro
-        - /etc/group:/etc/group:ro
         - /dev/bus/usb:/dev/bus/usb
         - /etc/udev/rules.d:/etc/udev/rules.d
         - /lib/modules:/lib/modules

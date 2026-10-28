@@ -448,12 +448,12 @@ bool PcieProtocol::dma_is_complete(DmaDirection direction) {
 
 void PcieProtocol::run_dma_transfer(DmaDirection direction, uint64_t iova_addr, uint32_t tlb_window_addr, size_t size) {
     program_dma_engine(direction, iova_addr, tlb_window_addr, size);
-    const auto deadline = std::chrono::steady_clock::now() + timeout::DMA_TIMEOUT;
-    while (!dma_is_complete(direction)) {
-        if (std::chrono::steady_clock::now() > deadline) {
-            UMD_THROW(error::RuntimeError, "DMA timeout.");
-        }
-    }
+    const bool completed = utils::poll_until(
+        [&]() { return dma_is_complete(direction); },
+        timeout::DMA_TIMEOUT,
+        timeout::DMA_TIMEOUT,
+        std::chrono::microseconds(0));
+    UMD_ASSERT(completed, error::RuntimeError, "DMA timeout.");
 }
 
 }  // namespace tt::umd

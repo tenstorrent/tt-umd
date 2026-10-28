@@ -86,13 +86,19 @@ private:
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);
 
-    void dma_d2h_transfer(uint64_t dst, uint32_t src, size_t size);
-    void dma_h2d_transfer(uint32_t dst, uint64_t src, size_t size);
+    enum class DmaDirection { H2D, D2H };
+
+    // Program a transfer into the engine, or report whether it finished. Callers keep the engine to themselves.
+    // iova_addr is a real IOVA with the IOMMU enabled, otherwise a physical address. Direction picks the source.
+    void program_dma_engine(DmaDirection direction, uint64_t iova_addr, uint32_t tlb_window_addr, size_t size);
+    bool dma_is_complete(DmaDirection direction);
+
+    // Program a transfer and wait for it to finish.
+    void run_dma_transfer(DmaDirection direction, uint64_t iova_addr, uint32_t tlb_window_addr, size_t size);
 
     void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id);
 
-    enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
         uint64_t addr,
         tt_xy_pair core_end,

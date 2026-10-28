@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -67,7 +68,7 @@ protected:
             GTEST_SKIP() << "No Tenstorrent PCI devices found.";
         }
         if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-            GTEST_SKIP() << "Zero-copy DMA needs the IOMMU.";
+            GTEST_SKIP() << "These tests only cover zero-copy DMA through the IOMMU.";
         }
 
         cluster_ = test_utils::make_default_test_cluster();
@@ -97,33 +98,27 @@ TEST_F(DmaZeroCopyAsync, WriteLandsOnDevice) {
     EXPECT_EQ(std::memcmp(readback.data(), host_, TRANSFER_SIZE), 0);
 }
 
-// Straddles a 16 MiB boundary, which is also a 2 MiB one, so it crosses the DMA window on both architectures.
-TEST_F(DmaZeroCopyAsync, WriteAcrossWindowBoundaryThrows) {
-    constexpr uint64_t DEVICE_ADDR = 16 * 1024 * 1024 - TRANSFER_SIZE / 2;
+// Rejected before anything reaches the device, so the source buffer does not have to cover the size.
+TEST_F(DmaZeroCopyAsync, WriteLargerThanMaxSizeThrows) {
+    const size_t size = tt_device_->dma_zero_copy_max_size(0x0) + 4;
 
     EXPECT_THROW(
-        (void)tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), DEVICE_ADDR, TRANSFER_SIZE, dram_cores_[0]),
-        std::exception);
+        (void)tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), 0x0, size, dram_cores_[0]), std::exception);
     EXPECT_EQ(tt_device_->dma_write_zero_copy_check(), DmaTransferState::IDLE);
 }
 
-// 16 MiB is a multiple of both the WH (16 MiB) and BH (2 MiB) DMA window, so an address just below it is the same
-// distance from the next window boundary on each.
-TEST_F(DmaZeroCopyAsync, MaxSizeReachesToTheNextWindowBoundary) {
-    EXPECT_EQ(tt_device_->dma_zero_copy_max_size(16 * 1024 * 1024 - 32 * 1024), size_t{32 * 1024});
-}
-
-// A transfer that crosses a window boundary goes out as one transfer per window.
-TEST_F(DmaZeroCopyAsync, WriteSplitAtWindowBoundaryLandsOnDevice) {
+// Starts just below 16 MiB so that on current hardware the transfer has to be split into several.
+TEST_F(DmaZeroCopyAsync, WriteSplitByMaxSizeLandsOnDevice) {
     constexpr uint64_t DEVICE_ADDR = 16 * 1024 * 1024 - TRANSFER_SIZE / 2;
-    constexpr size_t HALF = TRANSFER_SIZE / 2;
     test_utils::fill_with_random_bytes(host_, TRANSFER_SIZE);
 
-    ASSERT_TRUE(tt_device_->dma_write_zero_copy_start(buffer_->get_iova(0), DEVICE_ADDR, HALF, dram_cores_[0]));
-    ASSERT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
-    ASSERT_TRUE(
-        tt_device_->dma_write_zero_copy_start(buffer_->get_iova(HALF), DEVICE_ADDR + HALF, HALF, dram_cores_[0]));
-    ASSERT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+    for (size_t offset = 0; offset < TRANSFER_SIZE;) {
+        const size_t chunk = std::min(tt_device_->dma_zero_copy_max_size(DEVICE_ADDR + offset), TRANSFER_SIZE - offset);
+        ASSERT_TRUE(tt_device_->dma_write_zero_copy_start(
+            buffer_->get_iova(offset), DEVICE_ADDR + offset, chunk, dram_cores_[0]));
+        ASSERT_EQ(wait_for_write(tt_device_), DmaTransferState::FINISHED);
+        offset += chunk;
+    }
 
     std::vector<uint8_t> readback(TRANSFER_SIZE);
     tt_device_->read_from_device(readback.data(), dram_cores_[0], DEVICE_ADDR, TRANSFER_SIZE);

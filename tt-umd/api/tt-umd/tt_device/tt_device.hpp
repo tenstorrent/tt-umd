@@ -269,21 +269,18 @@ public:
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * @brief Starts a zero-copy Host-to-Device DMA transfer and returns without waiting.
+     * @brief Starts a zero-copy Host-to-Device DMA transfer without waiting for it.
      *
-     * The device runs one DMA transfer at a time. The calling thread owns the transfer it starts: only its
-     * dma_write_zero_copy_check() calls see it finish, so it has to keep checking until FINISHED or ERROR.
-     * Source memory has to stay pinned and unchanged until then. A blocking DMA call from the owning thread
-     * while its transfer is in flight throws, since only it could finish the transfer.
+     * Only the calling thread sees the transfer finish, so it must poll dma_write_zero_copy_check() until
+     * FINISHED or ERROR, keeping the source memory pinned and unchanged until then. Blocking DMA calls from
+     * that thread throw meanwhile.
      *
      * @param src_iova IOVA of the source pinned host memory buffer.
      * @param dst_addr Destination address on the target device core. Must be a multiple of 4.
-     * @param size Number of bytes to transfer. Must be a non-zero multiple of 4, and at most
-     *             dma_zero_copy_max_size(dst_addr); split larger transfers into several.
+     * @param size Number of bytes to transfer. Non-zero multiple of 4, at most dma_zero_copy_max_size(dst_addr).
      * @param core Target core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
-     * @return true if the transfer started; false if the device is busy, in which case nothing was started
-     *         and the call can be retried.
+     * @param noc_id Physical network to route the transaction over.
+     * @return false if the device is busy and nothing was started.
      */
     [[nodiscard]] bool dma_write_zero_copy_start(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);

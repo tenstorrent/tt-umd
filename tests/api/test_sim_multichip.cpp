@@ -227,6 +227,13 @@ constexpr uint8_t BH_GALAXY_BUS_DEVICE[32] = {
 
 uint32_t bdf_of(uint32_t bus, uint32_t device) { return (bus << 8) | (device << 3); }
 
+// An image with the multichip ABI creates its chips by id, so it hosts as many as it is asked for
+// whatever endpoints it exposes.
+bool has_multichip_abi(const std::filesystem::path& simulator_path) {
+    std::unique_ptr<void, int (*)(void*)> handle(dlopen(simulator_path.c_str(), RTLD_LAZY), &dlclose);
+    return handle != nullptr && dlsym(handle.get(), "libttsim_create_device_by_id") != nullptr;
+}
+
 }  // namespace
 
 // Every current image: chip N at bus 0, device N. The scan has to name exactly those, in that
@@ -720,8 +727,10 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
 // A topology declared by a cluster descriptor still has to be one the image models: every MMIO chip it
 // names is opened on one of the image's PCI endpoints.
 TEST_F(TTSimDiscoveryTest, DescriptorWithMoreMmioChipsThanEndpointsIsRefused) {
-    if (arch_ != ARCH::BLACKHOLE || TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_).size() != 1) {
-        GTEST_SKIP() << "Needs a one-endpoint Blackhole image to pair with a two-MMIO-chip P300 descriptor.";
+    if (arch_ != ARCH::BLACKHOLE || has_multichip_abi(simulator_path_) ||
+        TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_).size() != 1) {
+        GTEST_SKIP() << "Needs a one-endpoint Blackhole image without the multichip ABI to pair with a "
+                        "two-MMIO-chip P300 descriptor.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P300_both_mmio.yaml"));
@@ -751,8 +760,15 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
     options.num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster(options);
 
-    EXPECT_TRUE(cluster.get_chip(0)->is_mmio_capable());
-    EXPECT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(1)), nullptr);
+    EXPECT_NE(dynamic_cast<SimulationChip*>(cluster.get_chip(0)), nullptr);
+    ASSERT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(1)), nullptr);
+
+    const CoreCoord core = cluster.get_soc_descriptor(1).get_cores(CoreType::TENSIX).front();
+    const uint32_t written = 0xC0DE0001;
+    cluster.write_to_device(&written, sizeof(written), 1, core, 0x10000);
+    uint32_t read = 0;
+    cluster.read_from_device(&read, 1, core, 0x10000, sizeof(read));
+    EXPECT_EQ(read, written);
 }
 
 // Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
@@ -813,12 +829,8 @@ TEST_F(TTSimCommunicatorTest, EthernetDescriptorsDetachBeforeOwnerClosesThem) {
     // Two chips on one image need the multichip ABI or an endpoint each, and the Ethernet FD
     // transport only comes with the ABI -- so without it there is nothing to test, and opening a
     // second chip on a one-endpoint image would throw.
-    {
-        std::unique_ptr<void, int (*)(void*)> probe(dlopen(simulator_path_, RTLD_LAZY), &dlclose);
-        ASSERT_NE(probe, nullptr) << dlerror();
-        if (dlsym(probe.get(), "libttsim_create_device_by_id") == nullptr) {
-            GTEST_SKIP() << "Simulator lacks the multichip ABI";
-        }
+    if (!has_multichip_abi(simulator_path_)) {
+        GTEST_SKIP() << "Simulator lacks the multichip ABI";
     }
     auto first_comm = std::make_unique<TTSimCommunicator>(simulator_path_, 0, 2);
     first_comm->initialize();

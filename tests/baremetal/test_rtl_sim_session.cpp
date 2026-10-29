@@ -4,6 +4,7 @@
 
 #include <arpa/inet.h>
 #include <flatbuffers/flatbuffer_builder.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <nng/nng.h>
@@ -444,7 +445,8 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
     auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
     const SocDescriptor soc_descriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
-    const RtlSimDeviceAccess layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_a"}}};
+    const RtlSimDeviceAccess layout_device{
+        IpDeviceId{1}, {{AccessPointId{2}, "ut_a", 0x20'4000'0000}, {AccessPointId{3}, "ut_a", 0x21'4000'0000}}};
     setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
     const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
     unsetenv("TT_UMD_NOC_ATT");
@@ -461,16 +463,16 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
 // horizon_x2_columns takes its tables in the order of the column layout's access points
 // (docs/IP_LAYOUT.md), so each access point reaches its own column device.
 class RtlSimSessionColumnLayoutTest : public RtlSimSessionTest,
-                                      public ::testing::WithParamInterface<std::tuple<uint32_t, uint64_t>> {};
+                                      public ::testing::WithParamInterface<std::tuple<uint32_t, uint64_t, uint64_t>> {};
 
 TEST_P(RtlSimSessionColumnLayoutTest, AccessPointReachesItsColumn) {
-    const auto [access_point, address] = GetParam();
+    const auto [access_point, flat_address, address] = GetParam();
     auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
     const SocDescriptor soc_descriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
     setenv("TT_UMD_NOC_ATT", "horizon_x2_columns", 1);
     const RtlSimulationTTDevice device(
-        session, {IpDeviceId{0}, {{AccessPointId{access_point}, "ut_a"}}}, dir_, soc_descriptor, 0);
+        session, {IpDeviceId{0}, {{AccessPointId{access_point}, "ut_a", flat_address}}}, dir_, soc_descriptor, 0);
     unsetenv("TT_UMD_NOC_ATT");
 
     EXPECT_EQ(
@@ -488,9 +490,36 @@ INSTANTIATE_TEST_SUITE_P(
     InLayoutOrder,
     RtlSimSessionColumnLayoutTest,
     ::testing::Values(
-        std::make_tuple(0u, uint64_t{0x10'4005'0000}),
-        std::make_tuple(1u, uint64_t{0x11'4005'0000}),
-        std::make_tuple(2u, uint64_t{0x20'4005'0000}),
-        std::make_tuple(3u, uint64_t{0x21'4005'0000})));
+        std::make_tuple(0u, uint64_t{0x10'4000'0000}, uint64_t{0x10'4005'0000}),
+        std::make_tuple(1u, uint64_t{0x11'4000'0000}, uint64_t{0x11'4005'0000}),
+        std::make_tuple(2u, uint64_t{0x20'4000'0000}, uint64_t{0x20'4005'0000}),
+        std::make_tuple(3u, uint64_t{0x21'4000'0000}, uint64_t{0x21'4005'0000})));
+
+// With a map that has a table per access point, a device opens only if ip_layout.yaml states each
+// access point's flat address as the map gives it.
+class RtlSimSessionFlatAddressTest : public RtlSimSessionTest,
+                                     public ::testing::WithParamInterface<std::optional<uint64_t>> {};
+
+TEST_P(RtlSimSessionFlatAddressTest, DeviceRejectsAFlatAddressItsMapDoesNotGive) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
+
+    EXPECT_THAT(
+        [&] {
+            RtlSimulationTTDevice(
+                session, {IpDeviceId{0}, {{AccessPointId{1}, "ut_a", GetParam()}}}, dir_, soc_descriptor, 0);
+        },
+        ::testing::ThrowsMessage<std::exception>(
+            ::testing::HasSubstr("puts access point 1's L1 window at 0x1140000000")));
+    unsetenv("TT_UMD_NOC_ATT");
+}
+
+// Missing, and access point 0's address.
+INSTANTIATE_TEST_SUITE_P(
+    MissingOrWrong,
+    RtlSimSessionFlatAddressTest,
+    ::testing::Values(std::nullopt, std::optional<uint64_t>(0x10'4000'0000)));
 
 }  // namespace

@@ -18,6 +18,7 @@ set(BAREMETAL_TESTS_SRCS
     test_notification_mechanism.cpp
     test_blackhole_arc_apb.cpp
     test_risc_reset.cpp
+    test_tsc_risc_reset.cpp
     test_wormhole_arc_window.cpp
     test_blackhole_arc_message_queue.cpp
     test_register_access.cpp

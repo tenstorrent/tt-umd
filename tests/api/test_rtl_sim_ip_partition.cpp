@@ -31,6 +31,7 @@
 #include "tt-umd/topology/ip_layout.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/risc_type.hpp"
 
 using namespace tt::umd;
 
@@ -44,6 +45,9 @@ constexpr uint64_t ATT_EP_TABLE_BASE = 0x0201'2000;
 constexpr uint32_t ATT_EP_STRIDE = 4;
 // Endpoint id (y << 6) | x of virtual (2,0): outside a device's grid, so nothing routes through it.
 constexpr uint32_t UNUSED_EP_ID = 2;
+// Horizon's TSC_RESET_CTRL, 8 bytes, and its uncore_reset_n (1 = released).
+constexpr uint64_t TSC_RESET_CTRL = 0x0303'3088;
+constexpr uint32_t TSC_DM_UNCORE_BIT = 24;
 
 std::vector<uint32_t> marker(uint32_t tag) {
     std::vector<uint32_t> data(16);
@@ -104,6 +108,12 @@ protected:
     static bool bridge_registers_reachable() { return std::getenv("TT_UMD_NOC_ATT") == nullptr; }
 
     static uint32_t table_offset(tt::ChipId chip) { return (read32(chip, APB_PORT | ATT_MASK_ENTRY_0) >> 18) & 0x3FF; }
+
+    static bool dm_uncore_released(tt::ChipId chip) {
+        uint64_t value = 0;
+        cluster_->read_from_device(&value, chip, tensix(chip), TSC_RESET_CTRL, sizeof(value));
+        return ((value >> TSC_DM_UNCORE_BIT) & 1) != 0;
+    }
 
     static inline std::unique_ptr<RtlSimIpLayout> layout_;
     static inline std::unique_ptr<Cluster> cluster_;
@@ -216,6 +226,31 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
     }
     if (!checked) {
         GTEST_SKIP() << "No device has two access points with flat addresses.";
+    }
+}
+
+// On Horizon (the SoC descriptor's ip_variant), UMD resets a core by writing its TSC itself, so a
+// reset reaches that core of that device only, whichever socket the device talks over. It holds and
+// releases the DM uncore, which runs nothing while the DM cores stay held.
+TEST_F(RtlSimIpPartitionTest, ResetsReachOnlyTheirDevice) {
+    const std::set<tt::ChipId> chips = cluster_->get_target_device_ids();
+    for (tt::ChipId chip : chips) {
+        if (cluster_->get_soc_descriptor(chip).get_arch_descriptor().get_ip_variant() != tt::IpVariant::HORIZON) {
+            GTEST_SKIP() << "Chip " << chip << "'s SoC descriptor names no Horizon ip_variant.";
+        }
+    }
+    for (tt::ChipId chip : chips) {
+        cluster_->get_tt_device(chip)->deassert_risc_reset(tensix(chip), RiscType::NEO_DM_UNCORE, false);
+    }
+
+    for (tt::ChipId target : chips) {
+        cluster_->get_tt_device(target)->assert_risc_reset(tensix(target), RiscType::NEO_DM_UNCORE);
+        for (tt::ChipId chip : chips) {
+            EXPECT_EQ(dm_uncore_released(chip), chip != target)
+                << "chip " << chip << "'s DM uncore, with chip " << target << "'s held";
+        }
+        cluster_->get_tt_device(target)->deassert_risc_reset(tensix(target), RiscType::NEO_DM_UNCORE, false);
+        EXPECT_TRUE(dm_uncore_released(target)) << "chip " << target;
     }
 }
 

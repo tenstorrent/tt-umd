@@ -161,7 +161,7 @@ std::optional<uint64_t> resolve_io_window(
     WindowFlags flags,
     IoOrdering /*ordering*/,
     uint64_t offset) {
-    // Any ordering travels on the unicast window; multicast, atomic and snoop have none.
+    // Currently only unicast, in any ordering.
     if ((flags & ~WindowFlags::DirectionMask) != WindowFlags::None ||
         (flags & WindowFlags::DirectionMask) == WindowFlags::MulticastWrite) {
         return std::nullopt;

@@ -88,9 +88,8 @@ uint64_t resolve_translated(
 
 /**
  * Flat address of @p offset in @p core's memory for an IoWindow with @p flags and @p ordering, or
- * nullopt when the map has no window for them. These maps carry unicast windows only: any unicast
- * direction, with no Atomic or Snoop bit, and any ordering. The core is resolved as resolve_core()
- * does.
+ * nullopt when the map has no window for them: currently only unicast has one. The core is resolved
+ * as resolve_core() does.
  */
 std::optional<uint64_t> resolve_io_window(
     const EndpointResolver& resolver,

@@ -15,14 +15,15 @@
 namespace tt::umd {
 
 /**
- * Ordinal of a host access resource over which the IP is reached: 0..N-1 within one IP.
- * Opaque: it does not correspond to a location in the IP.
+ * Ordinal of a host access resource over which an IP block is reached, 0..N-1 across the whole system.
+ * Opaque: it does not correspond to a location in the IP block.
  */
 enum class AccessPointId : uint32_t {};
 
 /**
- * Ordinal of a device within one IP, 0..N-1. A device is one ATT view, not an IP block: an IP holds one or
- * more devices. Not an mmio id, not a ChipId: Cluster assigns a ChipId per (IP, IpDeviceId).
+ * Ordinal of a device, 0..N-1 across the whole system, which holds one or more IP blocks. A device is
+ * one ATT view, not an IP block: an IP block holds one or more devices. Not an mmio id, not a ChipId:
+ * Cluster numbers the devices it opens from ChipId 0, so there may be fewer ChipIds than IpDeviceIds.
  */
 enum class IpDeviceId : uint32_t {};
 
@@ -40,17 +41,17 @@ struct AccessPointLocation {
 };
 
 /**
- * How an IP's access points split it into devices.
+ * How the system's access points split its IP blocks into devices.
  *
- * A device is one view of the IP set by its Address Translation Table (ATT). The ATT is a table in
+ * A device is one view of an IP block set by its Address Translation Table (ATT). The ATT is a table in
  * each NOC endpoint (tile and host bridge) that maps an address to a destination tile and a local
  * address: its mask entries match address ranges, and its endpoint table gives the tile each range
- * reaches. Programming the ATTs so a device's ranges reach only its own tiles splits one IP into
- * several devices; with the ATT off (gasket mode) the host addresses tiles directly by coordinate.
+ * reaches. Programming the ATTs so a device's ranges reach only its own tiles splits one IP block
+ * into several devices; with the ATT off (gasket mode) the host addresses tiles directly by coordinate.
  *
  * The access points may be reached over one or more host connections (e.g. /dev/tenstorrent/<N>
  * fds, or one simulator run); mapping an AccessPointId to its connection is up to the implementation.
- * Current consumers assume one connection per IP. An implementation with several would need rework
+ * Current consumers assume one connection per system. An implementation with several would need rework
  * of components tied to the fd, e.g. DMA pinning and sysmem, which are per connection.
  */
 class IpLayout {

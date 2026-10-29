@@ -65,11 +65,17 @@ jobs:
   pin-cpu-frequency:
     runs-on: [umd-lab, n300]
     steps:
-      - name: Pin isolated CPUs to 1 GHz
+      - name: Get isolated CPUs
         run: |
           isolated_cpus=$(cat /sys/devices/system/cpu/isolated)
           if [[ -z "$isolated_cpus" ]]; then
             echo "::error::No isolated CPUs on this runner, benchmark results would be unstable"
             exit 1
           fi
-          sudo cpupower --cpus "$isolated_cpus" frequency-set -f 1GHz
+          echo "ISOLATED_CPUS=$isolated_cpus" >> "$GITHUB_ENV"
+
+      - name: Pin isolated CPUs to 1 GHz
+        run: sudo cpupower --cpu "$ISOLATED_CPUS" frequency-set -f 1GHz
+
+      - name: Show isolated CPU frequency
+        run: cpupower -c "$ISOLATED_CPUS" frequency-info -f -m

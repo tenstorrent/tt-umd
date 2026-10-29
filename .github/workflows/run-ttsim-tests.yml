@@ -542,12 +542,12 @@ jobs:
           path: /tmp/umd_bench_sim_qsr/*.json
           if-no-files-found: error
 
-      # Galaxy tests can be a bit longer, should run on the order of minutes.
+      # Galaxy tests run all 32 chips in one simulated system, so they take minutes.
       # These mirror tt-metal's own runtime_sim_galaxy_cpp_unit_tests legs one-for-one (same x32
-      # simulator, same env, same filters), so a failure here is a real regression rather than a
-      # difference in how this workflow drives the simulator.
+      # simulator, same env, same filters, same timeouts), so a failure here is a real regression
+      # rather than a difference in how this workflow drives the simulator.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
-        timeout-minutes: 5
+        timeout-minutes: 10
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh_x32
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh_x32/libttsim.so
@@ -560,7 +560,7 @@ jobs:
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
 
       - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
-        timeout-minutes: 5
+        timeout-minutes: 15
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh_x32
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so

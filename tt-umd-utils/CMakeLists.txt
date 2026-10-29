@@ -24,6 +24,17 @@ target_link_libraries(
         tt-logger::tt-logger
 )
 
+# Helpers shared by the UMD components but not part of their API: visible inside this build only and never installed.
+# Header-only, so any target can use them without linking a second copy of tt-umd-utils.
+add_library(tt-umd-utils-internal INTERFACE)
+add_library(tt-umd-utils::internal ALIAS tt-umd-utils-internal)
+target_include_directories(
+    tt-umd-utils-internal
+    INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/internal>
+)
+
 # Not installed as a package of its own: it ships inside tt-umd, whose headers include these.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/api/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT umd-dev)

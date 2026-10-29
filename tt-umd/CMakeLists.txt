@@ -191,6 +191,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/att_resolver.hpp
                 api/tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp
+                api/tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip/chip.hpp
                 api/tt-umd/chip/local_chip.hpp

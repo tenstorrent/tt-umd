@@ -44,7 +44,8 @@ public:
 
     /**
      * Communicate over @p socket, on the channel its session keeps for it: communicators on the same
-     * socket share it, and take turns with their requests. Keeps the session alive.
+     * socket share it, and take turns with their requests. Keeps the session alive. initialize() may
+     * run before the session starts; requests work once it has.
      */
     explicit RtlSimCommunicator(const RtlSimSocket &socket);
 

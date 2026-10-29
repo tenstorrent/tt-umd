@@ -36,12 +36,20 @@ public:
 
     SimulationHost &get_host() { return host_; }
 
-    /** A communicator starts using the channel. The first one starts the receive thread. */
+    /**
+     * The socket is up: the remote has acked. Called once. The receive thread runs while the socket is
+     * up and a communicator is attached, so whichever of start() and the first attach() comes second
+     * starts it: an ip_layout build's devices attach first and their session starts the socket once
+     * the last of them exists, while a single device attaches to a socket that is already up.
+     */
+    void start();
+
+    /** A communicator starts using the channel, once per communicator, before or after start(). */
     void attach();
 
     /**
      * A communicator stops using the channel. The last one stops the receive thread and, with
-     * @p send_exit, tells the remote to exit.
+     * @p send_exit and the socket up, tells the remote to exit.
      */
     void detach(bool send_exit);
 
@@ -73,6 +81,8 @@ public:
     void clear_ram_callbacks(const RtlSimCommunicator *owner);
 
 private:
+    // Called with users_mutex_ held.
+    void start_receiving();
     void receive_loop();
     void handle_ram_write(const void *notification);
     void handle_ram_read(const void *notification);
@@ -86,6 +96,7 @@ private:
 
     std::mutex users_mutex_;
     size_t users_ = 0;
+    bool started_ = false;
 
     std::thread receive_thread_;
     std::atomic<bool> receiving_{false};

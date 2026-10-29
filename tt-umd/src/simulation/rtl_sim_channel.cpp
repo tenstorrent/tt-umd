@@ -48,13 +48,26 @@ RtlSimChannel::~RtlSimChannel() {
     }
 }
 
+void RtlSimChannel::start() {
+    std::lock_guard<std::mutex> lock(users_mutex_);
+    UMD_ASSERT(!started_, error::RuntimeError, "RtlSimChannel::start() called twice.");
+    started_ = true;
+    if (users_ > 0) {
+        start_receiving();
+    }
+}
+
 void RtlSimChannel::attach() {
     std::lock_guard<std::mutex> lock(users_mutex_);
-    if (users_++ == 0) {
-        log_info(tt::LogEmulationDriver, "Starting notification handler thread.");
-        receiving_.store(true);
-        receive_thread_ = std::thread(&RtlSimChannel::receive_loop, this);
+    if (users_++ == 0 && started_) {
+        start_receiving();
     }
+}
+
+void RtlSimChannel::start_receiving() {
+    log_info(tt::LogEmulationDriver, "Starting notification handler thread.");
+    receiving_.store(true);
+    receive_thread_ = std::thread(&RtlSimChannel::receive_loop, this);
 }
 
 void RtlSimChannel::detach(bool send_exit) {
@@ -65,7 +78,7 @@ void RtlSimChannel::detach(bool send_exit) {
     }
     log_info(tt::LogEmulationDriver, "Stopping notification handler thread.");
     stop_receiving();
-    if (send_exit) {
+    if (send_exit && started_) {
         log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
         send(create_message(DEVICE_COMMAND_EXIT, {0}, 0, 0, 0));
     }

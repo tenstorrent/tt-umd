@@ -4,7 +4,6 @@
 
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 
-#include <algorithm>
 #include <map>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -98,31 +97,21 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::map<ChipId, IpDeviceId> &ip_devices,
     int num_host_mem_channels,
     bool launch_simulator) {
+    // Each device adds the socket it talks over to the session, which serves them once every device
+    // exists.
+    auto session = std::make_shared<RtlSimSession>(simulator_directory, std::vector<std::string>{}, launch_simulator);
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
-
-    // One socket per host_access, served once: devices whose access points name the same socket
-    // share it, and take turns on its channel.
-    std::vector<std::string> sockets;
-    std::map<ChipId, size_t> socket_of_chip;
+    std::map<ChipId, std::unique_ptr<RtlSimulationTTDevice>> rtl_devices;
     for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        const std::vector<AccessPointId> &access_points = layout_devices.at(ip_device_id);
-        // A TTDevice talks over one socket; spreading a device over several isn't supported yet.
-        UMD_ASSERT(
-            access_points.size() == 1,
-            error::RuntimeError,
-            fmt::format(
-                "{}: device {} has {} access points; a device can use only one for now.",
-                (simulator_directory / RtlSimIpLayout::FILE_NAME).string(),
-                static_cast<uint32_t>(ip_device_id),
-                access_points.size()));
-        const std::string &host_access = layout.get_host_access(access_points.front());
-        const auto it = std::find(sockets.begin(), sockets.end(), host_access);
-        socket_of_chip[chip_id] = static_cast<size_t>(it - sockets.begin());
-        if (it == sockets.end()) {
-            sockets.push_back(host_access);
+        IpLayoutDevice layout_device{ip_device_id, {}};
+        for (const AccessPointId access_point : layout_devices.at(ip_device_id)) {
+            layout_device.access_points.push_back({access_point, layout.get_host_access(access_point)});
         }
+        const SocDescriptor soc_descriptor(
+            std::make_shared<SocArchDescriptor>(layout.get_soc_descriptor(ip_device_id).string()));
+        rtl_devices[chip_id] = std::make_unique<RtlSimulationTTDevice>(
+            session, layout_device, simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }
-    auto session = std::make_shared<RtlSimSession>(simulator_directory, sockets, launch_simulator);
     session->start();
 
     // The build's ATT programming, if it ships one, goes in before any core runs.
@@ -130,18 +119,10 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        const SocDescriptor soc_descriptor(
-            std::make_shared<SocArchDescriptor>(layout.get_soc_descriptor(ip_device_id).string()));
-        auto device = std::make_unique<RtlSimulationTTDevice>(
-            RtlSimSocket(session, socket_of_chip.at(chip_id)),
-            simulator_directory,
-            soc_descriptor,
-            chip_id,
-            num_host_mem_channels);
         if (att_program.has_value()) {
-            att_program->apply(ip_device_id, *device->get_communicator());
+            att_program->apply(ip_device_id, *rtl_devices.at(chip_id)->get_communicator());
         }
-        devices[chip_id] = std::move(device);
+        devices[chip_id] = std::move(rtl_devices.at(chip_id));
     }
     return devices;
 }

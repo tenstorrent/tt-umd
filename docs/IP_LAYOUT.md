@@ -1,11 +1,11 @@
 # IP layout
 
-`IpLayout` ([ip_layout.hpp](../tt-umd/api/tt-umd/topology/ip_layout.hpp)) describes how an IP's access points split it into devices.
+`IpLayout` ([ip_layout.hpp](../tt-umd/api/tt-umd/topology/ip_layout.hpp)) describes how the system's access points split its IP blocks into devices.
 The access points may be reached over one or more host connections (e.g. `/dev/tenstorrent/<N>` fds, or one simulator run).
 Mapping an access point to its connection is up to the implementation.
 
-- **Access point:** a host access resource over which the IP is reached, identified by `AccessPointId`. The id is an opaque ordinal (`0..N-1`) and does not correspond to a location in the IP.
-- **Device:** one ATT view, identified by `IpDeviceId`, an ordinal within the IP. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster assigns a `ChipId` per (IP, `IpDeviceId`).
+- **Access point:** a host access resource over which an IP block is reached, identified by `AccessPointId`. The id is an opaque ordinal (`0..N-1` across the whole system) and does not correspond to a location in the IP block.
+- **Device:** one ATT view, not an IP block (an IP block holds one or more devices, and the system one or more IP blocks), identified by `IpDeviceId`, an ordinal (`0..N-1`) across the whole system. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster numbers the devices it opens from `ChipId` 0, so there may be fewer `ChipId`s than `IpDeviceId`s.
 - **Location:** `get_location()` returns an access point's `coord` and `flat_address`. Each field is set once known:
   - `coord`: the access point's tile, in the frame of the device it belongs to.
   - `flat_address`: the global address at which the host reaches the access point through the ATT. It is distinct for every access point. It is unset when the ATT is off (gasket mode) or when the host is coupled to the access point directly.
@@ -14,17 +14,17 @@ The layout states the expected configuration. Checking it against the ATT is a s
 
 ## ATT
 
-A device is a view of the IP set by its Address Translation Table (ATT). Every NOC endpoint (each tile, and each host bridge such as a NOC2AXI) has one:
+A device is a view of an IP block set by its Address Translation Table (ATT). Every NOC endpoint (each tile, and each host bridge such as a NOC2AXI) has one:
 
 - **Mask entries** match address ranges.
 - **The endpoint table** gives the tile each range reaches.
 - The rest of the address becomes the tile-local address.
 
-Programming the ATTs so that a device's ranges reach only its own tiles splits one IP into several devices. With the ATT off (gasket mode), the host addresses tiles directly by coordinate, and the split is only a convention between the users of the access points.
+Programming the ATTs so that a device's ranges reach only its own tiles splits one IP block into several devices. With the ATT off (gasket mode), the host addresses tiles directly by coordinate, and the split is only a convention between the users of the access points.
 
 ## Constraints
 
-- Current consumers assume one host connection (fd) per IP.
+- Current consumers assume one host connection (fd) per system.
 - The interface allows several connections, but an implementation that uses several needs rework of the components tied to the fd:
   - DMA pinning and sysmem, which are per connection: an IOVA is valid only for the fd that pinned it;
   - `TTDevice::get_communication_device_id()`, which returns the mmio id and is used as both a connection id and a device id.
@@ -47,7 +47,7 @@ Other rules:
 - A device's id is its `id` field, or its position in `devices` when no device has one. Give every device an `id`, or none. Ids must be `0..N-1`, each once.
 - Each device needs a `soc_descriptor`. Its path is relative to `simulator_directory`, and the file must exist.
 
-One device (the whole IP), reached over both columns' NOC2AXI tiles:
+One device (the whole IP block), reached over both columns' NOC2AXI tiles:
 
 ```yaml
 access_points:
@@ -95,6 +95,29 @@ With an ATT map named in `TT_UMD_NOC_ATT`, a device has flat addresses: the glob
 - `TTDevice::get_flat_address(access_point, core, flags, ordering, offset)` gives the flat address of `offset` in `core`'s memory, for an IoWindow with `flags` (`WindowFlags`) and `ordering` (`IoOrdering`). It is `nullopt` when the device has no map, or the map has no window for those flags. The maps carried today have unicast windows only.
 
 A map has one table for every access point, or one per access point of the build's `ip_layout.yaml`, in its order; a device's own IO resolves through the table of the access point it talks over. `horizon_x2` (two whole Horizon devices behind linked crossbars, aether `horizon_x2`) gives each NOC2AXI its own range over its whole device, so a device's two access points give different addresses: Tensix (0,0)'s L1 is at `0x10_4020_0000` through device 0's NOC2AXI 0 and at `0x11_4020_0000` through its NOC2AXI 1. The build programs the matching tables, `tests/att_maps/horizon_x2_per_noc2axi.yaml`, through its `ATT_CONFIG`.
+
+`horizon_x2_columns` splits both devices by column: each column is a device with a 1x3 soc descriptor at x = 0, mapped only by its own NOC2AXI, in that NOC2AXI's range (tables: `tests/att_maps/horizon_x2_columns.yaml`). Its tables follow the access points of this layout, in this order, so a build lists all of them even when its processes open only some devices (`TT_VISIBLE_DEVICES`):
+
+```yaml
+access_points:
+  - host_access: dev0_port0      # device 0 column 0
+    coord: [0, 2]
+  - host_access: dev0_port1      # device 0 column 1
+    coord: [0, 2]
+  - host_access: dev1_port0      # device 1 column 0
+    coord: [0, 2]
+  - host_access: dev1_port1      # device 1 column 1
+    coord: [0, 2]
+devices:
+  - access_points: [0]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [1]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [2]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [3]
+    soc_descriptor: soc_descriptor_column.yaml
+```
 
 ## One process or several
 

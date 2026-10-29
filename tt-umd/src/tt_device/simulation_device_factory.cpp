@@ -103,7 +103,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
     std::map<ChipId, std::unique_ptr<RtlSimulationTTDevice>> rtl_devices;
     for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        IpBlockLayoutDevice layout_device{ip_device_id, {}};
+        RtlSimDeviceAccess layout_device{ip_device_id, {}};
         for (const AccessPointId access_point : layout_devices.at(ip_device_id)) {
             layout_device.access_points.push_back({access_point, layout.get_host_access(access_point)});
         }

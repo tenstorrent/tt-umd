@@ -13,9 +13,9 @@ using namespace tt::umd;
 
 namespace {
 
-class FakeIpLayout : public IpBlockLayout {
+class FakeIpBlockLayout : public IpBlockLayout {
 public:
-    FakeIpLayout(size_t num_access_points, const std::vector<std::vector<uint32_t>>& devices) :
+    FakeIpBlockLayout(size_t num_access_points, const std::vector<std::vector<uint32_t>>& devices) :
         num_access_points_(num_access_points) {
         for (uint32_t device = 0; device < devices.size(); device++) {
             std::vector<AccessPointId>& ids = devices_[static_cast<IpDeviceId>(device)];
@@ -38,30 +38,32 @@ private:
 
 }  // namespace
 
-TEST(IpBlockLayout, OneDeviceTwoAccessPoints) { EXPECT_NO_THROW(validate_ip_block_layout(FakeIpLayout(2, {{0, 1}}))); }
-
-TEST(IpBlockLayout, TwoDevicesOneAccessPointEach) {
-    EXPECT_NO_THROW(validate_ip_block_layout(FakeIpLayout(2, {{0}, {1}})));
+TEST(IpBlockLayout, OneDeviceTwoAccessPoints) {
+    EXPECT_NO_THROW(validate_ip_block_layout(FakeIpBlockLayout(2, {{0, 1}})));
 }
 
-TEST(IpBlockLayout, NoDevices) { EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(1, {})), std::exception); }
+TEST(IpBlockLayout, TwoDevicesOneAccessPointEach) {
+    EXPECT_NO_THROW(validate_ip_block_layout(FakeIpBlockLayout(2, {{0}, {1}})));
+}
+
+TEST(IpBlockLayout, NoDevices) { EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(1, {})), std::exception); }
 
 TEST(IpBlockLayout, DeviceWithNoAccessPoints) {
-    EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(1, {{0}, {}})), std::exception);
+    EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(1, {{0}, {}})), std::exception);
 }
 
 TEST(IpBlockLayout, AccessPointListedTwiceByOneDevice) {
-    EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(1, {{0, 0}})), std::exception);
+    EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(1, {{0, 0}})), std::exception);
 }
 
 TEST(IpBlockLayout, UnknownAccessPoint) {
-    EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(1, {{0, 1}})), std::exception);
+    EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(1, {{0, 1}})), std::exception);
 }
 
 TEST(IpBlockLayout, AccessPointOwnedByTwoDevices) {
-    EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(1, {{0}, {0}})), std::exception);
+    EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(1, {{0}, {0}})), std::exception);
 }
 
 TEST(IpBlockLayout, UnownedAccessPoint) {
-    EXPECT_THROW(validate_ip_block_layout(FakeIpLayout(2, {{0}})), std::exception);
+    EXPECT_THROW(validate_ip_block_layout(FakeIpBlockLayout(2, {{0}})), std::exception);
 }

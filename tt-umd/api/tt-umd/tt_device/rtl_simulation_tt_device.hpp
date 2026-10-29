@@ -47,7 +47,7 @@ struct RtlSimAccessPoint {
 };
 
 /** A device of the build's ip_layout.yaml: its id and its access points, in the order the file lists them. */
-struct IpBlockLayoutDevice {
+struct RtlSimDeviceAccess {
     IpDeviceId device;
     std::vector<RtlSimAccessPoint> access_points;
 };
@@ -67,7 +67,7 @@ public:
      */
     RtlSimulationTTDevice(
         const std::shared_ptr<RtlSimSession>& session,
-        const IpBlockLayoutDevice& layout_device,
+        const RtlSimDeviceAccess& layout_device,
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
@@ -132,7 +132,7 @@ private:
     // Host mode over @p socket, one of an RtlSimSession's, as device @p layout_device of its layout.
     RtlSimulationTTDevice(
         const RtlSimSocket& socket,
-        const IpBlockLayoutDevice& layout_device,
+        const RtlSimDeviceAccess& layout_device,
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
@@ -144,7 +144,7 @@ private:
         ChipId chip_id,
         int num_host_mem_channels,
         std::optional<RtlSimSocket> socket,
-        std::optional<IpBlockLayoutDevice> layout_device,
+        std::optional<RtlSimDeviceAccess> layout_device,
         std::unique_ptr<RtlSimCommunicator> communicator);
 
     // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
@@ -164,7 +164,7 @@ private:
     std::unique_ptr<RtlSimCommunicator> communicator_;
 
     // This device's place in the build's ip_layout.yaml, when it has one.
-    std::optional<IpBlockLayoutDevice> layout_device_;
+    std::optional<RtlSimDeviceAccess> layout_device_;
 
     // Each access point's flat addresses, when the environment names an ATT map.
     std::map<AccessPointId, att::EndpointResolver> access_point_resolvers_;

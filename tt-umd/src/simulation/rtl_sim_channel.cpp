@@ -50,6 +50,7 @@ RtlSimChannel::~RtlSimChannel() {
 
 void RtlSimChannel::start() {
     std::lock_guard<std::mutex> lock(users_mutex_);
+    UMD_ASSERT(!started_, error::RuntimeError, "RtlSimChannel::start() called twice.");
     started_ = true;
     if (users_ > 0) {
         start_receiving();

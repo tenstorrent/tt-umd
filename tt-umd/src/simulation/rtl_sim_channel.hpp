@@ -37,12 +37,14 @@ public:
     SimulationHost &get_host() { return host_; }
 
     /**
-     * The socket is up: the remote has acked. The receive thread runs from here on while a
-     * communicator is attached.
+     * The socket is up: the remote has acked. Called once. The receive thread runs while the socket is
+     * up and a communicator is attached, so whichever of start() and the first attach() comes second
+     * starts it: an ip_layout build's devices attach first and their session starts the socket once
+     * the last of them exists, while a single device attaches to a socket that is already up.
      */
     void start();
 
-    /** A communicator starts using the channel, before or after start(). */
+    /** A communicator starts using the channel, once per communicator, before or after start(). */
     void attach();
 
     /**

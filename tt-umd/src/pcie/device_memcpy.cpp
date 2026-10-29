@@ -4,7 +4,6 @@
 
 #include "device_memcpy.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -18,24 +17,6 @@
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
-#endif
-
-// The RVV 1.0 fast path below is compiled behind a function target attribute rather than requiring
-// the whole translation unit to be built for a vector-capable -march. The riscv64 wheels are built
-// for the rv64gc baseline, so gating it on the TU's -march would compile it out of exactly the
-// builds that ship; this way the code is always present and HWCAP decides at run time.
-//
-// Whether the compiler can actually build it is settled by a configure-time probe rather than by
-// comparing compiler versions: using vector intrinsics inside a target("arch=+v") function is not
-// guaranteed by the RISC-V C API yet (riscv-non-isa/riscv-rvv-intrinsic-doc#376), so it is an
-// implementation detail that a version number can only approximate -- and on a compiler that lacks
-// it, <riscv_vector.h> may fail rather than degrade. TT_UMD_HAS_RVV_TARGET_ATTR comes from
-// check_cxx_source_compiles in CMakeLists.txt; without it this falls back to the scalar path, which
-// is also what a consumer compiling this file outside the project's build gets.
-#if defined(TT_UMD_HAS_RVV_TARGET_ATTR) && defined(__riscv) && (__riscv_xlen == 64) && defined(__linux__)
-#define TT_UMD_RVV_MEMCPY 1
-#include <riscv_vector.h>
-#include <sys/auxv.h>
 #endif
 
 namespace tt::umd {
@@ -62,69 +43,6 @@ auto make_mmio_timeout_guard(
 
 // Opt-in per-op MMIO timing instrumentation, toggled by TT_UMD_MEMCPY_TIMING.
 const bool MEMCPY_TIMING_ENABLED = std::getenv("TT_UMD_MEMCPY_TIMING") != nullptr;
-
-#ifdef TT_UMD_RVV_MEMCPY
-
-// 1 << ('V' - 'A'), the kernel's COMPAT_HWCAP_ISA_V. Spelled out so this still builds against
-// headers that predate the macro.
-constexpr unsigned long RVV_HWCAP_ISA_V = 1UL << 21;
-
-// Use the vector path when the host implements V and the operator has not opted out. The scalar
-// path is always correct, so TT_UMD_DISABLE_RVV_MEMCPY is a safe escape hatch if a platform turns
-// out to decompose vector element accesses in a way its devices dislike.
-const bool RVV_MEMCPY_ENABLED =
-    (getauxval(AT_HWCAP) & RVV_HWCAP_ISA_V) != 0 && std::getenv("TT_UMD_DISABLE_RVV_MEMCPY") == nullptr;
-
-// Widest byte count one e8/LMUL=8 vector holds: VLMAX(e8, m8) == VLEN, so always a multiple of 8.
-// Carries the target attribute in its own right: without it this compiles on a baseline -march only
-// as long as the compiler chooses to inline it into the attributed callers below.
-// Capping each iteration at this keeps vl == the requested AVL, which matters because vsetvli is
-// free to return any vl >= ceil(AVL/2) when VLMAX < AVL < 2*VLMAX -- a value that need not be a
-// multiple of 8, and so could not be converted to a 64-bit element count without losing bytes.
-__attribute__((target("arch=+v"))) inline std::size_t rvv_max_bytes() {
-    static const std::size_t cached = __riscv_vsetvlmax_e8m8();
-    return cached;
-}
-
-// Copies `bytes` (a multiple of 8, to an 8-byte-aligned device address) with unit-stride 64-bit
-// element stores. For a unit-stride access the element width comes from the vse64.v opcode itself
-// and not from vtype's SEW, so every element access is a well-formed 8-byte device write however
-// the compiler chooses to encode the preceding vsetvli -- which is the whole point: the generic
-// path's byte elements are what the ARC CSM mangles. Host-side loads use byte elements, which
-// leaves this routine with no alignment requirement at all on `src`; byte granularity is harmless
-// there, as `src` is ordinary host memory.
-__attribute__((target("arch=+v"))) void rvv_block_to_device(
-    volatile std::uint8_t* dest, const std::uint8_t* src, std::size_t bytes) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto* d = reinterpret_cast<std::uint64_t*>(const_cast<std::uint8_t*>(dest));
-    for (std::size_t remaining = bytes; remaining > 0;) {
-        const std::size_t chunk = std::min(remaining, rvv_max_bytes());
-        const std::size_t elements = chunk / sizeof(std::uint64_t);
-        const vuint8m8_t data = __riscv_vle8_v_u8m8(src, chunk);
-        __riscv_vse64_v_u64m8(d, __riscv_vreinterpret_v_u8m8_u64m8(data), elements);
-        src += chunk;
-        d += elements;
-        remaining -= chunk;
-    }
-}
-
-// Mirror of the above: 64-bit element loads from the device, byte element stores to host memory.
-__attribute__((target("arch=+v"))) void rvv_block_from_device(
-    std::uint8_t* dest, const volatile std::uint8_t* src, std::size_t bytes) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    const auto* s = reinterpret_cast<const std::uint64_t*>(const_cast<const std::uint8_t*>(src));
-    for (std::size_t remaining = bytes; remaining > 0;) {
-        const std::size_t chunk = std::min(remaining, rvv_max_bytes());
-        const std::size_t elements = chunk / sizeof(std::uint64_t);
-        const vuint64m8_t data = __riscv_vle64_v_u64m8(s, elements);
-        __riscv_vse8_v_u8m8(dest, __riscv_vreinterpret_v_u64m8_u8m8(data), chunk);
-        s += elements;
-        dest += chunk;
-        remaining -= chunk;
-    }
-}
-
-#endif  // TT_UMD_RVV_MEMCPY
 
 }  // namespace
 
@@ -256,28 +174,12 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     d = reinterpret_cast<volatile std::uint8_t*>(d_simd);
 
 #elif defined(__riscv) && (__riscv_xlen == 64)
-    // riscv64: the generic GNUC path below copies through 1-byte-aligned vector types, which on
-    // this architecture lower to byte-granular device accesses on both profiles — individual sb
-    // where there is no vector unit, and vsetivli e8 + vse8.v where there is, since an aligned(1)
-    // element type gives a vector access an element width of one byte. Sub-word posted writes are
-    // not safe for every device target reachable through the BAR (the ARC CSM mangles them).
-    //
-    // Note that this is the default outcome rather than a corner case on a vector-capable host:
-    // distribution toolchains for RVA23 parts enable V in their default -march, so the generic
-    // path produces vse8.v without anyone asking for vectorization.
-    //
-    // Phase 0 only aligned d to 4 bytes. Step to 8 first, then copy the bulk with 64-bit element
-    // accesses: unit-stride vector stores where the host has RVV 1.0 and the vector unit is wider,
-    // otherwise plain volatile 8-byte stores, the widest single access the base ISA guarantees.
-    //
-    // The vector form gives up one property the scalar form has. Element accesses within a
-    // unit-stride vector access are unordered — the V spec is explicit that for a strongly ordered
-    // I/O region "the element accesses can be initiated in any order", and directs software that
-    // needs ordering to the ordered indexed instructions. Only the ordering *within* one transfer
-    // is affected, which is the same latitude the x86 path above already takes with its
-    // non-volatile AVX2 stores; what both rely on is that a caller which needs a write to land
-    // after a block fences between the two rather than inferring it from store order. Width is
-    // unaffected: each element access is 8 bytes, exactly as for sd.
+    // riscv64: the generic GNUC path below copies through vector types declared aligned(1), which
+    // forces byte-granular device accesses on both profiles — 16 individual sb where there is no
+    // vector unit, vsetivli e8 + vse8.v where there is. Sub-word posted writes are not safe for
+    // every device target reachable through the BAR (the ARC CSM mangles them), so use explicit
+    // 8-byte volatile stores, the widest scalar access the base ISA guarantees; d is 4-byte
+    // aligned after Phase 0.
     while (size >= 8 && (reinterpret_cast<std::uintptr_t>(d) % 8) != 0) {
         std::uint32_t tmp;
         std::memcpy(&tmp, s, sizeof(tmp));
@@ -288,29 +190,6 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         s += 4;
         size -= 4;
     }
-#ifdef TT_UMD_RVV_MEMCPY
-    if (RVV_MEMCPY_ENABLED) {
-        // One timeout check per 256-byte block, as in the AVX2 path: a posted-write pile-up stalls
-        // the CPU mid-block and is caught as soon as the block completes.
-        while (size >= 256) {
-            auto t = std::chrono::steady_clock::now();
-            rvv_block_to_device(d, s, 256);
-            check(t, 256);
-            d += 256;
-            s += 256;
-            size -= 256;
-        }
-        if (size >= 8) {
-            const std::size_t bulk = size & ~static_cast<std::size_t>(7);
-            auto t = std::chrono::steady_clock::now();
-            rvv_block_to_device(d, s, bulk);
-            check(t, static_cast<std::uint32_t>(bulk));
-            d += bulk;
-            s += bulk;
-            size -= bulk;
-        }
-    }
-#endif
     while (size >= 64) {
         auto t = std::chrono::steady_clock::now();
         for (int j = 0; j < 8; ++j) {
@@ -527,9 +406,8 @@ void memcpy_from_device(
     s = reinterpret_cast<const volatile std::uint8_t*>(s_simd);
 
 #elif defined(__riscv) && (__riscv_xlen == 64)
-    // riscv64: mirror of the store path above — 64-bit element accesses rather than the generic
-    // path's 1-byte-aligned vector copies, which turn into byte loads here too. See the note there
-    // on why the vector form is width-equivalent to sd and what ordering it gives up.
+    // riscv64: mirror of the store path above — explicit 8-byte volatile loads rather than the
+    // aligned(1) vector copies, which lower to byte loads here.
     while (size >= 8 && (reinterpret_cast<std::uintptr_t>(s) % 8) != 0) {
         auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
@@ -539,27 +417,6 @@ void memcpy_from_device(
         s += 4;
         size -= 4;
     }
-#ifdef TT_UMD_RVV_MEMCPY
-    if (RVV_MEMCPY_ENABLED) {
-        while (size >= 256) {
-            auto t = std::chrono::steady_clock::now();
-            rvv_block_from_device(d, s, 256);
-            check(t, 256);
-            d += 256;
-            s += 256;
-            size -= 256;
-        }
-        if (size >= 8) {
-            const std::size_t bulk = size & ~static_cast<std::size_t>(7);
-            auto t = std::chrono::steady_clock::now();
-            rvv_block_from_device(d, s, bulk);
-            check(t, static_cast<std::uint32_t>(bulk));
-            d += bulk;
-            s += bulk;
-            size -= bulk;
-        }
-    }
-#endif
     while (size >= 64) {
         auto t = std::chrono::steady_clock::now();
         for (int j = 0; j < 8; ++j) {

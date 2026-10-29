@@ -43,12 +43,12 @@ target_link_libraries(
 
 # Tracy profiling for the code built into tt-umd. Kept apart from tt-umd-utils::internal, which the tests link too: they
 # would otherwise get a second copy of the Tracy client next to the one inside tt-umd.
-add_library(tt-umd-utils-tracy INTERFACE)
-add_library(tt-umd-utils::tracy ALIAS tt-umd-utils-tracy)
-target_link_libraries(tt-umd-utils-tracy INTERFACE tt-umd-utils::internal)
+add_library(tracy-shim INTERFACE)
+add_library(tt-umd-utils::tracy-shim ALIAS tracy-shim)
+target_link_libraries(tracy-shim INTERFACE tt-umd-utils::internal)
 if(TT_UMD_ENABLE_TRACY)
-    target_link_libraries(tt-umd-utils-tracy INTERFACE TracyClient)
-    target_compile_definitions(tt-umd-utils-tracy INTERFACE TRACY_ENABLE)
+    target_link_libraries(tracy-shim INTERFACE TracyClient)
+    target_compile_definitions(tracy-shim INTERFACE TRACY_ENABLE)
 endif()
 
 # Not installed as a package of its own: it ships inside tt-umd, whose headers include these.

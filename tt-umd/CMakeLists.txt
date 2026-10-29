@@ -441,7 +441,7 @@ target_link_libraries(
     PRIVATE
         tt-umd-utils::tt-umd-utils
         tt-umd-utils::internal
-        tt-umd-utils::tracy
+        tt-umd-utils::tracy-shim
 )
 target_include_directories(tt-umd-base PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 

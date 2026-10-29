@@ -60,7 +60,7 @@ target_link_libraries(
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
         tt-umd-utils::internal
-        tt-umd-utils::tracy
+        tt-umd-utils::tracy-shim
 )
 
 if(TT_UMD_BUILD_SIMULATION)

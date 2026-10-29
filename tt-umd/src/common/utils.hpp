@@ -14,7 +14,6 @@
 #include <string>
 #include <string_view>
 #include <tt-logger/tt-logger.hpp>
-#include <type_traits>
 #include <unordered_set>
 
 #include "tt-umd-utils/internal/host.hpp"
@@ -112,26 +111,9 @@ inline std::optional<std::string> resolve_cluster_id(const std::optional<std::st
     return cluster_id;
 }
 
-constexpr bool is_riscv_platform() {
-#if defined(__riscv)
-    return true;
-#else
-    return false;
-#endif
-}
-
 }  // namespace tt::umd::utils
 
 namespace tt::umd {
-
-template <typename Alignment, typename Value>
-inline void throw_if_not_aligned(Value value, const std::string& what) {
-    static_assert(std::is_integral_v<Alignment>, "Alignment type must be integral.");
-    static_assert(std::is_integral_v<Value>, "Value type must be integral.");
-    if (value % sizeof(Alignment) != 0) {
-        UMD_THROW(error::RuntimeError, what + " must be " + std::to_string(sizeof(Alignment)) + "-byte aligned.");
-    }
-}
 
 inline void validate_register_access(
     uint64_t addr, size_t size, RegisterAccessWidth width = RegisterAccessWidth::BITS32) {

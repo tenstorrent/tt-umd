@@ -84,7 +84,9 @@ A build with an `ip_layout.yaml` opens as one chip per device: `create_rtl_sim_i
 With an ATT map named in `TT_UMD_NOC_ATT`, a device has flat addresses: the global addresses another device's kernels use to reach its tiles. Fabric reads them, by access point; the device's own IO is unaffected.
 
 - `TTDevice::get_access_points()` lists the access points the device owns, as ordinals of `ip_layout.yaml`.
-- `TTDevice::get_flat_address(access_point, core, flags, ordering, offset)` gives the flat address of `offset` in `core`'s memory, for an IoWindow with `flags` (`WindowFlags`) and `ordering` (`IoOrdering`). It is `nullopt` when the device has no map, or the map has no window for those flags. The maps carried today have unicast windows only, and one table per device, so every access point of a device gives the same address.
+- `TTDevice::get_flat_address(access_point, core, flags, ordering, offset)` gives the flat address of `offset` in `core`'s memory, for an IoWindow with `flags` (`WindowFlags`) and `ordering` (`IoOrdering`). It is `nullopt` when the device has no map, or the map has no window for those flags. The maps carried today have unicast windows only.
+
+A map has one table for every access point, or one per access point of the build's `ip_layout.yaml`, in its order; a device's own IO resolves through the table of the access point it talks over. `horizon_x2` (two whole Horizon devices behind linked crossbars, aether `horizon_x2`) gives each NOC2AXI its own range over its whole device, so a device's two access points give different addresses: Tensix (0,0)'s L1 is at `0x10_4020_0000` through device 0's NOC2AXI 0 and at `0x11_4020_0000` through its NOC2AXI 1. The build programs the matching tables, `tests/att_maps/horizon_x2_per_noc2axi.yaml`, through its `ATT_CONFIG`.
 
 ## One process or several
 

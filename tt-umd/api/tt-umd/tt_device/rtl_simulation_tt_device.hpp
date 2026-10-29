@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -17,6 +18,7 @@
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -104,9 +106,10 @@ protected:
     bool should_use_cached_tlb_window() override;
 
 private:
-    // Install the flat-address resolver when the environment names an ATT map. Host mode only: a
-    // client hands the host a translated coordinate and a core-local address, and the host resolves
-    // it, so resolving here as well would fold the coordinate in twice.
+    // Install the flat-address resolvers when the environment names an ATT map: each access point's,
+    // and the one this device talks over for its own IO. Host mode only: a client hands the host a
+    // translated coordinate and a core-local address, and the host resolves it, so resolving here as
+    // well would fold the coordinate in twice.
     void setup_noc_address_resolver();
 
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
@@ -156,5 +159,8 @@ private:
 
     // This device's place in the build's ip_layout.yaml, when it has one.
     std::optional<IpLayoutDevice> layout_device_;
+
+    // Each access point's flat addresses, when the environment names an ATT map.
+    std::map<AccessPointId, att::EndpointResolver> access_point_resolvers_;
 };
 }  // namespace tt::umd

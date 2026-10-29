@@ -437,4 +437,24 @@ TEST_F(RtlSimSessionTest, DeviceWithoutAnAttMapHasNoFlatAddresses) {
         std::nullopt);
 }
 
+// With a map that has a table per access point, each of a device's access points has its own flat
+// addresses.
+TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const IpLayoutDevice layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_a"}}};
+    setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
+    const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{2}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x20'4020'0100));
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x21'4020'0100));
+}
+
 }  // namespace

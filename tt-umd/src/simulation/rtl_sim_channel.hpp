@@ -59,9 +59,18 @@ public:
 
     /**
      * Where the remote's host memory requests go. The socket has one host memory, so the first
-     * communicator to set them keeps them; a later one is told so and ignored.
+     * communicator to set them keeps them until it clears them; a later one is told so and ignored.
      */
-    void set_ram_callbacks(RtlSimCommunicator::RamWriteCallback write_cb, RtlSimCommunicator::RamReadCallback read_cb);
+    void set_ram_callbacks(
+        const RtlSimCommunicator *owner,
+        RtlSimCommunicator::RamWriteCallback write_cb,
+        RtlSimCommunicator::RamReadCallback read_cb);
+
+    /**
+     * Drops the callbacks if @p owner set them. Until another communicator sets them, the remote's
+     * host memory writes are dropped and its reads get zeros.
+     */
+    void clear_ram_callbacks(const RtlSimCommunicator *owner);
 
 private:
     void receive_loop();
@@ -86,6 +95,7 @@ private:
     std::condition_variable responses_cv_;
 
     std::mutex callbacks_mutex_;
+    const RtlSimCommunicator *ram_callbacks_owner_ = nullptr;
     RtlSimCommunicator::RamWriteCallback ram_write_callback_;
     RtlSimCommunicator::RamReadCallback ram_read_callback_;
 };

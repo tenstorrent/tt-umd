@@ -240,7 +240,8 @@ public:
 
     /**
      * Set callbacks for AXI RAM notifications from the simulator.
-     * These allow the caller to handle device-initiated reads/writes to host system memory.
+     * These allow the caller to handle device-initiated reads/writes to host system memory. They
+     * stay in use until this communicator is destroyed.
      *
      * @param write_cb Called when the device writes to host RAM.
      * @param read_cb Called when the device reads from host RAM.

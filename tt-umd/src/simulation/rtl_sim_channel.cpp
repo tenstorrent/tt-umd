@@ -97,17 +97,31 @@ RtlSimCommunicator::ReceivedMessage RtlSimChannel::wait_for_response() {
 }
 
 void RtlSimChannel::set_ram_callbacks(
-    RtlSimCommunicator::RamWriteCallback write_cb, RtlSimCommunicator::RamReadCallback read_cb) {
+    const RtlSimCommunicator *owner,
+    RtlSimCommunicator::RamWriteCallback write_cb,
+    RtlSimCommunicator::RamReadCallback read_cb) {
     std::lock_guard<std::mutex> lock(callbacks_mutex_);
-    if (ram_write_callback_ || ram_read_callback_) {
+    if (ram_callbacks_owner_ != nullptr) {
         log_warning(
             tt::LogEmulationDriver,
             "Host memory callbacks are already set on this socket; its host memory requests keep going to the first "
             "device that set them.");
         return;
     }
+    ram_callbacks_owner_ = owner;
     ram_write_callback_ = std::move(write_cb);
     ram_read_callback_ = std::move(read_cb);
+}
+
+void RtlSimChannel::clear_ram_callbacks(const RtlSimCommunicator *owner) {
+    // Under callbacks_mutex_, so a request being served finishes before its callbacks go.
+    std::lock_guard<std::mutex> lock(callbacks_mutex_);
+    if (ram_callbacks_owner_ != owner) {
+        return;
+    }
+    ram_callbacks_owner_ = nullptr;
+    ram_write_callback_ = nullptr;
+    ram_read_callback_ = nullptr;
 }
 
 void RtlSimChannel::receive_loop() {

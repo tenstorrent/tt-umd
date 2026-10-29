@@ -85,6 +85,9 @@ RtlSimCommunicator::RtlSimCommunicator(SimulationHost &host) : channel_(std::mak
 RtlSimCommunicator::RtlSimCommunicator(const RtlSimSocket &socket) : socket_(socket), channel_(socket.get_channel()) {}
 
 RtlSimCommunicator::~RtlSimCommunicator() {
+    // The callbacks reach into this communicator's device, and the channel may outlive both: another
+    // device on the socket keeps it.
+    channel_->clear_ram_callbacks(this);
     if (attached_) {
         channel_->detach(/*send_exit=*/false);
     }
@@ -338,7 +341,7 @@ void RtlSimCommunicator::neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y) {
 }
 
 void RtlSimCommunicator::set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb) {
-    channel_->set_ram_callbacks(std::move(write_cb), std::move(read_cb));
+    channel_->set_ram_callbacks(this, std::move(write_cb), std::move(read_cb));
 }
 
 }  // namespace tt::umd

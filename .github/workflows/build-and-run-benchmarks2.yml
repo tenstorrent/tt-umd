@@ -63,7 +63,6 @@ jobs:
   # Runs on the host (no container) so cpupower can reach cpufreq. A low fixed frequency on the
   # isolated CPUs keeps benchmark results stable.
   pin-cpu-frequency:
-    needs: build-tests
     runs-on: [umd-lab, n300]
     steps:
       - name: Pin isolated CPUs to 1 GHz

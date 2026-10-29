@@ -508,8 +508,7 @@ Cluster::Cluster(ClusterOptions options) {
 
                     // The descriptor picks the devices this process opens (target_devices, else
                     // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
-                    // original number, so it maps each chip back to its device. Keyed by chip: a
-                    // device id is only unique within one IP.
+                    // original number, so it maps each chip back to its device.
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                         ClusterDescriptor::create_mock_cluster(mock_chips, arch, false).get(), options.target_devices);
                     std::map<ChipId, IpDeviceId> ip_devices;

@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
@@ -25,6 +26,7 @@
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_layout.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -528,6 +530,31 @@ public:
      */
     std::unique_ptr<IoWindow> create_io_window(
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering);
+
+    /**
+     * The access points this device owns: their ordinals in its IP's layout (docs/IP_LAYOUT.md).
+     * Empty for a device that is not part of one. The device's own IO goes over one of them.
+     */
+    virtual std::vector<AccessPointId> get_access_points() const { return {}; }
+
+    /**
+     * The flat address of @p offset in @p core's memory through access point @p access_point, for an
+     * IoWindow with @p flags and @p ordering: the global address another device's kernels use to
+     * reach it, as fabric needs. Read-only; this device's own IO is unaffected.
+     *
+     * @param access_point One of get_access_points().
+     * @param core Target core, in this device's soc descriptor frame.
+     * @return nullopt when the device has no flat addresses, or its map has no window for @p flags
+     *         and @p ordering.
+     */
+    virtual std::optional<uint64_t> get_flat_address(
+        AccessPointId /*access_point*/,
+        CoreCoord /*core*/,
+        WindowFlags /*flags*/,
+        IoOrdering /*ordering*/,
+        uint64_t /*offset*/ = 0) const {
+        return std::nullopt;
+    }
 
     /**
      * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.

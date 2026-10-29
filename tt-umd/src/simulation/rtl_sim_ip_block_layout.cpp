@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <cstdint>
+#include <vector>
 
 #include "tt-umd/utils/error.hpp"
 
@@ -19,13 +20,20 @@ RtlSimIpBlockLayout::RtlSimIpBlockLayout(const std::filesystem::path& simulator_
 
     const YAML::Node yaml = YAML::LoadFile(path.string());
 
+    // Each access point's IP block, used only to check that no device spans two of them.
+    std::vector<uint32_t> ip_blocks;
     size_t index = 0;
     for (const YAML::Node& node : yaml["access_points"]) {
         UMD_ASSERT(
             node["host_access"],
             error::RuntimeError,
             fmt::format("{}: access point {} has no host_access.", path.string(), index));
+        UMD_ASSERT(
+            node["ip_block"],
+            error::RuntimeError,
+            fmt::format("{}: access point {} has no ip_block.", path.string(), index));
         index++;
+        ip_blocks.push_back(node["ip_block"].as<uint32_t>());
         AccessPoint access_point;
         access_point.host_access = node["host_access"].as<std::string>();
         if (node["coord"]) {
@@ -78,6 +86,24 @@ RtlSimIpBlockLayout::RtlSimIpBlockLayout(const std::filesystem::path& simulator_
     }
 
     validate_ip_block_layout(*this);
+
+    // A device is one ATT view within one IP block. Validation above guarantees every device has
+    // access points, all in range.
+    for (const auto& [device, access_points] : devices_) {
+        const uint32_t ip_block = ip_blocks[static_cast<uint32_t>(access_points.front())];
+        for (const AccessPointId access_point : access_points) {
+            const uint32_t other = ip_blocks[static_cast<uint32_t>(access_point)];
+            UMD_ASSERT(
+                other == ip_block,
+                error::RuntimeError,
+                fmt::format(
+                    "{}: device {} spans IP blocks {} and {}.",
+                    path.string(),
+                    static_cast<uint32_t>(device),
+                    ip_block,
+                    other));
+        }
+    }
 }
 
 size_t RtlSimIpBlockLayout::get_num_access_points() const { return access_points_.size(); }

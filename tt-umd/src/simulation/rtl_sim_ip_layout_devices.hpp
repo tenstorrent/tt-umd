@@ -8,12 +8,12 @@
 #include <map>
 #include <memory>
 
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
-class RtlSimIpLayout;
+class RtlSimIpBlockLayout;
 class TTDevice;
 
 /**
@@ -31,7 +31,7 @@ class TTDevice;
  */
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
-    const RtlSimIpLayout &layout,
+    const RtlSimIpBlockLayout &layout,
     const std::map<ChipId, IpDeviceId> &ip_devices,
     int num_host_mem_channels = 0,
     bool launch_simulator = true);

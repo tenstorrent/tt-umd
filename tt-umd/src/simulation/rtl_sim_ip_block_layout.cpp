@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-RtlSimIpLayout::RtlSimIpLayout(const std::filesystem::path& simulator_directory) {
+RtlSimIpBlockLayout::RtlSimIpBlockLayout(const std::filesystem::path& simulator_directory) {
     const std::filesystem::path path = simulator_directory / FILE_NAME;
     UMD_ASSERT(std::filesystem::exists(path), error::RuntimeError, fmt::format("{} not found.", path.string()));
 
@@ -77,22 +77,22 @@ RtlSimIpLayout::RtlSimIpLayout(const std::filesystem::path& simulator_directory)
         soc_descriptors_.emplace(device, soc_descriptor);
     }
 
-    validate_ip_layout(*this);
+    validate_ip_block_layout(*this);
 }
 
-size_t RtlSimIpLayout::get_num_access_points() const { return access_points_.size(); }
+size_t RtlSimIpBlockLayout::get_num_access_points() const { return access_points_.size(); }
 
-std::map<IpDeviceId, std::vector<AccessPointId>> RtlSimIpLayout::get_devices() const { return devices_; }
+std::map<IpDeviceId, std::vector<AccessPointId>> RtlSimIpBlockLayout::get_devices() const { return devices_; }
 
-AccessPointLocation RtlSimIpLayout::get_location(AccessPointId access_point) const {
+AccessPointLocation RtlSimIpBlockLayout::get_location(AccessPointId access_point) const {
     return access_points_.at(static_cast<uint32_t>(access_point)).location;
 }
 
-const std::string& RtlSimIpLayout::get_host_access(AccessPointId access_point) const {
+const std::string& RtlSimIpBlockLayout::get_host_access(AccessPointId access_point) const {
     return access_points_.at(static_cast<uint32_t>(access_point)).host_access;
 }
 
-const std::filesystem::path& RtlSimIpLayout::get_soc_descriptor(IpDeviceId device) const {
+const std::filesystem::path& RtlSimIpBlockLayout::get_soc_descriptor(IpDeviceId device) const {
     return soc_descriptors_.at(device);
 }
 

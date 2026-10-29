@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "simulation/rtl_sim_att_program.hpp"
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
@@ -93,7 +93,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
 
 std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::filesystem::path &simulator_directory,
-    const RtlSimIpLayout &layout,
+    const RtlSimIpBlockLayout &layout,
     const std::map<ChipId, IpDeviceId> &ip_devices,
     int num_host_mem_channels,
     bool launch_simulator) {
@@ -103,7 +103,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
     std::map<ChipId, std::unique_ptr<RtlSimulationTTDevice>> rtl_devices;
     for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        IpLayoutDevice layout_device{ip_device_id, {}};
+        RtlSimDeviceAccess layout_device{ip_device_id, {}};
         for (const AccessPointId access_point : layout_devices.at(ip_device_id)) {
             layout_device.access_points.push_back({access_point, layout.get_host_access(access_point)});
         }

@@ -273,6 +273,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/cluster_types.hpp
                 api/tt-umd/types/communication_protocol.hpp
                 api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/types/dma.hpp
                 api/tt-umd/types/gddr_telemetry.hpp
                 api/tt-umd/types/host_memory.hpp
                 api/tt-umd/types/telemetry.hpp

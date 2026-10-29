@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+namespace tt::umd::utils {
+
 // A standard disjoint set data structure to track connected components.
 template <typename T>
 class DisjointSet {
@@ -39,3 +41,5 @@ public:
 private:
     std::unordered_map<T, T> parent;
 };
+
+}  // namespace tt::umd::utils

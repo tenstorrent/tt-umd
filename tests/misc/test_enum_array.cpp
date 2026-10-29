@@ -16,6 +16,7 @@
 #include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
+using namespace tt::umd::utils;
 
 namespace {
 

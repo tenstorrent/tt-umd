@@ -16,6 +16,8 @@
 
 namespace tt::umd {
 
+class RtlSimChannel;
+
 /**
  * One run of an RTL simulator build: launches <simulator_directory>/run.sh once and serves one
  * socket per name, each the host side of one access point. See SimulationHost::init() for the env
@@ -43,10 +45,18 @@ public:
     /** Socket @p socket's host; the session must have been started. */
     SimulationHost& get_host(size_t socket);
 
+    /**
+     * Socket @p socket's channel, shared by every communicator on the socket so that their requests
+     * take turns. It sends and receives only once the session has started.
+     */
+    std::shared_ptr<RtlSimChannel> get_channel(size_t socket);
+
 private:
     std::filesystem::path simulator_directory_;
     std::vector<std::string> sockets_;
     std::vector<std::unique_ptr<SimulationHost>> hosts_;
+    // After hosts_, so each channel goes before the host it uses.
+    std::vector<std::shared_ptr<RtlSimChannel>> channels_;
     bool launch_simulator_;
     bool started_ = false;
 };
@@ -60,6 +70,9 @@ public:
     RtlSimSocket(std::shared_ptr<RtlSimSession> session, size_t socket);
 
     SimulationHost& get_host() const;
+
+    /** This socket's channel. @see RtlSimSession::get_channel() */
+    std::shared_ptr<RtlSimChannel> get_channel() const;
 
 private:
     std::shared_ptr<RtlSimSession> session_;

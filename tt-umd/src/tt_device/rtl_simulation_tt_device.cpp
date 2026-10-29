@@ -131,7 +131,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         chip_id,
         num_host_mem_channels,
         socket,
-        std::make_unique<RtlSimCommunicator>(socket.get_host())) {}
+        std::make_unique<RtlSimCommunicator>(socket)) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,

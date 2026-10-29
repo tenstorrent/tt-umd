@@ -441,6 +441,7 @@ target_link_libraries(
     PRIVATE
         tt-umd-utils::tt-umd-utils
         tt-umd-utils::internal
+        tt-umd-utils::tracy-shim
 )
 target_include_directories(tt-umd-base PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
@@ -464,11 +465,6 @@ if(TT_UMD_BUILD_SIMULATION)
             nng
             uv_a
     )
-endif()
-
-if(TT_UMD_ENABLE_TRACY)
-    target_link_libraries(tt-umd-base PRIVATE TracyClient)
-    target_compile_definitions(tt-umd-base PRIVATE TRACY_ENABLE)
 endif()
 
 # Installs the headers only: the objects are part of the tt-umd library.

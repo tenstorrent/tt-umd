@@ -60,6 +60,7 @@ target_link_libraries(
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
         tt-umd-utils::internal
+        tt-umd-utils::tracy-shim
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -71,11 +72,6 @@ if(TT_UMD_BUILD_EMULE)
     target_sources(tt-umd PRIVATE src/chip/sw_emule_chip.cpp)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
     target_link_libraries(tt-umd PRIVATE tt-emule::headers)
-endif()
-
-if(TT_UMD_ENABLE_TRACY)
-    target_link_libraries(tt-umd PRIVATE TracyClient)
-    target_compile_definitions(tt-umd PRIVATE TRACY_ENABLE)
 endif()
 
 target_sources(

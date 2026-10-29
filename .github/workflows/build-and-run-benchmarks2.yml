@@ -1,0 +1,76 @@
+# Build and then run benchmarks on the lab machines, every day at 22:00.
+name: Build and run benchmarks (nightly)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-type:
+        required: false
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+  schedule:
+    - cron: "0 22 * * *"
+      timezone: "Europe/Belgrade"
+  pull_request:
+
+jobs:
+  # Nightly runs of an unchanged main would just repeat the last result, so skip them if this commit
+  # already passed. Manual dispatches always run.
+  check-previous-run:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      already-passed: ${{ steps.query.outputs.already-passed }}
+    steps:
+      - name: Look for a successful run of this commit
+        id: query
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs_url="repos/${{ github.repository }}/actions/workflows/build-and-run-jtag-tests.yml/runs"
+          passed_runs=$(gh api "${runs_url}?head_sha=${{ github.sha }}&status=success" --jq '.total_count')
+          echo "Successful runs of ${{ github.sha }}: $passed_runs"
+          if [[ "${{ github.event_name }}" == "schedule" && "$passed_runs" -gt 0 ]]; then
+            echo "already-passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already-passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ensure-image:
+  #   needs: check-previous-run
+  #   if: ${{ needs.check-previous-run.outputs.already-passed != 'true' }}
+  #   permissions:
+  #     packages: write
+  #   uses: ./.github/workflows/docker-image.yml
+  #   with:
+  #     docker-version: ubuntu-24.04
+
+  # build-tests:
+  #   needs: ensure-image
+  #   secrets: inherit
+  #   uses: ./.github/workflows/build-tests.yml
+  #   with:
+  #     ubuntu-docker-version: ubuntu-24.04
+  #     image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+  #     build-type: ${{ inputs.build-type || 'Release' }}
+  #     build-wheel: false
+
+  # Runs on the host (no container) so cpupower can reach cpufreq. A low fixed frequency on the
+  # isolated CPUs keeps benchmark results stable.
+  pin-cpu-frequency:
+    needs: build-tests
+    runs-on: [umd-lab, n300]
+    steps:
+      - name: Pin isolated CPUs to 1 GHz
+        run: |
+          isolated_cpus=$(cat /sys/devices/system/cpu/isolated)
+          if [[ -z "$isolated_cpus" ]]; then
+            echo "::error::No isolated CPUs on this runner, benchmark results would be unstable"
+            exit 1
+          fi
+          sudo cpupower --cpus "$isolated_cpus" frequency-set -f 1GHz

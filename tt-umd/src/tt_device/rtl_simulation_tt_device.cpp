@@ -85,6 +85,14 @@ constexpr NamedAttMap ATT_MAPS[] = {
     {"horizon_x2_columns", HORIZON_X2_COLUMNS_TABLES},
 };
 
+// The NIU's NODE_ID register, at the same tile-local offset on every Horizon tile. Its bits 11:0 hold
+// the tile's own package coordinate, packed as an endpoint word, and bits 25:12 the NoC's grid size,
+// which every NIU reports and zeroed memory doesn't: without them, a read the ATT sends to memory
+// would pass for tile (0, 0).
+constexpr uint64_t HORIZON_NODE_ID = 0x0200'0064;
+constexpr uint32_t ENDPOINT_WORD_MASK = 0xfff;
+constexpr uint32_t GRID_SIZE_MASK = 0x03ff'f000;
+
 // The IP variants (the SoC descriptor's ip_variant) whose cores UMD resets itself, through each tile's TSC.
 struct VariantTileReset {
     tt::IpVariant variant;
@@ -300,6 +308,7 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
         global_address_mode_ = true;
         return;
     }
+    per_access_point_tables_ = known->tables.size() > 1;
     for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
         check_flat_address(*known, access_point);
         access_point_resolvers_.emplace(access_point.id, table_for(*known, access_point.id));
@@ -345,6 +354,51 @@ std::optional<uint64_t> RtlSimulationTTDevice::get_flat_address(
         return std::nullopt;
     }
     return att::resolve_io_window(resolver->second, get_soc_descriptor(), core, flags, ordering, offset);
+}
+
+void RtlSimulationTTDevice::check_att_matches_map() {
+    if (!per_access_point_tables_ ||
+        get_soc_descriptor().get_arch_descriptor().get_ip_variant() != tt::IpVariant::HORIZON) {
+        return;
+    }
+    // Every tile reports its own coordinate, so reading it through the address UMD's map gives for a
+    // tile shows which tile the build's ATT actually sends that address to. The device's own socket
+    // reaches every access point's range through the crossbar, so the address picks whose ATT
+    // translates it. This checks the ATT within the device: which device answers is the crossbar's
+    // ranges, and both devices' tiles report the same coordinates.
+    for (const auto& [access_point, resolver] : access_point_resolvers_) {
+        const att::MapData& map = resolver.map();
+        for (const CoreType core_type : {CoreType::TENSIX, CoreType::DISPATCH}) {
+            for (const CoreCoord& core : get_soc_descriptor().get_cores(core_type)) {
+                const uint64_t address =
+                    att::resolve_core(resolver, get_soc_descriptor(), core, HORIZON_NODE_ID, sizeof(uint32_t));
+                uint32_t node_id = 0;
+                communicator_->global_read_words(address, &node_id, sizeof(node_id));
+                const uint32_t expected =
+                    static_cast<uint32_t>(((core.y + map.package_offset_y) << 6) | (core.x + map.package_offset_x));
+                UMD_ASSERT(
+                    (node_id & ENDPOINT_WORD_MASK) == expected && (node_id & GRID_SIZE_MASK) != 0,
+                    error::RuntimeError,
+                    fmt::format(
+                        "Access point {}'s ATT sends 0x{:x} where NODE_ID reads 0x{:x}, but {}'s map sends it to {} "
+                        "({}, {}), at package ({}, {}).",
+                        static_cast<uint32_t>(access_point),
+                        address,
+                        node_id,
+                        NOC_ATT_MAP_ENV_VAR,
+                        to_str(core_type),
+                        core.x,
+                        core.y,
+                        expected & 0x3f,
+                        expected >> 6));
+            }
+        }
+        log_debug(
+            tt::LogEmulationDriver,
+            "Through access point {}, the ATT reaches every Tensix and Dispatch tile where {}'s map puts it.",
+            static_cast<uint32_t>(access_point),
+            NOC_ATT_MAP_ENV_VAR);
+    }
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {

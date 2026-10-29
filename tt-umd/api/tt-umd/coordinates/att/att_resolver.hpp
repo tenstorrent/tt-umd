@@ -48,6 +48,9 @@ public:
      */
     uint64_t resolve(tt_xy_pair core, CoreType core_type, uint64_t offset, uint64_t size) const;
 
+    /** The map this resolver resolves through. */
+    const MapData& map() const { return map_; }
+
 private:
     MapData map_;
 

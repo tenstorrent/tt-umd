@@ -100,6 +100,16 @@ public:
         IoOrdering ordering,
         uint64_t offset = 0) const override;
 
+    /**
+     * Checks that the build's ATT reaches every Tensix and Dispatch tile, through each of the device's
+     * access points, where TT_UMD_NOC_ATT's map puts it. Only for a Horizon device and a map with a
+     * table per access point; otherwise it does nothing. Does IO: call it once the session serves the
+     * device and the build's ATT programming is in, before any core runs.
+     *
+     * @throws error::RuntimeError naming the first tile the ATT sends elsewhere.
+     */
+    void check_att_matches_map();
+
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 
@@ -172,6 +182,9 @@ private:
 
     // Each access point's flat addresses, when the environment names an ATT map.
     std::map<AccessPointId, att::EndpointResolver> access_point_resolvers_;
+    // Whether TT_UMD_NOC_ATT's map has a table per access point, so each access point has addresses
+    // of its own.
+    bool per_access_point_tables_ = false;
 
     // The IO path of the model's tile reset, when the IP variant has one: the reset points into it.
     std::unique_ptr<SimulationNocProtocol> noc_protocol_;

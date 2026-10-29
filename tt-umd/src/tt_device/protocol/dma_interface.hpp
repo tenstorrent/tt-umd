@@ -106,7 +106,7 @@ public:
         NocId noc_id) = 0;
 
     /**
-     * @brief Starts a zero-copy H2D DMA transfer, without waiting for it.
+     * @brief Starts a zero-copy H2D DMA transfer.
      *
      * The device runs one transfer at a time, and a transfer can move at most dma_zero_copy_max_size()
      * bytes. The thread that started it owns it: only that thread is told it finished. Host memory must

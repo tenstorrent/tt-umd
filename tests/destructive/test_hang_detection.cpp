@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
@@ -32,7 +33,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

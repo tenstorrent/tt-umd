@@ -21,6 +21,7 @@
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
@@ -36,7 +37,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 

@@ -59,6 +59,7 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
 )
 
 if(TT_UMD_BUILD_SIMULATION)

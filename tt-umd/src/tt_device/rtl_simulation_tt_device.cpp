@@ -362,7 +362,10 @@ void RtlSimulationTTDevice::check_att_matches_map() {
         return;
     }
     // Every tile reports its own coordinate, so reading it through the address UMD's map gives for a
-    // tile shows which tile the build's ATT actually sends that address to.
+    // tile shows which tile the build's ATT actually sends that address to. The device's own socket
+    // reaches every access point's range through the crossbar, so the address picks whose ATT
+    // translates it. This checks the ATT within the device: which device answers is the crossbar's
+    // ranges, and both devices' tiles report the same coordinates.
     for (const auto& [access_point, resolver] : access_point_resolvers_) {
         const att::MapData& map = resolver.map();
         for (const CoreType core_type : {CoreType::TENSIX, CoreType::DISPATCH}) {

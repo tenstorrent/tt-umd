@@ -10,6 +10,7 @@
 
 #include "simulation/rtl_sim_att_program.hpp"
 #include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"

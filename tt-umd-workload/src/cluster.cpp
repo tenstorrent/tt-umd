@@ -39,9 +39,9 @@
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "simulation/eth_ipc.hpp"
 #include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
-#include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU

@@ -22,6 +22,7 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/host.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"

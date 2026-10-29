@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/chip/chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
@@ -24,7 +25,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/dma.hpp"
-#include "utils.hpp"
 
 using namespace tt::umd;
 

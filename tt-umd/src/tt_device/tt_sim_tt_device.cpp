@@ -138,17 +138,19 @@ TTSimTTDevice::TTSimTTDevice(
         pci_bdf)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    // Quasar holds its DM cores in reset with the bit cleared, which is all the register write
-    // differs by between architectures.
-    get_simulation_model()->set_risc_reset(std::make_unique<TTSimRiscReset>(
-        this,
-        get_architecture_implementation(),
-        /*inverted_reset_polarity=*/soc_descriptor.arch == tt::ARCH::QUASAR,
-        device_lock));
+    install_risc_reset();
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
     setup_();
+}
+
+void TTSimTTDevice::install_risc_reset() {
+    // Quasar holds its DM cores in reset with the bit cleared, which is all the register write
+    // differs by between architectures.
+    const bool inverted_reset_polarity = get_soc_descriptor().arch == tt::ARCH::QUASAR;
+    get_simulation_model()->set_risc_reset(std::make_unique<TTSimRiscReset>(
+        this, get_architecture_implementation(), inverted_reset_polarity, device_lock));
 }
 
 void TTSimTTDevice::initialize_backend() {
@@ -251,13 +253,7 @@ TTSimTTDevice::TTSimTTDevice(
     SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    // Quasar holds its DM cores in reset with the bit cleared, which is all the register write
-    // differs by between architectures.
-    get_simulation_model()->set_risc_reset(std::make_unique<TTSimRiscReset>(
-        this,
-        get_architecture_implementation(),
-        /*inverted_reset_polarity=*/soc_descriptor.arch == tt::ARCH::QUASAR,
-        device_lock));
+    install_risc_reset();
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.

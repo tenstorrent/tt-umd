@@ -141,6 +141,9 @@ private:
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
 
+    // Gives the model this device's RiscReset; both constructors call it once the SoC descriptor is set.
+    void install_risc_reset();
+
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();
 

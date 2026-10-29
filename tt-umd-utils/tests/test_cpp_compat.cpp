@@ -9,7 +9,7 @@
 
 #include "tt-umd-utils/internal/cpp_compat.hpp"
 
-using namespace tt::umd;
+using namespace tt::umd::utils;
 
 // Named rather than anonymous so these helpers don't collide with same-named ones in other tests
 // when a unity build compiles them in one translation unit.

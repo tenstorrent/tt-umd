@@ -14,6 +14,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <variant>
@@ -64,7 +65,24 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
     LockManager::initialize_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
-PcieProtocol::~PcieProtocol() = default;
+PcieProtocol::~PcieProtocol() {
+    if (!in_flight_dma_.has_value()) {
+        return;
+    }
+    // The engine writes its completion into memory freed with this object, so the transfer is let finish.
+    log_warning(
+        LogUMD, "PCI device {} closed with a DMA transfer in flight; waiting for it.", pci_device_->get_device_num());
+    try {
+        while (!dma_is_complete(in_flight_dma_->direction) &&
+               std::chrono::steady_clock::now() < in_flight_dma_->deadline) {
+        }
+        in_flight_dma_->pcie_dma_lock.unlock();
+    } catch (...) {
+        // The shared memory half of the lock refuses a release from a thread other than the owner. It is
+        // recovered once the owner thread exits.
+        in_flight_dma_->pcie_dma_lock.release();
+    }
+}
 
 void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
     hang_check_ = hang_check;
@@ -284,6 +302,37 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
         DmaDirection::H2D);
 }
 
+bool PcieProtocol::dma_write_zero_copy_start(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_zero_copy_start(
+        src_iova,
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite),
+        DmaDirection::H2D);
+}
+
+bool PcieProtocol::dma_read_zero_copy_start(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_zero_copy_start(
+        dst_iova,
+        size,
+        src_addr,
+        create_dma_tlb_config(src_addr, core, noc_id, WindowFlags::UnicastRead),
+        DmaDirection::D2H);
+}
+
+DmaTransferState PcieProtocol::dma_write_zero_copy_check() { return dma_zero_copy_check(DmaDirection::H2D); }
+
+DmaTransferState PcieProtocol::dma_read_zero_copy_check() { return dma_zero_copy_check(DmaDirection::D2H); }
+
+// One transfer is one engine descriptor through the DMA window, which covers an aligned block of the core's address
+// space, so it reaches from device_addr to the end of that block.
+size_t PcieProtocol::dma_zero_copy_max_size(uint64_t device_addr) const {
+    const size_t window_size = get_dma_tlb_size(pci_device_->get_arch());
+    return window_size - device_addr % window_size;
+}
+
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
 // the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
 // (the target core). When core_start is provided, the transfer becomes a multicast to the
@@ -314,8 +363,7 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     }
 
     // After the availability check, so a caller falling back to MMIO does not wait on other threads or processes.
-    std::scoped_lock lock(dma_mutex_);
-    auto robust_lock = lock_dma_engine();
+    auto [lock, pcie_dma_lock] = lock_dma_for_blocking_transfer();
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     const size_t dmabuf_size = dma_buffer.size;
@@ -359,8 +407,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
         return false;
     }
 
-    std::scoped_lock lock(dma_mutex_);
-    auto robust_lock = lock_dma_engine();
+    auto [lock, pcie_dma_lock] = lock_dma_for_blocking_transfer();
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
@@ -387,8 +434,111 @@ bool PcieProtocol::dma_transfer_zero_copy(
     return true;
 }
 
+bool PcieProtocol::dma_zero_copy_start(
+    uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
+    if (pci_device_->get_dma_buffer().buffer == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA is not available: no DMA buffer was allocated for PCI device {}.", pci_device_->get_device_num()));
+    }
+    const size_t max_size = dma_zero_copy_max_size(addr);
+    if (size == 0 || size % 4 != 0 || addr % 4 != 0 || size > max_size) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA transfer of {} bytes at device address {:#x} must be non-empty, have its size and address "
+                "multiples of 4, and move at most {} bytes from that address.",
+                size,
+                addr,
+                max_size));
+    }
+
+    // A blocking transfer holds dma_mutex_ for as long as it runs, so the device counts as busy then too.
+    std::unique_lock lock(dma_mutex_, std::try_to_lock);
+    if (!lock.owns_lock() || in_flight_dma_.has_value()) {
+        return false;
+    }
+    auto pcie_dma_lock =
+        LockManager::try_acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
+    if (!pcie_dma_lock.owns_lock()) {
+        return false;
+    }
+
+    config.local_offset = addr;
+    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+    tlb_window->configure(config);
+    const uint64_t tlb_window_addr = get_architecture_tlbs(pci_device_->get_arch())
+                                         .get_configuration(tlb_window->handle_ref().get_tlb_id())
+                                         .tlb_offset +
+                                     (addr & (tlb_window->handle_ref().get_size() - 1));
+    program_dma_engine(direction, iova, static_cast<uint32_t>(tlb_window_addr), size);
+
+    in_flight_dma_ = InFlightDma{
+        std::this_thread::get_id(),
+        direction,
+        std::chrono::steady_clock::now() + timeout::DMA_TIMEOUT,
+        std::move(pcie_dma_lock)};
+    return true;
+}
+
+DmaTransferState PcieProtocol::dma_zero_copy_check(DmaDirection direction) {
+    std::unique_lock lock(dma_mutex_, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        return DmaTransferState::IN_PROGRESS;
+    }
+    if (!in_flight_dma_.has_value() || in_flight_dma_->direction != direction) {
+        return DmaTransferState::IDLE;
+    }
+    if (in_flight_dma_->owner != std::this_thread::get_id()) {
+        return DmaTransferState::IN_PROGRESS;
+    }
+
+    if (dma_is_complete(direction)) {
+        in_flight_dma_.reset();
+        dma_idle_.notify_all();
+        return DmaTransferState::FINISHED;
+    }
+    if (std::chrono::steady_clock::now() <= in_flight_dma_->deadline) {
+        return DmaTransferState::IN_PROGRESS;
+    }
+    // The engine may still be running; giving the device up is the same exposure a blocking transfer has when it
+    // throws on timeout.
+    log_error(LogUMD, "DMA transfer on PCI device {} timed out.", pci_device_->get_device_num());
+    in_flight_dma_.reset();
+    dma_idle_.notify_all();
+    return DmaTransferState::ERROR;
+}
+
 std::unique_lock<MutexInterface> PcieProtocol::lock_dma_engine() {
     return LockManager::acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
+}
+
+std::pair<std::unique_lock<std::mutex>, std::unique_lock<MutexInterface>>
+PcieProtocol::lock_dma_for_blocking_transfer() {
+    std::unique_lock lock(dma_mutex_);
+    if (in_flight_dma_.has_value() && in_flight_dma_->owner == std::this_thread::get_id()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "This thread has an asynchronous DMA transfer in flight on PCI device {}; check it until it is done "
+                "before starting a blocking one.",
+                pci_device_->get_device_num()));
+    }
+
+    while (in_flight_dma_.has_value()) {
+        if (std::chrono::steady_clock::now() > in_flight_dma_->deadline) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Asynchronous DMA transfer on PCI device {} timed out without being checked by the thread that "
+                    "started it.",
+                    pci_device_->get_device_num()));
+        }
+        dma_idle_.wait_until(lock, in_flight_dma_->deadline);
+    }
+    auto pcie_dma_lock = lock_dma_engine();
+    return {std::move(lock), std::move(pcie_dma_lock)};
 }
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {

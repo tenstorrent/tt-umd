@@ -90,13 +90,6 @@ public:
     void close_device();
     void start_device();
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
-    void deassert_risc_reset(
-        CoreCoord core,
-        const RiscType selected_riscs,
-        bool staggered_start,
-        NocId noc_id = NocId::DEFAULT_NOC) override;
-
     void advance_device_execution() override;
 
     using SimulationTTDevice::noc_multicast_write;
@@ -157,6 +150,9 @@ private:
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
+
+    // Gives the model this device's RiscReset; both constructors call it once the SoC descriptor is set.
+    void install_risc_reset();
 
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();

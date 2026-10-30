@@ -17,6 +17,7 @@ devices:
       - tile: [0, 2]   # column 0's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x1040000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x104c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x1080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -24,6 +25,8 @@ devices:
           - {index: 2, x: 0, y: 1}
           - {index: 3, x: 0, y: 2}
           - {index: 4, x: 63, y: 63}
+        tlb:  # posted atomic L1 window
+          - {index: 2, start: '0x104c000000', end: '0x104cffffff', type: atomic_incr}
       - tile: [0, 0]   # column 0's Tensix
         mask_table:
           - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
@@ -51,6 +54,7 @@ devices:
       - tile: [1, 2]   # column 1's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x1140000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x114c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -58,6 +62,8 @@ devices:
           - {index: 2, x: 1, y: 1}
           - {index: 3, x: 1, y: 2}
           - {index: 4, x: 63, y: 63}
+        tlb:  # posted atomic L1 window
+          - {index: 2, start: '0x114c000000', end: '0x114cffffff', type: atomic_incr}
       - tile: [1, 0]   # column 1's Tensix
         mask_table:
           - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
@@ -87,6 +93,7 @@ devices:
       - tile: [0, 2]   # column 0's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x2040000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x204c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x2080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -94,6 +101,8 @@ devices:
           - {index: 2, x: 0, y: 1}
           - {index: 3, x: 0, y: 2}
           - {index: 4, x: 63, y: 63}
+        tlb:  # posted atomic L1 window
+          - {index: 2, start: '0x204c000000', end: '0x204cffffff', type: atomic_incr}
       - tile: [0, 0]   # column 0's Tensix
         mask_table:
           - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
@@ -121,6 +130,7 @@ devices:
       - tile: [1, 2]   # column 1's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x2140000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x214c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -128,6 +138,8 @@ devices:
           - {index: 2, x: 1, y: 1}
           - {index: 3, x: 1, y: 2}
           - {index: 4, x: 63, y: 63}
+        tlb:  # posted atomic L1 window
+          - {index: 2, start: '0x214c000000', end: '0x214cffffff', type: atomic_incr}
       - tile: [1, 0]   # column 1's Tensix
         mask_table:
           - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}

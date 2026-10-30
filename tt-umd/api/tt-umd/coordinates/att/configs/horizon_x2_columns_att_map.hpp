@@ -147,6 +147,7 @@ inline constexpr MapData HORIZON_X2_DEV0_COLUMN0_MAP{
     .endpoint_words = {{HORIZON_X2_COLUMN0_WORDS, HORIZON_X2_COLUMN0_DRAM_WORDS, HORIZON_X2_COLUMN0_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x10'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV0_COLUMN1_MAP{
@@ -155,6 +156,7 @@ inline constexpr MapData HORIZON_X2_DEV0_COLUMN1_MAP{
     .endpoint_words = {{HORIZON_X2_COLUMN1_WORDS, HORIZON_X2_COLUMN1_DRAM_WORDS, HORIZON_X2_COLUMN1_WORDS}},
     .package_offset_x = 1,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x11'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV1_COLUMN0_MAP{
@@ -163,6 +165,7 @@ inline constexpr MapData HORIZON_X2_DEV1_COLUMN0_MAP{
     .endpoint_words = {{HORIZON_X2_COLUMN0_WORDS, HORIZON_X2_COLUMN0_DRAM_WORDS, HORIZON_X2_COLUMN0_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x20'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV1_COLUMN1_MAP{
@@ -171,6 +174,7 @@ inline constexpr MapData HORIZON_X2_DEV1_COLUMN1_MAP{
     .endpoint_words = {{HORIZON_X2_COLUMN1_WORDS, HORIZON_X2_COLUMN1_DRAM_WORDS, HORIZON_X2_COLUMN1_WORDS}},
     .package_offset_x = 1,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x21'4C00'0000,
 };
 
 }  // namespace tt::umd::att

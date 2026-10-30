@@ -428,6 +428,22 @@ PCIDevice::PCIDevice(int pci_device_number) :
         }
     } handle_guard{tt_device_handle};
 
+    // Unmaps a BAR mapping on any later constructor throw; the destructor does not run for a
+    // constructor that throws. Released on success.
+    struct MappingGuard {
+        MappingGuard(void *&m, size_t s) : mapping(m), size(s) {}
+
+        void *&mapping;
+        size_t size;
+        bool armed = true;
+
+        ~MappingGuard() {
+            if (armed && mapping != nullptr && mapping != MAP_FAILED) {
+                munmap(mapping, size);
+            }
+        }
+    };
+
     if (ret_code != 0) {
         UMD_THROW(
             error::RuntimeError,
@@ -487,8 +503,16 @@ PCIDevice::PCIDevice(int pci_device_number) :
             mapping.size);
     }
 
+    // Validate every BAR mapping id before the first mmap, so no mapping is left behind by a
+    // later id check or mmap failure.
     if (bar0_uc_mapping.id != TT_BAR_MAPPING_RESOURCE0_UC) {
         UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
+    }
+    if (arch == tt::ARCH::WORMHOLE_B0 && bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
+        UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
+    }
+    if (arch == tt::ARCH::BLACKHOLE && bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
+        UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
     }
 
     bar0 = mmap(
@@ -502,6 +526,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     if (bar0 == MAP_FAILED) {
         UMD_THROW(error::RuntimeError, fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
     }
+
+    // Unmaps the BAR0 mapping on a later constructor throw; the destructor does not run for a
+    // constructor that throws. Disarmed once the constructor succeeds.
+    MappingGuard bar0_guard{bar0, PCIDevice::bar0_size};
 
     // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
     // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
@@ -520,11 +548,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             fmt::format("TLB configuration registers mapping failed for device {}.", pci_device_num));
     }
 
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        if (bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
-            UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
-        }
+    // Unmaps the TLB config space mapping on a later constructor throw.
+    MappingGuard tlb_config_space_guard{tlb_config_space, PCIDevice::tlb_config_space_size};
+    std::optional<MappingGuard> bar2_uc_guard;  // armed only on the arch that maps BAR2
 
+    if (arch == tt::ARCH::WORMHOLE_B0) {
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
@@ -537,11 +565,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
-            UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
-        }
 
+        bar2_uc_guard.emplace(bar2_uc, bar2_uc_size);
+    } else if (arch == tt::ARCH::BLACKHOLE) {
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
@@ -555,10 +581,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
+
+        bar2_uc_guard.emplace(bar2_uc, bar2_uc_size);
     }
 
     allocate_pcie_dma_buffer();
 
+    // All mappings are in place: disarm the mapping guards, then the fd and handle guards, so
+    // none of them cleans up a fully constructed device.
+    bar0_guard.armed = false;
+    tlb_config_space_guard.armed = false;
+    if (bar2_uc_guard) {
+        bar2_uc_guard->armed = false;
+    }
     handle_guard.armed = false;
     pci_device_fd_guard.release();
 }

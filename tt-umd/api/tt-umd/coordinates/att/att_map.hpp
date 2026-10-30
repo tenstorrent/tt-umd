@@ -75,6 +75,12 @@ struct MapData {
     /** Added to a soc descriptor coordinate to reach the POR package frame the tables use. */
     uint32_t package_offset_x;
     uint32_t package_offset_y;
+    /**
+     * Base of the WORKER window's posted-atomic copy: the same selectors and offsets at this compare,
+     * where a write atomically increments the target 32-bit word by the written value. 0 when the map
+     * has none.
+     */
+    uint64_t worker_atomic_compare = 0;
 };
 
 }  // namespace tt::umd::att

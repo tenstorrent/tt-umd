@@ -4,7 +4,8 @@
 # puts L1 behind NOC2AXI 0 only and CSR behind NOC2AXI 1 only.
 #
 # test_horizon_x2_att_map.cpp checks the horizon_x2 maps against it; a build that runs with
-# TT_UMD_NOC_ATT=horizon_x2 passes this file as its ATT_CONFIG.
+# TT_UMD_NOC_ATT=horizon_x2 passes this file as its ATT_CONFIG, and
+# horizon_x2_per_noc2axi_tlb.yaml as its TLB_CONFIG.
 #
 devices:
   - id: 0
@@ -26,6 +27,8 @@ devices:
         - {index: 6, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 0, NOC2AXI 1
         - {index: 7, compare: '0x1140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 0, NOC2AXI 1
+        - {index: 11, compare: '0x114c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # NOC2AXI CSR Unicast 0 Device 0
         - {index: 8, compare: '0x10f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 6, translate_addr: 0}
         # NOC2AXI CSR Unicast 1 Device 0
@@ -72,6 +75,8 @@ devices:
         - {index: 5, compare: '0x204c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 1, NOC2AXI 1
         - {index: 6, compare: '0x2140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 1, NOC2AXI 1
+        - {index: 9, compare: '0x214c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 1
         - {index: 7, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 0

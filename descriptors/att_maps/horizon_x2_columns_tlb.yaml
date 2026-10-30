@@ -1,0 +1,20 @@
+# NOC2AXI TLB entries, as the testbench programs them (AETHER_TLB_CONFIG; format in aether's
+# verification/api/sysctl/tlb_config.py): each posted-atomic L1 window of horizon_x2_columns.yaml gets an
+# atomic_incr entry, so a write into it increments the target's 32-bit word by the written value.
+devices:
+  - id: 0
+    tiles:
+      - tile: [0, 2]
+        entries:
+          - {index: 2, start: '0x104c000000', end: '0x104cffffff', type: atomic_incr}
+      - tile: [1, 2]
+        entries:
+          - {index: 2, start: '0x114c000000', end: '0x114cffffff', type: atomic_incr}
+  - id: 1
+    tiles:
+      - tile: [0, 2]
+        entries:
+          - {index: 2, start: '0x204c000000', end: '0x204cffffff', type: atomic_incr}
+      - tile: [1, 2]
+        entries:
+          - {index: 2, start: '0x214c000000', end: '0x214cffffff', type: atomic_incr}

@@ -132,6 +132,7 @@ inline constexpr MapData HORIZON_X2_DEV0_NOC2AXI0_MAP{
     .endpoint_words = {{HORIZON_X2_DEV0_L1_WORDS, HORIZON_X2_DRAM_WORDS, HORIZON_X2_CSR_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x10'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV0_NOC2AXI1_MAP{
@@ -139,6 +140,7 @@ inline constexpr MapData HORIZON_X2_DEV0_NOC2AXI1_MAP{
     .endpoint_words = {{HORIZON_X2_DEV0_L1_WORDS, HORIZON_X2_DRAM_WORDS, HORIZON_X2_CSR_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x11'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV1_NOC2AXI0_MAP{
@@ -146,6 +148,7 @@ inline constexpr MapData HORIZON_X2_DEV1_NOC2AXI0_MAP{
     .endpoint_words = {{HORIZON_X2_DEV1_L1_WORDS, HORIZON_X2_DRAM_WORDS, HORIZON_X2_CSR_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x20'4C00'0000,
 };
 
 inline constexpr MapData HORIZON_X2_DEV1_NOC2AXI1_MAP{
@@ -153,6 +156,7 @@ inline constexpr MapData HORIZON_X2_DEV1_NOC2AXI1_MAP{
     .endpoint_words = {{HORIZON_X2_DEV1_L1_WORDS, HORIZON_X2_DRAM_WORDS, HORIZON_X2_CSR_WORDS}},
     .package_offset_x = 0,
     .package_offset_y = 0,
+    .worker_atomic_compare = 0x21'4C00'0000,
 };
 
 }  // namespace tt::umd::att

@@ -240,8 +240,10 @@ void TTSimCommunicator::initialize() {
     // endpoints. Asking for more chips than it exposes means the topology came from somewhere other
     // than the image -- typically a cluster descriptor written for silicon.
     if (num_chips_ > 1) {
-        const uint32_t endpoint_count = image_endpoint_count_.value_or(
-            static_cast<uint32_t>(enumerate_mmio_device_bdfs(simulator_directory_).size()));
+        const uint32_t endpoint_count =
+            image_endpoint_count_.has_value()
+                ? *image_endpoint_count_
+                : static_cast<uint32_t>(enumerate_mmio_device_bdfs(simulator_directory_).size());
         UMD_ASSERT(
             num_chips_ <= endpoint_count,
             error::RuntimeError,

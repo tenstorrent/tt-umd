@@ -5,9 +5,14 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 
+#include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/coordinates/grendel_noc_address_resolver.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -236,4 +241,52 @@ TEST(GrendelNocAddressResolver, CceDmriscRemapUsesPackageWindows) {
     EXPECT_EQ(second[0].region_start, 0x1308000000ULL);
     EXPECT_EQ(second[1].region_start, 0x1280800000ULL);
     EXPECT_EQ(second[2].region_start, 0x1000200000000ULL);
+}
+
+// mmk.yaml records HSIO tiles 0-3, two CCEs each, in that order. Tile 0 TL1 is 0x22800000,
+// tiles are 0x4000000 apart, and each CCE region is 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
+// Control is the HSIO tile base 0x20000000, not that SRAM window.
+TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
+    const SocDescriptor mmk(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
+    const GrendelNocAddressResolver resolver(mmk, mimir_local_address_windows(mmk));
+    const std::vector<CoreCoord> eth = mmk.get_cores(CoreType::ETH);
+    ASSERT_EQ(eth.size(), 8u);
+    const CoreCoord& hsio0_cce0 = eth[0];
+    const CoreCoord& hsio2_cce0 = eth[4];
+    const CoreCoord& hsio2_cce1 = eth[5];
+    const CoreCoord& hsio3_cce0 = eth[6];
+
+    constexpr uint64_t kOffset = 0x800;
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio0_cce0, kOffset), 0x22800000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_cce0, kOffset), 0x2A800000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_cce1, kOffset), 0x2AC00000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio3_cce0, kOffset), 0x2E800000ULL + kOffset);
+    EXPECT_EQ(resolver.to_flat_address(hsio2_cce0, kOffset, NocId::NOC0), 0x2A800000ULL + kOffset);
+    EXPECT_EQ(resolver.to_flat_address(hsio2_cce1, kOffset, NocId::NOC0), 0x2AC00000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio0_cce0, 0), 0x20000000ULL);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio2_cce0, 0), 0x28000000ULL);
+    EXPECT_EQ(
+        resolver.keraunos_control_address(hsio2_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x28200000ULL);
+    EXPECT_EQ(
+        resolver.keraunos_control_address(hsio2_cce1, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x29200000ULL);
+    EXPECT_EQ(
+        resolver.keraunos_control_address(hsio3_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x2C200000ULL);
+
+    // Column 4 is outside the Mimir mesh. It must not pick up a config slot.
+    EXPECT_THROW(resolver.get_windows().config_address(hsio0_cce0.x, hsio0_cce0.y, 0), std::exception);
+
+    // Mimir CCE0 on channel 0 is still the chiplet-local SRAM base.
+    const CoreCoord cce = mmk.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
+    const uint64_t cce_sram = resolver.to_flat_address(cce, resolver.get_windows().dram_l1_noc_offset, NocId::NOC0);
+    EXPECT_EQ(cce_sram, 0x40000000ULL);
+    EXPECT_THROW(resolver.keraunos_sram_address(cce, 0), std::exception);
+
+    const SocDescriptor mimir(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));
+    const GrendelNocAddressResolver mimir_resolver(mimir, mimir_local_address_windows(mimir));
+    const CoreCoord mimir_cce = mimir.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
+    EXPECT_EQ(
+        mimir_resolver.to_flat_address(mimir_cce, mimir_resolver.get_windows().dram_l1_noc_offset, NocId::NOC0),
+        0x40000000ULL);
+    EXPECT_THROW(mimir_resolver.keraunos_sram_address(mimir_cce, 0), std::exception);
 }

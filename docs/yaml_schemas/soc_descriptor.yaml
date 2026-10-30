@@ -121,6 +121,54 @@ properties:
       pattern: ^[0-9]+-[0-9]+$
       description: Coordinate in format "x-y"
 
+  keraunos:
+    type: object
+    description: >
+      Keraunos chiplet on an MMK package. chiplet is the chippy id. tap, local_window,
+      tile_stride, and cores are omitted together until the chiplet-local map is known.
+      When present, cores is the eth list in the same order. A core's SRAM is
+      local_window + hsio * tile_stride + cce * eth_l1_size.
+    required:
+      - chiplet
+    properties:
+      chiplet:
+        type: string
+        pattern: ^k[0-9]+$
+      tap:
+        type: integer
+        minimum: 0
+        description: JTAG chain index. Not the digits of the chiplet id.
+      local_window:
+        type: integer
+        minimum: 0
+        description: Chiplet-local AXI base of HSIO tile 0 SRAM.
+      tile_stride:
+        type: integer
+        minimum: 1
+        description: Bytes from one HSIO tile's SRAM to the next.
+      cores:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - core
+            - hsio
+            - cce
+          properties:
+            core:
+              type: string
+              pattern: ^[0-9]+-[0-9]+$
+            hsio:
+              type: integer
+              minimum: 0
+            cce:
+              type: integer
+              minimum: 0
+              description: CCE region on that HSIO tile. Region size is eth_l1_size.
+          additionalProperties: false
+    additionalProperties: false
+
   noc0_x_to_noc1_x:
     type: array
     description: Mapping from NOC0 X coordinates to NOC1 X coordinates

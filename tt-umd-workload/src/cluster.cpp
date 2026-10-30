@@ -304,8 +304,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
         }
         log_info(LogUMD, "Creating Simulation device");
+        // Only MMIO chips are opened on the image; remote ones are reached over its ethernet links.
         return SimulationChip::create(
-            simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
+            simulator_directory, soc_desc, chip_id, cluster_desc->get_chips_with_mmio().size(), num_host_mem_channels);
 #else
         UMD_THROW(
             error::RuntimeError,

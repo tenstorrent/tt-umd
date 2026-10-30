@@ -202,6 +202,18 @@ public:
      */
     uint64_t cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const;
 
+    /**
+     * Chiplet-local SRAM of one Keraunos ethernet core. offset is a byte offset inside that core's
+     * eth_l1_size region. The core is the ethernet coordinate from the descriptor.
+     */
+    uint64_t keraunos_sram_address(const CoreCoord& core, uint64_t offset) const;
+
+    /**
+     * Chiplet-local register offset on one Keraunos ethernet core. register_offset is relative to
+     * that core's tt_cluster_ctrl (reset vector 0, PF_CTRL reset 0x200000).
+     */
+    uint64_t keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const;
+
     const GrendelAddressWindows& get_windows() const { return windows_; }
 
 private:

@@ -10,7 +10,7 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
 
-#include "mimir_chippy_memory.hpp"
+#include "chippy_memory.hpp"
 
 namespace tt::umd {
 
@@ -45,7 +45,7 @@ std::unique_ptr<FlatAddressTransport> make_grendel_flat_address_transport(
     std::vector<std::shared_ptr<chippy::transport::TransportInterface>> transports,
     std::string device_name) {
     if (soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal) {
-        return std::make_unique<MimirChippyMemoryMap>(soc_descriptor, std::move(transports), std::move(device_name));
+        return std::make_unique<ChippyMemoryMap>(soc_descriptor, std::move(transports), std::move(device_name));
     }
     UMD_ASSERT(
         transports.size() == 1,

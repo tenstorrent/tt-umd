@@ -114,7 +114,7 @@ void SimulationChip::release_cce_uncore_for_firmware_load(CoreCoord core) {
     // socket while firmware load programs the uncore, and the transport pairs each command with
     // one reply.
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->release_cce_uncore_for_firmware_load(
+    tt_device_->release_mimir_uncore_for_firmware_load(
         get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
 }
 

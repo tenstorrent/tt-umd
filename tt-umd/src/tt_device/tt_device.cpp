@@ -75,7 +75,7 @@ std::optional<uint32_t> cce_channel(TTDevice &device, CoreCoord core) {
 
     // Chips flatten the caller's CoreCoord to an xy_pair before reaching here, so the coordinate
     // arrives LITERAL. Treat it as TRANSLATED explicitly rather than trusting coord_system.
-    const SocDescriptor& soc = device.get_soc_descriptor();
+    const SocDescriptor &soc = device.get_soc_descriptor();
     const tt_xy_pair core_xy(core.x, core.y);
     if (!soc.is_core_of_type(core_xy, CoreType::DRAM, CoordSystem::TRANSLATED)) {
         return std::nullopt;
@@ -85,12 +85,68 @@ std::optional<uint32_t> cce_channel(TTDevice &device, CoreCoord core) {
     return static_cast<uint32_t>(soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).x);
 }
 
+bool keraunos_ethernet(TTDevice &device, CoreCoord core) {
+    const tt::ARCH arch = device.get_arch();
+    if (arch != tt::ARCH::QUASAR && arch != tt::ARCH::GRENDEL) {
+        return false;
+    }
+    const SocDescriptor &soc = device.get_soc_descriptor();
+    const tt_xy_pair core_xy(core.x, core.y);
+    if (!soc.is_core_of_type(core_xy, CoreType::ETH, CoordSystem::TRANSLATED)) {
+        return false;
+    }
+    const KeraunosChiplet &keraunos = soc.get_arch_descriptor().get_keraunos();
+    const tt_xy_pair noc0 = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::NOC0);
+    for (const KeraunosCore &entry : keraunos.cores) {
+        if (entry.coord == noc0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace
 
 // A write_reg/write_to_device targeting a CCE DRAM core at CCE_RESET_VECTOR_BASE programs the
 // CCE's own tt_cluster_ctrl reset-vector plane. Hart 0 (the boot vector) is broadcast to all eight
 // harts so they share the same entry point.
-bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+bool TTDevice::apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    // The 4 MiB SRAM clear is one store at local 0. Only a register-width write is the vector.
+    if (size > sizeof(uint64_t) || addr >= grendel::CCE_NUM_HARTS * grendel::CCE_HART_RESET_VECTOR_STRIDE) {
+        return false;
+    }
+    if (!keraunos_ethernet(*this, core) || grendel_address_resolver_ == nullptr) {
+        return false;
+    }
+
+    uint64_t reset_vector = 0;
+    std::memcpy(&reset_vector, mem_ptr, size);
+    // CCE1's CPU window is the upper 4 MiB of the tile. The host still loads the
+    // image at offset 0x8080 of that CCE's SRAM; the hart enters it at 0x408080.
+    const SocDescriptor &soc = get_soc_descriptor();
+    const tt_xy_pair core_xy(core.x, core.y);
+    const tt_xy_pair noc0 = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::NOC0);
+    for (const KeraunosCore &entry : soc.get_arch_descriptor().get_keraunos().cores) {
+        if (entry.coord == noc0) {
+            reset_vector += static_cast<uint64_t>(entry.cce) * static_cast<uint64_t>(soc.eth_l1_size);
+            break;
+        }
+    }
+    const uint32_t first_hart = static_cast<uint32_t>(addr / grendel::CCE_HART_RESET_VECTOR_STRIDE);
+    const uint32_t last_hart = (addr == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
+    for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
+        const uint64_t flat =
+            grendel_address_resolver_->keraunos_control_address(core, hart * grendel::CCE_HART_RESET_VECTOR_STRIDE);
+        write_flat_address(flat, &reset_vector, sizeof(reset_vector));
+    }
+    tt_driver_atomics::sfence();
+    return true;
+}
+
+bool TTDevice::apply_cce_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    if (apply_keraunos_reset_vector_write(mem_ptr, core, addr, size)) {
+        return true;
+    }
     if (!grendel::is_cce_reset_vector_addr(addr)) {
         return false;
     }
@@ -107,24 +163,22 @@ bool TTDevice::apply_cce_reset_vector_write(const void* mem_ptr, CoreCoord core,
     const uint32_t first_hart = static_cast<uint32_t>(hart_offset / grendel::CCE_HART_RESET_VECTOR_STRIDE);
     const uint32_t last_hart = (hart_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
-        write_cce_reset_vector_register(core, hart, reset_vector);
+        write_mimir_reset_vector_register(core, hart, reset_vector);
     }
     tt_driver_atomics::sfence();
     return true;
 }
 
-void TTDevice::write_cce_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector) {
-    const uint64_t register_addr =
-        grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
-    write_cce_local(core, register_addr, &reset_vector, sizeof(reset_vector));
+void TTDevice::write_mimir_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector) {
+    const uint64_t register_addr = grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
+    write_mimir_local(core, register_addr, &reset_vector, sizeof(reset_vector));
 }
 
-void TTDevice::write_cce_dmrisc_remap_entry(
+void TTDevice::write_mimir_dmrisc_remap_entry(
     CoreCoord core, uint32_t entry, uint64_t region_start, uint64_t region_end, uint64_t local_base) {
-    const uint64_t entry_addr =
-        grendel::CCE_DMRISC_REMAP_BASE + entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
+    const uint64_t entry_addr = grendel::CCE_DMRISC_REMAP_BASE + entry * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
     auto write_reg = [&](uint64_t offset, uint64_t value) {
-        write_cce_local(core, entry_addr + offset, &value, sizeof(value));
+        write_mimir_local(core, entry_addr + offset, &value, sizeof(value));
     };
     // Address registers store the byte address >> 6 in bits [63:6]. A 64-byte-aligned address
     // written as itself lands in that field.
@@ -135,11 +189,11 @@ void TTDevice::write_cce_dmrisc_remap_entry(
     write_reg(0x18, valid);
 }
 
-void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t channel) {
+void TTDevice::program_mimir_dmrisc_remap(CoreCoord core, uint32_t channel) {
     // The SPA instance comes from the descriptor. A descriptor that omits mimir_channels (the
     // Quasar simulation packages) still numbers the instance by DRAM channel.
     uint32_t instance = channel;
-    const auto& channels = get_soc_descriptor().get_arch_descriptor().get_mimir_channels();
+    const auto &channels = get_soc_descriptor().get_arch_descriptor().get_mimir_channels();
     if (!channels.empty()) {
         UMD_ASSERT(
             channel < channels.size(),
@@ -150,26 +204,44 @@ void TTDevice::program_cce_dmrisc_remap(CoreCoord core, uint32_t channel) {
 
     const auto entries = cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance);
     for (uint32_t entry = 0; entry < entries.size(); ++entry) {
-        write_cce_dmrisc_remap_entry(
+        write_mimir_dmrisc_remap_entry(
             core, entry, entries[entry].region_start, entries[entry].region_end, entries[entry].local_base);
     }
 }
 
-void TTDevice::release_cce_uncore_for_firmware_load(CoreCoord core) {
+void TTDevice::release_mimir_uncore_for_firmware_load(CoreCoord core) {
     const auto channel = cce_channel(*this, core);
     if (!channel.has_value()) {
         return;
     }
     // Harts stay held. The DMRISC block only answers once the uncore is released.
-    apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
-    program_cce_dmrisc_remap(core, *channel);
+    apply_mimir_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+    program_mimir_dmrisc_remap(core, *channel);
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::apply_cce_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore) {
+void TTDevice::apply_keraunos_hart_reset(CoreCoord core, uint64_t hart_bits, bool release) {
+    UMD_ASSERT(
+        grendel_address_resolver_ != nullptr,
+        error::RuntimeError,
+        "Keraunos hart reset requires the chiplet-local address resolver.");
+    const uint64_t flat =
+        grendel_address_resolver_->keraunos_control_address(core, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
+    uint64_t current = 0;
+    read_flat_address(flat, &current, sizeof(current));
+    uint64_t next = current;
+    if (release) {
+        next |= hart_bits;
+    } else {
+        next &= ~hart_bits;
+    }
+    write_flat_address(flat, &next, sizeof(next));
+}
+
+void TTDevice::apply_mimir_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore) {
     const uint64_t addr = grendel::CCE_PF_CTRL_RESET_BASE;
     uint64_t current = 0;
-    read_cce_local(core, addr, &current, sizeof(current));
+    read_mimir_local(core, addr, &current, sizeof(current));
     uint64_t next = current;
     // Bit 0 is the uncore. Same polarity as the hart bits: 1 = released.
     if (reset_uncore) {
@@ -186,40 +258,40 @@ void TTDevice::apply_cce_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool 
             next &= ~hart_bits;
         }
     }
-    write_cce_local(core, addr, &next, sizeof(next));
+    write_mimir_local(core, addr, &next, sizeof(next));
 }
 
-void TTDevice::set_grendel_address_resolver(GrendelNocAddressResolver* resolver) {
+void TTDevice::set_grendel_address_resolver(GrendelNocAddressResolver *resolver) {
     grendel_address_resolver_ = resolver;
 }
 
-void TTDevice::read_flat_address(uint64_t addr, void* /*dst*/, size_t size) {
+void TTDevice::read_flat_address(uint64_t addr, void * /*dst*/, size_t size) {
     UMD_THROW(
         error::RuntimeError,
         fmt::format("Flat read of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
 }
 
-void TTDevice::write_flat_address(uint64_t addr, const void* /*src*/, size_t size) {
+void TTDevice::write_flat_address(uint64_t addr, const void * /*src*/, size_t size) {
     UMD_THROW(
         error::RuntimeError,
         fmt::format("Flat write of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
 }
 
-void TTDevice::read_cce_local(CoreCoord core, uint64_t cce_local_offset, void* dst, size_t size) {
+void TTDevice::read_mimir_local(CoreCoord core, uint64_t mimir_local_offset, void *dst, size_t size) {
     UMD_ASSERT(
         grendel_address_resolver_ != nullptr,
         error::RuntimeError,
         "CCE control requires the Mimir-local address resolver.");
-    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, cce_local_offset);
+    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, mimir_local_offset);
     read_flat_address(flat, dst, size);
 }
 
-void TTDevice::write_cce_local(CoreCoord core, uint64_t cce_local_offset, const void* src, size_t size) {
+void TTDevice::write_mimir_local(CoreCoord core, uint64_t mimir_local_offset, const void *src, size_t size) {
     UMD_ASSERT(
         grendel_address_resolver_ != nullptr,
         error::RuntimeError,
         "CCE control requires the Mimir-local address resolver.");
-    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, cce_local_offset);
+    const uint64_t flat = grendel_address_resolver_->cce_control_address(core, mimir_local_offset);
     write_flat_address(flat, src, size);
 }
 
@@ -780,16 +852,27 @@ RiscReset *TTDevice::get_risc_reset() {
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
+    if (keraunos_ethernet(*this, core)) {
+        // Bring-up released the uncore and holds the cores. A mask that also holds the uncore
+        // stalls the AXI master, and that stall survives a new client. RiscType::ALL moves harts
+        // only. A mask with no hart bits is a no-op rather than a Tensix soft reset.
+        const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        if (hart_bits != 0) {
+            apply_keraunos_hart_reset(core, hart_bits, /*release=*/false);
+        }
+        tt_driver_atomics::sfence();
+        return;
+    }
     if (cce_channel(*this, core).has_value()) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
         // RiscType::ALL on a Quasar worker resets the DM harts and then the DM uncore.
         // A CCE full reset follows that order. A partial hart selection does not touch uncore.
         const bool reset_uncore = selected_riscs == RiscType::ALL;
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, hart_bits, /*release=*/false, /*reset_uncore=*/false);
+            apply_mimir_pf_ctrl_reset(core, hart_bits, /*release=*/false, /*reset_uncore=*/false);
         }
         if (reset_uncore) {
-            apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/false, /*reset_uncore=*/true);
+            apply_mimir_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/false, /*reset_uncore=*/true);
         }
         tt_driver_atomics::sfence();
         return;
@@ -798,6 +881,15 @@ void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, 
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
+    if (keraunos_ethernet(*this, core)) {
+        // No DMRISC remap on Keraunos, and the uncore stays as bring-up set it.
+        const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
+        if (hart_bits != 0) {
+            apply_keraunos_hart_reset(core, hart_bits, /*release=*/true);
+        }
+        tt_driver_atomics::sfence();
+        return;
+    }
     if (const auto channel = cce_channel(*this, core)) {
         const uint64_t hart_bits = grendel::cce_hart_release_bits(selected_riscs);
         // Release uncore before the harts, matching the Quasar worker RiscType::ALL order.
@@ -806,11 +898,11 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
             // Uncore first, then DMRISC while the harts are still held, then the harts. Asserting
             // the uncore drops the remap block; the entries have to be written again before any
             // hart runs.
-            apply_cce_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
-            program_cce_dmrisc_remap(core, *channel);
+            apply_mimir_pf_ctrl_reset(core, /*hart_bits=*/0, /*release=*/true, /*reset_uncore=*/true);
+            program_mimir_dmrisc_remap(core, *channel);
         }
         if (hart_bits != 0) {
-            apply_cce_pf_ctrl_reset(core, hart_bits, /*release=*/true, /*reset_uncore=*/false);
+            apply_mimir_pf_ctrl_reset(core, hart_bits, /*release=*/true, /*reset_uncore=*/false);
         }
         tt_driver_atomics::sfence();
         return;

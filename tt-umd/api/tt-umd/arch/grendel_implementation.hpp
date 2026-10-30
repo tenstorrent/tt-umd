@@ -337,9 +337,15 @@ inline constexpr uint32_t CCE_NUM_HARTS = 8;
 inline constexpr uint64_t CCE_UNCORE_RELEASED = 0x1;
 inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
 
+// Keraunos HSIO CCE control is chiplet-local, at the HSIO tile base rather than inside the SRAM
+// window. CCE 1 is one 16 MiB slot above CCE 0. PF_CTRL reset is 0x200000 above the CCE's
+// tt_cluster_ctrl. Bit 0 is the uncore and bits 1-8 are the harts, the same polarity as a Mimir
+// CCE. The tile stride comes from the descriptor. Bring-up owns the uncore.
+inline constexpr uint64_t KERAUNOS_HSIO0_LOCAL_BASE = 0x20000000;
+inline constexpr uint64_t KERAUNOS_CCE_PF_CTRL_RESET_OFFSET = 0x00200000;
+
 inline constexpr bool is_cce_reset_vector_addr(uint64_t addr) {
-    return addr >= CCE_RESET_VECTOR_BASE &&
-           addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
+    return addr >= CCE_RESET_VECTOR_BASE && addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
 }
 
 // Bits 1-8 of PF_CTRL_RESET corresponding to the selected CCE harts. 0 if nothing maps.

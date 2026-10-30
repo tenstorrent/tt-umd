@@ -47,22 +47,29 @@ std::unique_ptr<GrendelJtagTTDevice> GrendelJtagTTDevice::create(
 
     // One attached chiplet keeps the caller's TAP index. A second chiplet in the descriptor is
     // attached at the TAP number in its chiplet id, so m1 opens chiplet 1 rather than being refused.
+    const KeraunosChiplet& keraunos = soc_descriptor.get_arch_descriptor().get_keraunos();
     std::vector<std::shared_ptr<chippy::transport::TransportInterface>> transports;
-    transports.reserve(channels.size());
+    transports.reserve(channels.size() + (keraunos.chiplet.empty() ? 0 : 1));
     uint32_t first_tap = chiplet_number;
     for (const auto& channel : channels) {
-        const uint32_t tap = channels.size() == 1
-                                 ? chiplet_number
-                                 : static_cast<uint32_t>(std::stoul(channel.chiplet.substr(1)));
+        const uint32_t tap =
+            channels.size() == 1 ? chiplet_number : static_cast<uint32_t>(std::stoul(channel.chiplet.substr(1)));
         if (transports.empty()) {
             first_tap = tap;
         }
         transports.push_back(make_grendel_jtag_transport(host, port, tap, version));
     }
+    if (!keraunos.chiplet.empty()) {
+        // The TAP is the descriptor field. The digits of "k0" are not a chain index. This socket
+        // is for the flat-address map. The protocol below still returns the first Mimir transport.
+        UMD_ASSERT(
+            keraunos.tap.has_value(), error::RuntimeError, "Keraunos JTAG needs the tap field from the descriptor.");
+        transports.push_back(make_grendel_jtag_transport(host, port, *keraunos.tap, version));
+    }
     auto protocol = make_grendel_jtag_protocol(
         [transports](tt_xy_pair) { return transports.front(); }, static_cast<int>(first_tap));
-    auto address_transport = make_grendel_flat_address_transport(
-        soc_descriptor, std::move(transports), "GrendelJtagTTDevice");
+    auto address_transport =
+        make_grendel_flat_address_transport(soc_descriptor, std::move(transports), "GrendelJtagTTDevice");
     return std::unique_ptr<GrendelJtagTTDevice>(
         new GrendelJtagTTDevice(soc_descriptor, std::move(protocol), std::move(address_transport)));
 }

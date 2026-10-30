@@ -391,17 +391,17 @@ std::string SocDescriptor::serialize() const {
         out << YAML::Key << "address_space" << YAML::Value << "mimir_local";
     }
 
-    const auto& mimir_channels = get_arch_descriptor().get_mimir_channels();
+    const auto &mimir_channels = get_arch_descriptor().get_mimir_channels();
     if (!mimir_channels.empty()) {
         out << YAML::Key << "mimir_channels" << YAML::Value << YAML::BeginSeq;
-        for (const auto& channel : mimir_channels) {
+        for (const auto &channel : mimir_channels) {
             out << YAML::BeginMap;
             out << YAML::Key << "channel" << YAML::Value << channel.channel;
             out << YAML::Key << "instance" << YAML::Value << channel.instance;
             out << YAML::Key << "chiplet" << YAML::Value << channel.chiplet;
             if (!channel.routes.empty()) {
                 out << YAML::Key << "routes" << YAML::Value << YAML::BeginSeq;
-                for (const auto& route : channel.routes) {
+                for (const auto &route : channel.routes) {
                     out << YAML::BeginMap;
                     out << YAML::Key << "peer" << YAML::Value << route.peer_instance;
                     out << YAML::Key << "d2d" << YAML::Value << route.d2d;
@@ -412,6 +412,33 @@ std::string SocDescriptor::serialize() const {
             out << YAML::EndMap;
         }
         out << YAML::EndSeq;
+    }
+
+    const auto &keraunos = get_arch_descriptor().get_keraunos();
+    if (!keraunos.chiplet.empty()) {
+        out << YAML::Key << "keraunos" << YAML::Value << YAML::BeginMap;
+        out << YAML::Key << "chiplet" << YAML::Value << keraunos.chiplet;
+        if (keraunos.tap.has_value()) {
+            out << YAML::Key << "tap" << YAML::Value << *keraunos.tap;
+        }
+        if (keraunos.local_window.has_value()) {
+            out << YAML::Key << "local_window" << YAML::Value << *keraunos.local_window;
+        }
+        if (keraunos.tile_stride.has_value()) {
+            out << YAML::Key << "tile_stride" << YAML::Value << *keraunos.tile_stride;
+        }
+        if (!keraunos.cores.empty()) {
+            out << YAML::Key << "cores" << YAML::Value << YAML::BeginSeq;
+            for (const auto &core : keraunos.cores) {
+                out << YAML::BeginMap;
+                out << YAML::Key << "core" << YAML::Value << fmt::format("{}-{}", core.coord.x, core.coord.y);
+                out << YAML::Key << "hsio" << YAML::Value << core.hsio;
+                out << YAML::Key << "cce" << YAML::Value << core.cce;
+                out << YAML::EndMap;
+            }
+            out << YAML::EndSeq;
+        }
+        out << YAML::EndMap;
     }
 
     out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;

@@ -96,7 +96,7 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
 }
 
 void Chip::release_cce_uncore_for_firmware_load(CoreCoord core) {
-    get_tt_device()->release_cce_uncore_for_firmware_load(core);
+    get_tt_device()->release_mimir_uncore_for_firmware_load(core);
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {

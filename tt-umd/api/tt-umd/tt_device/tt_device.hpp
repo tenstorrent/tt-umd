@@ -434,12 +434,12 @@ public:
     virtual void deassert_risc_reset(
         CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC);
 
-    // CCE firmware-load window. Cold reset is already released by bring-up. This releases the
+    // Mimir firmware-load window. Cold reset is already released by bring-up. This releases the
     // uncore while the harts stay held, then programs the DMRISC remap. The block does not answer
     // while the uncore is in reset, so a full reset (which asserts the uncore) drops the entries
     // bring-up wrote. Call this after that assert and before loading firmware or writing reset
     // vectors; deassert of RiscType::ALL programs the entries again before it releases the harts.
-    void release_cce_uncore_for_firmware_load(CoreCoord core);
+    void release_mimir_uncore_for_firmware_load(CoreCoord core);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -529,31 +529,31 @@ protected:
     // call this itself, or its CCEs boot from whatever vector bring-up left behind.
     bool apply_cce_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
-    // Per-CCE register write. core selects the CCE, and the resolver adds that CCE's place in the
+    // Per-Mimir register write. core selects the CCE, and the resolver adds that CCE's place in the
     // Mimir config window.
-    void write_cce_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector);
+    void write_mimir_reset_vector_register(CoreCoord core, uint32_t hart, uint64_t reset_vector);
 
     // PF_CTRL_RESET assert/release. hart_bits is the PF_CTRL bit mask (bits 1-8 are harts 0-7).
     // reset_uncore also drives bit 0, with the same polarity as the harts: 1 = released. A full
     // reset (RiscType::ALL) passes reset_uncore, matching Quasar worker DM uncore; a partial hart
     // selection leaves the uncore bit unchanged.
-    void apply_cce_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore);
+    void apply_mimir_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore);
 
     // One DMRISC remap entry. Addresses are bytes; the register stores them >> 6.
-    void write_cce_dmrisc_remap_entry(
+    void write_mimir_dmrisc_remap_entry(
         CoreCoord core, uint32_t entry, uint64_t region_start, uint64_t region_end, uint64_t local_base);
 
     // Entries 0 (config), 1 (both CCE SRAMs) and 2 (this Mimir's 8 GiB GDDR window). channel is
     // the CCE's DRAM channel, which selects the Mimir's SPA instance.
-    void program_cce_dmrisc_remap(CoreCoord core, uint32_t channel);
+    void program_mimir_dmrisc_remap(CoreCoord core, uint32_t channel);
 
     // Mimir-local CCE control uses this resolver. Null on devices that are not a Mimir package.
-    void set_grendel_address_resolver(class GrendelNocAddressResolver* resolver);
+    void set_grendel_address_resolver(class GrendelNocAddressResolver *resolver);
 
     // Flat-address read/write used after the resolver. Mimir-local devices implement it with the
     // chippy memory map. The default rejects the access.
-    virtual void read_flat_address(uint64_t addr, void* dst, size_t size);
-    virtual void write_flat_address(uint64_t addr, const void* src, size_t size);
+    virtual void read_flat_address(uint64_t addr, void *dst, size_t size);
+    virtual void write_flat_address(uint64_t addr, const void *src, size_t size);
 
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
@@ -583,12 +583,19 @@ private:
     DmaInterface *get_dma_interface();
 
     RiscReset *get_risc_reset();
-    void read_cce_local(CoreCoord core, uint64_t cce_local_offset, void* dst, size_t size);
-    void write_cce_local(CoreCoord core, uint64_t cce_local_offset, const void* src, size_t size);
+    void read_mimir_local(CoreCoord core, uint64_t mimir_local_offset, void *dst, size_t size);
+    void write_mimir_local(CoreCoord core, uint64_t mimir_local_offset, const void *src, size_t size);
+
+    // Hart bits only. The uncore stays as bring-up left it: holding that bit stalls the AXI master.
+    void apply_keraunos_hart_reset(CoreCoord core, uint64_t hart_bits, bool release);
+
+    // A register-width write at local 0 on a Keraunos ethernet core programs tt_cluster_ctrl.
+    // A larger write at the same address is SRAM. Offset 0 is broadcast to every hart.
+    bool apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
-    class GrendelNocAddressResolver* grendel_address_resolver_ = nullptr;
+    class GrendelNocAddressResolver *grendel_address_resolver_ = nullptr;
 };
 
 }  // namespace tt::umd

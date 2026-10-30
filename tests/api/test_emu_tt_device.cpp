@@ -25,11 +25,15 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "grendel_tt_device_test_access.hpp"  // internal: GrendelTTDeviceTestAccess
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -38,6 +42,7 @@
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/emu_tt_device.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/risc_type.hpp"
 
@@ -287,7 +292,204 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
             EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, 0u);
             EXPECT_EQ(hart_mask(reset), 0u);
             // Holding the uncore closes the host path to this CCE. Put it back for the mock.
-            device->release_cce_uncore_for_firmware_load(cce);
+            device->release_mimir_uncore_for_firmware_load(cce);
+        }
+    }
+}
+
+// Needs a descriptor that names k0 (mmk.yaml) and a model brought up with bringup_mmk.py.
+// Pointed at mimir_1x1.yaml or mimir_2x_package.yaml this skips. The second attach does not send
+// INIT. Releasing harts is mock-only: on the model a released hart fetches, and that fetch can
+// stall the AXI master for every later client.
+TEST(EmuTTDevice, KeraunosHartResetLeavesTheUncore) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    if (soc_descriptor.get_arch_descriptor().get_keraunos().chiplet.empty()) {
+        GTEST_SKIP() << "descriptor has no Keraunos chiplet";
+    }
+    const std::vector<CoreCoord> eth_cores = soc_descriptor.get_cores(CoreType::ETH);
+    ASSERT_FALSE(eth_cores.empty());
+
+    auto device = open_device(soc_descriptor, *server);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
+    constexpr uint64_t kOffset = 0x800;
+
+    for (std::size_t index = 0; index < eth_cores.size(); ++index) {
+        const CoreCoord& eth = eth_cores[index];
+        const uint64_t reset_addr = resolver.keraunos_control_address(eth, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
+        const uint64_t uncore_before = read_flat(*device, reset_addr) & grendel::CCE_UNCORE_RELEASED;
+
+        const uint32_t written = 0xA5A50000u + static_cast<uint32_t>(index);
+        device->write_to_device(&written, eth, kOffset, sizeof(written));
+
+        // ALL on a Mimir CCE also holds the uncore. Here it only holds the harts.
+        device->assert_risc_reset(eth, RiscType::ALL);
+        const uint64_t held = read_flat(*device, reset_addr);
+        EXPECT_EQ(held & grendel::CCE_UNCORE_RELEASED, uncore_before);
+        EXPECT_EQ((held >> 1) & 0xFFULL, 0u);
+
+        uint32_t read_back = 0;
+        device->read_from_device(&read_back, eth, kOffset, sizeof(read_back));
+        EXPECT_EQ(read_back, written);
+        const uint64_t flat = resolver.to_flat_address(eth, kOffset, NocId::NOC0);
+        EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, flat)), written);
+
+        if (send_init_on_connect()) {
+            device->deassert_risc_reset(eth, RiscType::ALL, false);
+            const uint64_t released = read_flat(*device, reset_addr);
+            EXPECT_EQ(released & grendel::CCE_UNCORE_RELEASED, uncore_before);
+            EXPECT_EQ((released >> 1) & 0xFFULL, 0xFFu);
+        }
+    }
+
+    device.reset();
+    auto second = EmuTTDevice::create(soc_descriptor, server->host, server->port, /*send_init=*/false);
+    for (std::size_t index = 0; index < eth_cores.size(); ++index) {
+        uint32_t read_back = 0;
+        second->read_from_device(&read_back, eth_cores[index], kOffset, sizeof(read_back));
+        EXPECT_EQ(read_back, 0xA5A50000u + static_cast<uint32_t>(index));
+    }
+}
+
+// Whether each Keraunos ethernet core owns its own control window.
+//
+// Metal's device open leaves CCE 1 on every HSIO tile waiting at RUN_MSG_INIT while CCE 0 reports
+// done, and the host's own mailbox writes to those cores read back, so SRAM addressing holds and
+// the suspect is the control window: a wrong `cce * stride` term is invisible at CCE 0 and
+// misaddresses only CCE 1. Each core's PF_CTRL must be its own register, and holding one core's
+// harts must leave every other core's reset word alone.
+//
+// Harts stay held at the end. A released hart fetches, and that fetch can stall the AXI master for
+// every later client, so bring the model up again before the next run.
+TEST(EmuTTDevice, KeraunosControlWindowsDoNotAlias) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    if (soc_descriptor.get_arch_descriptor().get_keraunos().chiplet.empty()) {
+        GTEST_SKIP() << "descriptor has no Keraunos chiplet";
+    }
+    const std::vector<CoreCoord> eth_cores = soc_descriptor.get_cores(CoreType::ETH);
+    ASSERT_FALSE(eth_cores.empty());
+
+    auto device = open_device(soc_descriptor, *server);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
+
+    std::vector<uint64_t> reset_addrs;
+    std::vector<uint64_t> before;
+    reset_addrs.reserve(eth_cores.size());
+    before.reserve(eth_cores.size());
+    for (const CoreCoord& eth : eth_cores) {
+        const uint64_t addr = resolver.keraunos_control_address(eth, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
+        const uint64_t value = read_flat(*device, addr);
+        std::cout << "keraunos " << eth.str() << ": sram 0x" << std::hex
+                  << resolver.to_flat_address(eth, 0, NocId::NOC0) << ", pf_ctrl 0x" << addr << ", reset 0x" << value
+                  << ", uncore " << ((value & grendel::CCE_UNCORE_RELEASED) ? 1 : 0) << ", harts 0x"
+                  << ((value >> 1) & 0xFFULL) << std::dec << std::endl;
+        reset_addrs.push_back(addr);
+        before.push_back(value);
+    }
+
+    // Two cores resolving to one register is the aliasing this is looking for.
+    for (std::size_t i = 0; i < reset_addrs.size(); ++i) {
+        for (std::size_t j = i + 1; j < reset_addrs.size(); ++j) {
+            EXPECT_NE(reset_addrs[i], reset_addrs[j])
+                << eth_cores[i].str() << " and " << eth_cores[j].str() << " share one PF_CTRL address";
+        }
+    }
+
+    // Holding one core moves that core's hart bits and nothing else. Cores held by an earlier
+    // iteration stay held; cores not yet touched keep the word bring-up left.
+    for (std::size_t index = 0; index < eth_cores.size(); ++index) {
+        device->assert_risc_reset(eth_cores[index], RiscType::ALL_NEO_DMS);
+        for (std::size_t other = 0; other < eth_cores.size(); ++other) {
+            const uint64_t value = read_flat(*device, reset_addrs[other]);
+            EXPECT_EQ(value & grendel::CCE_UNCORE_RELEASED, before[other] & grendel::CCE_UNCORE_RELEASED)
+                << "holding " << eth_cores[index].str() << " moved the uncore bit of " << eth_cores[other].str();
+            if (other <= index) {
+                EXPECT_EQ((value >> 1) & 0xFFULL, 0u) << eth_cores[other].str() << " did not hold its harts";
+            } else {
+                EXPECT_EQ(value, before[other])
+                    << "holding " << eth_cores[index].str() << " changed " << eth_cores[other].str();
+            }
+        }
+    }
+}
+
+// How fast a write to this window actually goes.
+//
+// Every transport write is one 32-bit command and one blocking reply: TransportInterface::write
+// loops write32 over the buffer, and bulk_write_bytes hands the whole buffer to that same loop.
+// So a transfer costs size/4 server round trips, and the cost of Metal's device open follows
+// directly from the rate measured here. Metal clears 8 launch messages per core before any
+// firmware, then writes the whole 4 MiB window per core.
+//
+// Harts stay held throughout: a released hart fetches, and that fetch can stall the AXI master for
+// every later client. A register-width write at local 0 programs the reset vector, so each size
+// below starts at kProbeOffset instead.
+void time_sram_write(TTDevice& device, const CoreCoord& core, const char* label, uint64_t offset, size_t size) {
+    std::vector<uint8_t> payload(size, 0);
+    const uint32_t first = 0xA5A50000u + static_cast<uint32_t>(size & 0xFFFFu);
+    const uint32_t last = 0x5A5A0000u + static_cast<uint32_t>(size & 0xFFFFu);
+    std::memcpy(payload.data() + payload.size() - sizeof(last), &last, sizeof(last));
+    std::memcpy(payload.data(), &first, sizeof(first));
+
+    const auto start = std::chrono::steady_clock::now();
+    device.write_to_device(payload.data(), core, offset, payload.size());
+    const double elapsed_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+
+    const size_t words = size / sizeof(uint32_t);
+    const double words_per_s = elapsed_s > 0.0 ? static_cast<double>(words) / elapsed_s : 0.0;
+    std::cout << label << " " << core.str() << ": " << size << " bytes (" << words << " round trips) in " << elapsed_s
+              << " s";
+    if (words_per_s > 0.0) {
+        std::cout << ", " << words_per_s << " round trips/s, 4 MiB would take "
+                  << (static_cast<double>(4 * 1024 * 1024 / sizeof(uint32_t)) / words_per_s) << " s";
+    }
+    std::cout << std::endl;
+
+    uint32_t read_first = 0;
+    uint32_t read_last = 0;
+    device.read_from_device(&read_first, core, offset, sizeof(read_first));
+    device.read_from_device(&read_last, core, offset + size - sizeof(read_last), sizeof(read_last));
+    EXPECT_EQ(read_first, first) << label << " first word";
+    if (size > sizeof(uint32_t)) {
+        EXPECT_EQ(read_last, last) << label << " last word";
+    }
+}
+
+TEST(EmuTTDevice, KeraunosSramWriteRate) {
+    SKIP_WITHOUT_SERVER(server);
+
+    const SocDescriptor soc_descriptor = mimir_descriptor();
+    if (soc_descriptor.get_arch_descriptor().get_keraunos().chiplet.empty()) {
+        GTEST_SKIP() << "descriptor has no Keraunos chiplet";
+    }
+    const std::vector<CoreCoord> eth_cores = soc_descriptor.get_cores(CoreType::ETH);
+    ASSERT_FALSE(eth_cores.empty());
+    const CoreCoord& eth = eth_cores.front();
+
+    auto device = open_device(soc_descriptor, *server);
+    const GrendelNocAddressResolver resolver = resolver_for(soc_descriptor);
+
+    const uint64_t reset_addr = resolver.keraunos_control_address(eth, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
+    const uint64_t uncore_before = read_flat(*device, reset_addr) & grendel::CCE_UNCORE_RELEASED;
+
+    device->assert_risc_reset(eth, RiscType::ALL_NEO_DMS);
+    const uint64_t held = read_flat(*device, reset_addr);
+    ASSERT_EQ(held & grendel::CCE_UNCORE_RELEASED, uncore_before);
+    ASSERT_EQ((held >> 1) & 0xFFULL, 0u);
+
+    // Clear of the reset-vector registers, then well clear of them.
+    constexpr uint64_t kProbeOffset = 0x1000;
+    // The SMC leg is the control: it says whether a slow rate is the Keraunos window or the
+    // transport in general. Mimir firmware loads already run at this rate on the passing suites.
+    const std::vector<CoreCoord> smc_cores = soc_descriptor.get_cores(CoreType::SMC);
+
+    for (const size_t size : {size_t{4}, size_t{256}, size_t{4096}, size_t{65536}}) {
+        time_sram_write(*device, eth, "keraunos sram", kProbeOffset, size);
+        if (!smc_cores.empty()) {
+            time_sram_write(*device, smc_cores.front(), "mimir smc sram", kSmcSramOffset, size);
         }
     }
 }

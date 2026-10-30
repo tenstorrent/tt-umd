@@ -15,7 +15,7 @@
 
 #include "emu_axi_transport.h"  // chippy
 #include "grendel_flat_address.hpp"
-#include "mimir_chippy_memory.hpp"
+#include "chippy_memory.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -61,9 +61,7 @@ public:
     EmuAxiProtocol(
         const SocDescriptor& soc_descriptor,
         const std::vector<std::shared_ptr<chippy::transport::TransportInterface>>& transports) :
-        soc_(soc_descriptor),
-        resolver_(soc_, address_windows_for(soc_)),
-        memory_(soc_, transports, "EmuAxiProtocol") {}
+        soc_(soc_descriptor), resolver_(soc_, address_windows_for(soc_)), memory_(soc_, transports, "EmuAxiProtocol") {}
 
     void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
         memory_.read(flat_address(core, addr, noc_id), dst, size);
@@ -113,7 +111,7 @@ private:
     // Declared in this order: the resolver borrows soc_.
     SocDescriptor soc_;
     GrendelNocAddressResolver resolver_;
-    MimirChippyMemoryMap memory_;
+    ChippyMemoryMap memory_;
 };
 
 }  // namespace
@@ -147,8 +145,9 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
             channels.size(),
             mimir_count));
     const bool select_chiplet = emu_server_selects_chiplets(root_transport);
+    const KeraunosChiplet& keraunos = soc_descriptor.get_arch_descriptor().get_keraunos();
     std::vector<std::shared_ptr<chippy::transport::TransportInterface>> chiplet_transports;
-    chiplet_transports.reserve(channels.size());
+    chiplet_transports.reserve(channels.size() + (keraunos.chiplet.empty() ? 0 : 1));
     for (const auto& channel : channels) {
         // A one-Mimir descriptor still selects on MMK: the server's default chiplet is k0, and
         // a naked socket would program Keraunos. A single-chiplet server has nothing to select,
@@ -158,6 +157,16 @@ GrendelAddressWindows EmuTTDevice::mimir_address_windows(const SocDescriptor& so
         if (select_chiplet) {
             chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
                 root_transport, channel.chiplet);
+        }
+        chiplet_transports.push_back(std::move(chiplet_transport));
+    }
+    if (!keraunos.chiplet.empty()) {
+        // Same select as a Mimir. The MMK default chiplet is already k0, and a Mimir socket above
+        // has selected away from it. A single-chiplet server has nothing to select.
+        std::shared_ptr<chippy::transport::TransportInterface> chiplet_transport = root_transport;
+        if (select_chiplet) {
+            chiplet_transport = std::make_shared<chippy::transport::emu_axi::MultiChipletEmuAxiTransport>(
+                root_transport, keraunos.chiplet);
         }
         chiplet_transports.push_back(std::move(chiplet_transport));
     }

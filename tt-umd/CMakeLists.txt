@@ -480,7 +480,7 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         src/tt_device/grendel_jtag_tt_device.cpp
         src/tt_device/grendel_tt_device.cpp
         src/tt_device/grendel_flat_address.cpp
-        src/tt_device/mimir_chippy_memory.cpp
+        src/tt_device/chippy_memory.cpp
         src/tt_device/emu_tt_device.cpp
     )
     target_sources(tt-umd PRIVATE ${GRENDEL_CHIPPY_SRCS})

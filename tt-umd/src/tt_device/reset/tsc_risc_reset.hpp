@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
 #include <optional>
 
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
@@ -52,11 +53,13 @@ inline constexpr TscResetLayout HORIZON_TSC_RESET{
  * register. RiscType::ALL and the ALL_* groups cover the cores the layout has; DM cores map to
  * core_reset_n, NEO0's TRISCs to tensix_risc_reset_n and the DM uncore flags to uncore_reset_n.
  *
- * The protocol is non-owning and must outlive this object.
+ * Each assert and deassert holds @p device_lock for its whole read-modify-write, so concurrent resets
+ * of one tile keep each other's bits. The protocol and the lock are non-owning and must outlive this
+ * object.
  */
 class TscRiscReset : public RiscReset {
 public:
-    TscRiscReset(DeviceProtocol* device_protocol, const TscResetLayout& layout);
+    TscRiscReset(DeviceProtocol* device_protocol, const TscResetLayout& layout, std::recursive_mutex& device_lock);
 
     void assert_risc_reset(tt_xy_pair core, RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
 
@@ -74,6 +77,7 @@ private:
 
     DeviceProtocol* device_protocol_ = nullptr;
     TscResetLayout layout_;
+    std::recursive_mutex& device_lock_;
 };
 
 }  // namespace tt::umd

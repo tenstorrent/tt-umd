@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <optional>
 
 #include "tests/test_utils/protocol_mocks.hpp"
@@ -47,7 +48,8 @@ auto captures_register(uint64_t* written) {
 class TscRiscResetTest : public ::testing::Test {
 protected:
     NiceMock<MockDeviceProtocol> protocol_;
-    TscRiscReset risc_reset_{&protocol_, HORIZON_TSC_RESET};
+    std::recursive_mutex device_lock_;
+    TscRiscReset risc_reset_{&protocol_, HORIZON_TSC_RESET, device_lock_};
 };
 
 struct AssertCase {

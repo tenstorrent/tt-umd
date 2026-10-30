@@ -18,8 +18,9 @@ uint64_t field_mask(uint32_t lsb, uint32_t width) { return ((uint64_t{1} << widt
 
 }  // namespace
 
-TscRiscReset::TscRiscReset(DeviceProtocol* device_protocol, const TscResetLayout& layout) :
-    device_protocol_(device_protocol), layout_(layout) {
+TscRiscReset::TscRiscReset(
+    DeviceProtocol* device_protocol, const TscResetLayout& layout, std::recursive_mutex& device_lock) :
+    device_protocol_(device_protocol), layout_(layout), device_lock_(device_lock) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "TscRiscReset requires a DeviceProtocol.");
 }
 
@@ -49,11 +50,13 @@ uint64_t TscRiscReset::reset_bits(RiscType riscs) const {
 }
 
 void TscRiscReset::assert_risc_reset(tt_xy_pair core, RiscType selected_riscs, NocId noc_id) {
+    std::lock_guard<std::recursive_mutex> lock(device_lock_);
     write_reset_ctrl(core, read_reset_ctrl(core, noc_id) & ~reset_bits(selected_riscs), noc_id);
 }
 
 void TscRiscReset::deassert_risc_reset(
     tt_xy_pair core, RiscType selected_riscs, [[maybe_unused]] bool staggered_start, NocId noc_id) {
+    std::lock_guard<std::recursive_mutex> lock(device_lock_);
     const uint64_t bits = reset_bits(selected_riscs);
     write_reset_ctrl(core, read_reset_ctrl(core, noc_id) | bits, noc_id);
 

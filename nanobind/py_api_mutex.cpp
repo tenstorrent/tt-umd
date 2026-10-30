@@ -11,10 +11,9 @@
 
 #include <chrono>
 #include <memory>
-
-#include "umd/device/utils/kmd_mutex.hpp"
-#include "umd/device/utils/mutex_interface.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
+#include <tt-umd-utils/mutex_interface.hpp>
+#include <tt-umd-utils/robust_mutex.hpp>
+#include <tt-umd/utils/kmd_mutex.hpp>
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

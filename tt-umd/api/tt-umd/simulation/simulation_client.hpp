@@ -21,8 +21,10 @@ namespace tt::umd {
 // asio is held behind a pImpl so this header stays asio-free (see Impl in the .cpp).
 class SimulationClient {
 public:
-    // timeout bounds each blocking send/recv on the socket, so transact() fails with an error
-    // instead of hanging forever if the host is reachable (connect succeeds) but not answering.
+    // timeout bounds each blocking send/recv on the socket until the host has answered once, so
+    // transact() fails with an error instead of hanging forever if the host is reachable (connect
+    // succeeds) but not serving. Once it has answered, transact() waits as long as the host takes:
+    // a slow simulator is not a dead one, and a host that goes away closes the connection.
     explicit SimulationClient(
         std::filesystem::path socket_path, std::chrono::milliseconds timeout = timeout::SIMULATION_SOCKET_TIMEOUT);
     ~SimulationClient();
@@ -44,6 +46,7 @@ public:
 private:
     std::filesystem::path socket_path_;
     std::chrono::milliseconds timeout_;
+    bool host_answered_ = false;
 
     // Holds the asio transport (io_context + connected socket). Defined in the .cpp so asio
     // stays out of this header; owns the connection fd (RAII).

@@ -9,11 +9,10 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
-// Per-operation budget for a SimulationClient exchange over the host socket: how long transact()
-// waits on the reply before giving up. Guards against a host that is bound but not yet (or no
-// longer) serving -- a client can connect (the listen backlog accepts it) and would otherwise block
-// forever waiting for a response. Generous, since it also covers a slow backend bring-up; a genuine
-// per-request round trip is far quicker.
+// How long a SimulationClient waits on the host socket before the host has answered once. Guards
+// against a host that is bound but not yet serving -- a client can connect (the listen backlog
+// accepts it) and would otherwise block forever waiting for a response. Not applied once the host
+// serves: a large read from an RTL simulator can take minutes.
 inline constexpr auto SIMULATION_SOCKET_TIMEOUT = std::chrono::milliseconds(30'000);
 
 // How long RtlSimSession::start() waits for the simulator's ack on each socket. Covers job

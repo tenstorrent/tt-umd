@@ -172,6 +172,51 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 
+# riscv64: the RVV 1.0 fast path in src/pcie/device_memcpy_rvv.cpp uses vector intrinsics inside a
+# function marked __attribute__((target("arch=+v"))), so that a baseline rv64gc build still contains
+# the code and HWCAP can select it at run time.
+#
+# Whether that compiles is probed rather than inferred from a version number: the combination is not
+# guaranteed by the RISC-V C API yet (riscv-non-isa/riscv-rvv-intrinsic-doc#376), so it is an
+# implementation detail, and on a compiler that lacks the attribute <riscv_vector.h> fails outright
+# rather than degrading.
+#
+# -Werror=attributes keeps the probe as strict as the build it predicts. This project compiles with
+# CMAKE_COMPILE_WARNING_AS_ERROR, which check_cxx_source_compiles does not inherit; a compiler that
+# accepts the attribute and then ignores it -- GCC 13 does, given a vector -march -- only warns, so
+# without this flag the probe would report the fast path available and the build would then fail on
+# that warning. <sys/auxv.h> is in the probe so a non-Linux riscv64 target, which has no getauxval,
+# fails it here.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
+    include(CheckCXXSourceCompiles)
+    set(CMAKE_REQUIRED_FLAGS "-Werror=attributes")
+    set(CMAKE_REQUIRED_QUIET TRUE)
+    check_cxx_source_compiles(
+        "
+        #include <riscv_vector.h>
+        #include <sys/auxv.h>
+        #include <cstdint>
+        #include <cstddef>
+        __attribute__((target(\"arch=+v\"))) void probe(std::uint64_t* d, const std::uint8_t* s, std::size_t n) {
+            const std::size_t vl = __riscv_vsetvlmax_e8m8();
+            const vuint8m8_t v = __riscv_vle8_v_u8m8(s, vl < n ? vl : n);
+            __riscv_vse64_v_u64m8(d, __riscv_vreinterpret_v_u8m8_u64m8(v), (vl < n ? vl : n) / 8);
+        }
+        int main() { return 0; }
+        "
+        TT_UMD_HAS_RVV_SUPPORT
+    )
+    unset(CMAKE_REQUIRED_QUIET)
+    unset(CMAKE_REQUIRED_FLAGS)
+    if(TT_UMD_HAS_RVV_SUPPORT)
+        target_sources(tt-umd-base PRIVATE src/pcie/device_memcpy_rvv.cpp)
+        target_compile_definitions(tt-umd-base PRIVATE TT_UMD_RVV_MEMCPY)
+        message(STATUS "riscv64: RVV fast path enabled in device_memcpy")
+    else()
+        message(STATUS "riscv64: toolchain cannot build the RVV fast path; using scalar device_memcpy")
+    endif()
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         tt-umd-base

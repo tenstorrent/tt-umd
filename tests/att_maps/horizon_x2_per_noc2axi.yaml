@@ -26,6 +26,8 @@ devices:
         - {index: 6, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 0, NOC2AXI 1
         - {index: 7, compare: '0x1140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 0, NOC2AXI 1
+        - {index: 11, compare: '0x114c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # NOC2AXI CSR Unicast 0 Device 0
         - {index: 8, compare: '0x10f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 6, translate_addr: 0}
         # NOC2AXI CSR Unicast 1 Device 0
@@ -48,6 +50,9 @@ devices:
         - {index: 4, x: 1, y: 0}   # TENSIX at logical (1, 0)
         - {index: 5, x: 1, y: 2}   # NOC2AXI at logical (1, 2)
         - {index: 6, x: 0, y: 2}   # DRAM at logical (0, 2)
+      tlb:  # posted atomic L1 windows: each NOC2AXI only ever receives its own range
+        - {index: 2, start: '0x104c000000', end: '0x104dffffff', type: atomic_incr}
+        - {index: 3, start: '0x114c000000', end: '0x114dffffff', type: atomic_incr}
     tiles:
       - tile: [0, 2]
       - tile: [1, 2]
@@ -72,6 +77,8 @@ devices:
         - {index: 5, compare: '0x204c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 1, NOC2AXI 1
         - {index: 6, compare: '0x2140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 1, NOC2AXI 1
+        - {index: 9, compare: '0x214c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 1
         - {index: 7, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 0
@@ -96,6 +103,9 @@ devices:
         - {index: 4, x: 0, y: 0}   # TENSIX at logical (0, 0)
         - {index: 5, x: 1, y: 0}   # TENSIX at logical (1, 0)
         - {index: 6, x: 1, y: 2}   # DRAM at logical (1, 2)
+      tlb:  # posted atomic L1 windows: each NOC2AXI only ever receives its own range
+        - {index: 2, start: '0x204c000000', end: '0x204dffffff', type: atomic_incr}
+        - {index: 3, start: '0x214c000000', end: '0x214dffffff', type: atomic_incr}
     tiles:
       - tile: [0, 2]
       - tile: [1, 2]

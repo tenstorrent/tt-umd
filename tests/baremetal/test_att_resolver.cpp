@@ -16,6 +16,7 @@
 #include "tt-umd/coordinates/att/att_window.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -329,7 +330,7 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values(WindowFlags::Bidirectional, WindowFlags::UnicastWrite, WindowFlags::UnicastRead),
         ::testing::Values(IoOrdering::Relaxed, IoOrdering::Strict, IoOrdering::Posted)));
 
-// The maps carry no multicast, atomic or snoop window, so those IoWindows have no flat address.
+// horizon_2x3 carries no multicast, atomic or snoop window, so those IoWindows have no flat address.
 class AttIoWindowWithoutAWindow : public ::testing::TestWithParam<WindowFlags> {};
 
 TEST_P(AttIoWindowWithoutAWindow, HasNoFlatAddress) {
@@ -347,3 +348,45 @@ INSTANTIATE_TEST_SUITE_P(
         WindowFlags::MulticastWrite,
         WindowFlags::UnicastWrite | WindowFlags::Atomic,
         WindowFlags::UnicastRead | WindowFlags::Snoop));
+
+// An atomic write to a Tensix L1 word resolves through the map's atomic window, the L1 window at the
+// atomic base: Tensix (0,0)'s L1 is at 0x10_4080_0000 through horizon_x2's device 0, NOC2AXI 0.
+class AttIoWindowAtomic : public ::testing::TestWithParam<WindowFlags> {};
+
+TEST_P(AttIoWindowAtomic, ResolvesThroughTheAtomicWindow) {
+    const att::EndpointResolver resolver(att::HORIZON_X2_DEV0_NOC2AXI0_MAP);
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+    EXPECT_EQ(
+        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, GetParam(), IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x10'4C80'0100));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    WriteDirections,
+    AttIoWindowAtomic,
+    ::testing::Values(WindowFlags::Atomic, WindowFlags::UnicastWrite | WindowFlags::Atomic));
+
+// An atomic can't read, and the atomic window only covers L1, so neither has an atomic address.
+struct AtomicWithoutAWindow {
+    WindowFlags flags;
+    uint64_t offset;
+};
+
+class AttIoWindowAtomicWithoutAWindow : public ::testing::TestWithParam<AtomicWithoutAWindow> {};
+
+TEST_P(AttIoWindowAtomicWithoutAWindow, HasNoFlatAddress) {
+    const att::EndpointResolver resolver(att::HORIZON_X2_DEV0_NOC2AXI0_MAP);
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+    const AtomicWithoutAWindow& c = GetParam();
+    EXPECT_EQ(
+        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, c.flags, IoOrdering::Strict, c.offset),
+        std::nullopt);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ReadOrRegister,
+    AttIoWindowAtomicWithoutAWindow,
+    ::testing::Values(
+        AtomicWithoutAWindow{WindowFlags::UnicastRead | WindowFlags::Atomic, 0x100},
+        // The TSC reset register, past L1.
+        AtomicWithoutAWindow{WindowFlags::Atomic, 0x0303'3088}));

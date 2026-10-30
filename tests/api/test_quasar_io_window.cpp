@@ -180,50 +180,51 @@ TEST_F(QuasarIoWindow, AttributeFieldsReachTheDriver) {
     config.local_offset = window_base_;
 
     // The default every window gets today. It has to keep working.
-    config.snoop = 0;
-    config.sec_group_id = 0;
+    config.noncacheable = 0;
+    config.qos_id = 0;
     ASSERT_NO_THROW(window_->configure(config));
     window_->write32(offset_of(cold_scratch(1)), SENTINEL);
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
 
-    // sec_group_id is four bits wide.
-    config.sec_group_id = 16;
-    EXPECT_THROW(window_->configure(config), std::exception) << "sec_group_id 16 should not fit";
+    // qos_id is four bits wide.
+    config.qos_id = 16;
+    EXPECT_THROW(window_->configure(config), std::exception) << "qos_id 16 should not fit";
 
-    // snoop is one bit, expressed as 0 or 1.
-    config.sec_group_id = 0;
-    config.snoop = 2;
-    EXPECT_THROW(window_->configure(config), std::exception) << "snoop 2 is not a boolean";
+    // noncacheable is one bit, expressed as 0 or 1.
+    config.qos_id = 0;
+    config.noncacheable = 2;
+    EXPECT_THROW(window_->configure(config), std::exception) << "noncacheable 2 is not a boolean";
 
     // And the window still works once a sane configuration is put back.
-    config.snoop = 0;
+    config.noncacheable = 0;
     ASSERT_NO_THROW(window_->configure(config));
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(1))), SENTINEL);
 }
 
-// WindowFlags::Snoop end to end: accepted by the window, carried to the driver, and reported back.
+// WindowFlags::NonCacheable end to end: accepted by the window, carried to the driver, and
+// reported back. Snoop is deliberately not tested here -- a Keraunos inbound TLB entry has no
+// way to reach the NOC security header, so the window does not advertise that flag.
 //
-// The window is deliberately not accessed while the flag is set. The snoop bit becomes a nonzero
-// attribute in the TLB entry, and the simulator aborts the whole VM on an access through an entry
-// whose attributes are not zero -- programming it is fine, reading through it is not. So the flag
-// is set, checked, and cleared before any data moves.
-TEST_F(QuasarIoWindow, SnoopFlagIsCarriedToTheWindow) {
+// The window is deliberately not accessed while the flag is set. ttsim before #1074 aborted the
+// whole VM on an access through an entry whose attributes are not zero -- programming it was
+// fine, reading through it was not. So the flag is set, checked, and cleared before data moves.
+TEST_F(QuasarIoWindow, NonCacheableFlagIsCarriedToTheWindow) {
     TargetIoWindowConfig target;
     target.core_start = tt_xy_pair(0, 0);  // the address is flat; a coordinate is refused
     target.addr = window_base_;
     target.noc = NocId::NOC0;
-    target.flags = WindowFlags::Snoop;
+    target.flags = WindowFlags::NonCacheable;
 
     // Relaxed because nothing on this architecture programs ordering, so asking for Strict would
     // promise a guarantee the window was never configured for.
     ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
-    EXPECT_NE(window_->get_target_config().flags & WindowFlags::Snoop, WindowFlags::None)
+    EXPECT_NE(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None)
         << "the window should report the flag it was configured with";
 
     // Clear it before touching the window again, then confirm the window still works.
     target.flags = WindowFlags::None;
     ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
-    EXPECT_EQ(window_->get_target_config().flags & WindowFlags::Snoop, WindowFlags::None);
+    EXPECT_EQ(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None);
 
     constexpr uint32_t SENTINEL = 0x5000FEEDu;
     window_->write32(offset_of(cold_scratch(2)), SENTINEL);

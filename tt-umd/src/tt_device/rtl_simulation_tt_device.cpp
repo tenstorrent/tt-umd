@@ -328,7 +328,7 @@ std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset(ChipId chip_id
         return std::make_unique<RtlSimRiscReset>(communicator_.get(), get_soc_descriptor().arch, device_lock);
     }
     noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, static_cast<int>(chip_id));
-    return std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout);
+    return std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout, device_lock);
 }
 
 std::vector<AccessPointId> RtlSimulationTTDevice::get_access_points() const {

@@ -22,9 +22,8 @@ namespace tt::umd::att {
  * selector, in the device table's row order (table_offset + selector), which differs by device.
  */
 
-// L1 unicast, 1 MB per selector: Dispatch (0,1), (1,1), Tensix (0,0), (1,0), then the table's
-// remaining rows. Only the first 1 MB of each 3 MB L1 is reachable through it; the Tensix CSR
-// window reaches the rest.
+// L1 unicast, 4 MB per selector, a tile's whole L1: Dispatch (0,1), (1,1), Tensix (0,0), (1,0), then
+// the table's remaining rows.
 inline constexpr uint16_t HORIZON_X2_DEV0_L1_WORDS[] = {0x040, 0x041, 0x000, 0x001, 0x081, 0x080};
 inline constexpr uint16_t HORIZON_X2_DEV1_L1_WORDS[] = {0x040, 0x041, 0x000, 0x001, 0x081};
 
@@ -38,9 +37,9 @@ inline constexpr uint16_t HORIZON_X2_DRAM_WORDS[] = {0x080, 0x081};
 
 inline constexpr Window HORIZON_X2_DEV0_NOC2AXI0_L1_WINDOW{
     .compare = 0x10'4000'0000,
-    .mask_bits = 26,
-    .endpoint_shift = 20,
-    .endpoint_size = 6,
+    .mask_bits = 25,
+    .endpoint_shift = 22,
+    .endpoint_size = 3,
     .endpoint_table_offset = 1,
     .translate_address = true,
 };
@@ -56,9 +55,9 @@ inline constexpr Window HORIZON_X2_DEV0_NOC2AXI0_CSR_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV0_NOC2AXI1_L1_WINDOW{
     .compare = 0x11'4000'0000,
-    .mask_bits = 26,
-    .endpoint_shift = 20,
-    .endpoint_size = 6,
+    .mask_bits = 25,
+    .endpoint_shift = 22,
+    .endpoint_size = 3,
     .endpoint_table_offset = 1,
     .translate_address = true,
 };
@@ -83,9 +82,9 @@ inline constexpr Window HORIZON_X2_DEV0_DRAM_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV1_NOC2AXI0_L1_WINDOW{
     .compare = 0x20'4000'0000,
-    .mask_bits = 26,
-    .endpoint_shift = 20,
-    .endpoint_size = 6,
+    .mask_bits = 25,
+    .endpoint_shift = 22,
+    .endpoint_size = 3,
     .endpoint_table_offset = 2,
     .translate_address = true,
 };
@@ -101,9 +100,9 @@ inline constexpr Window HORIZON_X2_DEV1_NOC2AXI0_CSR_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV1_NOC2AXI1_L1_WINDOW{
     .compare = 0x21'4000'0000,
-    .mask_bits = 26,
-    .endpoint_shift = 20,
-    .endpoint_size = 6,
+    .mask_bits = 25,
+    .endpoint_shift = 22,
+    .endpoint_size = 3,
     .endpoint_table_offset = 2,
     .translate_address = true,
 };

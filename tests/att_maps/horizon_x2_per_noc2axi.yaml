@@ -13,19 +13,19 @@ devices:
         # Local Alias
         - {index: 0, compare: '0x0', mask: 0, ep_idx: 0, ep_id_size: 0, table_offset: 0, translate_addr: 0}
         # L1 Unicast Device 0, NOC2AXI 0
-        - {index: 1, compare: '0x1040000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        - {index: 1, compare: '0x1040000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Multicast Device 0
-        - {index: 2, compare: '0x1044000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        - {index: 2, compare: '0x1044000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Snoop Device 0
-        - {index: 3, compare: '0x1048000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        - {index: 3, compare: '0x1048000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Posted Atomic Device 0
-        - {index: 4, compare: '0x104c000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        - {index: 4, compare: '0x104c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # Device 1, both npu_in ranges, pass-through
         - {index: 5, compare: '0x2000000000', mask: 33, ep_idx: 33, ep_id_size: 0, table_offset: 5, translate_addr: 0}
         # Tensix CSR Unicast Device 0, NOC2AXI 1
         - {index: 6, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 0, NOC2AXI 1
-        - {index: 7, compare: '0x1140000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        - {index: 7, compare: '0x1140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 1, translate_addr: 1, bar: '0x0'}
         # NOC2AXI CSR Unicast 0 Device 0
         - {index: 8, compare: '0x10f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 6, translate_addr: 0}
         # NOC2AXI CSR Unicast 1 Device 0
@@ -63,15 +63,15 @@ devices:
         # Device 0, both npu_in ranges, pass-through
         - {index: 1, compare: '0x1000000000', mask: 33, ep_idx: 33, ep_id_size: 0, table_offset: 1, translate_addr: 0}
         # L1 Unicast Device 1, NOC2AXI 0
-        - {index: 2, compare: '0x2040000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        - {index: 2, compare: '0x2040000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Multicast Device 1
-        - {index: 3, compare: '0x2044000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        - {index: 3, compare: '0x2044000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Snoop Device 1
-        - {index: 4, compare: '0x2048000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        - {index: 4, compare: '0x2048000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Posted Atomic Device 1
-        - {index: 5, compare: '0x204c000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        - {index: 5, compare: '0x204c000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # L1 Unicast Device 1, NOC2AXI 1
-        - {index: 6, compare: '0x2140000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        - {index: 6, compare: '0x2140000000', mask: 25, ep_idx: 22, ep_id_size: 3, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 1
         - {index: 7, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 2, translate_addr: 1, bar: '0x0'}
         # Tensix CSR Unicast Device 1, NOC2AXI 0

@@ -21,8 +21,8 @@ namespace tt::umd::att {
  * (P,2), which fronts DRAM bank P.
  */
 
-// The rows of both the L1 unicast window, 1 MB per tile, and the CSR window, 128 MB per tile: each
-// tile's whole map.
+// The rows of both the L1 unicast window, 4 MB per tile (its whole L1), and the CSR window, 128 MB
+// per tile (its whole map).
 inline constexpr uint16_t HORIZON_X2_COLUMN0_WORDS[] = {0x000, 0x040, 0x080};
 inline constexpr uint16_t HORIZON_X2_COLUMN1_WORDS[] = {0x001, 0x041, 0x081};
 
@@ -33,8 +33,8 @@ inline constexpr uint16_t HORIZON_X2_COLUMN1_DRAM_WORDS[] = {0x081};
 
 inline constexpr Window HORIZON_X2_DEV0_COLUMN0_L1_WINDOW{
     .compare = 0x10'4000'0000,
-    .mask_bits = 22,
-    .endpoint_shift = 20,
+    .mask_bits = 24,
+    .endpoint_shift = 22,
     .endpoint_size = 2,
     .endpoint_table_offset = 1,
     .translate_address = true,
@@ -60,8 +60,8 @@ inline constexpr Window HORIZON_X2_DEV0_COLUMN0_DRAM_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV0_COLUMN1_L1_WINDOW{
     .compare = 0x11'4000'0000,
-    .mask_bits = 22,
-    .endpoint_shift = 20,
+    .mask_bits = 24,
+    .endpoint_shift = 22,
     .endpoint_size = 2,
     .endpoint_table_offset = 1,
     .translate_address = true,
@@ -87,8 +87,8 @@ inline constexpr Window HORIZON_X2_DEV0_COLUMN1_DRAM_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV1_COLUMN0_L1_WINDOW{
     .compare = 0x20'4000'0000,
-    .mask_bits = 22,
-    .endpoint_shift = 20,
+    .mask_bits = 24,
+    .endpoint_shift = 22,
     .endpoint_size = 2,
     .endpoint_table_offset = 1,
     .translate_address = true,
@@ -114,8 +114,8 @@ inline constexpr Window HORIZON_X2_DEV1_COLUMN0_DRAM_WINDOW{
 
 inline constexpr Window HORIZON_X2_DEV1_COLUMN1_L1_WINDOW{
     .compare = 0x21'4000'0000,
-    .mask_bits = 22,
-    .endpoint_shift = 20,
+    .mask_bits = 24,
+    .endpoint_shift = 22,
     .endpoint_size = 2,
     .endpoint_table_offset = 1,
     .translate_address = true,

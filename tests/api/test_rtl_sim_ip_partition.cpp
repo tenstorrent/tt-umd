@@ -229,6 +229,36 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
     }
 }
 
+// A flat address past a Tensix L1's first 1 MB reaches that L1 word, through every access point.
+// Skips without flat addresses (TT_UMD_NOC_ATT).
+TEST_F(RtlSimIpPartitionTest, FlatAddressesReachUpperL1) {
+    constexpr uint64_t UPPER_L1_ADDR = 0x20'0000;
+    const size_t bytes = marker(0).size() * sizeof(uint32_t);
+    bool checked = false;
+    for (tt::ChipId chip : cluster_->get_target_device_ids()) {
+        auto* device = dynamic_cast<RtlSimulationTTDevice*>(cluster_->get_tt_device(chip));
+        ASSERT_NE(device, nullptr);
+        for (const AccessPointId access_point : device->get_access_points()) {
+            const std::optional<uint64_t> address = device->get_flat_address(
+                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::Strict, UPPER_L1_ADDR);
+            if (!address.has_value()) {
+                continue;
+            }
+            checked = true;
+            const auto data =
+                marker(0xD0000000u | (static_cast<uint32_t>(chip) << 20) | (static_cast<uint32_t>(access_point) << 16));
+            device->get_communicator()->global_write_words(*address, data.data(), bytes);
+            std::vector<uint32_t> readback(data.size());
+            cluster_->read_from_device(readback.data(), chip, tensix(chip), UPPER_L1_ADDR, bytes);
+            EXPECT_EQ(readback, data) << "chip " << chip << ": written through access point "
+                                      << static_cast<uint32_t>(access_point) << " at 0x" << std::hex << *address;
+        }
+    }
+    if (!checked) {
+        GTEST_SKIP() << "No device has flat addresses.";
+    }
+}
+
 // On Horizon (the SoC descriptor's ip_variant), UMD resets a core by writing its TSC itself, so a
 // reset reaches that core of that device only, whichever socket the device talks over. It holds and
 // releases the DM uncore, which runs nothing while the DM cores stay held.

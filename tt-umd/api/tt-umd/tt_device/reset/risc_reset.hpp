@@ -14,6 +14,9 @@ namespace tt::umd {
 
 /**
  * @brief Controls the reset state of the RISC cores on a device.
+ *
+ * Asserting and deasserting are thread-safe: concurrent calls on the same core, including for
+ * different RISCs, each take effect without dropping the others' changes.
  */
 class RiscReset {
 public:

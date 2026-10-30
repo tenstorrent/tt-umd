@@ -66,6 +66,8 @@ public:
     void deassert_risc_reset(
         tt_xy_pair core, RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    // Read from TSC_RESET_CTRL alone. A core runs only if its overlay soft reset is released too, but
+    // deassert releases both and assert holds the TSC bit, so through this class the TSC bit is the state.
     std::optional<RiscType> get_risc_reset_state(tt_xy_pair core, NocId noc_id = NocId::DEFAULT_NOC) override;
 
 private:

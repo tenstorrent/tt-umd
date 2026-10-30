@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 
 using namespace tt::umd;
@@ -34,18 +34,18 @@ std::filesystem::path soc_descriptor_of(const std::string& name) {
     return layout_dir(name) / "../../soc_descs/quasar_simulation_1x3.yaml";
 }
 
-// The message RtlSimIpLayout throws for @p name, or "" if it doesn't throw.
+// The message RtlSimIpBlockLayout throws for @p name, or "" if it doesn't throw.
 std::string error_of(const std::string& name) {
     try {
-        RtlSimIpLayout layout(layout_dir(name));
+        RtlSimIpBlockLayout layout(layout_dir(name));
     } catch (const std::exception& e) {
         return e.what();
     }
     return "";
 }
 
-TEST(RtlSimIpLayout, OneDeviceTwoAccessPoints) {
-    const RtlSimIpLayout layout(layout_dir("one_device_two_access_points"));
+TEST(RtlSimIpBlockLayout, OneDeviceTwoAccessPoints) {
+    const RtlSimIpBlockLayout layout(layout_dir("one_device_two_access_points"));
 
     EXPECT_EQ(layout.get_num_access_points(), 2u);
     EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP0, AP1}}}));
@@ -59,8 +59,8 @@ TEST(RtlSimIpLayout, OneDeviceTwoAccessPoints) {
     EXPECT_FALSE(layout.get_location(AP1).flat_address.has_value());
 }
 
-TEST(RtlSimIpLayout, TwoDevicesOneAccessPointEach) {
-    const RtlSimIpLayout layout(layout_dir("two_devices_one_access_point_each"));
+TEST(RtlSimIpBlockLayout, TwoDevicesOneAccessPointEach) {
+    const RtlSimIpBlockLayout layout(layout_dir("two_devices_one_access_point_each"));
 
     EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP0}}, {DEV1, {AP1}}}));
     EXPECT_EQ(layout.get_soc_descriptor(DEV1), soc_descriptor_of("two_devices_one_access_point_each"));
@@ -68,43 +68,58 @@ TEST(RtlSimIpLayout, TwoDevicesOneAccessPointEach) {
     EXPECT_FALSE(layout.get_location(AP0).flat_address.has_value());
 }
 
-TEST(RtlSimIpLayout, ExplicitDeviceIds) {
-    const RtlSimIpLayout layout(layout_dir("explicit_device_ids"));
+TEST(RtlSimIpBlockLayout, ExplicitDeviceIds) {
+    const RtlSimIpBlockLayout layout(layout_dir("explicit_device_ids"));
 
     EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP1}}, {DEV1, {AP0}}}));
 }
 
-TEST(RtlSimIpLayout, MissingFile) { EXPECT_THAT(error_of(""), HasSubstr("ip_layout.yaml not found.")); }
+// Devices may sit on different IP blocks, each device on one.
+TEST(RtlSimIpBlockLayout, DevicesOnTwoIpBlocks) {
+    const RtlSimIpBlockLayout layout(layout_dir("two_ip_blocks"));
 
-TEST(RtlSimIpLayout, DuplicateDeviceId) {
+    EXPECT_EQ(layout.get_devices(), (Devices{{DEV0, {AP0}}, {DEV1, {AP1}}}));
+}
+
+TEST(RtlSimIpBlockLayout, MissingFile) { EXPECT_THAT(error_of(""), HasSubstr("ip_layout.yaml not found.")); }
+
+TEST(RtlSimIpBlockLayout, DuplicateDeviceId) {
     EXPECT_THAT(error_of("duplicate_device_id"), HasSubstr("lists device 0 twice."));
 }
 
-TEST(RtlSimIpLayout, MixedExplicitAndPositionalDeviceIds) {
+TEST(RtlSimIpBlockLayout, MixedExplicitAndPositionalDeviceIds) {
     EXPECT_THAT(error_of("mixed_device_ids"), HasSubstr("give every device an id, or none."));
 }
 
-TEST(RtlSimIpLayout, SparseDeviceIds) {
+TEST(RtlSimIpBlockLayout, SparseDeviceIds) {
     EXPECT_THAT(error_of("sparse_device_ids"), HasSubstr("IP layout device ids must be 0..1."));
 }
 
-TEST(RtlSimIpLayout, MissingHostAccess) {
+TEST(RtlSimIpBlockLayout, MissingHostAccess) {
     EXPECT_THAT(error_of("missing_host_access"), HasSubstr("access point 1 has no host_access."));
 }
 
-TEST(RtlSimIpLayout, MissingSocDescriptor) {
+TEST(RtlSimIpBlockLayout, MissingIpBlock) {
+    EXPECT_THAT(error_of("missing_ip_block"), HasSubstr("access point 1 has no ip_block."));
+}
+
+TEST(RtlSimIpBlockLayout, DeviceSpansIpBlocks) {
+    EXPECT_THAT(error_of("device_spans_ip_blocks"), HasSubstr("device 0 spans IP blocks 0 and 1."));
+}
+
+TEST(RtlSimIpBlockLayout, MissingSocDescriptor) {
     EXPECT_THAT(error_of("missing_soc_descriptor"), HasSubstr("device 0 has no soc_descriptor."));
 }
 
-TEST(RtlSimIpLayout, SocDescriptorNotFound) {
+TEST(RtlSimIpBlockLayout, SocDescriptorNotFound) {
     EXPECT_THAT(error_of("soc_descriptor_not_found"), HasSubstr("no_such_soc_descriptor.yaml not found."));
 }
 
-TEST(RtlSimIpLayout, UnownedAccessPoint) {
+TEST(RtlSimIpBlockLayout, UnownedAccessPoint) {
     EXPECT_THAT(error_of("unowned_access_point"), HasSubstr("access point 1 is owned by 0 devices, expected 1."));
 }
 
-TEST(RtlSimIpLayout, AccessPointListedTwiceByOneDevice) {
+TEST(RtlSimIpBlockLayout, AccessPointListedTwiceByOneDevice) {
     EXPECT_THAT(error_of("access_point_listed_twice"), HasSubstr("device 0 lists access point 0 twice."));
 }
 

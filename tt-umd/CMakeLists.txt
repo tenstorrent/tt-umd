@@ -82,6 +82,7 @@ target_sources(
         src/tt_device/tt_device.cpp
         src/tt_device/tt_device_error.cpp
         src/tt_device/reset/classic_tile_risc_reset.cpp
+        src/tt_device/reset/tsc_risc_reset.cpp
         src/tt_device/hang_detection/hang_detector.cpp
         src/tt_device/hang_detection/hang_detector_implementation.cpp
         src/tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -120,7 +121,7 @@ target_sources(
         src/topology/topology_discovery_blackhole.cpp
         src/topology/topology_discovery_wormhole.cpp
         src/topology/topology_discovery_error.cpp
-        src/topology/ip_layout.cpp
+        src/topology/ip_block_layout.cpp
         src/tt_device/remote_communication.cpp
         src/tt_device/remote_communication_legacy_firmware.cpp
         src/jtag/jtag_device.cpp
@@ -145,15 +146,19 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/simulation_host.cpp
             src/simulation/simulator_paths.cpp
             src/simulation/tt_sim_communicator.cpp
+            src/simulation/rtl_sim_channel.cpp
             src/simulation/rtl_sim_communicator.cpp
             src/simulation/rtl_sim_session.cpp
             src/simulation/rtl_sim_att_program.cpp
-            src/simulation/rtl_sim_ip_layout.cpp
+            src/simulation/rtl_sim_ip_block_layout.cpp
             src/tt_device/simulation_tt_device.cpp
+            src/tt_device/reset/tt_sim_risc_reset.cpp
+            src/tt_device/reset/rtl_sim_risc_reset.cpp
             src/tt_device/rtl_simulation_tt_device.cpp
             src/tt_device/tt_sim_tt_device.cpp
             src/chip_helpers/simulation_tlb_allocator.cpp
             src/tt_device/protocol/tt_sim_protocol.cpp
+            src/tt_device/protocol/simulation_noc_protocol.cpp
             # Composes the protocol above, so it cannot be built without it. Every user of it is a
             # simulation device, all of which are in this block too.
             src/tt_device_model/simulation_tt_device_model.cpp
@@ -188,6 +193,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/att_resolver.hpp
                 api/tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp
                 api/tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp
+                api/tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp
+                api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip/chip.hpp
                 api/tt-umd/chip/local_chip.hpp
@@ -260,7 +267,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/topology/topology_discovery.hpp
                 api/tt-umd/topology/topology_discovery_options.hpp
                 api/tt-umd/topology/topology_discovery_error.hpp
-                api/tt-umd/topology/ip_layout.hpp
+                api/tt-umd/topology/ip_block_layout.hpp
                 api/tt-umd/utils/common.hpp
                 api/tt-umd/utils/error.hpp
                 api/tt-umd/utils/mmio_timeout_config.hpp
@@ -273,6 +280,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/cluster_types.hpp
                 api/tt-umd/types/communication_protocol.hpp
                 api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/types/dma.hpp
                 api/tt-umd/types/gddr_telemetry.hpp
                 api/tt-umd/types/host_memory.hpp
                 api/tt-umd/types/telemetry.hpp
@@ -343,7 +351,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
-                api/umd/device/topology/ip_layout.hpp
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_discovery_error.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
@@ -433,7 +440,13 @@ target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
-target_link_libraries(tt-umd-base PRIVATE tt-umd-utils::tt-umd-utils)
+target_link_libraries(
+    tt-umd-base
+    PRIVATE
+        tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
+        tt-umd-utils::tracy-shim
+)
 target_include_directories(tt-umd-base PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/tt-umd-utils/api>)
 
 check_function_exists(
@@ -456,11 +469,6 @@ if(TT_UMD_BUILD_SIMULATION)
             nng
             uv_a
     )
-endif()
-
-if(TT_UMD_ENABLE_TRACY)
-    target_link_libraries(tt-umd-base PRIVATE TracyClient)
-    target_compile_definitions(tt-umd-base PRIVATE TRACY_ENABLE)
 endif()
 
 # Installs the headers only: the objects are part of the tt-umd library.

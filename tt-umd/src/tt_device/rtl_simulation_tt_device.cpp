@@ -17,18 +17,21 @@
 #include <utility>
 #include <vector>
 
-#include "common/utils.hpp"
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "simulation/word_access.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
+#include "tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
@@ -40,6 +43,9 @@
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/simulation_noc_protocol.hpp"
+#include "tt_device/reset/rtl_sim_risc_reset.hpp"
+#include "tt_device/reset/tsc_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {
@@ -51,35 +57,106 @@ namespace {
 // carries an ATT, and the Quasar models that do not would be sent addresses they cannot route.
 constexpr const char* NOC_ATT_MAP_ENV_VAR = "TT_UMD_NOC_ATT";
 
-// The maps this build carries, by the name TT_UMD_NOC_ATT gives them.
+// The maps this build carries, by the name TT_UMD_NOC_ATT gives them. A map has one table for every
+// access point, or one per access point of the build's ip_layout.yaml, in its order, when each of a
+// device's access points has its own flat addresses.
 struct NamedAttMap {
     const char* name;
-    const att::MapData* map;
+    att::Table<const att::MapData*> tables;
 };
 
+constexpr const att::MapData* GRENDEL_QSR1_TABLES[] = {&att::GRENDEL_QSR1_MAP};
+constexpr const att::MapData* HORIZON_2X3_TABLES[] = {&att::HORIZON_2X3_MAP};
+constexpr const att::MapData* HORIZON_X2_TABLES[] = {
+    &att::HORIZON_X2_DEV0_NOC2AXI0_MAP,
+    &att::HORIZON_X2_DEV0_NOC2AXI1_MAP,
+    &att::HORIZON_X2_DEV1_NOC2AXI0_MAP,
+    &att::HORIZON_X2_DEV1_NOC2AXI1_MAP};
+constexpr const att::MapData* HORIZON_X2_COLUMNS_TABLES[] = {
+    &att::HORIZON_X2_DEV0_COLUMN0_MAP,
+    &att::HORIZON_X2_DEV0_COLUMN1_MAP,
+    &att::HORIZON_X2_DEV1_COLUMN0_MAP,
+    &att::HORIZON_X2_DEV1_COLUMN1_MAP};
+
 constexpr NamedAttMap ATT_MAPS[] = {
-    {"grendel_qsr1", &att::GRENDEL_QSR1_MAP},
-    {"horizon_2x3", &att::HORIZON_2X3_MAP},
+    {"grendel_qsr1", GRENDEL_QSR1_TABLES},
+    {"horizon_2x3", HORIZON_2X3_TABLES},
+    {"horizon_x2", HORIZON_X2_TABLES},
+    {"horizon_x2_columns", HORIZON_X2_COLUMNS_TABLES},
 };
+
+// The NIU's NODE_ID register, at the same tile-local offset on every Horizon tile. Its bits 11:0 hold
+// the tile's own package coordinate, packed as an endpoint word, and bits 25:12 the NoC's grid size,
+// which every NIU reports and zeroed memory doesn't: without them, a read the ATT sends to memory
+// would pass for tile (0, 0).
+constexpr uint64_t HORIZON_NODE_ID = 0x0200'0064;
+constexpr uint32_t ENDPOINT_WORD_MASK = 0xfff;
+constexpr uint32_t GRID_SIZE_MASK = 0x03ff'f000;
+
+// The IP variants (the SoC descriptor's ip_variant) whose cores UMD resets itself, through each tile's TSC.
+struct VariantTileReset {
+    tt::IpVariant variant;
+    const TscResetLayout* layout;
+};
+
+constexpr VariantTileReset TILE_RESETS[] = {
+    {tt::IpVariant::HORIZON, &HORIZON_TSC_RESET},
+};
+
+// Access point @p access_point's table in @p map.
+const att::MapData& table_for(const NamedAttMap& map, AccessPointId access_point) {
+    const uint32_t index = map.tables.size() == 1 ? 0 : static_cast<uint32_t>(access_point);
+    UMD_ASSERT(
+        index < map.tables.size(),
+        error::RuntimeError,
+        fmt::format(
+            "{} names ATT map '{}', which has tables for {} access points; this is access point {}.",
+            NOC_ATT_MAP_ENV_VAR,
+            map.name,
+            map.tables.size(),
+            static_cast<uint32_t>(access_point)));
+    return *map.tables[index];
+}
+
+// ip_layout.yaml must state where @p map puts each access point: the base of its table's L1 window.
+// A map with one table for every access point gives them no addresses of their own, so it is not
+// checked.
+void check_flat_address(const NamedAttMap& map, const RtlSimAccessPoint& access_point) {
+    if (map.tables.size() == 1) {
+        return;
+    }
+    const uint64_t l1_window_base =
+        table_for(map, access_point.id).windows[static_cast<size_t>(att::WindowClass::WORKER)].compare;
+    UMD_ASSERT(
+        access_point.flat_address == l1_window_base,
+        error::RuntimeError,
+        fmt::format(
+            "{} names ATT map '{}', which puts access point {}'s L1 window at 0x{:x}, but ip_layout.yaml gives it "
+            "flat_address {}.",
+            NOC_ATT_MAP_ENV_VAR,
+            map.name,
+            static_cast<uint32_t>(access_point.id),
+            l1_window_base,
+            access_point.flat_address.has_value() ? fmt::format("0x{:x}", *access_point.flat_address) : "none"));
+}
 
 }  // namespace
 
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
 
-// Array of DM RiscType values for iteration.
-static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
-    RiscType::DM0,
-    RiscType::DM1,
-    RiscType::DM2,
-    RiscType::DM3,
-    RiscType::DM4,
-    RiscType::DM5,
-    RiscType::DM6,
-    RiscType::DM7};
-
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
 namespace {
+
+// The access point a device talks over: its first. The others are known but not used yet.
+const RtlSimAccessPoint& io_access_point(const RtlSimDeviceAccess& layout_device) {
+    UMD_ASSERT(
+        !layout_device.access_points.empty(),
+        error::RuntimeError,
+        fmt::format("Device {} has no access point to talk over.", static_cast<uint32_t>(layout_device.device)));
+    return layout_device.access_points.front();
+}
+
 void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
     if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
         UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
@@ -127,10 +204,27 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         chip_id,
         num_host_mem_channels,
         std::nullopt,
+        std::nullopt,
         std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const std::shared_ptr<RtlSimSession>& session,
+    const RtlSimDeviceAccess& layout_device,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    RtlSimulationTTDevice(
+        RtlSimSocket(session, io_access_point(layout_device).host_access),
+        layout_device,
+        simulator_directory,
+        soc_descriptor,
+        chip_id,
+        num_host_mem_channels) {}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
     const RtlSimSocket& socket,
+    const RtlSimDeviceAccess& layout_device,
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
@@ -141,7 +235,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         chip_id,
         num_host_mem_channels,
         socket,
-        std::make_unique<RtlSimCommunicator>(socket.get_host())) {}
+        layout_device,
+        std::make_unique<RtlSimCommunicator>(socket)) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
@@ -149,17 +244,20 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels,
     std::optional<RtlSimSocket> socket,
+    std::optional<RtlSimDeviceAccess> layout_device,
     std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
     session_socket_(std::move(socket)),
-    communicator_(std::move(communicator)) {
+    communicator_(std::move(communicator)),
+    layout_device_(std::move(layout_device)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();
+    get_simulation_model()->set_risc_reset(make_risc_reset(chip_id));
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -169,8 +267,11 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)) {
+    SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
+    // A client-mode device drives no backend of its own, so it has no communicator to reset through.
+    get_simulation_model()->set_risc_reset(
+        std::make_unique<RtlSimRiscReset>(/*communicator=*/nullptr, soc_descriptor.arch, device_lock));
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -201,8 +302,103 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
             *map_name,
             fmt::join(names, ", ")));
 
-    noc_address_resolver_ = std::make_unique<att::EndpointResolver>(*known->map);
+    // Outside an ip_layout.yaml a device has one implicit access point, the map's first.
+    if (!layout_device_.has_value()) {
+        noc_address_resolver_ = std::make_unique<att::EndpointResolver>(table_for(*known, AccessPointId{0}));
+        global_address_mode_ = true;
+        return;
+    }
+    per_access_point_tables_ = known->tables.size() > 1;
+    for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
+        check_flat_address(*known, access_point);
+        access_point_resolvers_.emplace(access_point.id, table_for(*known, access_point.id));
+    }
+    noc_address_resolver_ =
+        std::make_unique<att::EndpointResolver>(table_for(*known, io_access_point(*layout_device_).id));
     global_address_mode_ = true;
+}
+
+std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset(ChipId chip_id) {
+    const std::optional<tt::IpVariant> variant = get_soc_descriptor().get_arch_descriptor().get_ip_variant();
+    const auto* const known =
+        std::find_if(std::begin(TILE_RESETS), std::end(TILE_RESETS), [&](const VariantTileReset& reset) {
+            return variant == reset.variant;
+        });
+    if (known == std::end(TILE_RESETS)) {
+        return std::make_unique<RtlSimRiscReset>(communicator_.get(), get_soc_descriptor().arch, device_lock);
+    }
+    noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, static_cast<int>(chip_id));
+    return std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout);
+}
+
+std::vector<AccessPointId> RtlSimulationTTDevice::get_access_points() const {
+    std::vector<AccessPointId> access_points;
+    if (layout_device_.has_value()) {
+        for (const RtlSimAccessPoint& access_point : layout_device_->access_points) {
+            access_points.push_back(access_point.id);
+        }
+    }
+    return access_points;
+}
+
+std::optional<uint64_t> RtlSimulationTTDevice::get_flat_address(
+    AccessPointId access_point, CoreCoord core, WindowFlags flags, IoOrdering ordering, uint64_t offset) const {
+    const std::vector<AccessPointId> access_points = get_access_points();
+    UMD_ASSERT(
+        std::find(access_points.begin(), access_points.end(), access_point) != access_points.end(),
+        error::RuntimeError,
+        fmt::format("Access point {} is not one of this device's.", static_cast<uint32_t>(access_point)));
+    // Without a map (TT_UMD_NOC_ATT) the device has no flat addresses.
+    const auto resolver = access_point_resolvers_.find(access_point);
+    if (resolver == access_point_resolvers_.end()) {
+        return std::nullopt;
+    }
+    return att::resolve_io_window(resolver->second, get_soc_descriptor(), core, flags, ordering, offset);
+}
+
+void RtlSimulationTTDevice::check_att_matches_map() {
+    if (!per_access_point_tables_ ||
+        get_soc_descriptor().get_arch_descriptor().get_ip_variant() != tt::IpVariant::HORIZON) {
+        return;
+    }
+    // Every tile reports its own coordinate, so reading it through the address UMD's map gives for a
+    // tile shows which tile the build's ATT actually sends that address to. The device's own socket
+    // reaches every access point's range through the crossbar, so the address picks whose ATT
+    // translates it. This checks the ATT within the device: which device answers is the crossbar's
+    // ranges, and both devices' tiles report the same coordinates.
+    for (const auto& [access_point, resolver] : access_point_resolvers_) {
+        const att::MapData& map = resolver.map();
+        for (const CoreType core_type : {CoreType::TENSIX, CoreType::DISPATCH}) {
+            for (const CoreCoord& core : get_soc_descriptor().get_cores(core_type)) {
+                const uint64_t address =
+                    att::resolve_core(resolver, get_soc_descriptor(), core, HORIZON_NODE_ID, sizeof(uint32_t));
+                uint32_t node_id = 0;
+                communicator_->global_read_words(address, &node_id, sizeof(node_id));
+                const uint32_t expected =
+                    static_cast<uint32_t>(((core.y + map.package_offset_y) << 6) | (core.x + map.package_offset_x));
+                UMD_ASSERT(
+                    (node_id & ENDPOINT_WORD_MASK) == expected && (node_id & GRID_SIZE_MASK) != 0,
+                    error::RuntimeError,
+                    fmt::format(
+                        "Access point {}'s ATT sends 0x{:x} where NODE_ID reads 0x{:x}, but {}'s map sends it to {} "
+                        "({}, {}), at package ({}, {}).",
+                        static_cast<uint32_t>(access_point),
+                        address,
+                        node_id,
+                        NOC_ATT_MAP_ENV_VAR,
+                        to_str(core_type),
+                        core.x,
+                        core.y,
+                        expected & 0x3f,
+                        expected >> 6));
+            }
+        }
+        log_debug(
+            tt::LogEmulationDriver,
+            "Through access point {}, the ATT reaches every Tensix and Dispatch tile where {}'s map puts it.",
+            static_cast<uint32_t>(access_point),
+            NOC_ATT_MAP_ENV_VAR);
+    }
 }
 
 bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
@@ -342,90 +538,6 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
         return true;
     }
     return false;
-}
-
-void RtlSimulationTTDevice::assert_risc_reset(
-    CoreCoord core, const RiscType selected_riscs, [[maybe_unused]] NocId noc_id) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
-    // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
-    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL) {
-            communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
-            communicator_->all_neo_dms_uncore_reset_assert();
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
-            communicator_->all_neo_dms_uncore_reset_assert();
-            return;
-        }
-        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_assert(translated_core.x, translated_core.y);
-            return;
-        }
-        // Check if this is a request per individual DM core reset.
-        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
-            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_assert(translated_core.x, translated_core.y, i);
-            }
-        }
-    }
-
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
-        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
-        // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
-        // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
-        // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
-        // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
-        // always call this command as if reset for all was requested.
-        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-    }
-}
-
-void RtlSimulationTTDevice::deassert_risc_reset(
-    CoreCoord core, const RiscType selected_riscs, bool staggered_start, [[maybe_unused]] NocId noc_id) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    // See the comment in assert_risc_reset for more details.
-    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL) {
-            communicator_->all_neo_dms_uncore_reset_deassert();
-            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
-            communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
-            communicator_->all_neo_dms_uncore_reset_deassert();
-            return;
-        }
-        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_deassert(translated_core.x, translated_core.y);
-            return;
-        }
-        // Check if this is a request per individual DM core reset.
-        for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
-            if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_deassert(translated_core.x, translated_core.y, i);
-            }
-        }
-    }
-
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
-        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
-        // See the comment in assert_risc_reset for more details.
-        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-    }
 }
 
 }  // namespace tt::umd

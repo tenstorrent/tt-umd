@@ -30,9 +30,11 @@
 #include <utility>
 #include <vector>
 
-#include "tracy.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/silicon_tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -40,7 +42,6 @@
 #include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 

@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"

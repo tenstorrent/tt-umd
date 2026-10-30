@@ -3,6 +3,7 @@ target_link_libraries(
     test_common
     INTERFACE
         umd::tt-umd
+        tt-umd-utils::internal
         gtest_main
         gtest
         gmock

@@ -14,7 +14,7 @@
 #include <utility>
 
 #include "firmware/erisc_firmware.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/soc_descriptor.hpp"

@@ -19,7 +19,7 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -753,6 +753,32 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
+}
+
+bool TTDevice::dma_write_zero_copy_start(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    return get_dma_interface()->dma_write_zero_copy_start(
+        src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+bool TTDevice::dma_read_zero_copy_start(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    return get_dma_interface()->dma_read_zero_copy_start(
+        dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interface()->dma_write_zero_copy_check(); }
+
+DmaTransferState TTDevice::dma_read_zero_copy_check() { return get_dma_interface()->dma_read_zero_copy_check(); }
+
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+    return get_dma_interface()->dma_zero_copy_max_size(device_addr);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {

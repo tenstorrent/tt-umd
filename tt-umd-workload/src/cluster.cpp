@@ -30,7 +30,7 @@
 
 #include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
@@ -38,10 +38,10 @@
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
 #include "simulation/eth_ipc.hpp"
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
+#include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
-#include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -231,10 +231,12 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
         // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
         // construct one.
-        remote_tt_device = TTDevice::create_simulation_remote(
-            RemoteCommunication::create_remote_communication(
-                gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id)),
-            soc_desc);
+        auto remote_communication = RemoteCommunication::create_remote_communication(
+            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id));
+        remote_communication->set_remote_transfer_ethernet_cores(
+            gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
     }
     if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
         connect_remote_communication_to_gateway(remote_communication);
@@ -346,9 +348,6 @@ void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remot
         Chip* gateway_chip = get_chip(gateway_id);
         if (gateway_chip->get_tt_device() == remote_communication->get_local_device()) {
             remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
-            remote_communication->set_remote_transfer_ethernet_cores(
-                gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
             return;
         }
     }
@@ -493,12 +492,15 @@ Cluster::Cluster(ClusterOptions options) {
                 // layout, each on its own socket of one shared simulator run.
                 const bool is_rtl_build_with_ip_layout =
                     options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() != ".so" &&
-                    std::filesystem::exists(options.simulator_directory / RtlSimIpLayout::FILE_NAME);
+                    std::filesystem::exists(options.simulator_directory / RtlSimIpBlockLayout::FILE_NAME);
                 if (is_rtl_build_with_ip_layout) {
-                    const RtlSimIpLayout layout(options.simulator_directory);
-                    std::unordered_set<ChipId> layout_chips;
+                    const RtlSimIpBlockLayout layout(options.simulator_directory);
+                    // The layout's devices in id order; a mock chip stands for the device at its place here.
+                    std::vector<IpDeviceId> layout_devices;
+                    std::unordered_set<ChipId> mock_chips;
                     for (const auto& [device, access_points] : layout.get_devices()) {
-                        layout_chips.insert(static_cast<ChipId>(device));
+                        mock_chips.insert(static_cast<ChipId>(layout_devices.size()));
+                        layout_devices.push_back(device);
                     }
                     const IpDeviceId first_device = layout.get_devices().begin()->first;
                     const tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(
@@ -506,13 +508,12 @@ Cluster::Cluster(ClusterOptions options) {
 
                     // The descriptor picks the devices this process opens (target_devices, else
                     // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
-                    // layout device id, so it maps each chip back to its device.
+                    // original number, so it maps each chip back to its device.
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                        ClusterDescriptor::create_mock_cluster(layout_chips, arch, false).get(),
-                        options.target_devices);
-                    std::map<ChipId, uint32_t> chips;
+                        ClusterDescriptor::create_mock_cluster(mock_chips, arch, false).get(), options.target_devices);
+                    std::map<ChipId, IpDeviceId> ip_devices;
                     for (const auto& [chip_id, unique_id] : cluster_desc->get_chip_unique_ids()) {
-                        chips[chip_id] = static_cast<uint32_t>(unique_id);
+                        ip_devices.emplace(chip_id, layout_devices.at(unique_id));
                     }
 
                     // Serve only this process's devices. Another process may serve the rest of the
@@ -521,7 +522,8 @@ Cluster::Cluster(ClusterOptions options) {
                     const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
                     tt_devices = create_rtl_sim_ip_layout_tt_devices(
                         options.simulator_directory,
-                        chips,
+                        layout,
+                        ip_devices,
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                         launch);
                     if (options.sdesc_path.empty()) {

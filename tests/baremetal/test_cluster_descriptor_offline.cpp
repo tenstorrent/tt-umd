@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-umd-utils/internal/disjoint_set.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -117,7 +117,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
-    DisjointSet<ChipId> chip_clusters;
+    utils::DisjointSet<ChipId> chip_clusters;
     for (auto chip : all_chips) {
         chip_clusters.add_item(chip);
     }

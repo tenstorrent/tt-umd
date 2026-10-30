@@ -49,12 +49,14 @@ uint64_t TscRiscReset::reset_bits(RiscType riscs) const {
 }
 
 void TscRiscReset::assert_risc_reset(tt_xy_pair core, RiscType selected_riscs, NocId noc_id) {
+    std::lock_guard<std::mutex> lock(reset_register_mutex_);
     write_reset_ctrl(core, read_reset_ctrl(core, noc_id) & ~reset_bits(selected_riscs), noc_id);
 }
 
 void TscRiscReset::deassert_risc_reset(
     tt_xy_pair core, RiscType selected_riscs, [[maybe_unused]] bool staggered_start, NocId noc_id) {
     const uint64_t bits = reset_bits(selected_riscs);
+    std::lock_guard<std::mutex> lock(reset_register_mutex_);
     write_reset_ctrl(core, read_reset_ctrl(core, noc_id) | bits, noc_id);
 
     const uint64_t dm_cores = bits & field_mask(layout_.dm_core_lsb, layout_.num_dm_cores);

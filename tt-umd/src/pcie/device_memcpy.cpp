@@ -19,6 +19,10 @@
 #include <immintrin.h>
 #endif
 
+#ifdef TT_UMD_RVV_MEMCPY
+#include "device_memcpy_rvv.hpp"
+#endif
+
 namespace tt::umd {
 
 namespace {
@@ -190,6 +194,70 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
 
     d = reinterpret_cast<volatile std::uint8_t*>(d_simd);
 
+#elif defined(__riscv) && (__riscv_xlen == 64)
+    // riscv64: the generic GNUC path below copies through vector types declared aligned(1), which
+    // forces byte-granular device accesses on both profiles — 16 individual sb where there is no
+    // vector unit, vsetivli e8 + vse8.v where there is. Sub-word posted writes are not safe for
+    // every device target reachable through the BAR (the ARC CSM mangles them), so step d to 8
+    // bytes — Phase 0 only reached 4 — and copy the bulk with 64-bit element accesses: unit-stride
+    // vector stores where the host has RVV 1.0, otherwise plain volatile 8-byte stores, the widest
+    // single access the base ISA guarantees. device_memcpy_rvv.cpp covers the ordering latitude the
+    // vector form takes.
+    while (size >= 8 && (reinterpret_cast<std::uintptr_t>(d) % 8) != 0) {
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
+        *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        check(t, 4);
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+#ifdef TT_UMD_RVV_MEMCPY
+    if (rvv::enabled()) {
+        // One timeout check per 256-byte block, as in the AVX2 path: a posted-write pile-up stalls
+        // the CPU mid-block and is caught as soon as the block completes.
+        while (size >= 256) {
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_to_device(d, s, 256);
+            check(t, 256);
+            d += 256;
+            s += 256;
+            size -= 256;
+        }
+        if (size >= 8) {
+            const std::size_t bulk = size & ~static_cast<std::size_t>(7);
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_to_device(d, s, bulk);
+            check(t, static_cast<std::uint32_t>(bulk));
+            d += bulk;
+            s += bulk;
+            size -= bulk;
+        }
+    }
+#endif
+    while (size >= 64) {
+        auto t = std::chrono::steady_clock::now();
+        for (int j = 0; j < 8; ++j) {
+            std::uint64_t tmp;
+            std::memcpy(&tmp, s, sizeof(tmp));
+            *reinterpret_cast<volatile std::uint64_t*>(d) = tmp;
+            d += 8;
+            s += 8;
+        }
+        check(t, 64);
+        size -= 64;
+    }
+    while (size >= 8) {
+        std::uint64_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
+        *reinterpret_cast<volatile std::uint64_t*>(d) = tmp;
+        check(t, 8);
+        d += 8;
+        s += 8;
+        size -= 8;
+    }
 #elif defined(__GNUC__)
     // Like the x86 path, these wide stores are not volatile — compiler reordering is
     // bounded by the Phase 0/4/5 volatile loops. On Clang, __builtin_nontemporal_store
@@ -383,6 +451,61 @@ void memcpy_from_device(
 
     s = reinterpret_cast<const volatile std::uint8_t*>(s_simd);
 
+#elif defined(__riscv) && (__riscv_xlen == 64)
+    // riscv64: mirror of the store path above — 64-bit element accesses rather than the aligned(1)
+    // vector copies, which lower to byte loads here too.
+    while (size >= 8 && (reinterpret_cast<std::uintptr_t>(s) % 8) != 0) {
+        auto t = std::chrono::steady_clock::now();
+        std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        check(t, 4);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+#ifdef TT_UMD_RVV_MEMCPY
+    if (rvv::enabled()) {
+        // One timeout check per 256-byte block, as in the AVX2 path: a posted-write pile-up stalls
+        // the CPU mid-block and is caught as soon as the block completes.
+        while (size >= 256) {
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_from_device(d, s, 256);
+            check(t, 256);
+            d += 256;
+            s += 256;
+            size -= 256;
+        }
+        if (size >= 8) {
+            const std::size_t bulk = size & ~static_cast<std::size_t>(7);
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_from_device(d, s, bulk);
+            check(t, static_cast<std::uint32_t>(bulk));
+            d += bulk;
+            s += bulk;
+            size -= bulk;
+        }
+    }
+#endif
+    while (size >= 64) {
+        auto t = std::chrono::steady_clock::now();
+        for (int j = 0; j < 8; ++j) {
+            std::uint64_t tmp = *reinterpret_cast<const volatile std::uint64_t*>(s);
+            std::memcpy(d, &tmp, sizeof(tmp));
+            d += 8;
+            s += 8;
+        }
+        check(t, 64);
+        size -= 64;
+    }
+    while (size >= 8) {
+        auto t = std::chrono::steady_clock::now();
+        std::uint64_t tmp = *reinterpret_cast<const volatile std::uint64_t*>(s);
+        check(t, 8);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 8;
+        s += 8;
+        size -= 8;
+    }
 #elif defined(__GNUC__)
     // GCC/Clang non-x86: vector extensions + __builtin_memcpy (LDP/STP on AArch64).
 

@@ -409,9 +409,19 @@ jobs:
     # cross-compile path is the faster alternative.
     timeout-minutes: 60
     needs: ensure-riscv-image
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per arm of the TT_UMD_RVV_MEMCPY conditional in device_memcpy.cpp: gcc-13 is
+        # the image's default and declines the RVV probe, gcc-14 accepts it. `expect`
+        # is asserted against the configure log below, so a probe that silently flips outcome fails
+        # the job instead of quietly dropping the fast path from the build.
+        compiler:
+          - {c: gcc-13, cpp: g++-13, expect: "cannot build the RVV fast path"}
+          - {c: gcc-14, cpp: g++-14, expect: "RVV fast path enabled"}
     permissions:
       packages: read
-    name: Build device (release flags) on ubuntu-24.04-riscv with gcc
+    name: Build device (release flags) on ubuntu-24.04-riscv with ${{ matrix.compiler.c }}
     runs-on: tt-ubuntu-2204-large-stable
 
     steps:
@@ -441,7 +451,14 @@ jobs:
               set -euo pipefail
               git config --global --add safe.directory /work
               cmake --preset release-no-clang-tidy -B ${{ env.BUILD_OUTPUT_DIR }} \
-                -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }}
+                -DCMAKE_C_COMPILER=${{ matrix.compiler.c }} \
+                -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }} \
+                -DTT_UMD_ENABLE_UNITY_BUILD=${{ env.TT_UMD_UNITY_ENABLED == 'true' && 'ON' || 'OFF' }} 2>&1 \
+                | tee /tmp/configure.log
+              grep -q "${{ matrix.compiler.expect }}" /tmp/configure.log || {
+                echo "Probe outcome changed for ${{ matrix.compiler.c }}; expected: ${{ matrix.compiler.expect }}"
+                exit 1
+              }
               cmake --build ${{ env.BUILD_OUTPUT_DIR }}
               echo "Compile complete."
             '

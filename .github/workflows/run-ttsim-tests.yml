@@ -420,6 +420,15 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
 
+      # The wormhole galaxy steps below take all 32 chips from discovery, so check it finds them.
+      - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x32
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x32/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 32
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:

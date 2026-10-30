@@ -10,9 +10,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt-umd/arch/grendel_implementation.hpp"
 
 namespace tt::umd {
 
@@ -213,11 +213,74 @@ void GrendelAddressWindows::validate() const {
         "Grendel address windows: the NEO grid extent must be non-zero.");
 }
 
+namespace {
+
+const KeraunosCore* keraunos_core_at(const SocDescriptor& soc_descriptor, tt_xy_pair coord) {
+    const KeraunosChiplet& keraunos = soc_descriptor.get_arch_descriptor().get_keraunos();
+    for (const KeraunosCore& core : keraunos.cores) {
+        if (core.coord == coord) {
+            return &core;
+        }
+    }
+    return nullptr;
+}
+
+tt_xy_pair keraunos_noc0_coord(const SocDescriptor& soc_descriptor, const CoreCoord& core) {
+    if (core.coord_system == CoordSystem::LITERAL) {
+        return tt_xy_pair(core.x, core.y);
+    }
+    return tt_xy_pair(soc_descriptor.translate_coord_to(core, CoordSystem::NOC0));
+}
+
+const KeraunosCore& require_keraunos_core(const SocDescriptor& soc_descriptor, const CoreCoord& core) {
+    const KeraunosCore* found = keraunos_core_at(soc_descriptor, keraunos_noc0_coord(soc_descriptor, core));
+    UMD_ASSERT(
+        found != nullptr,
+        error::RuntimeError,
+        fmt::format("Core ({}, {}) is not a Keraunos ethernet core.", core.x, core.y));
+    return *found;
+}
+
+}  // namespace
+
+uint64_t GrendelNocAddressResolver::keraunos_sram_address(const CoreCoord& core, uint64_t offset) const {
+    const KeraunosChiplet& keraunos = soc_descriptor_->get_arch_descriptor().get_keraunos();
+    const KeraunosCore& found = require_keraunos_core(*soc_descriptor_, core);
+    const uint64_t region_size = soc_descriptor_->get_arch_descriptor().get_eth_l1_size();
+    UMD_ASSERT(
+        keraunos.local_window.has_value() && keraunos.tile_stride.has_value() && region_size > 0 &&
+            offset < region_size,
+        error::RuntimeError,
+        fmt::format(
+            "Keraunos SRAM offset 0x{:x} on core ({}, {}) does not fit the 0x{:x} region.",
+            offset,
+            core.x,
+            core.y,
+            region_size));
+    return *keraunos.local_window + static_cast<uint64_t>(found.hsio) * *keraunos.tile_stride +
+           static_cast<uint64_t>(found.cce) * region_size + offset;
+}
+
+uint64_t GrendelNocAddressResolver::keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const {
+    const KeraunosChiplet& keraunos = soc_descriptor_->get_arch_descriptor().get_keraunos();
+    const KeraunosCore& found = require_keraunos_core(*soc_descriptor_, core);
+    UMD_ASSERT(
+        keraunos.tile_stride.has_value() && register_offset < grendel::CCE_WITHIN_TILE_STRIDE,
+        error::RuntimeError,
+        fmt::format(
+            "Keraunos control offset 0x{:x} on core ({}, {}) does not fit one CCE control slot.",
+            register_offset,
+            core.x,
+            core.y));
+    return grendel::KERAUNOS_HSIO0_LOCAL_BASE + static_cast<uint64_t>(found.hsio) * *keraunos.tile_stride +
+           static_cast<uint64_t>(found.cce) * grendel::CCE_WITHIN_TILE_STRIDE + register_offset;
+}
+
 uint64_t GrendelNocAddressResolver::cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const {
     // Chips flatten a CoreCoord to an xy_pair before the control plane sees it, so the coordinate
     // arrives TRANSLATED even when its coord_system field says otherwise.
-    const CoreCoord logical = soc_descriptor_->translate_coord_to(
-        tt_xy_pair(core.x, core.y), CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
+    const CoreCoord logical =
+        soc_descriptor_->translate_coord_to(tt_xy_pair(core.x, core.y), CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
     return windows_.cce_control_address(
         static_cast<uint32_t>(logical.x), static_cast<uint32_t>(logical.y), cce_local_offset);
 }
@@ -292,6 +355,19 @@ uint64_t GrendelNocAddressResolver::to_flat_address(const CoreCoord& core, uint6
             to_str(core_type),
             channel,
             logical.y,
+            offset,
+            address);
+        return address;
+    }
+
+    if (core_type == CoreType::ETH && keraunos_core_at(*soc_descriptor_, tt_xy_pair(noc0_xy.x, noc0_xy.y)) != nullptr) {
+        const uint64_t address = keraunos_sram_address(CoreCoord(noc0_xy, CoreType::ETH, CoordSystem::NOC0), offset);
+        log_debug(
+            tt::LogUMD,
+            "Grendel ATT: core ({}, {}) type {} -> Keraunos SRAM, offset 0x{:x} -> flat 0x{:x}",
+            x,
+            y,
+            to_str(core_type),
             offset,
             address);
         return address;

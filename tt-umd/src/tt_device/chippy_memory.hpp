@@ -22,17 +22,19 @@ namespace tt::umd {
 class SocDescriptor;
 
 /**
- * Chippy Memory windows for a one- or two-Mimir package reached in chiplet-local AXI.
+ * Chippy Memory windows for chiplet-local AXI. Mimir contributes config, GDDR, and CCE SRAM
+ * when the descriptor has SMC cores. Keraunos contributes its SRAM and control windows when
+ * the descriptor names that chiplet. A block that is absent adds no windows.
  *
  * Used by both emu_axi and JTAG2AXI so aligned SRAM/DRAM/config accesses take the same
  * bulk_read_bytes / bulk_write_bytes path. Unaligned or partial transfers fall back to
  * TransportInterface::read/write with a 4-byte minimum word size.
  */
-class MimirChippyMemoryMap : public FlatAddressTransport {
+class ChippyMemoryMap : public FlatAddressTransport {
 public:
     using Transport = chippy::transport::TransportInterface;
 
-    MimirChippyMemoryMap(
+    ChippyMemoryMap(
         const SocDescriptor& soc_descriptor,
         std::vector<std::shared_ptr<Transport>> chiplet_transports,
         std::string device_name);
@@ -59,6 +61,15 @@ private:
     MemoryRegion make_region(
         uint64_t flat_base, uint64_t local_base, std::size_t size, const std::shared_ptr<Transport>& transport);
     MemoryRegion* find_memory(uint64_t address, std::size_t size) const;
+    // Each present block consumes the next transports. A missing block consumes none.
+    void add_mimir_regions(
+        const SocDescriptor& soc_descriptor,
+        const std::vector<std::shared_ptr<Transport>>& chiplet_transports,
+        std::size_t& transport_index);
+    void add_keraunos_regions(
+        const SocDescriptor& soc_descriptor,
+        const std::vector<std::shared_ptr<Transport>>& chiplet_transports,
+        std::size_t& transport_index);
 
     std::string device_name_;
     // Memory stores a reference to this flag; it must outlive every ChippyMemory.

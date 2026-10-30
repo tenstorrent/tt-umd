@@ -138,15 +138,15 @@ enum class NocAddressSpace {
 };
 
 class PCIDevice {
-    const std::string device_path;    // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;        // N in /dev/tenstorrent/N
-    const int pci_device_file_desc;  // Character device file descriptor
-    const PciDeviceInfo info;        // PCI device info
-    const int numa_node;             // -1 if non-NUMA
-    const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
-    const SemVer kmd_version;        // KMD version
-    const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;       // N in /dev/tenstorrent/N
+    int pci_device_file_desc = -1;  // Character device file descriptor, -1 until opened
+    const PciDeviceInfo info;       // PCI device info
+    const int numa_node;            // -1 if non-NUMA
+    const int revision;             // PCI revision value from sysfs
+    const tt::ARCH arch;            // e.g. Wormhole, Blackhole
+    const SemVer kmd_version;       // KMD version
+    const bool iommu_enabled;       // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
 public:

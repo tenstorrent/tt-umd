@@ -398,17 +398,14 @@ static int open_pci_device(const std::string &device_path) {
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info))
+    iommu_enabled(detect_iommu(info)) {
+    // The destructor does not run for a constructor that throws, so release whatever was acquired before the throw.
     try {
-        // The whole constructor runs under this catch: a member initializer (read_device_info,
-        // read_sysfs, ...) can throw after the device fd is open, and the destructor does not
-        // run for a constructor that throws, so the catch releases what has been acquired.
         construct_resources();
     } catch (...) {
         release_resources();
@@ -417,6 +414,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 void PCIDevice::construct_resources() {
+    pci_device_file_desc = open_pci_device(device_path);
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
@@ -432,7 +430,7 @@ void PCIDevice::construct_resources() {
             fmt::format(
                 "tt_device_open failed with error code {} for PCI device with device ID {} ({}).",
                 ret_code,
-                pci_device_number,
+                pci_device_num,
                 info.pci_bdf));
     }
 
@@ -595,9 +593,7 @@ void PCIDevice::release_resources() {
     }
 }
 
-PCIDevice::~PCIDevice() {
-    release_resources();
-}
+PCIDevice::~PCIDevice() { release_resources(); }
 
 uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     const uint64_t virtual_address = reinterpret_cast<std::uintptr_t>(buffer);

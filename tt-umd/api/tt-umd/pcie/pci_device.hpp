@@ -5,7 +5,6 @@
 #pragma once
 
 #include <fmt/format.h>
-#include <unistd.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -139,31 +138,8 @@ enum class NocAddressSpace {
 };
 
 class PCIDevice {
-    // Closes the device file if the constructor throws; the destructor does not run then. Released on success.
-    struct FdGuard {
-        explicit FdGuard(int fd) : fd(fd) {}
-
-        FdGuard(const FdGuard &) = delete;
-        FdGuard &operator=(const FdGuard &) = delete;
-
-        ~FdGuard() {
-            if (fd >= 0) {
-                ::close(fd);
-            }
-        }
-
-        int release() {
-            int f = fd;
-            fd = -1;
-            return f;
-        }
-
-        int fd;
-    };
-
-    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;       // N in /dev/tenstorrent/N
-    FdGuard pci_device_fd_guard;
+    const std::string device_path;    // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;        // N in /dev/tenstorrent/N
     const int pci_device_file_desc;  // Character device file descriptor
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
@@ -484,6 +460,18 @@ public:
     uint32_t read_checking_offset;
 
 private:
+    /**
+     * Closes the tt_device handle, the device file descriptor and every BAR mapping. Called by the
+     * destructor, and by the constructor when it throws, so a partially constructed device leaks nothing.
+     */
+    void release_resources();
+
+    /**
+     * Runs everything after the constructor's member initializers: opening the tt_device handle
+     * and mapping the BARs. Called only by the constructor.
+     */
+    void construct_resources();
+
     /**
      * Function will allocate PCIe DMA buffer that UMD uses for PCIe DMA transfers. To make the process of allocation
      * robust, allocation tries to allocate larger DMA buffers first and then shrinks the size until it reaches the

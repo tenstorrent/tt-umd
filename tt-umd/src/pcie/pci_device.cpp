@@ -398,14 +398,25 @@ static int open_pci_device(const std::string &device_path) {
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_fd_guard(open_pci_device(device_path)),
-    pci_device_file_desc(pci_device_fd_guard.fd),
+    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)) {
+    iommu_enabled(detect_iommu(info))
+    try {
+        // The whole constructor runs under this catch: a member initializer (read_device_info,
+        // read_sysfs, ...) can throw after the device fd is open, and the destructor does not
+        // run for a constructor that throws, so the catch releases what has been acquired.
+        construct_resources();
+    } catch (...) {
+        release_resources();
+        throw;
+    }
+}
+
+void PCIDevice::construct_resources() {
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
@@ -414,35 +425,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
     int extra_flags = 0;
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
-
-    // Closes the handle on any later throw; the destructor does not run for a constructor that throws.
-    struct HandleGuard {
-        tt_device_t *&handle;
-        bool armed = true;
-
-        ~HandleGuard() {
-            if (armed && handle != nullptr) {
-                tt_device_close(handle);
-                handle = nullptr;
-            }
-        }
-    } handle_guard{tt_device_handle};
-
-    // Unmaps a BAR mapping on any later constructor throw; the destructor does not run for a
-    // constructor that throws. Released on success.
-    struct MappingGuard {
-        MappingGuard(void *&m, size_t s) : mapping(m), size(s) {}
-
-        void *&mapping;
-        size_t size;
-        bool armed = true;
-
-        ~MappingGuard() {
-            if (armed && mapping != nullptr && mapping != MAP_FAILED) {
-                munmap(mapping, size);
-            }
-        }
-    };
 
     if (ret_code != 0) {
         UMD_THROW(
@@ -503,16 +485,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
             mapping.size);
     }
 
-    // Validate every BAR mapping id before the first mmap, so no mapping is left behind by a
-    // later id check or mmap failure.
     if (bar0_uc_mapping.id != TT_BAR_MAPPING_RESOURCE0_UC) {
         UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
-    }
-    if (arch == tt::ARCH::WORMHOLE_B0 && bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
-        UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
-    }
-    if (arch == tt::ARCH::BLACKHOLE && bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
-        UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
     }
 
     bar0 = mmap(
@@ -526,10 +500,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
     if (bar0 == MAP_FAILED) {
         UMD_THROW(error::RuntimeError, fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
     }
-
-    // Unmaps the BAR0 mapping on a later constructor throw; the destructor does not run for a
-    // constructor that throws. Disarmed once the constructor succeeds.
-    MappingGuard bar0_guard{bar0, PCIDevice::bar0_size};
 
     // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
     // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
@@ -548,11 +518,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             fmt::format("TLB configuration registers mapping failed for device {}.", pci_device_num));
     }
 
-    // Unmaps the TLB config space mapping on a later constructor throw.
-    MappingGuard tlb_config_space_guard{tlb_config_space, PCIDevice::tlb_config_space_size};
-    std::optional<MappingGuard> bar2_uc_guard;  // armed only on the arch that maps BAR2
-
     if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
+            UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
+        }
+
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
@@ -565,10 +535,12 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
-
-        bar2_uc_guard.emplace(bar2_uc, bar2_uc_size);
     } else if (arch == tt::ARCH::BLACKHOLE) {
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
+        if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
+            UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
+        }
+
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
@@ -581,35 +553,29 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
-
-        bar2_uc_guard.emplace(bar2_uc, bar2_uc_size);
     }
 
     allocate_pcie_dma_buffer();
-
-    // All mappings are in place: disarm the mapping guards, then the fd and handle guards, so
-    // none of them cleans up a fully constructed device.
-    bar0_guard.armed = false;
-    tlb_config_space_guard.armed = false;
-    if (bar2_uc_guard) {
-        bar2_uc_guard->armed = false;
-    }
-    handle_guard.armed = false;
-    pci_device_fd_guard.release();
 }
 
-PCIDevice::~PCIDevice() {
-    int ret_code = tt_device_close(tt_device_handle);
-
-    if (ret_code != 0) {
-        log_warning(
-            LogUMD,
-            "tt_device_close failed with error code {} for PCI device with device ID {}.",
-            ret_code,
-            pci_device_num);
+void PCIDevice::release_resources() {
+    // Closes the tt_device handle, the device file descriptor and every BAR mapping. Safe to call
+    // on a partially constructed device: every member is default-initialized to a null/empty state.
+    if (tt_device_handle != nullptr) {
+        int ret_code = tt_device_close(tt_device_handle);
+        if (ret_code != 0) {
+            log_warning(
+                LogUMD,
+                "tt_device_close failed with error code {} for PCI device with device ID {}.",
+                ret_code,
+                pci_device_num);
+        }
+        tt_device_handle = nullptr;
     }
 
-    close(pci_device_file_desc);
+    if (pci_device_file_desc >= 0) {
+        close(pci_device_file_desc);
+    }
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
@@ -627,6 +593,10 @@ PCIDevice::~PCIDevice() {
         TracyFreeN(dma_buffer.buffer, "DMA");
         munmap(dma_buffer.buffer, dma_buffer.size + static_cast<size_t>(sysconf(_SC_PAGESIZE)));
     }
+}
+
+PCIDevice::~PCIDevice() {
+    release_resources();
 }
 
 uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {

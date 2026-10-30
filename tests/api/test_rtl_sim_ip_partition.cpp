@@ -259,6 +259,35 @@ TEST_F(RtlSimIpPartitionTest, FlatAddressesReachUpperL1) {
     }
 }
 
+// A write to a Tensix L1 word's atomic flat address increments that word by the written value, through
+// every access point. The word is 16-byte aligned, as atomics need. Skips without atomic flat addresses.
+TEST_F(RtlSimIpPartitionTest, AtomicFlatAddressesIncrementL1) {
+    constexpr uint64_t COUNTER_ADDR = 0x5'0100;
+    constexpr uint32_t START = 0x1000;
+    constexpr uint32_t INCREMENT = 3;
+    bool checked = false;
+    for (tt::ChipId chip : cluster_->get_target_device_ids()) {
+        auto* device = dynamic_cast<RtlSimulationTTDevice*>(cluster_->get_tt_device(chip));
+        ASSERT_NE(device, nullptr);
+        for (const AccessPointId access_point : device->get_access_points()) {
+            const std::optional<uint64_t> address = device->get_flat_address(
+                access_point, tensix(chip), WindowFlags::Atomic, IoOrdering::Posted, COUNTER_ADDR);
+            if (!address.has_value()) {
+                continue;
+            }
+            checked = true;
+            write32(chip, COUNTER_ADDR, START);
+            device->get_communicator()->global_write_words(*address, &INCREMENT, sizeof(INCREMENT));
+            EXPECT_EQ(read32(chip, COUNTER_ADDR), START + INCREMENT)
+                << "chip " << chip << ": incremented through access point " << static_cast<uint32_t>(access_point)
+                << " at 0x" << std::hex << *address;
+        }
+    }
+    if (!checked) {
+        GTEST_SKIP() << "No device has atomic flat addresses.";
+    }
+}
+
 // On Horizon (the SoC descriptor's ip_variant), UMD resets a core by writing its TSC itself, so a
 // reset reaches that core of that device only, whichever socket the device talks over. It holds and
 // releases the DM uncore, which runs nothing while the DM cores stay held.

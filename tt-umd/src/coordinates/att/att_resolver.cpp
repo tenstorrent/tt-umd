@@ -161,12 +161,22 @@ std::optional<uint64_t> resolve_io_window(
     WindowFlags flags,
     IoOrdering /*ordering*/,
     uint64_t offset) {
-    // Currently only unicast, in any ordering.
-    if ((flags & ~WindowFlags::DirectionMask) != WindowFlags::None ||
-        (flags & WindowFlags::DirectionMask) == WindowFlags::MulticastWrite) {
+    // Currently unicast, and atomic writes to a worker's L1, in any ordering.
+    const WindowFlags direction = flags & WindowFlags::DirectionMask;
+    const WindowFlags type = flags & ~WindowFlags::DirectionMask;
+    if (direction == WindowFlags::MulticastWrite || (type != WindowFlags::None && type != WindowFlags::Atomic)) {
         return std::nullopt;
     }
-    return resolve_core(resolver, soc_descriptor, core, offset, /*size=*/1);
+    const uint64_t address = resolve_core(resolver, soc_descriptor, core, offset, /*size=*/1);
+    if (type == WindowFlags::None) {
+        return address;
+    }
+    const MapData& map = resolver.map();
+    const Window& worker = map.windows[static_cast<size_t>(WindowClass::WORKER)];
+    if (direction == WindowFlags::UnicastRead || map.worker_atomic_compare == 0 || !worker.matches(address)) {
+        return std::nullopt;
+    }
+    return map.worker_atomic_compare + (address - worker.compare);
 }
 
 uint64_t resolve_translated(

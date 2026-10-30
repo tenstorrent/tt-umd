@@ -108,6 +108,17 @@ TEST(ArchitectureTlbs, ConfigRegistersAreHostWritableOnlyWhereTheHostCanReachThe
     EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::QUASAR).cfg_registers_host_writable);
 }
 
+// A caller that asks for an ordering the entry has no field for must be refused rather than told it
+// got one, so the resolution of IoOrdering turns on this flag.
+TEST(ArchitectureTlbs, OrderingIsCarriedOnlyWhereTheEntryHasAFieldForIt) {
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).carries_ordering);
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).carries_ordering);
+
+    // A Quasar entry is a target address plus an attribute field that reaches only the NOC security
+    // header; there is nowhere in it for ordering.
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::QUASAR).carries_ordering);
+}
+
 // Zero rather than a plausible-looking address, so anything that reads these on Quasar gets an
 // obviously wrong answer rather than a quietly wrong one.
 TEST(ArchitectureTlbs, QuasarHasNoConfigRegisterAddress) {
@@ -115,4 +126,15 @@ TEST(ArchitectureTlbs, QuasarHasNoConfigRegisterAddress) {
 
     EXPECT_EQ(tlbs.static_cfg_addr, 0u);
     EXPECT_EQ(tlbs.cfg_reg_size_bytes, 0u);
+}
+
+// Whether a window can honor WindowFlags::NonCacheable turns on this, so a wrong value either
+// refuses a flag the hardware could have carried or accepts one it has nowhere to put.
+TEST(ArchitectureTlbs, AxiAttributesAreCarriedOnlyWhereTheEntryHasRoomForThem) {
+    // A Wormhole or Blackhole TLB register has no attribute field at all.
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).carries_axi_attributes);
+    EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).carries_axi_attributes);
+
+    // Quasar's entry carries attr[4:0]: the non-cacheable bit and the AxQOS id.
+    EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::QUASAR).carries_axi_attributes);
 }

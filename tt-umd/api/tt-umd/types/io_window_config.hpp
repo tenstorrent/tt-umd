@@ -49,6 +49,7 @@ enum class WindowFlags : uint32_t {
     None = 0,
     Atomic = 1 << 0,  ///< Issue transaction as atomic on the target interconnect.
     Snoop = 1 << 1,   ///< Mark transaction as snoopable for cache coherency.
+    NonCacheable = 1 << 4,  ///< Drive AxCACHE to 0 instead of 0xF on the window's accesses.
 
     Bidirectional = 0 << 2,   ///< Mapping serves both reads and writes. Default.
     UnicastWrite = 1 << 2,    ///< Mapping serves writes to a single core.

@@ -52,6 +52,9 @@ tlb_data TlbWindow::make_tlb_config(
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(flags));
+    // Carried in the window's own configuration rather than on the transaction, so an
+    // architecture that has nowhere to put it rejects the flag before reaching here.
+    config.noncacheable = (flags & WindowFlags::NonCacheable) != WindowFlags::None ? 1 : 0;
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;
@@ -93,7 +96,13 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
     read_register(offset, data, size);
 }
 
-void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
+void TlbWindow::configure(const TargetIoWindowConfig& config) {
+    // No ordering was asked for, so take the strongest this window can actually provide. Asking for
+    // Strict where the entry has no ordering field would record a guarantee the window never got.
+    configure(
+        config,
+        get_architecture_tlbs(handle_ref().get_arch()).carries_ordering ? IoOrdering::Strict : IoOrdering::Relaxed);
+}
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
     // The direction field is encoded into the TLB mapping; anything else must be honored by the
@@ -104,6 +113,13 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         "Requested WindowFlags are not supported by this TLB-backed IoWindow.");
 
     UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
+
+    // An ordering this window's entry has no field for is refused rather than recorded and silently
+    // not applied.
+    UMD_ASSERT(
+        ordering == IoOrdering::Relaxed || get_architecture_tlbs(handle_ref().get_arch()).carries_ordering,
+        error::RuntimeError,
+        "This TLB-backed IoWindow carries no transaction ordering, so only Relaxed can be honored.");
 
     // A TLB mapping has no field for the non-direction flags, so they are kept as window state.
     window_flags_ = config.flags & ~WindowFlags::DirectionMask;

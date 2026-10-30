@@ -19,8 +19,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
-          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G}
+          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          # Grendel wants three things the other cards do not: a BAR0 big enough to hold tt-kmd's own
+          # TLB window (entry 164, 2.56 GB in), a driver that knows Keraunos, and the inbound TLB and
+          # ATT programming that firmware would have left done. GrendelDmaLoopbackTest is left out on
+          # purpose: nothing in the model routes the host window, and the miss aborts the simulator
+          # rather than failing the case, which would take the whole job with it.
+          - {card: grendel, lib: libttsim_qsr.so, bar4-size: 512G,
+             vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup",
+             tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*"}
+    # Grendel cannot pass until ttsim-qemu carries a bar0-size property; it reports without failing the
+    # pipeline until then. See docs/TTSIM_QEMU.md.
+    continue-on-error: ${{ matrix.card == 'grendel' }}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
     runs-on: ubuntu-22.04
     container:
@@ -45,11 +58,12 @@ jobs:
 
       - name: Check tt-kmd binds the simulated chip
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
-              ls -l /dev/tenstorrent/0
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
+              ${{ matrix.vm-opts }} -- ls -l /dev/tenstorrent/0
 
-      - name: Open all chips
+      - name: Run the tests this card covers
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
+              ${{ matrix.vm-opts }} -- \
               env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-              --gtest_filter=ApiClusterTest.OpenAllSiliconChips
+              --gtest_filter='${{ matrix.tests }}'

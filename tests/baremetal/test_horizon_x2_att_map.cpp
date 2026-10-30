@@ -158,6 +158,8 @@ TEST_P(HorizonX2DramBank, MatchesTheTables) {
     ASSERT_TRUE(mask_entry.IsDefined());
     EXPECT_EQ(mask_entry["mask"].as<uint32_t>(), window.endpoint_shift);
     EXPECT_EQ(mask_entry["ep_id_size"].as<uint32_t>(), 0u);
+    // The folded window spans both 1 GB banks.
+    EXPECT_EQ(window.mask_bits, 31u);
     EXPECT_EQ(window.translate_address, mask_entry["translate_addr"].as<int>() == 1);
     EXPECT_EQ(entry.map->endpoint_words[index][bank], row_word(tables, mask_entry["table_offset"].as<uint32_t>()));
 }
@@ -187,16 +189,17 @@ INSTANTIATE_TEST_SUITE_P(
     PerAccessPoint,
     HorizonX2Resolve,
     ::testing::Values(
-        ResolveCase{0, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x10'4025'0000},
-        ResolveCase{1, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x11'4025'0000},
-        ResolveCase{2, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x20'4025'0000},
-        ResolveCase{3, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x21'4025'0000},
+        ResolveCase{0, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x10'4085'0000},
+        ResolveCase{1, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x11'4085'0000},
+        ResolveCase{2, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x20'4085'0000},
+        ResolveCase{3, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x21'4085'0000},
+        // Past the first 1 MB, still in Tensix (1,0)'s L1 slot.
+        ResolveCase{0, {1, 0}, CoreType::TENSIX, 0x20'0000, 0x10'40E0'0000},
         // The TSC reset register of Tensix (0,0), past L1, so through its CSR.
         ResolveCase{0, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x10'9303'3088},
         ResolveCase{1, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x11'9303'3088},
         ResolveCase{2, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x20'9303'3088},
         ResolveCase{3, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x21'9303'3088},
-        ResolveCase{0, {1, 0}, CoreType::TENSIX, 0x10'0000, 0x10'9810'0000},
         ResolveCase{0, {0, 1}, CoreType::DISPATCH, 0, 0x10'8000'0000},
         ResolveCase{3, {1, 1}, CoreType::DISPATCH, 0, 0x21'8800'0000},
         ResolveCase{1, {1, 2}, CoreType::DRAM, 0x100, 0x13'4000'0100},
@@ -241,6 +244,8 @@ INSTANTIATE_TEST_SUITE_P(
     HorizonX2ColumnResolve,
     ::testing::Values(
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x10'4005'0000},
+        // Past the first 1 MB, still in Tensix (0,0)'s L1 slot.
+        ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x20'0000, 0x10'4020'0000},
         // The TSC reset register of Tensix (0,0), past L1, so through its CSR.
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x10'8303'3088},
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 1}, CoreType::DISPATCH, 0, 0x10'8800'0000},

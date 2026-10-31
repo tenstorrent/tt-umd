@@ -26,7 +26,7 @@
 
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

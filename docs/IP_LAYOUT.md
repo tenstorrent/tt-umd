@@ -1,59 +1,63 @@
 # IP layout
 
-`IpLayout` ([ip_layout.hpp](../tt-umd/api/tt-umd/topology/ip_layout.hpp)) describes how an IP's access points split it into devices.
+`IpBlockLayout` ([ip_block_layout.hpp](../tt-umd/api/tt-umd/topology/ip_block_layout.hpp)) describes how the system's access points split its IP blocks into devices.
 The access points may be reached over one or more host connections (e.g. `/dev/tenstorrent/<N>` fds, or one simulator run).
 Mapping an access point to its connection is up to the implementation.
 
-- **Access point:** a host access resource over which the IP is reached, identified by `AccessPointId`. The id is an opaque ordinal (`0..N-1`) and does not correspond to a location in the IP.
-- **Device:** one ATT view, identified by `IpDeviceId`, an ordinal within the IP. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster assigns a `ChipId` per (IP, `IpDeviceId`).
+- **Access point:** a host access resource over which an IP block is reached, identified by `AccessPointId`. The id is an opaque ordinal (`0..N-1` across the whole system) and does not correspond to a location in the IP block.
+- **Device:** one ATT view, not an IP block (an IP block holds one or more devices, and the system one or more IP blocks), identified by `IpDeviceId`, an ordinal (`0..N-1`) across the whole system. `get_devices()` maps each device to the access points that see that view, which form the pool of resources for one TTDevice. `IpDeviceId` is neither an mmio id nor a `ChipId`: Cluster numbers the devices it opens from `ChipId` 0, so there may be fewer `ChipId`s than `IpDeviceId`s.
 - **Location:** `get_location()` returns an access point's `coord` and `flat_address`. Each field is set once known:
   - `coord`: the access point's tile, in the frame of the device it belongs to.
-  - `flat_address`: the global address at which the host reaches the access point through the ATT. It is distinct for every access point. It is unset when the ATT is off (gasket mode) or when the host is coupled to the access point directly.
+  - `flat_address`: the global address at which the host reaches the access point through the ATT: the base of its window onto the device's L1. It is distinct for every access point. It is unset when the ATT is off (gasket mode).
 
 The layout states the expected configuration. Checking it against the ATT is a separate step.
 
 ## ATT
 
-A device is a view of the IP set by its Address Translation Table (ATT). Every NOC endpoint (each tile, and each host bridge such as a NOC2AXI) has one:
+A device is a view of an IP block set by its Address Translation Table (ATT). Every NOC endpoint (each tile, and each host bridge such as a NOC2AXI) has one:
 
 - **Mask entries** match address ranges.
 - **The endpoint table** gives the tile each range reaches.
 - The rest of the address becomes the tile-local address.
 
-Programming the ATTs so that a device's ranges reach only its own tiles splits one IP into several devices. With the ATT off (gasket mode), the host addresses tiles directly by coordinate, and the split is only a convention between the users of the access points.
+Programming the ATTs so that a device's ranges reach only its own tiles splits one IP block into several devices. With the ATT off (gasket mode), the host addresses tiles directly by coordinate, and the split is only a convention between the users of the access points.
 
 ## Constraints
 
-- Current consumers assume one host connection (fd) per IP.
+- Current consumers assume one host connection (fd) per system.
 - The interface allows several connections, but an implementation that uses several needs rework of the components tied to the fd:
   - DMA pinning and sysmem, which are per connection: an IOVA is valid only for the fd that pinned it;
   - `TTDevice::get_communication_device_id()`, which returns the mmio id and is used as both a connection id and a device id.
 
 ## RTL simulation / emulation
 
-`RtlSimIpLayout` reads `<simulator_directory>/ip_layout.yaml`.
+`RtlSimIpBlockLayout` reads `<simulator_directory>/ip_layout.yaml`.
 
-Each access point has two sides:
+Each access point has these fields:
 
+- `ip_block`: the IP block the access point belongs to, numbered from 0.
 - `host_access`: how the host reaches the access point. Its meaning is up to the implementation: in RTL simulation/emulation it names the socket (UMD serves `NNG_SOCKET_ADDR_<host_access>`, matching the simulator's device id); on silicon it could be, for example, the AXI base address of the IP block in the host's address space.
 - `coord`: the access point's NOC2AXI tile, in the frame of the device it belongs to.
-- `flat_address`: the access point's global address through the ATT, distinct for every access point. Omitted here: each Horizon socket is coupled directly to its column's NOC2AXI, with no shared host address space in front of it.
+- `flat_address`: the access point's global address through the ATT, the base of its table's L1 window in the `TT_UMD_NOC_ATT` map, distinct for every access point.
 
-`host_access` is required. `coord` and `flat_address` are optional, since they may be unknown until the ATT is known.
+`ip_block` and `host_access` are required, so that every layout states its IP blocks. `flat_address` is required when `TT_UMD_NOC_ATT` names a map with a table per access point, and a device opens only if each of its access points states the address that map gives; it is ignored otherwise. On Horizon, opening also reads every Tensix and Dispatch tile's own coordinate through each access point's table, and fails if the build's ATT sends that address to another tile. `coord` is optional.
 
 Other rules:
 
-- An access point's id is its position in `access_points`.
+- An access point's id (`AccessPointId`) is its position in the top-level `access_points` list, from 0. A device's `access_points` lists its access points by these ids.
+- A device's access points must all be on one IP block: a device is a view of one IP block.
 - A device's id is its `id` field, or its position in `devices` when no device has one. Give every device an `id`, or none. Ids must be `0..N-1`, each once.
 - Each device needs a `soc_descriptor`. Its path is relative to `simulator_directory`, and the file must exist.
 
-One device (the whole IP), reached over both columns' NOC2AXI tiles:
+One device (the whole IP block), reached over both columns' NOC2AXI tiles:
 
 ```yaml
 access_points:
   - host_access: col0            # socket NNG_SOCKET_ADDR_col0
+    ip_block: 0
     coord: [0, 2]                # NOC2AXI tile, in the device's frame
   - host_access: col1
+    ip_block: 0
     coord: [1, 2]
 devices:
   - access_points: [0, 1]
@@ -65,8 +69,10 @@ Two devices, one per column (ATT split). Both use the same soc descriptor, since
 ```yaml
 access_points:
   - host_access: col0            # left column's NOC2AXI
+    ip_block: 0
     coord: [0, 2]
   - host_access: col1            # right column's NOC2AXI, (0, 2) in its device's frame
+    ip_block: 0
     coord: [0, 2]
 devices:
   - access_points: [0]
@@ -77,7 +83,55 @@ devices:
 
 ## Opening a layout
 
-A build with an `ip_layout.yaml` opens as one chip per device: `create_rtl_sim_ip_layout_tt_devices()` starts one `RtlSimSession` over the devices' sockets and creates one `RtlSimulationTTDevice` per device, each on its device's socket and with its device's SoC descriptor. For now a device must have exactly one access point.
+A build with an `ip_layout.yaml` opens as one chip per device: `create_rtl_sim_ip_layout_tt_devices()` creates one `RtlSimulationTTDevice` per device, with its device's SoC descriptor and all its access points, in one `RtlSimSession`. Each device picks the access point it talks over, its first for now, and only those sockets are served. Devices talking over the same `host_access` share that socket: its requests take one turn at a time, and the remote is told to exit once the last of them closes.
+
+## Core resets
+
+An RTL simulation device resets its cores the way its IP variant, the SoC descriptor's `ip_variant`, does. On Horizon UMD writes the core's TSC itself (`TSC_RESET_CTRL` and the overlay soft resets of each Tensix and Dispatch tile), through the device's own IO: the reset reaches the core it names, on the device it names, whichever socket the device talks over. A device of any other variant, or with none, resets its cores by asking the testbench, which acts on the socket's own device.
+
+```yaml
+ip_variant: horizon
+```
+
+## Flat addresses for fabric
+
+With an ATT map named in `TT_UMD_NOC_ATT`, a device has flat addresses: the global addresses another device's kernels use to reach its tiles. Fabric reads them, by access point; the device's own IO is unaffected.
+
+- `TTDevice::get_access_points()` lists the access points the device owns, as ordinals of `ip_layout.yaml`.
+- `TTDevice::get_flat_address(access_point, core, flags, ordering, offset)` gives the flat address of `offset` in `core`'s memory, for an IoWindow with `flags` (`WindowFlags`) and `ordering` (`IoOrdering`). It is `nullopt` when the device has no map, or the map has no window for those flags. The maps carried today have unicast windows only.
+
+A map has one table for every access point, or one per access point of the build's `ip_layout.yaml`, in its order; a device's own IO resolves through the table of the access point it talks over. `horizon_x2` (two whole Horizon devices behind linked crossbars, aether `horizon_x2`) gives each NOC2AXI its own range over its whole device, so a device's two access points give different addresses: Tensix (0,0)'s L1 is at `0x10_4020_0000` through device 0's NOC2AXI 0 and at `0x11_4020_0000` through its NOC2AXI 1. The build programs the matching tables, `tests/att_maps/horizon_x2_per_noc2axi.yaml`, through its `ATT_CONFIG`.
+
+`horizon_x2_columns` splits both devices by column: each column is a device with a 1x3 soc descriptor at x = 0, mapped only by its own NOC2AXI, in that NOC2AXI's range (tables: `tests/att_maps/horizon_x2_columns.yaml`). Its tables follow the access points of this layout, in this order, so a build lists all of them even when its processes open only some devices (`TT_VISIBLE_DEVICES`):
+
+```yaml
+access_points:
+  - host_access: dev0_port0      # IP block 0, column 0
+    ip_block: 0
+    coord: [0, 2]
+    flat_address: 0x1040000000
+  - host_access: dev0_port1      # IP block 0, column 1
+    ip_block: 0
+    coord: [0, 2]
+    flat_address: 0x1140000000
+  - host_access: dev1_port0      # IP block 1, column 0
+    ip_block: 1
+    coord: [0, 2]
+    flat_address: 0x2040000000
+  - host_access: dev1_port1      # IP block 1, column 1
+    ip_block: 1
+    coord: [0, 2]
+    flat_address: 0x2140000000
+devices:
+  - access_points: [0]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [1]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [2]
+    soc_descriptor: soc_descriptor_column.yaml
+  - access_points: [3]
+    soc_descriptor: soc_descriptor_column.yaml
+```
 
 ## One process or several
 
@@ -90,7 +144,7 @@ A build with an `ip_layout.yaml` opens as one chip per device. A process opens t
 
 ## Validation
 
-`validate_ip_layout()` throws when:
+`validate_ip_block_layout()` throws when:
 
 - there are no devices;
 - device ids aren't `0..N-1`;

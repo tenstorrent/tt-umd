@@ -20,12 +20,18 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <unordered_set>
 #include <vector>
 
-#include "simulation/rtl_sim_ip_layout.hpp"
+#include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/types/risc_type.hpp"
 
 using namespace tt::umd;
 
@@ -39,6 +45,9 @@ constexpr uint64_t ATT_EP_TABLE_BASE = 0x0201'2000;
 constexpr uint32_t ATT_EP_STRIDE = 4;
 // Endpoint id (y << 6) | x of virtual (2,0): outside a device's grid, so nothing routes through it.
 constexpr uint32_t UNUSED_EP_ID = 2;
+// Horizon's TSC_RESET_CTRL, 8 bytes, and its uncore_reset_n (1 = released).
+constexpr uint64_t TSC_RESET_CTRL = 0x0303'3088;
+constexpr uint32_t TSC_DM_UNCORE_BIT = 24;
 
 std::vector<uint32_t> marker(uint32_t tag) {
     std::vector<uint32_t> data(16);
@@ -53,10 +62,10 @@ protected:
     static void SetUpTestSuite() {
         const char* simulator = std::getenv("TT_UMD_SIMULATOR");
         if (simulator == nullptr ||
-            !std::filesystem::exists(std::filesystem::path(simulator) / RtlSimIpLayout::FILE_NAME)) {
+            !std::filesystem::exists(std::filesystem::path(simulator) / RtlSimIpBlockLayout::FILE_NAME)) {
             return;
         }
-        layout_ = std::make_unique<RtlSimIpLayout>(simulator);
+        layout_ = std::make_unique<RtlSimIpBlockLayout>(simulator);
 
         ClusterOptions options;
         options.chip_type = ChipType::SIMULATION;
@@ -100,7 +109,13 @@ protected:
 
     static uint32_t table_offset(tt::ChipId chip) { return (read32(chip, APB_PORT | ATT_MASK_ENTRY_0) >> 18) & 0x3FF; }
 
-    static inline std::unique_ptr<RtlSimIpLayout> layout_;
+    static bool dm_uncore_released(tt::ChipId chip) {
+        uint64_t value = 0;
+        cluster_->read_from_device(&value, chip, tensix(chip), TSC_RESET_CTRL, sizeof(value));
+        return ((value >> TSC_DM_UNCORE_BIT) & 1) != 0;
+    }
+
+    static inline std::unique_ptr<RtlSimIpBlockLayout> layout_;
     static inline std::unique_ptr<Cluster> cluster_;
 };
 
@@ -173,6 +188,69 @@ TEST_F(RtlSimIpPartitionTest, HorizonAttReadModifyWriteBack) {
 
         write32(chip, slot, original);
         EXPECT_EQ(read32(chip, slot), original) << "chip " << chip;
+    }
+}
+
+// Each of a device's access points has its own flat address of a tile, and all of them reach that
+// tile: a marker written through one access point reads back through every other. Skips without flat
+// addresses (TT_UMD_NOC_ATT) or a device with two access points.
+TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
+    const size_t bytes = marker(0).size() * sizeof(uint32_t);
+    bool checked = false;
+    for (tt::ChipId chip : cluster_->get_target_device_ids()) {
+        auto* device = dynamic_cast<RtlSimulationTTDevice*>(cluster_->get_tt_device(chip));
+        ASSERT_NE(device, nullptr);
+        std::vector<uint64_t> addresses;
+        for (const AccessPointId access_point : device->get_access_points()) {
+            const std::optional<uint64_t> address = device->get_flat_address(
+                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::Strict, L1_ADDR);
+            if (address.has_value()) {
+                addresses.push_back(*address);
+            }
+        }
+        if (addresses.size() < 2) {
+            continue;
+        }
+        checked = true;
+        for (size_t writer = 0; writer < addresses.size(); writer++) {
+            const auto data = marker(0xC0000000u | (static_cast<uint32_t>(chip) << 20) | (writer << 16));
+            device->get_communicator()->global_write_words(addresses[writer], data.data(), bytes);
+            for (size_t reader = 0; reader < addresses.size(); reader++) {
+                std::vector<uint32_t> readback(data.size());
+                device->get_communicator()->global_read_words(addresses[reader], readback.data(), bytes);
+                EXPECT_EQ(readback, data) << "chip " << chip << ": written through access point " << writer << " at 0x"
+                                          << std::hex << addresses[writer] << ", read through " << std::dec << reader
+                                          << " at 0x" << std::hex << addresses[reader];
+            }
+        }
+    }
+    if (!checked) {
+        GTEST_SKIP() << "No device has two access points with flat addresses.";
+    }
+}
+
+// On Horizon (the SoC descriptor's ip_variant), UMD resets a core by writing its TSC itself, so a
+// reset reaches that core of that device only, whichever socket the device talks over. It holds and
+// releases the DM uncore, which runs nothing while the DM cores stay held.
+TEST_F(RtlSimIpPartitionTest, ResetsReachOnlyTheirDevice) {
+    const std::set<tt::ChipId> chips = cluster_->get_target_device_ids();
+    for (tt::ChipId chip : chips) {
+        if (cluster_->get_soc_descriptor(chip).get_arch_descriptor().get_ip_variant() != tt::IpVariant::HORIZON) {
+            GTEST_SKIP() << "Chip " << chip << "'s SoC descriptor names no Horizon ip_variant.";
+        }
+    }
+    for (tt::ChipId chip : chips) {
+        cluster_->get_tt_device(chip)->deassert_risc_reset(tensix(chip), RiscType::NEO_DM_UNCORE, false);
+    }
+
+    for (tt::ChipId target : chips) {
+        cluster_->get_tt_device(target)->assert_risc_reset(tensix(target), RiscType::NEO_DM_UNCORE);
+        for (tt::ChipId chip : chips) {
+            EXPECT_EQ(dm_uncore_released(chip), chip != target)
+                << "chip " << chip << "'s DM uncore, with chip " << target << "'s held";
+        }
+        cluster_->get_tt_device(target)->deassert_risc_reset(tensix(target), RiscType::NEO_DM_UNCORE, false);
+        EXPECT_TRUE(dm_uncore_released(target)) << "chip " << target;
     }
 }
 

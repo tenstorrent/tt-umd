@@ -57,6 +57,11 @@ protected:
 
     void discover_remote_devices();
 
+    // A remote device's RemoteCommunication is created the moment its gateway first reaches it, knowing only the
+    // gateway links trained by then. Once discovery is done, spread each one's transfers over every active link of its
+    // gateway.
+    void tunnel_remote_devices_over_all_gateway_links();
+
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
 
     virtual void wait_eth_cores_training(

@@ -1,0 +1,154 @@
+# Horizon x2 split by column, as the testbench programs it (AETHER_ATT_CONFIG): column P of device d
+# is a device of its own, mapped only by its NOC2AXI (P,2), in that NOC2AXI's crossbar range
+# ((d + 1) << 36) + (P << 32). Ours, for the deployment cases that split an IP by column.
+#
+# NOC2AXI rows 1-3 are Tensix (P,0), Dispatch (P,1) and NOC2AXI (P,2); row 4, the selector's last
+# value, is parked. The host reaches DRAM P straight through the crossbar's dram_P range, so the
+# NOC2AXI has no DRAM entry. Tensix and Dispatch tiles carry tt-metal's horizon_2x3 kernel map
+# (TT_METAL_NOC_ATT=horizon_2x3) for a 1x3 device at x = 0, with the other column's selectors
+# (1, 3, 5) parked. Kernel DRAM accesses leave through (P,2) with the bank-local offset, which no
+# crossbar range holds, so the NOC2AXI's default route takes them to dram_P.
+#
+# test_horizon_x2_att_map.cpp checks the horizon_x2_columns maps against it; a build that runs with
+# TT_UMD_NOC_ATT=horizon_x2_columns passes this file as its ATT_CONFIG.
+devices:
+  - id: 0
+    tiles:
+      - tile: [0, 2]   # column 0's NOC2AXI
+        mask_table:
+          - {index: 0, compare: '0x1040000000', mask: 22, ep_idx: 20, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 0, y: 1}
+          - {index: 3, x: 0, y: 2}
+          - {index: 4, x: 63, y: 63}
+      - tile: [0, 0]   # column 0's Tensix
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 0, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 0, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [0, 1]   # column 0's Dispatch
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 0, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 0, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [1, 2]   # column 1's NOC2AXI
+        mask_table:
+          - {index: 0, compare: '0x1140000000', mask: 22, ep_idx: 20, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 1, y: 1}
+          - {index: 3, x: 1, y: 2}
+          - {index: 4, x: 63, y: 63}
+      - tile: [1, 0]   # column 1's Tensix
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 1, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 1, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [1, 1]   # column 1's Dispatch
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 1, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 1, y: 2}
+          - {index: 6, x: 63, y: 63}
+  - id: 1
+    tiles:
+      - tile: [0, 2]   # column 0's NOC2AXI
+        mask_table:
+          - {index: 0, compare: '0x2040000000', mask: 22, ep_idx: 20, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x2080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 0, y: 1}
+          - {index: 3, x: 0, y: 2}
+          - {index: 4, x: 63, y: 63}
+      - tile: [0, 0]   # column 0's Tensix
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 0, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 0, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [0, 1]   # column 0's Dispatch
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 0, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 0, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 0, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [1, 2]   # column 1's NOC2AXI
+        mask_table:
+          - {index: 0, compare: '0x2140000000', mask: 22, ep_idx: 20, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 1, y: 1}
+          - {index: 3, x: 1, y: 2}
+          - {index: 4, x: 63, y: 63}
+      - tile: [1, 0]   # column 1's Tensix
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 1, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 1, y: 2}
+          - {index: 6, x: 63, y: 63}
+      - tile: [1, 1]   # column 1's Dispatch
+        mask_table:
+          - {index: 0, compare: '0x1800000000', mask: 33, ep_idx: 26, ep_id_size: 6, table_offset: 0, translate_addr: 1, bar: 0}
+          - {index: 1, compare: '0x1000000000', mask: 32, ep_idx: 26, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: 0}
+        noc_endpoint_table:
+          - {index: 0, local: true}
+          - {index: 1, x: 1, y: 0}
+          - {index: 2, x: 63, y: 63}
+          - {index: 3, x: 1, y: 1}
+          - {index: 4, x: 63, y: 63}
+          - {index: 5, x: 1, y: 2}
+          - {index: 6, x: 63, y: 63}

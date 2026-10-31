@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <tuple>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
@@ -17,6 +19,7 @@
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
@@ -305,3 +308,42 @@ TEST(AttHorizonMap, CarriesAFortyBitLocalAddress) {
     EXPECT_NO_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 4, 4));
     EXPECT_THROW(resolver.resolve({0, 2}, CoreType::DRAM, (uint64_t{1} << 40) - 2, 4), std::exception);
 }
+
+// The fabric query: an IoWindow of any unicast direction and any ordering resolves through the unicast
+// window. A literal, typed coordinate skips the descriptor's frame and type lookup.
+class AttIoWindowUnicast : public ::testing::TestWithParam<std::tuple<WindowFlags, IoOrdering>> {};
+
+TEST_P(AttIoWindowUnicast, ResolvesThroughTheUnicastWindow) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    const auto [flags, ordering] = GetParam();
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+    EXPECT_EQ(
+        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, flags, ordering, 0x100),
+        std::optional<uint64_t>(0x100'0000'0100));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AnyDirectionAndOrdering,
+    AttIoWindowUnicast,
+    ::testing::Combine(
+        ::testing::Values(WindowFlags::Bidirectional, WindowFlags::UnicastWrite, WindowFlags::UnicastRead),
+        ::testing::Values(IoOrdering::Relaxed, IoOrdering::Strict, IoOrdering::Posted)));
+
+// The maps carry no multicast, atomic or snoop window, so those IoWindows have no flat address.
+class AttIoWindowWithoutAWindow : public ::testing::TestWithParam<WindowFlags> {};
+
+TEST_P(AttIoWindowWithoutAWindow, HasNoFlatAddress) {
+    const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+    EXPECT_EQ(
+        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, GetParam(), IoOrdering::Strict, 0x100),
+        std::nullopt);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MulticastAtomicSnoop,
+    AttIoWindowWithoutAWindow,
+    ::testing::Values(
+        WindowFlags::MulticastWrite,
+        WindowFlags::UnicastWrite | WindowFlags::Atomic,
+        WindowFlags::UnicastRead | WindowFlags::Snoop));

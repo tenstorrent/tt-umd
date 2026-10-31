@@ -9,23 +9,23 @@
 #include <string>
 #include <vector>
 
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 
 namespace tt::umd {
 
 /**
- * IpLayout of an RTL simulation/emulation build, read from <simulator_directory>/ip_layout.yaml.
+ * IpBlockLayout of an RTL simulation/emulation build, read from <simulator_directory>/ip_layout.yaml.
  *
  * An access point's id is its position in the file's access_points list. A device's id is its `id`
  * field, or its position in the devices list when no device has one (either all devices have an id
  * or none do). An access point's host_access names its
  * socket (NNG_SOCKET_ADDR_<host_access>). soc_descriptor paths are relative to simulator_directory.
  */
-class RtlSimIpLayout : public IpLayout {
+class RtlSimIpBlockLayout : public IpBlockLayout {
 public:
     static constexpr const char* FILE_NAME = "ip_layout.yaml";
 
-    explicit RtlSimIpLayout(const std::filesystem::path& simulator_directory);
+    explicit RtlSimIpBlockLayout(const std::filesystem::path& simulator_directory);
 
     size_t get_num_access_points() const override;
 

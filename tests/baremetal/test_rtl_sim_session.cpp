@@ -4,6 +4,7 @@
 
 #include <arpa/inet.h>
 #include <flatbuffers/flatbuffer_builder.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <nng/nng.h>
@@ -11,21 +12,34 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "simulation_device_generated.h"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/simulation/simulation_host.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 namespace {
@@ -42,6 +56,12 @@ int free_port() {
     ::close(sock);
     EXPECT_TRUE(ok) << "could not reserve a local port";
     return ntohs(addr.sin_port);
+}
+
+// What the mock remote answers a read of the word at @p addr on core (@p x, @p y): unique per core
+// and word, so a response handed to the wrong request is caught.
+uint32_t expected_word(uint32_t x, uint32_t y, uint64_t addr) {
+    return static_cast<uint32_t>(addr) ^ (x << 28) ^ (y << 24);
 }
 
 // The simulator side of one socket: dials the host and sends one message.
@@ -66,6 +86,34 @@ public:
 
     MockRemote(const MockRemote&) = delete;
     MockRemote& operator=(const MockRemote&) = delete;
+
+    // Takes one message, waiting up to @p timeout_ms: answers a read with expected_word()s and counts
+    // an exit in @p exits.
+    void answer_one(int timeout_ms, std::atomic<int>& exits) {
+        void* buf = nullptr;
+        size_t size = 0;
+        nng_socket_set_ms(socket_, NNG_OPT_RECVTIMEO, timeout_ms);
+        if (nng_recv(socket_, &buf, &size, NNG_FLAG_ALLOC) != 0) {
+            return;
+        }
+        const DeviceRequestResponse* request = GetDeviceRequestResponse(buf);
+        if (request->command() == DEVICE_COMMAND_EXIT) {
+            exits++;
+        } else if (request->command() == DEVICE_COMMAND_READ) {
+            const uint32_t x = request->core()->x();
+            const uint32_t y = request->core()->y();
+            std::vector<uint32_t> words(request->size() / sizeof(uint32_t));
+            for (size_t i = 0; i < words.size(); i++) {
+                words[i] = expected_word(x, y, request->address() + i * sizeof(uint32_t));
+            }
+            flatbuffers::FlatBufferBuilder builder;
+            const tt_vcs_core core(x, y);
+            builder.Finish(CreateDeviceRequestResponse(
+                builder, DEVICE_COMMAND_READ, builder.CreateVector(words), &core, request->address(), request->size()));
+            EXPECT_EQ(nng_send(socket_, builder.GetBufferPointer(), builder.GetSize(), 0), 0);
+        }
+        nng_free(buf, size);
+    }
 
     std::string receive() {
         void* buf = nullptr;
@@ -244,5 +292,234 @@ TEST_F(RtlSimSessionTest, KeepsAGivenAddressWithAPinnedPort) {
 
     EXPECT_STREQ(std::getenv("NNG_SOCKET_ADDR_ut_a"), "tcp://forwarded:53487");
 }
+
+// Devices whose access points share a socket share its channel: each request gets its own response,
+// however their threads interleave, and the remote is told to exit once, after the last of them is done.
+TEST_F(RtlSimSessionTest, CommunicatorsShareASocket) {
+    const std::string address = add_socket("ut_a");
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{"ut_a"}, /*launch_simulator=*/false);
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session->start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    std::atomic<bool> serving{true};
+    std::atomic<int> exits{0};
+    std::thread server([&] {
+        while (serving.load()) {
+            remote->answer_one(50, exits);
+        }
+    });
+
+    RtlSimCommunicator first(RtlSimSocket(session, 0));
+    RtlSimCommunicator second(RtlSimSocket(session, 0));
+    first.initialize();
+    second.initialize();
+
+    const auto read_all = [](RtlSimCommunicator& communicator, uint32_t x, int& mismatches) {
+        for (uint64_t addr = 0x1000; addr < 0x1000 + 200 * 64; addr += 64) {
+            std::array<uint32_t, 4> data{};
+            communicator.tile_read_bytes(x, 0, addr, data.data(), sizeof(data));
+            for (size_t i = 0; i < data.size(); i++) {
+                mismatches += data[i] != expected_word(x, 0, addr + i * sizeof(uint32_t)) ? 1 : 0;
+            }
+        }
+    };
+    int first_mismatches = 0;
+    int second_mismatches = 0;
+    std::thread reader_a([&] { read_all(first, 0, first_mismatches); });
+    std::thread reader_b([&] { read_all(second, 1, second_mismatches); });
+    reader_a.join();
+    reader_b.join();
+    EXPECT_EQ(first_mismatches, 0);
+    EXPECT_EQ(second_mismatches, 0);
+
+    first.shutdown();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_EQ(exits.load(), 0) << "the remote was told to exit while a device still used the socket";
+
+    second.shutdown();
+    for (int attempt = 0; attempt < 100 && exits.load() == 0; attempt++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    serving.store(false);
+    server.join();
+    EXPECT_EQ(exits.load(), 1);
+}
+
+// A communicator attaches while its session is still being put together, and its requests work once
+// the session has started. Sockets can be added by name only until then.
+TEST_F(RtlSimSessionTest, CommunicatorsAttachBeforeStart) {
+    const std::string address = add_socket("ut_a");
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    RtlSimCommunicator communicator(RtlSimSocket(session, "ut_a"));
+    communicator.initialize();
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session->start(std::chrono::milliseconds(10'000));
+    dialer.join();
+    EXPECT_THROW(RtlSimSocket(session, "ut_b"), std::exception);
+
+    std::atomic<bool> serving{true};
+    std::atomic<int> exits{0};
+    std::thread server([&] {
+        while (serving.load()) {
+            remote->answer_one(50, exits);
+        }
+    });
+    std::array<uint32_t, 4> data{};
+    communicator.tile_read_bytes(1, 2, 0x1000, data.data(), sizeof(data));
+    EXPECT_EQ(data, (std::array<uint32_t, 4>{0x1200'1000, 0x1200'1004, 0x1200'1008, 0x1200'100C}));
+
+    communicator.shutdown();
+    for (int attempt = 0; attempt < 100 && exits.load() == 0; attempt++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    serving.store(false);
+    server.join();
+    EXPECT_EQ(exits.load(), 1);
+}
+
+// A device with several access points talks over its first: only that socket joins the session, so
+// the session starts with the remote dialing that one alone, and the device says goodbye on it.
+TEST_F(RtlSimSessionTest, DeviceTalksOverItsFirstAccessPoint) {
+    const std::string address = add_socket("ut_a");
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x3.yaml")));
+    const RtlSimDeviceAccess layout_device{IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}, {AccessPointId{1}, "ut_b"}}};
+    auto device = std::make_unique<RtlSimulationTTDevice>(session, layout_device, dir_, soc_descriptor, 0);
+    EXPECT_EQ(session->get_num_sockets(), 1);
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session->start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    device.reset();
+    std::atomic<int> exits{0};
+    remote->answer_one(5000, exits);
+    EXPECT_EQ(exits.load(), 1);
+}
+
+// Fabric reads a device's access points and, with an ATT map named, a core's flat address through
+// each. The query does no IO, so the session needn't start.
+TEST_F(RtlSimSessionTest, DeviceGivesItsAccessPointsFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const RtlSimDeviceAccess layout_device{IpDeviceId{1}, {{AccessPointId{2}, "ut_a"}, {AccessPointId{3}, "ut_b"}}};
+    setenv("TT_UMD_NOC_ATT", "horizon_2x3", 1);
+    const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+
+    EXPECT_EQ(device.get_access_points(), (std::vector<AccessPointId>{AccessPointId{2}, AccessPointId{3}}));
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x100'0000'0100));
+    EXPECT_THROW(
+        device.get_flat_address(AccessPointId{0}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::exception);
+}
+
+TEST_F(RtlSimSessionTest, DeviceWithoutAnAttMapHasNoFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const RtlSimulationTTDevice device(session, {IpDeviceId{0}, {{AccessPointId{0}, "ut_a"}}}, dir_, soc_descriptor, 0);
+
+    EXPECT_EQ(
+        device.get_flat_address(
+            AccessPointId{0},
+            CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
+            WindowFlags::Bidirectional,
+            IoOrdering::Strict),
+        std::nullopt);
+}
+
+// With a map that has a table per access point, each of a device's access points has its own flat
+// addresses.
+TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    const RtlSimDeviceAccess layout_device{
+        IpDeviceId{1}, {{AccessPointId{2}, "ut_a", 0x20'4000'0000}, {AccessPointId{3}, "ut_a", 0x21'4000'0000}}};
+    setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
+    const RtlSimulationTTDevice device(session, layout_device, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+    const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
+
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{2}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x20'4020'0100));
+    EXPECT_EQ(
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        std::optional<uint64_t>(0x21'4020'0100));
+}
+
+// horizon_x2_columns takes its tables in the order of the column layout's access points
+// (docs/IP_LAYOUT.md), so each access point reaches its own column device.
+class RtlSimSessionColumnLayoutTest : public RtlSimSessionTest,
+                                      public ::testing::WithParamInterface<std::tuple<uint32_t, uint64_t, uint64_t>> {};
+
+TEST_P(RtlSimSessionColumnLayoutTest, AccessPointReachesItsColumn) {
+    const auto [access_point, flat_address, address] = GetParam();
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    setenv("TT_UMD_NOC_ATT", "horizon_x2_columns", 1);
+    const RtlSimulationTTDevice device(
+        session, {IpDeviceId{0}, {{AccessPointId{access_point}, "ut_a", flat_address}}}, dir_, soc_descriptor, 0);
+    unsetenv("TT_UMD_NOC_ATT");
+
+    EXPECT_EQ(
+        device.get_flat_address(
+            AccessPointId{access_point},
+            CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
+            WindowFlags::UnicastWrite,
+            IoOrdering::Posted,
+            0x5'0000),
+        std::optional<uint64_t>(address));
+}
+
+// Device 0 columns 0 and 1, then device 1 columns 0 and 1.
+INSTANTIATE_TEST_SUITE_P(
+    InLayoutOrder,
+    RtlSimSessionColumnLayoutTest,
+    ::testing::Values(
+        std::make_tuple(0u, uint64_t{0x10'4000'0000}, uint64_t{0x10'4005'0000}),
+        std::make_tuple(1u, uint64_t{0x11'4000'0000}, uint64_t{0x11'4005'0000}),
+        std::make_tuple(2u, uint64_t{0x20'4000'0000}, uint64_t{0x20'4005'0000}),
+        std::make_tuple(3u, uint64_t{0x21'4000'0000}, uint64_t{0x21'4005'0000})));
+
+// With a map that has a table per access point, a device opens only if ip_layout.yaml states each
+// access point's flat address as the map gives it.
+class RtlSimSessionFlatAddressTest : public RtlSimSessionTest,
+                                     public ::testing::WithParamInterface<std::optional<uint64_t>> {};
+
+TEST_P(RtlSimSessionFlatAddressTest, DeviceRejectsAFlatAddressItsMapDoesNotGive) {
+    auto session = std::make_shared<RtlSimSession>(dir_, std::vector<std::string>{}, /*launch_simulator=*/false);
+    const SocDescriptor soc_descriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml")));
+    setenv("TT_UMD_NOC_ATT", "horizon_x2", 1);
+
+    EXPECT_THAT(
+        [&] {
+            RtlSimulationTTDevice(
+                session, {IpDeviceId{0}, {{AccessPointId{1}, "ut_a", GetParam()}}}, dir_, soc_descriptor, 0);
+        },
+        ::testing::ThrowsMessage<std::exception>(
+            ::testing::HasSubstr("puts access point 1's L1 window at 0x1140000000")));
+    unsetenv("TT_UMD_NOC_ATT");
+}
+
+// Missing, and access point 0's address.
+INSTANTIATE_TEST_SUITE_P(
+    MissingOrWrong,
+    RtlSimSessionFlatAddressTest,
+    ::testing::Values(std::nullopt, std::optional<uint64_t>(0x10'4000'0000)));
 
 }  // namespace

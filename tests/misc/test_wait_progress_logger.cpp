@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-#include "wait_progress_logger.hpp"
+#include "tt-umd-utils/internal/wait_progress_logger.hpp"
 
 using namespace tt::umd::utils;
 using namespace std::chrono_literals;

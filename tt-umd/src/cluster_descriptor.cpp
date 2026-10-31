@@ -27,7 +27,8 @@
 #include <vector>
 
 #include "common/utils.hpp"
-#include "disjoint_set.hpp"
+#include "tt-umd-utils/internal/disjoint_set.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
@@ -738,7 +739,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
 }
 
 void ClusterDescriptor::merge_cluster_ids() {
-    DisjointSet<ChipId> chip_sets;
+    utils::DisjointSet<ChipId> chip_sets;
     for (const auto &[chip, _] : chip_locations) {
         chip_sets.add_item(chip);
         log_trace(LogUMD, "Adding chip {} to disjoint set", chip);

@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
@@ -25,6 +26,7 @@
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -36,6 +38,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
@@ -268,6 +271,54 @@ public:
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
+     * @brief Starts a zero-copy Host-to-Device DMA transfer without waiting for it.
+     *
+     * Only the calling thread sees the transfer finish, so it must poll dma_write_zero_copy_check() until
+     * FINISHED or ERROR, keeping the source memory pinned and unchanged until then. Blocking DMA calls from
+     * that thread throw meanwhile.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target device core. Must be a multiple of 4.
+     * @param size Number of bytes to transfer. Non-zero multiple of 4, at most dma_zero_copy_max_size(dst_addr).
+     * @param core Target core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over.
+     * @return false if the device is busy and nothing was started.
+     */
+    [[nodiscard]] bool dma_write_zero_copy_start(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Device-to-Host counterpart of dma_write_zero_copy_start(). Destination memory must not be
+     * read until the transfer finishes. Not supported on Blackhole.
+     */
+    [[nodiscard]] bool dma_read_zero_copy_start(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Reports on the Host-to-Device transfer in flight on this device, without waiting.
+     *
+     * The thread that started the transfer gets FINISHED or ERROR exactly once, after which the device is free
+     * and later checks return IDLE. Any other thread of this process gets IN_PROGRESS while a Host-to-Device
+     * transfer, or a blocking transfer in either direction, is in flight and IDLE otherwise. Transfers started by other
+     * processes are not reported; whether the device is free is told by the return value of
+     * dma_write_zero_copy_start().
+     */
+    [[nodiscard]] DmaTransferState dma_write_zero_copy_check();
+
+    /**
+     * @brief Device-to-Host counterpart of dma_write_zero_copy_check().
+     */
+    [[nodiscard]] DmaTransferState dma_read_zero_copy_check();
+
+    /**
+     * @brief Most bytes a single asynchronous zero-copy transfer starting at device_addr can move, in either
+     * direction.
+     *
+     * @param device_addr Address on the device core the transfer starts at.
+     */
+    [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr);
+
+    /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
      * will ensure that the write will land on the correct cores.
@@ -479,6 +530,31 @@ public:
      */
     std::unique_ptr<IoWindow> create_io_window(
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering);
+
+    /**
+     * The access points this device owns: their ordinals in its IP's layout (docs/IP_LAYOUT.md).
+     * Empty for a device that is not part of one. The device's own IO goes over one of them.
+     */
+    virtual std::vector<AccessPointId> get_access_points() const { return {}; }
+
+    /**
+     * The flat address of @p offset in @p core's memory through access point @p access_point, for an
+     * IoWindow with @p flags and @p ordering: the global address another device's kernels use to
+     * reach it, as fabric needs. Read-only; this device's own IO is unaffected.
+     *
+     * @param access_point One of get_access_points().
+     * @param core Target core, in this device's soc descriptor frame.
+     * @return nullopt when the device has no flat addresses, or its map has no window for @p flags
+     *         and @p ordering.
+     */
+    virtual std::optional<uint64_t> get_flat_address(
+        AccessPointId /*access_point*/,
+        CoreCoord /*core*/,
+        WindowFlags /*flags*/,
+        IoOrdering /*ordering*/,
+        uint64_t /*offset*/ = 0) const {
+        return std::nullopt;
+    }
 
     /**
      * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.

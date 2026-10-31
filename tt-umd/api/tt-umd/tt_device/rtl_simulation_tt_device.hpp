@@ -9,15 +9,20 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -26,12 +31,30 @@
 
 namespace tt::umd {
 
+class RiscReset;
 class RtlSimCommunicator;
+class SimulationNocProtocol;
 class SimulationSysmemManager;
 class SimulationServerSocket;
 class SimulationClient;
 class SocDescriptor;
 class TlbWindow;
+
+/**
+ * One of a device's access points: its id in the build's ip_layout.yaml, the socket that reaches it, and
+ * the flat address the file states for it.
+ */
+struct RtlSimAccessPoint {
+    AccessPointId id;
+    std::string host_access;
+    std::optional<uint64_t> flat_address;
+};
+
+/** A device of the build's ip_layout.yaml: its id and its access points, in the order the file lists them. */
+struct RtlSimDeviceAccess {
+    IpDeviceId device;
+    std::vector<RtlSimAccessPoint> access_points;
+};
 
 class RtlSimulationTTDevice : public SimulationTTDevice {
 public:
@@ -42,11 +65,13 @@ public:
         int num_host_mem_channels = 0);
 
     /**
-     * Talk over @p socket, one access point of a started RtlSimSession. The socket keeps the session
-     * alive; several devices can share one session, each on its own socket.
+     * Device @p layout_device of the build's ip_layout.yaml, in @p session. The device talks over one
+     * of its access points, and adds only that one's socket to the session, so the session starts
+     * once every device in it has been constructed. Devices talking over the same socket share it.
      */
     RtlSimulationTTDevice(
-        const RtlSimSocket& socket,
+        const std::shared_ptr<RtlSimSession>& session,
+        const RtlSimDeviceAccess& layout_device,
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
@@ -64,14 +89,26 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info);
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
-    void deassert_risc_reset(
-        CoreCoord core,
-        const RiscType selected_riscs,
-        bool staggered_start,
-        NocId noc_id = NocId::DEFAULT_NOC) override;
-
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
+
+    std::vector<AccessPointId> get_access_points() const override;
+
+    std::optional<uint64_t> get_flat_address(
+        AccessPointId access_point,
+        CoreCoord core,
+        WindowFlags flags,
+        IoOrdering ordering,
+        uint64_t offset = 0) const override;
+
+    /**
+     * Checks that the build's ATT reaches every Tensix and Dispatch tile, through each of the device's
+     * access points, where TT_UMD_NOC_ATT's map puts it. Only for a Horizon device and a map with a
+     * table per access point; otherwise it does nothing. Does IO: call it once the session serves the
+     * device and the build's ATT programming is in, before any core runs.
+     *
+     * @throws error::RuntimeError naming the first tile the ATT sends elsewhere.
+     */
+    void check_att_matches_map();
 
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
@@ -85,9 +122,14 @@ protected:
     bool should_use_cached_tlb_window() override;
 
 private:
-    // Install the flat-address resolver when the environment names an ATT map. Host mode only: a
-    // client hands the host a translated coordinate and a core-local address, and the host resolves
-    // it, so resolving here as well would fold the coordinate in twice.
+    // The RiscReset this device gives its model: the tile reset of the IP variant the SoC descriptor
+    // names, when this build knows one, and otherwise the testbench's reset commands.
+    std::unique_ptr<RiscReset> make_risc_reset(ChipId chip_id);
+
+    // Install the flat-address resolvers when the environment names an ATT map: each access point's,
+    // and the one this device talks over for its own IO. Host mode only: a client hands the host a
+    // translated coordinate and a core-local address, and the host resolves it, so resolving here as
+    // well would fold the coordinate in twice.
     void setup_noc_address_resolver();
 
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
@@ -101,6 +143,14 @@ private:
     // arguments before construction.
     RtlSimulationTTDevice(
         const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+    // Host mode over @p socket, one of an RtlSimSession's, as device @p layout_device of its layout.
+    RtlSimulationTTDevice(
+        const RtlSimSocket& socket,
+        const RtlSimDeviceAccess& layout_device,
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels);
     // Host mode over @p communicator; @p socket is empty when the communicator owns its socket.
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
@@ -108,6 +158,7 @@ private:
         ChipId chip_id,
         int num_host_mem_channels,
         std::optional<RtlSimSocket> socket,
+        std::optional<RtlSimDeviceAccess> layout_device,
         std::unique_ptr<RtlSimCommunicator> communicator);
 
     // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
@@ -125,5 +176,17 @@ private:
     std::optional<RtlSimSocket> session_socket_;
 
     std::unique_ptr<RtlSimCommunicator> communicator_;
+
+    // This device's place in the build's ip_layout.yaml, when it has one.
+    std::optional<RtlSimDeviceAccess> layout_device_;
+
+    // Each access point's flat addresses, when the environment names an ATT map.
+    std::map<AccessPointId, att::EndpointResolver> access_point_resolvers_;
+    // Whether TT_UMD_NOC_ATT's map has a table per access point, so each access point has addresses
+    // of its own.
+    bool per_access_point_tables_ = false;
+
+    // The IO path of the model's tile reset, when the IP variant has one: the reset points into it.
+    std::unique_ptr<SimulationNocProtocol> noc_protocol_;
 };
 }  // namespace tt::umd

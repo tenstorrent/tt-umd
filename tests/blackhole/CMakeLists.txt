@@ -1,6 +1,7 @@
 set(UNIT_TESTS_BH_SRCS
     test_arc_messages_bh.cpp
     test_chip_info_bh.cpp
+    test_dma_linked_list_bh.cpp
 )
 
 add_executable(unit_tests_blackhole ${UNIT_TESTS_BH_SRCS})

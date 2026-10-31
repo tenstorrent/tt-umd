@@ -28,6 +28,8 @@ int main(int argc, char* argv[]) {
         std::cout << "\n=== Device " << device_id << " (Before Initialization) ===" << std::endl;
 
         std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
+        // Tensix is clock gated while the device is idle; request power before touching it.
+        device->set_power_state(TTDevice::PowerState::BUSY);
 
         std::cout << "Architecture: "
                   << (device->get_arch() == tt::ARCH::WORMHOLE_B0 ? "Wormhole B0"

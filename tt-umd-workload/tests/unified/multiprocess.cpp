@@ -590,6 +590,7 @@ protected:
         // points at the previous owner's core.
         for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
             std::fill(
                 payload.begin(),

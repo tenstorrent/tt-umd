@@ -388,23 +388,33 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
-static int open_pci_device(const std::string &device_path) {
-    // O_APPEND is temporarily disabled to investigate NOC1 issues. See
-    // https://github.com/tenstorrent/tt-umd/issues/2531.
-    int flags = O_RDWR | O_CLOEXEC;
-    log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
+// O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states. A power
+// aware fd contributes nothing to the device's power state until set_power_state() is called on it. Only Blackhole
+// is opted in, since set_power_state() is a no-op on other architectures and they would never leave low power.
+static int power_aware_open_flags(tt::ARCH arch, const SemVer &kmd_version) {
+    return (arch == tt::ARCH::BLACKHOLE && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+}
+
+static int open_pci_device(const std::string &device_path, tt::ARCH arch, const SemVer &kmd_version) {
+    int flags = O_RDWR | O_CLOEXEC | power_aware_open_flags(arch, kmd_version);
+    log_debug(
+        LogUMD,
+        fmt::format(
+            "Opening device {} in {} mode regarding device power.",
+            device_path,
+            (flags & O_APPEND) ? "power aware" : "legacy"));
     return open(device_path.c_str(), flags);
 }
 
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
+    pci_device_file_desc(open_pci_device(device_path, arch, kmd_version)),
     iommu_enabled(detect_iommu(info)) {
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
@@ -412,7 +422,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
-    int extra_flags = 0;
+    int extra_flags = power_aware_open_flags(arch, kmd_version);
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {

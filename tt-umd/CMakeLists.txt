@@ -197,10 +197,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^riscv64")
         #include <sys/auxv.h>
         #include <cstdint>
         #include <cstddef>
-        __attribute__((target(\"arch=+v\"))) void probe(std::uint64_t* d, const std::uint8_t* s, std::size_t n) {
+        __attribute__((target(\"arch=+v\"))) void probe(std::uint8_t* d, const std::uint64_t* s, std::size_t n) {
             const std::size_t vl = __riscv_vsetvlmax_e8m8();
-            const vuint8m8_t v = __riscv_vle8_v_u8m8(s, vl < n ? vl : n);
-            __riscv_vse64_v_u64m8(d, __riscv_vreinterpret_v_u8m8_u64m8(v), (vl < n ? vl : n) / 8);
+            const std::size_t bytes = vl < n ? vl : n;
+            const vuint64m8_t v = __riscv_vle64_v_u64m8(s, bytes / 8);
+            __riscv_vse8_v_u8m8(d, __riscv_vreinterpret_v_u64m8_u8m8(v), bytes);
         }
         int main() { return 0; }
         "

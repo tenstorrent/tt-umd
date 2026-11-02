@@ -8,7 +8,7 @@
 //
 // Only device reads have a vector form. Vector stores measured 1.00x with strict ordering and
 // ~1.1x relaxed, which does not pay for giving up the in-order 8-byte writes the scalar loop
-// guarantees in front of the ARC bridge; see the discussion on #3762.
+// guarantees in front of the ARC bridge; #3765 tracks revisiting them.
 
 #include "device_memcpy_rvv.hpp"
 

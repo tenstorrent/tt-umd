@@ -97,6 +97,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
+        device_type == IODeviceType::PCIe || device_type == IODeviceType::JTAG,
+        error::RuntimeError,
+        fmt::format("Unsupported device type {} for TTDevice::create.", DeviceTypeToString.at(device_type)));
+    UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
         error::RuntimeError,
         "Safe I/O API is not supported for non-PCIe device types.");

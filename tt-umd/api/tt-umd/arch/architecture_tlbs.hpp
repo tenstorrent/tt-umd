@@ -52,6 +52,17 @@ struct ArchitectureTlbs {
     // configured by asking the driver, and static_cfg_addr/cfg_reg_size_bytes mean nothing.
     bool cfg_registers_host_writable;
 
+    // Whether a window's entry has a field for transaction ordering at all. Wormhole and Blackhole
+    // pack ordering into the entry's non-address bits; a Quasar entry is a target address plus an
+    // attribute field that reaches only the NOC security header, so it carries no ordering and
+    // asking for one cannot be honoured.
+    bool carries_ordering;
+
+    // Whether a window's configuration carries per-window AXI transaction attributes -- the
+    // non-cacheable bit and the AxQOS id every access through it carries. Where it does not,
+    // those fields have nowhere to go and a window cannot honor WindowFlags::NonCacheable.
+    bool carries_axi_attributes;
+
     // Configuration of the window at the given index.
     tlb_configuration get_configuration(uint32_t tlb_index) const;
 

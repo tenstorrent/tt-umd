@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -85,6 +86,23 @@ TEST_F(SimulationClientTest, TransactWaitsForSlowReplyOnceHostHasAnswered) {
 
     ASSERT_EQ(client.transact({0x01}), (std::vector<uint8_t>{0x01}));
     EXPECT_EQ(client.transact({0x02}), (std::vector<uint8_t>{0x02}));
+}
+
+// A host whose handler fails ends that session, so a client that already had an answer gets an
+// error instead of waiting forever on a reply that will never come.
+TEST_F(SimulationClientTest, TransactThrowsWhenHandlerFailsAfterHostHasAnswered) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>& request) {
+        if (request == std::vector<uint8_t>{0x02}) {
+            throw std::runtime_error("handler failure");
+        }
+        return request;
+    });
+    SimulationClient client(path_, std::chrono::milliseconds(300));
+    client.attach();
+
+    ASSERT_EQ(client.transact({0x01}), (std::vector<uint8_t>{0x01}));
+    EXPECT_THROW(client.transact({0x02}), std::exception);
 }
 
 // End to end over the socket: transact() returns the host's reply, not the request it sent (the

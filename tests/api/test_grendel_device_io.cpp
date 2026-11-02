@@ -175,8 +175,6 @@ protected:
     std::unique_ptr<TTDevice> device_;
 };
 
-}  // namespace
-
 // The cheapest proof that the whole path works: driver open, ioctl, and a register that answers
 // with something other than all-ones or zero.
 TEST_F(GrendelDeviceIOTest, ReadsTheFirmwareInitSentinel) {
@@ -370,3 +368,5 @@ TEST_F(GrendelDeviceIOTest, ASizedWindowRefusesAnOffsetPastItsEnd) {
 
     EXPECT_THROW(window->read32(bytes), std::exception);
 }
+
+}  // namespace

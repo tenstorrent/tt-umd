@@ -44,7 +44,7 @@ using namespace tt::umd;
 namespace {
 
 /** The flat address names the whole target, so the coordinate is along for the ride. */
-constexpr CoreCoord ORIGIN{0, 0, tt::CoreType::UNSPECIFIED, tt::CoordSystem::LITERAL};
+constexpr CoreCoord FOLD_ORIGIN{0, 0, tt::CoreType::UNSPECIFIED, tt::CoordSystem::LITERAL};
 
 /** What a refused or unmodelled access returns; also what a stubbed NEO tile returns. */
 constexpr uint32_t NO_ANSWER = 0xffffffffu;
@@ -80,8 +80,6 @@ protected:
     std::unique_ptr<TTDevice> device_;
 };
 
-}  // namespace
-
 // The map still describes the window this file reasons about. Pure arithmetic, no device, so a
 // failure here means the map moved and every address below names something else.
 TEST_F(GrendelAttFoldTest, TheResolverStillPlacesTheFirstTileWhereThisFileExpects) {
@@ -99,7 +97,7 @@ TEST_F(GrendelAttFoldTest, FoldingACoordinateReachesTheSameWordAsTheResolvedAddr
     constexpr uint64_t OFFSET = 0x100000;
     const uint64_t resolved = resolver.resolve(TILE, tt::CoreType::TENSIX, OFFSET, sizeof(uint32_t));
 
-    const uint32_t through_literal = read32(ORIGIN, resolved);
+    const uint32_t through_literal = read32(FOLD_ORIGIN, resolved);
     if (through_literal == NO_ANSWER) {
         GTEST_SKIP() << "0x" << std::hex << resolved
                      << " reads all-ones: no Quasar behind the D2D links, or this tile is stubbed. "
@@ -119,8 +117,10 @@ TEST_F(GrendelAttFoldTest, FoldingACoordinateReachesTheSameWordAsTheResolvedAddr
 TEST_F(GrendelAttFoldTest, ALiteralCoordinateIsNotFolded) {
     constexpr uint64_t SMC_FIRMWARE_SENTINEL = 0x1202010100ULL;
 
-    const uint32_t direct = read32(ORIGIN, SMC_FIRMWARE_SENTINEL);
+    const uint32_t direct = read32(FOLD_ORIGIN, SMC_FIRMWARE_SENTINEL);
 
     EXPECT_NE(direct, NO_ANSWER) << "A LITERAL coordinate was folded, or the SMC is unreachable; either way the system "
                                     "physical path this suite depends on is broken.";
 }
+
+}  // namespace

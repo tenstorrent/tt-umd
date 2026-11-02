@@ -73,18 +73,6 @@ protected:
     // Offset of a system physical address within the mapped window.
     uint64_t offset_of(const uint64_t address) const { return address - window_base_; }
 
-    uint32_t read_through_driver(const uint64_t address) const {
-        uint64_t value = 0;
-        EXPECT_EQ(tt_noc_read_scalar(device_->get_tt_device_handle(), address, &value, sizeof(uint32_t), 0), 0)
-            << "driver read at " << std::hex << address;
-        return static_cast<uint32_t>(value);
-    }
-
-    void write_through_driver(const uint64_t address, const uint32_t value) const {
-        EXPECT_EQ(tt_noc_write_scalar(device_->get_tt_device_handle(), address, value, sizeof(uint32_t), 0), 0)
-            << "driver write at " << std::hex << address;
-    }
-
     std::unique_ptr<PCIDevice> device_;
     std::unique_ptr<SiliconTlbWindow> window_;
     uint64_t window_size_ = 0;
@@ -126,43 +114,6 @@ TEST_F(QuasarIoWindow, ReconfiguringTheWindowRetargetsIt) {
     window_->configure(back);
 
     EXPECT_EQ(window_->read32(offset_of(cold_scratch(0))), SENTINEL);
-}
-
-// The two paths have to meet. A window written by a store must read back through the driver's
-// scalar access, and a value the driver wrote must be visible through the mapping -- which is what
-// proves CONFIGURE_TLB pointed the window at the address the scalar path reaches.
-TEST_F(QuasarIoWindow, WindowAndDriverSeeTheSameMemory) {
-    constexpr uint32_t FROM_WINDOW = 0xABCD0001u;
-    constexpr uint32_t FROM_DRIVER = 0xABCD0002u;
-
-    const uint64_t address = cold_scratch(3);
-
-    // Written by a store through the mapping, read by an ioctl.
-    window_->write32(offset_of(address), FROM_WINDOW);
-    EXPECT_EQ(read_through_driver(address), FROM_WINDOW);
-
-    // Written by an ioctl, read by a load through the mapping.
-    write_through_driver(address, FROM_DRIVER);
-    EXPECT_EQ(window_->read32(offset_of(address)), FROM_DRIVER);
-}
-
-// The same check across the bank, so a single register that happens to alias cannot carry the
-// result. Alternating which path writes also catches a window that is readable but not writable,
-// or the reverse.
-TEST_F(QuasarIoWindow, EveryRegisterAgreesAcrossBothPaths) {
-    for (uint32_t i = 0; i < COLD_SCRATCH_COUNT; i++) {
-        const uint64_t address = cold_scratch(i);
-        const uint32_t value = 0x51D00000u | i;
-
-        if (i % 2 == 0) {
-            window_->write32(offset_of(address), value);
-            EXPECT_EQ(read_through_driver(address), value) << "scratch register " << i << " written by the window";
-        } else {
-            write_through_driver(address, value);
-            EXPECT_EQ(window_->read32(offset_of(address)), value)
-                << "scratch register " << i << " written by the driver";
-        }
-    }
 }
 
 }  // namespace

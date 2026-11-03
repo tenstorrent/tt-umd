@@ -58,7 +58,7 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
     --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*'
 ```
 
-Those three suites are what a Grendel function covers today: 11 device-I/O cases, 3 coordinate-fold
+Those three suites are what a Grendel function covers today: 11 device-I/O cases, 2 coordinate-fold
 cases and 4 window cases, all measured passing in this guest. A filter that selects nothing still
 exits 0, so the CI row counts what it selected before running it and fails the step when the count is
 zero -- otherwise a build missing those suites would report green having run nothing.

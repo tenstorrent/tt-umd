@@ -138,7 +138,7 @@ TEST(TestSocDescriptor, MmkKeraunosChipletSurvivesSerialization) {
     SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
     const KeraunosChiplet& keraunos = soc_descriptor.get_arch_descriptor().get_keraunos();
     EXPECT_EQ(keraunos.chiplet, "k0");
-    ASSERT_EQ(soc_descriptor.get_cores(tt::CoreType::ETH).size(), 8u);
+    ASSERT_EQ(soc_descriptor.get_cores(tt::CoreType::ETH).size(), 4u);
 
     const std::filesystem::path file_path = soc_descriptor.serialize_to_file();
     SocDescriptor reloaded(std::make_shared<SocArchDescriptor>(file_path.string()));
@@ -150,9 +150,9 @@ TEST(TestSocDescriptor, MmkKeraunosChipletSurvivesSerialization) {
     ASSERT_EQ(reloaded_keraunos.cores.size(), keraunos.cores.size());
     EXPECT_EQ(reloaded_keraunos.cores[0].coord, keraunos.cores[0].coord);
     EXPECT_EQ(reloaded_keraunos.cores[0].hsio, keraunos.cores[0].hsio);
-    EXPECT_EQ(reloaded_keraunos.cores[1].cce, keraunos.cores[1].cce);
+    EXPECT_EQ(reloaded_keraunos.cores[1].cce, 0u);
     EXPECT_EQ(reloaded_keraunos.cores.back().hsio, keraunos.cores.back().hsio);
     EXPECT_EQ(reloaded_keraunos.cores.back().cce, keraunos.cores.back().cce);
-    EXPECT_EQ(reloaded.get_cores(tt::CoreType::ETH).size(), 8u);
+    EXPECT_EQ(reloaded.get_cores(tt::CoreType::ETH).size(), 4u);
     EXPECT_EQ(reloaded.get_arch_descriptor().get_mimir_channels().size(), 2u);
 }

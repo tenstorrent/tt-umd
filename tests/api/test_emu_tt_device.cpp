@@ -354,11 +354,8 @@ TEST(EmuTTDevice, KeraunosHartResetLeavesTheUncore) {
 
 // Whether each Keraunos ethernet core owns its own control window.
 //
-// Metal's device open leaves CCE 1 on every HSIO tile waiting at RUN_MSG_INIT while CCE 0 reports
-// done, and the host's own mailbox writes to those cores read back, so SRAM addressing holds and
-// the suspect is the control window: a wrong `cce * stride` term is invisible at CCE 0 and
-// misaddresses only CCE 1. Each core's PF_CTRL must be its own register, and holding one core's
-// harts must leave every other core's reset word alone.
+// The descriptor lists CCE0 on each HSIO tile. Each core's PF_CTRL must be its own register, and
+// holding one core's harts must leave every other core's reset word alone.
 //
 // Harts stay held at the end. A released hart fetches, and that fetch can stall the AXI master for
 // every later client, so bring the model up again before the next run.

@@ -44,10 +44,17 @@ jobs:
         run: |
           DOCKERFILE=".github/${{ inputs.docker-version }}.Dockerfile"
 
-          # Collect the Dockerfile itself plus any scripts it COPYs
+          # Collect the Dockerfile itself plus every file it COPYs out of .github. Matching only
+          # *.sh would leave anything else the image is built from out of the hash, and the image
+          # would not rebuild when that file changed -- ttsim-qemu.Dockerfile copies a .c helper.
+          # A COPY's destination and its --from=stage flag are not files here, so they drop out.
           FILES="$DOCKERFILE"
-          for script in $(grep -oP '(?<=COPY )\S+\.sh' "$DOCKERFILE" || true); do
-            FILES="$FILES .github/$script"
+          # A COPY source is relative to the build context; the --from=stage flag and the
+          # destination are not sources, and the destinations here are all absolute.
+          for src in $(sed -n 's/^COPY[[:space:]]\+//p' "$DOCKERFILE" | tr ' ' '\n'); do
+            case "$src" in --*|/*) continue ;; esac
+            case " $FILES " in *" .github/$src "*) continue ;; esac
+            [ -f ".github/$src" ] && FILES="$FILES .github/$src"
           done
 
           echo "Hashing files: $FILES"

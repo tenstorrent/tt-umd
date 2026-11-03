@@ -55,12 +55,19 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
     run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 512G --bar0-size 4G \
     --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup -- \
     env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*'
+    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*'
 ```
 
+Those three suites are what a Grendel function covers today: 11 device-I/O cases, 3 coordinate-fold
+cases and 4 window cases, all measured passing in this guest. A filter that selects nothing still
+exits 0, so the CI row counts what it selected before running it and fails the step when the count is
+zero -- otherwise a build missing those suites would report green having run nothing.
+
 `--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device, which upstream does not
-carry yet; BAR0 is a compile-time constant there. Until it lands the Grendel CI row cannot pass, and
-is marked `continue-on-error` so it reports without failing the pipeline.
+carry yet; BAR0 is a compile-time 512 MiB constant there, and the image is shared with the Wormhole
+and Blackhole rows, so it cannot simply be raised. Until the property lands and `TTSIM_QEMU_COMMIT`
+moves to it, the Grendel CI row cannot pass and is marked `continue-on-error` so it reports without
+failing the pipeline.
 
 `GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
 for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside

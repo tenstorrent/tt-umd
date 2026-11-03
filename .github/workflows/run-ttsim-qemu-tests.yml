@@ -30,7 +30,7 @@ jobs:
           # rather than failing the case, which would take the whole job with it.
           - {card: grendel, lib: libttsim_qsr.so, bar4-size: 512G,
              vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup",
-             tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*"}
+             tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*"}
     # Grendel cannot pass until ttsim-qemu carries a bar0-size property; it reports without failing the
     # pipeline until then. See docs/TTSIM_QEMU.md.
     continue-on-error: ${{ matrix.card == 'grendel' }}
@@ -65,5 +65,21 @@ jobs:
         run: |
           run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
               ${{ matrix.vm-opts }} -- \
-              env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-              --gtest_filter='${{ matrix.tests }}'
+              bash -c '
+                  # A gtest filter that selects nothing still exits 0, so a build missing the suites
+                  # this row names would report green having run no test at all, and one missing only
+                  # some of them would quietly run fewer. Require every pattern to select something.
+                  export LD_LIBRARY_PATH=build/lib
+                  tests=build/test/umd/api/api_tests
+                  missing=
+                  for pattern in $(echo "$1" | tr ":" " "); do
+                      selected=$("$tests" --gtest_filter="$pattern" --gtest_list_tests | grep -c "^  ")
+                      echo "$pattern selects $selected test(s)"
+                      [ "$selected" -eq 0 ] && missing="$missing $pattern"
+                  done
+                  if [ -n "$missing" ]; then
+                      echo "this build carries no test matching:$missing" >&2
+                      exit 1
+                  fi
+                  exec "$tests" --gtest_filter="$1"
+              ' run-ttsim-qemu-tests '${{ matrix.tests }}'

@@ -76,6 +76,7 @@ protected:
 
     void init_device(int pci_device_id) {
         tt_device_ = TTDevice::create(pci_device_id);
+        tt_device_->set_power_state(TTDevice::PowerState::BUSY);
         tt_device_->init_tt_device();
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }

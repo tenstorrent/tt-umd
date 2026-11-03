@@ -113,8 +113,7 @@ int main(int argc, char **argv) {
     } else if (argc == 1) {
         char bdf[256];
         if (find_keraunos(bdf, sizeof(bdf)) != 0) {
-            fprintf(stderr, "grendel-att-setup: no %04x:%04x function is present\n", TT_VENDOR_ID,
-                    KERAUNOS_DEVICE_ID);
+            fprintf(stderr, "grendel-att-setup: no %04x:%04x function is present\n", TT_VENDOR_ID, KERAUNOS_DEVICE_ID);
             return 1;
         }
         snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/resource2", bdf);
@@ -161,9 +160,14 @@ int main(int argc, char **argv) {
         wr32(ATT_EP_ROW(W_TABLE_OFF + s), (y << 6) | x);
     }
 
-    printf("grendel-att-setup: BAR0 inbound TLB 64..319 valid, ATT mask set %u = 0x%08x "
-           "(compare 0x%llx), endpoint rows %u..%u programmed\n",
-           W_SET, entry, (unsigned long long)W_COMPARE, W_TABLE_OFF, W_TABLE_OFF + 31);
+    printf(
+        "grendel-att-setup: BAR0 inbound TLB 64..319 valid, ATT mask set %u = 0x%08x "
+        "(compare 0x%llx), endpoint rows %u..%u programmed\n",
+        W_SET,
+        entry,
+        (unsigned long long)W_COMPARE,
+        W_TABLE_OFF,
+        W_TABLE_OFF + 31);
     munmap(m, BAR2_SIZE);
     close(fd);
     return 0;

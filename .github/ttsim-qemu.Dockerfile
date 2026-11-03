@@ -40,8 +40,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+# Keraunos needs a 4 GiB BAR0 -- tt-kmd's own TLB window is inbound entry 164, which sits 2.56 GB
+# in -- and upstream's ttsim device fixes BAR0 at a compile-time 512 MiB. The patch gives BAR0 the
+# treatment BAR4 already has, a bar0-size property defaulting to the old 512 MiB, so the N150 and
+# P150 rows that share this image are unaffected. Remove the COPY and the git apply once it is
+# upstream, and move TTSIM_QEMU_COMMIT to the commit carrying it.
+COPY ttsim-qemu-bar0-size.patch /ttsim-qemu-bar0-size.patch
+
 RUN git clone --filter=blob:none --no-checkout https://github.com/tenstorrent/ttsim-qemu.git /src \
     && cd /src && git checkout ${TTSIM_QEMU_COMMIT} \
+    && git apply /ttsim-qemu-bar0-size.patch \
     && ./configure --target-list=x86_64-softmmu --prefix=/opt/ttsim-qemu \
         --enable-virtfs --disable-docs --disable-werror \
     && make -j"$(nproc)" install \

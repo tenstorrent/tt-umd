@@ -64,10 +64,14 @@ exits 0, so the CI row counts what it selected before running it and fails the s
 zero -- otherwise a build missing those suites would report green having run nothing.
 
 `--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device, which upstream does not
-carry yet; BAR0 is a compile-time 512 MiB constant there, and the image is shared with the Wormhole
-and Blackhole rows, so it cannot simply be raised. Until the property lands and `TTSIM_QEMU_COMMIT`
-moves to it, the Grendel CI row cannot pass and is marked `continue-on-error` so it reports without
-failing the pipeline.
+carry yet: BAR0 is a compile-time 512 MiB constant there, and simply raising it is not an option
+because one image serves every card. The image therefore applies `.github/ttsim-qemu-bar0-size.patch`
+to the pinned checkout before building qemu. It gives BAR0 the treatment BAR4 already has, so BAR0
+stays 512 MiB unless a caller asks for more and the Wormhole and Blackhole rows are unaffected. Once
+the property is upstream, drop the patch and move `TTSIM_QEMU_COMMIT` to the commit carrying it.
+
+The Grendel CI row stays `continue-on-error` while the suites it names are still in review: the
+filter check fails the step rather than reporting a green run of nothing.
 
 `GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
 for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside

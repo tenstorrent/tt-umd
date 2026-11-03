@@ -242,9 +242,28 @@ TEST(SimulationServerSocket, AllocateServerDirectoryClaimsDistinctDirs) {
     const auto index_a = SimulationServerSocket::server_index_from_directory_path(a);
     ASSERT_TRUE(index_a.has_value());
     EXPECT_EQ(SimulationServerSocket::list_server_directories().count(*index_a), 1u);
+}
 
-    fs::remove(a);
-    fs::remove(b);
+// A server directory belongs to the live process that claimed it, so nobody else may host there.
+TEST(SimulationServerSocket, CreateThrowsInADirectoryAnotherLiveProcessClaimed) {
+    const test_utils::ServerDirectoryOfAnotherProcess directory;
+
+    EXPECT_THROW(
+        SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path(), 0)),
+        std::exception);
+}
+
+// A directory whose owner is gone is taken over, and the new host's clean shutdown removes it.
+TEST(SimulationServerSocket, CreateTakesOverADirectoryWhoseOwnerIsGone) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+
+    auto socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    EXPECT_EQ(
+        SimulationServerSocket::sweep_server_directory(directory.path()), SimulationServerSocket::SweepResult::Live);
+
+    socket.reset();
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
 }
 
 // list_server_directories must not follow a symlink: the temp dir is world-writable, so a link named

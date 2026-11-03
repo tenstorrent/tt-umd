@@ -5,15 +5,19 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <cstring>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
-#include <system_error>
-#include <utility>
+
+#include "simulation/simulation_server_socket.hpp"
 
 namespace tt::umd::test_utils {
 
@@ -41,28 +45,64 @@ inline void leave_stale_socket(const std::filesystem::path& path) {
     ASSERT_TRUE(std::filesystem::exists(path));
 }
 
-// Removes a simulation server directory and everything left in it when the scope ends. A directory
-// survives a test only when something in it is unowned -- a stale socket no host will tear down --
-// and a remove_all() on the last line of the test body is exactly what a fatal assertion skips,
-// since GTEST_ASSERT_* returns from the body. Leftovers are not inert: they enumerate in
-// list_servers() and are what classify() now rejects, so one bailed-out test poisons the next run.
-class ScopedServerDirectory {
+// A server directory allocated by a child process, which holds its claim until kill_owner() (or
+// destruction) -- standing in for another host on the machine and, once killed, for one that died
+// without tearing anything down.
+class ServerDirectoryOfAnotherProcess {
 public:
-    explicit ScopedServerDirectory(std::filesystem::path directory) : directory_(std::move(directory)) {}
+    ServerDirectoryOfAnotherProcess() {
+        int from_owner[2];
+        if (::pipe(from_owner) != 0) {
+            throw std::runtime_error("pipe() failed");
+        }
+        owner_ = ::fork();
+        if (owner_ < 0) {
+            throw std::runtime_error("fork() failed");
+        }
+        if (owner_ == 0) {
+            // Dies with the test, so a crashed run does not leave an owner holding the claim forever.
+            ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+            ::close(from_owner[0]);
+            try {
+                const std::string directory = SimulationServerSocket::allocate_server_directory().string();
+                [[maybe_unused]] const ssize_t sent = ::write(from_owner[1], directory.data(), directory.size());
+            } catch (...) {
+                ::_exit(1);
+            }
+            ::close(from_owner[1]);
+            while (true) {
+                ::pause();
+            }
+        }
+        ::close(from_owner[1]);
+        std::string directory;
+        char buffer[256];
+        ssize_t received = 0;
+        while ((received = ::read(from_owner[0], buffer, sizeof(buffer))) > 0) {
+            directory.append(buffer, received);
+        }
+        ::close(from_owner[0]);
+        directory_ = directory;
+    }
 
-    ScopedServerDirectory(const ScopedServerDirectory&) = delete;
-    ScopedServerDirectory& operator=(const ScopedServerDirectory&) = delete;
+    ServerDirectoryOfAnotherProcess(const ServerDirectoryOfAnotherProcess&) = delete;
+    ServerDirectoryOfAnotherProcess& operator=(const ServerDirectoryOfAnotherProcess&) = delete;
 
-    // Non-throwing overload: a destructor is implicitly noexcept, so a filesystem_error would call
-    // std::terminate. Cleanup is best-effort.
-    ~ScopedServerDirectory() {
-        std::error_code ec;
-        std::filesystem::remove_all(directory_, ec);
+    ~ServerDirectoryOfAnotherProcess() { kill_owner(); }
+
+    // SIGKILLs the owning process and reaps it, so its claim is released by the time this returns.
+    void kill_owner() {
+        if (owner_ > 0) {
+            ::kill(owner_, SIGKILL);
+            ::waitpid(owner_, nullptr, 0);
+            owner_ = -1;
+        }
     }
 
     const std::filesystem::path& path() const { return directory_; }
 
 private:
+    pid_t owner_ = -1;
     std::filesystem::path directory_;
 };
 

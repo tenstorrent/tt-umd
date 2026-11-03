@@ -4,12 +4,19 @@
 
 #include "simulation/simulation_server_socket.hpp"
 
+#include <fcntl.h>
 #include <fmt/format.h>
+#include <sys/file.h>
+#include <sys/stat.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
+#include <unistd.h>
 
+#include <algorithm>
 #include <asio.hpp>
 #include <atomic>
+#include <cerrno>
 #include <charconv>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -17,6 +24,7 @@
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "simulation/simulation_server_transport.hpp"
@@ -41,6 +49,166 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
                 path.string()));
     }
     return stream_protocol::endpoint(path.string());
+}
+
+// Naming convention for a server directory: <temp>/tt-umd-sim-server-<index>. Kept here so the
+// prefix lives in one place, shared by allocate/list/parse below.
+constexpr std::string_view kServerDirPrefix = "tt-umd-sim-server-";
+// Backstop on the index search in allocate_server_directory(); far above any real server count.
+constexpr int kMaxServerIndex = 4096;
+// The file inside a server directory whose flock is its owner's claim.
+constexpr std::string_view kClaimFileName = "server.lock";
+
+// Whether directory is one allocate_server_directory() could have made: our naming convention AND
+// directly under the system temp dir. A caller may bind a socket at an arbitrary path that happens
+// to match the naming (e.g. ~/tt-umd-sim-server-0/foo.sock), and that is no server directory to
+// claim or remove.
+bool is_server_directory(const std::filesystem::path& directory) {
+    std::error_code temp_ec;
+    const std::filesystem::path temp = std::filesystem::temp_directory_path(temp_ec);
+    return !temp_ec && directory.parent_path() == temp &&
+           SimulationServerSocket::server_index_from_directory_path(directory).has_value();
+}
+
+// Whether fd is still the file at path. A claim file can be unlinked (clean shutdown, a sweep) or
+// replaced between open() and flock(), and a lock on an orphaned file claims nothing.
+bool refers_to(int fd, const std::filesystem::path& path) {
+    struct stat opened = {};
+    struct stat named = {};
+    return ::fstat(fd, &opened) == 0 && ::lstat(path.c_str(), &named) == 0 && opened.st_dev == named.st_dev &&
+           opened.st_ino == named.st_ino;
+}
+
+struct ClaimAttempt {
+    enum class Status { Taken, HeldElsewhere, Missing, Failed };
+    Status status;
+    int fd = -1;    // Taken only: the locked claim file
+    int error = 0;  // Failed only: errno
+};
+
+// Takes the exclusive flock on a server directory's claim file without waiting, creating the file
+// first when asked to. HeldElsewhere means a live process holds it -- this one included, since a
+// second open is a separate lock owner.
+ClaimAttempt try_take_claim(const std::filesystem::path& directory, bool create) {
+    const std::filesystem::path claim_path = directory / kClaimFileName;
+    while (true) {
+        // O_CLOEXEC so an exec'd child (an RTL host's simulator) never inherits the claim and keeps
+        // a dead owner's directory looking alive; a plain fork keeps it, which is how a detached
+        // sim_server host takes over the directory its parent allocated. O_NOFOLLOW because a
+        // caller-named directory may be writable by others.
+        const int fd = ::open(
+            claim_path.c_str(),
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW | (create ? O_CREAT : 0),
+            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd < 0) {
+            const int error = errno;
+            return {error == ENOENT ? ClaimAttempt::Status::Missing : ClaimAttempt::Status::Failed, -1, error};
+        }
+        if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+            const int error = errno;
+            ::close(fd);
+            return {
+                error == EWOULDBLOCK ? ClaimAttempt::Status::HeldElsewhere : ClaimAttempt::Status::Failed, -1, error};
+        }
+        if (refers_to(fd, claim_path)) {
+            return {ClaimAttempt::Status::Taken, fd, 0};
+        }
+        // Locked a claim file that was unlinked or replaced after open(): look again.
+        ::close(fd);
+    }
+}
+
+// The claims this process holds, one open claim file each. A claim is released only by closing its
+// fd, never by LOCK_UN: the lock belongs to the open file description, which a forked child shares,
+// and must stay held for a detached sim_server host that serves on after its parent exits. Exit
+// releases whatever is left.
+struct HeldClaims {
+    std::mutex mutex;
+    std::vector<int> fds;
+};
+
+HeldClaims& held_claims() {
+    static HeldClaims claims;
+    return claims;
+}
+
+// This process's claim on directory, or the end of claims.fds. Caller holds claims.mutex.
+std::vector<int>::iterator find_held_claim(HeldClaims& claims, const std::filesystem::path& directory) {
+    const std::filesystem::path claim_path = directory / kClaimFileName;
+    return std::find_if(
+        claims.fds.begin(), claims.fds.end(), [&claim_path](int fd) { return refers_to(fd, claim_path); });
+}
+
+// Makes sure this process holds directory's claim, taking it when no live process does. False when
+// another process holds it, or the directory went away (a sweep removed it) before it was taken.
+bool hold_claim(const std::filesystem::path& directory) {
+    HeldClaims& claims = held_claims();
+    std::lock_guard<std::mutex> lock(claims.mutex);
+    if (find_held_claim(claims, directory) != claims.fds.end()) {
+        return true;
+    }
+    const ClaimAttempt claim = try_take_claim(directory, /*create=*/true);
+    switch (claim.status) {
+        case ClaimAttempt::Status::Taken:
+            claims.fds.push_back(claim.fd);
+            return true;
+        case ClaimAttempt::Status::HeldElsewhere:
+        case ClaimAttempt::Status::Missing:
+            return false;
+        case ClaimAttempt::Status::Failed:
+            break;
+    }
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format(
+            "Failed to claim simulation server directory {}: {}", directory.string(), std::strerror(claim.error)));
+}
+
+// Releases this process's claim on directory and removes the directory, once nothing but the claim
+// file is left in it; a multi-chip host keeps both until its last socket is torn down. The claim
+// file goes while still locked, so a sweep in between finds an unclaimed directory with no socket,
+// which it keeps.
+void release_claim(const std::filesystem::path& directory) {
+    HeldClaims& claims = held_claims();
+    std::lock_guard<std::mutex> lock(claims.mutex);
+    const auto held = find_held_claim(claims, directory);
+    if (held == claims.fds.end()) {
+        return;
+    }
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(directory, ec)) {
+        if (entry.path().filename() != kClaimFileName) {
+            return;
+        }
+    }
+    std::filesystem::remove(directory / kClaimFileName, ec);
+    std::filesystem::remove(directory, ec);
+    ::close(*held);
+    claims.fds.erase(held);
+}
+
+// The sweep's verdict for a directory without a claim it can test (made by a UMD that predates
+// claims, or one whose claim file it cannot open): gone when it published sockets and not one still
+// has a listener. One with no socket at all is kept -- it reads like a host still coming up, and is
+// also what a directory looks like between allocation's mkdir and its claim.
+bool unclaimed_server_is_gone(const std::filesystem::path& directory) {
+    const auto sockets = SimulationServerSocket::sockets_in_directory(directory);
+    return !sockets.empty() && std::none_of(sockets.begin(), sockets.end(), [](const auto& socket) {
+        return SimulationServerSocket::is_live(socket.second);
+    });
+}
+
+// Best-effort and quiet when it fails: simulation sockets are cross-user by design, and another
+// user's directory cannot be removed from the temp directory, which every scan would otherwise
+// report.
+SimulationServerSocket::SweepResult remove_server_directory(const std::filesystem::path& directory) {
+    std::error_code ec;
+    std::filesystem::remove_all(directory, ec);
+    if (ec) {
+        log_debug(LogUMD, "Could not remove {}: {}", directory.string(), ec.message());
+        return SimulationServerSocket::SweepResult::Unremovable;
+    }
+    return SimulationServerSocket::SweepResult::Removed;
 }
 
 }  // namespace
@@ -203,6 +371,17 @@ bool SimulationServerSocket::bind_and_listen() {
         }
     }
 
+    // Claimed before binding, so a sweep cannot judge the directory abandoned and remove it from
+    // under the socket about to be bound in it.
+    const std::filesystem::path server_directory = socket_path_.parent_path();
+    UMD_ASSERT(
+        !is_server_directory(server_directory) || hold_claim(server_directory),
+        error::RuntimeError,
+        fmt::format(
+            "Cannot host a simulation server in {}: another live process has claimed it. Host from the process "
+            "that allocated it (or a child it forked), or let that process exit first.",
+            server_directory.string()));
+
     const stream_protocol::endpoint endpoint = make_endpoint(socket_path_);
 
     // The acceptor closes its fd on destruction (RAII), so error paths only need to undo the
@@ -335,30 +514,11 @@ SimulationServerSocket::~SimulationServerSocket() {
     // filesystem_error would call std::terminate. Cleanup is best-effort.
     std::error_code ec;
     std::filesystem::remove(socket_path_, ec);
-    // Remove the server directory once its last socket is gone. remove() only deletes an empty
-    // directory, so a multi-chip host's directory survives until the last chip's socket is torn
-    // down, and a directory that still holds other files is left alone. Guarded to our own naming
-    // so we never touch an unrelated directory.
     const std::filesystem::path server_directory = socket_path_.parent_path();
-    std::error_code temp_ec;
-    const std::filesystem::path temp = std::filesystem::temp_directory_path(temp_ec);
-    // Only ever remove a directory we could have allocated: our naming convention AND directly under
-    // the system temp dir. A caller may bind a socket at an arbitrary path that happens to match the
-    // naming (e.g. ~/tt-umd-sim-server-0/foo.sock); the parent-path check keeps teardown from rmdir'ing
-    // that. (remove() deletes only an empty directory, so this is already narrow, but not narrow enough.)
-    if (!temp_ec && server_directory.parent_path() == temp &&
-        server_index_from_directory_path(server_directory).has_value()) {
-        std::filesystem::remove(server_directory, ec);
+    if (is_server_directory(server_directory)) {
+        release_claim(server_directory);
     }
 }
-
-namespace {
-// Naming convention for a server directory: <temp>/tt-umd-sim-server-<index>. Kept here so the
-// prefix lives in one place, shared by allocate/list/parse below.
-constexpr std::string_view kServerDirPrefix = "tt-umd-sim-server-";
-// Backstop on the index search in allocate_server_directory(); far above any real server count.
-constexpr int kMaxServerIndex = 4096;
-}  // namespace
 
 std::filesystem::path SimulationServerSocket::allocate_server_directory() {
     const std::filesystem::path base = std::filesystem::temp_directory_path();
@@ -371,7 +531,12 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
         // immediately rather than spin kMaxServerIndex times hiding it behind a generic message.
         std::error_code ec;
         if (std::filesystem::create_directory(dir, ec)) {
-            return dir;
+            // The claim is lost only to a sweep that judged the directory abandoned in the instant
+            // before it was locked; that index is going away, so move on.
+            if (hold_claim(dir)) {
+                return dir;
+            }
+            continue;
         }
         UMD_ASSERT(
             !ec,
@@ -380,6 +545,26 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
     }
     UMD_THROW(
         error::RuntimeError, fmt::format("Could not allocate a simulation server directory under {}", base.string()));
+}
+
+SimulationServerSocket::SweepResult SimulationServerSocket::sweep_server_directory(
+    const std::filesystem::path& directory) {
+    const ClaimAttempt claim = try_take_claim(directory, /*create=*/false);
+    switch (claim.status) {
+        case ClaimAttempt::Status::HeldElsewhere:
+            return SweepResult::Live;
+        case ClaimAttempt::Status::Taken: {
+            // Removed while holding the dead owner's claim, so no host can take the directory over
+            // between the verdict and the removal.
+            const SweepResult result = remove_server_directory(directory);
+            ::close(claim.fd);
+            return result;
+        }
+        case ClaimAttempt::Status::Missing:
+        case ClaimAttempt::Status::Failed:
+            break;
+    }
+    return unclaimed_server_is_gone(directory) ? remove_server_directory(directory) : SweepResult::Live;
 }
 
 std::map<int, std::filesystem::path> SimulationServerSocket::list_server_directories() {

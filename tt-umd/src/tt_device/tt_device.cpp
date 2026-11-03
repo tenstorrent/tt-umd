@@ -123,17 +123,6 @@ bool TTDevice::apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord 
 
     uint64_t reset_vector = 0;
     std::memcpy(&reset_vector, mem_ptr, size);
-    // CCE1's CPU window is the upper 4 MiB of the tile. The host still loads the
-    // image at offset 0x8080 of that CCE's SRAM; the hart enters it at 0x408080.
-    const SocDescriptor &soc = get_soc_descriptor();
-    const tt_xy_pair core_xy(core.x, core.y);
-    const tt_xy_pair noc0 = soc.translate_coord_to(core_xy, CoordSystem::TRANSLATED, CoordSystem::NOC0);
-    for (const KeraunosCore &entry : soc.get_arch_descriptor().get_keraunos().cores) {
-        if (entry.coord == noc0) {
-            reset_vector += static_cast<uint64_t>(entry.cce) * static_cast<uint64_t>(soc.eth_l1_size);
-            break;
-        }
-    }
     const uint32_t first_hart = static_cast<uint32_t>(addr / grendel::CCE_HART_RESET_VECTOR_STRIDE);
     const uint32_t last_hart = (addr == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {

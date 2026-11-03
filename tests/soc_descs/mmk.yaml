@@ -5,19 +5,19 @@
 #
 # Coordinates are package-local UMD handles, not hardware NOC endpoints and not
 # the MK package coordinates in topology.yaml. The two SMC handles are M0 then M1.
-# The ethernet handles are the eight Keraunos CCEs on HSIO tiles 0-3.
-# x = 4 + cce and y = hsio. The emulator implements those four tiles;
+# The ethernet handles are CCE0 on HSIO tiles 0-3. CCE1 is the next 4 MiB on
+# each tile and is not listed until its CPU addresses match CCE0's. x = 4 and
+# y = hsio. The emulator implements those four tiles;
 # hardware tile 4 is not in the model. The D2D link to M1 is still D2D 2.
 #
 # Chippy's mk_bringup scan chain is k0 at index 0, m0 at 1, m1 at 2. The index
 # is not the digits of the chiplet id: k0 happening to be 0 is this package.
 #
 # HSIO tile 0 TL1 SRAM is chiplet-local 0x22800000. Tiles are 0x4000000 apart,
-# and each tile holds two 4 MiB CCE regions (cce 0, then cce 1). A core's SRAM
-# is local_window + hsio * tile_stride + cce * eth_l1_size. The package SPA
+# and each tile holds two 4 MiB CCE regions. This file lists CCE0 only. A core's
+# SRAM is local_window + hsio * tile_stride + cce * eth_l1_size. The package SPA
 # table is a different address space. bringup_mmk.py releases HSIO tiles 0-3
-# (both CCEs on each tile, cores held). D2D staging stays on tile 2, the link
-# to M1.
+# (CCE0, cores held). D2D staging stays on tile 2, the link to M1.
 #
 # These cores are the Metal ethernet list. Opening this descriptor installs the
 # idle-ethernet map and firmware. A Quasar descriptor with eth: [] keeps the
@@ -76,7 +76,7 @@ dram_view_size:
   536870912
 
 eth:
-  [4-0, 5-0, 4-1, 5-1, 4-2, 5-2, 4-3, 5-3]
+  [4-0, 4-1, 4-2, 4-3]
 
 functional_workers:
   []
@@ -132,24 +132,12 @@ keraunos:
     - core: 4-0
       hsio: 0
       cce: 0
-    - core: 5-0
-      hsio: 0
-      cce: 1
     - core: 4-1
       hsio: 1
       cce: 0
-    - core: 5-1
-      hsio: 1
-      cce: 1
     - core: 4-2
       hsio: 2
       cce: 0
-    - core: 5-2
-      hsio: 2
-      cce: 1
     - core: 4-3
       hsio: 3
       cce: 0
-    - core: 5-3
-      hsio: 3
-      cce: 1

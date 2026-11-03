@@ -29,6 +29,7 @@
 #include <cxxopts.hpp>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -178,7 +179,7 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     options.simulation_shutdown_handler = request_stop;
     options.simulator_server_directory = server_directory;
 
-    Cluster cluster(options);
+    auto cluster = std::make_unique<Cluster>(options);
 
     // Printed only once the sockets are actually serving, so a caller can treat this line -- and not
     // the process merely existing -- as the signal that clients may attach.
@@ -195,7 +196,14 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     }
 
     log_info(tt::LogUMD, "Shutting down; closing client connections.");
-    return 0;  // ~Cluster tears the host down gracefully.
+    cluster.reset();  // Tears the host down gracefully, which removes its server directory.
+    // With the directory gone no scan will ever sweep this log, and a clean exit leaves nothing in it
+    // worth keeping. A host that dies never gets here, so its log stays until its directory is swept.
+    if (detach) {
+        std::error_code ec;
+        std::filesystem::remove(log_path_for(server_directory), ec);
+    }
+    return 0;
 }
 
 int cmd_list() {

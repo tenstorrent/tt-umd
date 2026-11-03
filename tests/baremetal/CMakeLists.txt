@@ -2,6 +2,7 @@ set(BAREMETAL_TESTS_SRCS
     test_architecture_tlbs.cpp
     test_pci_device_arch.cpp
     test_kmd_lib_noc_io.cpp
+    test_kmd_lib_events.cpp
     test_att_window.cpp
     test_att_resolver.cpp
     test_grendel_att_map.cpp

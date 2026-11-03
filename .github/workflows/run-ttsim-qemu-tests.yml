@@ -31,8 +31,8 @@ jobs:
           - {card: grendel, lib: libttsim_qsr.so, bar4-size: 512G,
              vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup",
              tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*"}
-    # The Grendel row cannot pass until the suites it names are on main; until then the filter check
-    # fails the step, and this keeps that off the pipeline. See docs/TTSIM_QEMU.md.
+    # The Grendel row's suites are not on main yet, so against main its filter check fails by design.
+    # It reports without failing the pipeline until they land. See docs/TTSIM_QEMU.md.
     continue-on-error: ${{ matrix.card == 'grendel' }}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
     runs-on: ubuntu-22.04

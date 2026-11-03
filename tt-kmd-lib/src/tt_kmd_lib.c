@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -890,6 +891,98 @@ int tt_lock_test(tt_device_t* dev, uint8_t index, uint32_t* out_state) {
 
     /* The driver's value bits are laid out exactly as enum tt_lock_state. */
     *out_state = value;
+
+    return 0;
+}
+
+/* Records are read straight into the caller's buffer, so the public record must match the ABI's. */
+#define ASSERT_SAME_EVENT_FIELD(field)                                                        \
+    _Static_assert(                                                                           \
+        offsetof(tt_event_t, field) == offsetof(struct tenstorrent_event, field) &&           \
+            sizeof(((tt_event_t*)0)->field) == sizeof(((struct tenstorrent_event*)0)->field), \
+        "tt_event_t." #field " does not match struct tenstorrent_event")
+_Static_assert(sizeof(tt_event_t) == sizeof(struct tenstorrent_event), "tt_event_t size mismatch");
+ASSERT_SAME_EVENT_FIELD(seq);
+ASSERT_SAME_EVENT_FIELD(host_time_ns);
+ASSERT_SAME_EVENT_FIELD(device_time);
+ASSERT_SAME_EVENT_FIELD(type);
+ASSERT_SAME_EVENT_FIELD(source);
+ASSERT_SAME_EVENT_FIELD(cause);
+ASSERT_SAME_EVENT_FIELD(data);
+_Static_assert(TT_EVENT_TYPE_FW_EVENTS_LOST == TENSTORRENT_EVENT_TYPE_FW_EVENTS_LOST, "driver event type mismatch");
+
+static int read_events_ioctl(
+    tt_device_t* dev, tt_event_t* events, uint32_t capacity, uint32_t flags, struct tenstorrent_read_events* read) {
+    memset(read, 0, sizeof(*read));
+    read->argsz = sizeof(*read);
+    read->flags = flags & TT_READ_EVENTS_FLAG_FROM_OLDEST ? TENSTORRENT_READ_EVENTS_FROM_OLDEST : 0;
+    read->capacity = capacity;
+    read->events_ptr = (uint64_t)(uintptr_t)events;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_READ_EVENTS, read) != 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
+int tt_device_read_events(
+    tt_device_t* dev,
+    tt_event_t* events,
+    uint32_t capacity,
+    uint32_t flags,
+    int timeout_ms,
+    int wake_fd,
+    uint32_t* out_count,
+    uint32_t* out_lost,
+    int* out_fw_attached) {
+    if (dev == NULL || (events == NULL && capacity > 0) || out_count == NULL) {
+        return -EINVAL;
+    }
+
+    if ((flags & ~(uint32_t)TT_READ_EVENTS_FLAG_FROM_OLDEST) != 0) {
+        return -EINVAL;
+    }
+
+    /* Read before waiting: poll() reports only records past this handle's cursor, so it misses the
+     * older records that FROM_OLDEST rewinds to. */
+    struct tenstorrent_read_events read;
+    int ret = read_events_ioctl(dev, events, capacity, flags, &read);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* A read that found nothing skipped nothing either, so the second read's lost count is the whole
+     * of it. */
+    if (read.count == 0 && capacity > 0 && timeout_ms != 0) {
+        /* poll() ignores an entry with a negative fd, so no wake_fd needs no special case. */
+        struct pollfd pfds[2] = {{.fd = dev->fd, .events = POLLIN}, {.fd = wake_fd, .events = POLLIN}};
+        int ready = poll(pfds, 2, timeout_ms < 0 ? -1 : timeout_ms);
+        if (ready < 0) {
+            return -errno;
+        }
+
+        /* Any records that arrived meanwhile stay unread for the next call. */
+        if (pfds[1].revents & POLLIN) {
+            return -ECANCELED;
+        }
+
+        /* A reset or removal also wakes poll(), and the read then fails with -ENODEV. */
+        if (ready > 0) {
+            ret = read_events_ioctl(dev, events, capacity, 0, &read);
+            if (ret != 0) {
+                return ret;
+            }
+        }
+    }
+
+    *out_count = read.count;
+    if (out_lost) {
+        *out_lost = read.lost;
+    }
+    if (out_fw_attached) {
+        *out_fw_attached = (read.status & TENSTORRENT_READ_EVENTS_STATUS_FW_ATTACHED) != 0;
+    }
 
     return 0;
 }

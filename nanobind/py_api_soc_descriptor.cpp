@@ -144,6 +144,20 @@ void bind_soc_descriptor(nb::module_ &m) {
             release_gil(),
             "Create a SocDescriptor from a TTDevice")
         .def(
+            nb::init<std::shared_ptr<const SocArchDescriptor>, const ChipInfo>(),
+            nb::arg("arch_descriptor"),
+            nb::arg("chip_info") = ChipInfo(),
+            release_gil(),
+            "Create a SocDescriptor from a SocArchDescriptor and per-chip info")
+        .def(
+            "get_arch_descriptor",
+            &SocDescriptor::get_arch_descriptor,
+            nb::rv_policy::reference_internal,
+            release_gil(),
+            "Get the SocArchDescriptor this SocDescriptor is built from")
+        .def_ro("harvesting_masks", &SocDescriptor::harvesting_masks)
+        .def_ro("noc_translation_enabled", &SocDescriptor::noc_translation_enabled)
+        .def(
             "get_cores",
             &SocDescriptor::get_cores,
             nb::arg("core_type"),

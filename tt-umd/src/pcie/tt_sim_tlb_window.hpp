@@ -41,6 +41,8 @@ public:
     void read_block(uint64_t offset, void* data, size_t size) override;
 
 private:
+    bool is_mapped_through_bar() const;
+
     /**
      * Get the physical address for a TLB window offset.
      * This combines the TLB's base address with the given offset.

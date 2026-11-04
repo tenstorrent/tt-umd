@@ -642,10 +642,6 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
     std::unique_ptr<Cluster> cluster =
         test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
-    if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR) {
-        GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
-    }
-
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;
         static std::mt19937_64 gen(rd());

@@ -424,5 +424,5 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
 }
 
 TEST(ApiTTDeviceTest, CreateRejectsUndefinedDeviceType) {
-    EXPECT_THROW(TTDevice::create(0, IODeviceType::UNDEFINED), error::RuntimeError);
+    EXPECT_THROW(TTDevice::create(0, IODeviceType::UNDEFINED), error::UmdException<error::RuntimeError>);
 }

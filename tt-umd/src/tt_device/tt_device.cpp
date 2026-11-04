@@ -96,12 +96,12 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     bool use_safe_api,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    UMD_ASSERT(
+        (!use_safe_api) || (device_type == IODeviceType::PCIe),
+        error::RuntimeError,
+        "Safe I/O API is not supported for non-PCIe device types.");
     tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
-        if (use_safe_api) {
-            // Safe I/O recovers from SIGBUS on memory-mapped PCIe regions, which JTAG doesn't have.
-            log_debug(LogUMD, "Ignoring use_safe_api for JTAG device {}.", device_number);
-        }
         auto jtag_device = JtagDevice::create(static_cast<uint32_t>(device_number));
         arch = jtag_device->get_jtag_arch();
         switch (arch) {

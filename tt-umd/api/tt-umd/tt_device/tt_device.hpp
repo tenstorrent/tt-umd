@@ -77,7 +77,7 @@ public:
      *                      number, or the J-Link serial number for JTAG.
      * @param device_type The type of I/O device interface to use. (default: PCIe)
      * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
-     *                     Ignored for the JTAG I/O device type. (default: false)
+     *                     Available only for PCIe I/O device type. (default: false)
      * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
      *                            If nullptr, a default descriptor will be used. (default: nullptr)
      *

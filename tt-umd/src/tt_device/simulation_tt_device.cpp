@@ -296,14 +296,14 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
     }
 }
 
-void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base, uint64_t bar4_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), bar4_base);
+void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base, uint64_t bar2_base, uint64_t bar4_base) {
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), bar4_base, bar2_base);
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
-    // Quasar has no real TLBs; the communicator handles all I/O underneath. The 4GB size for Quasar is
-    // a dummy value -- it just needs to be large enough so that TlbWindow::validate doesn't reject any
-    // valid access (size 0 would cause division by zero in the TLB handle configure).
+    // A bypassed Quasar allocator has no real TLBs; the communicator handles all I/O underneath. Its
+    // 4GB size is a dummy value -- it just needs to be large enough so that TlbWindow::validate doesn't
+    // reject any valid access (size 0 would cause division by zero in the TLB handle configure).
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
@@ -315,7 +315,8 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
             break;
         case tt::ARCH::QUASAR:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            cached_tlb_window_ =
+                get_io_window({}, TlbMapping::WC, tlb_allocator_->is_bypassed() ? SIZE_4GB : SIZE_16MB);
             break;
         default:
             log_debug(
@@ -337,9 +338,8 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
-    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested size
-    // through, since get_tlb_size_from_index has no pool to look up for the bypass index.
-    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    // A bypass index has no pool for get_tlb_size_from_index to look up; pass the requested size through.
+    size_t actual_size = tlb_allocator_->is_bypassed() ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 

@@ -13,7 +13,6 @@
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
-#include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
 
 namespace tt::umd {
@@ -56,13 +55,7 @@ void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
 
 void TTSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {
     validate(offset, size);
-    // Quasar's TLB handle programs no TLB registers and is left without a base address, so a
-    // physical address derived from it carries no identity for the core this window was created
-    // for. Name the core explicitly. Wormhole and Blackhole keep the physical-address path.
-    //
-    // This is an arch check rather than a capability check because the simulator does not model
-    // Quasar TLBs at all. If it ever does, this needs to become a capability check.
-    if (tlb_handle->get_arch() != tt::ARCH::QUASAR) {
+    if (is_mapped_through_bar()) {
         sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
         return;
     }
@@ -79,7 +72,7 @@ void TTSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size)
 
 void TTSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) {
     validate(offset, size);
-    if (tlb_handle->get_arch() != tt::ARCH::QUASAR) {
+    if (is_mapped_through_bar()) {
         sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
         return;
     }
@@ -91,6 +84,10 @@ void TTSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) {
         device_addr,
         data,
         static_cast<uint32_t>(size));
+}
+
+bool TTSimTlbWindow::is_mapped_through_bar() const {
+    return static_cast<const TTSimTlbHandle&>(*tlb_handle).is_mapped_through_bar();
 }
 
 uint64_t TTSimTlbWindow::get_physical_address(uint64_t offset) const {

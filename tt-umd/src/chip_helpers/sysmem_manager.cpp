@@ -92,6 +92,9 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
             return 0x800000000;
         case tt::ARCH::BLACKHOLE:
             return 4ULL << 58;
+        case tt::ARCH::QUASAR:
+            // Keraunos HSIO0's noc2axi sends addresses with [63:48] == 2 to the PCIe tile.
+            return 2ULL << 48;
         default:
             return 0;
     }

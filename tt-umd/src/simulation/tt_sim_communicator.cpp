@@ -429,6 +429,18 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
+void TTSimCommunicator::pci_config_write32(uint32_t bus_device_function, uint32_t offset, uint32_t data) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    // Resolved here rather than at load: not every simulator image exports it, and only Quasar needs it.
+    auto config_write32 =
+        reinterpret_cast<void (*)(uint32_t, uint32_t, uint32_t)>(dlsym(libttsim_handle_, "libttsim_pci_config_wr32"));
+    UMD_ASSERT(config_write32 != nullptr, error::RuntimeError, "Simulator does not export libttsim_pci_config_wr32.");
+    // See pci_config_read32 for the BDF selection.
+    const uint32_t bdf = (multichip_mode_ || bus_device_function != 0) ? bus_device_function : pci_bdf_.value_or(0);
+    select_chip_if_needed();
+    config_write32(bdf, offset, data);
+}
+
 const TTSimCommunicator::ImageProbe &TTSimCommunicator::probe_image(const std::filesystem::path &simulator_path) {
     std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
 

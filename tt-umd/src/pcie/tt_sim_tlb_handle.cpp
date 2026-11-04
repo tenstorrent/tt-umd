@@ -25,18 +25,16 @@ TTSimTlbHandle::TTSimTlbHandle(
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
-    const TlbMapping tlb_mapping) :
-    allocator_(std::move(allocator)), sim_communicator_(communicator) {
+    const TlbMapping tlb_mapping,
+    QuasarInboundRoute quasar_inbound_route) :
+    allocator_(std::move(allocator)),
+    sim_communicator_(communicator),
+    quasar_inbound_route_(std::move(quasar_inbound_route)) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
 
-    // Compute the address for this TLB based on BAR0 base + TLB offset.
-    // QUASAR bypasses the simulation TLB allocator entirely (the communicator
-    // handles all I/O), so the allocator has no pools and the get_*_from_index
-    // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
-    // their defaults (nullptr / 0), which the QUASAR path never dereferences.
-    if (allocator_ && allocator_->get_architecture() != tt::ARCH::QUASAR) {
+    if (allocator_) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }
@@ -54,9 +52,10 @@ std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
-    const TlbMapping tlb_mapping) {
-    return std::unique_ptr<TTSimTlbHandle>(
-        new TTSimTlbHandle(std::move(allocator), communicator, tlb_id, size, tlb_mapping));
+    const TlbMapping tlb_mapping,
+    QuasarInboundRoute quasar_inbound_route) {
+    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(
+        std::move(allocator), communicator, tlb_id, size, tlb_mapping, std::move(quasar_inbound_route)));
 }
 
 TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
@@ -74,9 +73,8 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     // Get architecture from allocator to determine correct offsets.
     tt::ARCH architecture = get_arch();
 
-    // Quasar has no real TLB registers to program — the communicator handles
-    // all I/O directly, so configure is a no-op beyond storing tlb_config_.
     if (architecture == tt::ARCH::QUASAR) {
+        configure_quasar(new_config);
         return;
     }
 
@@ -152,6 +150,19 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
         // Wormhole uses 8 bytes (64 bits).
         communicator->pci_mem_write_bytes(tlb_reg_addr_, &reg_val, 8);
     }
+}
+
+void TTSimTlbHandle::configure_quasar(const tlb_data& new_config) {
+    const std::optional<uint64_t> physical_address = quasar_inbound_route_(
+        {static_cast<size_t>(new_config.x_end), static_cast<size_t>(new_config.y_end)}, new_config.local_offset);
+    mapped_through_bar_ = physical_address.has_value();
+    if (!mapped_through_bar_ || physical_address == programmed_address_) {
+        return;
+    }
+    programmed_address_ = physical_address;
+    // A TLB_APP_IN0 entry config is the window's physical address with the valid bit in bit 0.
+    const uint64_t entry = *physical_address | 1;
+    sim_communicator_->pci_mem_write_bytes(tlb_reg_addr_, &entry, sizeof(entry));
 }
 
 void TTSimTlbHandle::free_tlb() noexcept {

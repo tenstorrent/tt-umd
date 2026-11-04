@@ -76,6 +76,7 @@ target_sources(
         src/arch/grendel_implementation.cpp
         src/hugepage.cpp
         src/logging/config.cpp
+        src/pcie/kmd_power_hold.cpp
         src/pcie/pci_device.cpp
         src/types/tlb.cpp
         src/cluster_descriptor.cpp

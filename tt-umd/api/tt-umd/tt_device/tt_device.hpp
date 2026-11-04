@@ -57,6 +57,7 @@ class SimulationSysmemManager;
 class DmaInterface;
 class JtagDevice;
 class JtagInterface;
+class KmdPowerHold;
 class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
@@ -105,7 +106,7 @@ public:
         std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
 #endif  // TT_UMD_BUILD_SIMULATION
 
-    virtual ~TTDevice() = default;
+    virtual ~TTDevice();
 
     ArchitectureImplementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
@@ -625,6 +626,11 @@ private:
 
     RiscReset *get_risc_reset();
 
+    // Keeps Tensix powered for as long as the chip is used over JTAG.
+    void hold_power_for_jtag();
+
+    // Declared before model_ so the chip stays powered until the model has closed its JTAG connection.
+    std::unique_ptr<KmdPowerHold> kmd_power_hold_;
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 };

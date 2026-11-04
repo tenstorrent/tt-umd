@@ -1,0 +1,18 @@
+set(MICROBENCHMARK_SRC_FILES src/test.cpp)
+add_executable(microbenchmarks ${MICROBENCHMARK_SRC_FILES})
+target_link_libraries(
+    microbenchmarks
+    PRIVATE
+        umd::tt-umd
+        gtest_main
+        gtest
+        fmt::fmt-header-only
+        nanobench
+        nlohmann_json::nlohmann_json
+)
+target_include_directories(
+    microbenchmarks
+    PRIVATE
+        ${nanobench_SOURCE_DIR}/src/include
+        .
+)

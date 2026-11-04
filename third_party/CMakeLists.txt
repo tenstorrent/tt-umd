@@ -123,10 +123,17 @@ endif()
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
-# nanobench (for uBenchmarking)
+# nanobench (for microbenchmarks)
 ###################################################################################################################
-if(MASTER_PROJECT)
+if(TT_UMD_BUILD_MICROBENCHMARKS)
     CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.6.0 SYSTEM YES)
+endif()
+
+###################################################################################################################
+# nlohmann/json (for microbenchmarks)
+###################################################################################################################
+if(TT_UMD_BUILD_MICROBENCHMARKS)
+    CPMAddPackage(NAME nlohmann_json GITHUB_REPOSITORY nlohmann/json GIT_TAG v3.11.3 SYSTEM YES)
 endif()
 
 ####################################################################################################################

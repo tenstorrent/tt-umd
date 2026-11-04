@@ -48,17 +48,18 @@ if(MASTER_PROJECT)
     include(sccache)
 endif()
 
-option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
-option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
-option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
-option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
-option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+option(TT_UMD_BUILD_TESTS "Enables build of tt-umd tests" OFF)
+option(TT_UMD_BUILD_MICROBENCHMARKS "Enables build of tt-umd microbenchmarks" OFF)
+option(TT_UMD_BUILD_SIMULATION "Enables build of tt-umd simulation harnessing" OFF)
+option(TT_UMD_BUILD_PYTHON "Enables build of tt-umd python bindings" OFF)
+option(TT_UMD_BUILD_TOOLS "Enables build of tt-umd tools" ON)
+option(TT_UMD_BUILD_EXAMPLES "Enables build of tt-umd examples" OFF)
 # The RDMA dma-buf test and example need libibverbs and RDMA hardware, so they are opt-in rather
 # than auto-detected: with this ON, missing or too-old libibverbs is a configure error rather than
 # a silent skip, so a host that cannot build them says so instead of quietly producing nothing.
 option(TT_UMD_BUILD_RDMA "Enables build of the RDMA dma-buf test and example (requires libibverbs)" OFF)
-option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
-option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
+option(TT_UMD_BUILD_ALL "Enables build of all tt-umd components (tests, simulation, python, tools, examples)" OFF)
+option(TT_UMD_BUILD_STATIC "Enables build of tt-umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
 option(TT_UMD_BUILD_EMULE "Enable software emulation chip (SWEmuleChip)" OFF)
 set(TT_EMULE_PATH "" CACHE PATH "Local path to tt-emule source (overrides CPM fetch from GitHub)")
@@ -94,6 +95,7 @@ if(TT_UMD_BUILD_ALL)
     set(TT_UMD_BUILD_PYTHON ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
     set(TT_UMD_BUILD_TOOLS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
     set(TT_UMD_BUILD_EXAMPLES ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
+    set(TT_UMD_BUILD_MICROBENCHMARKS ON CACHE BOOL "Enabled by TT_UMD_BUILD_ALL" FORCE)
 endif()
 
 # Control compile time logging
@@ -189,6 +191,10 @@ if(TT_UMD_BUILD_RDMA)
     include(${PROJECT_SOURCE_DIR}/cmake/ibverbs.cmake)
 endif()
 
+if(TT_UMD_BUILD_MICROBENCHMARKS)
+    add_subdirectory(microbenchmarks)
+endif()
+
 if(TT_UMD_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
@@ -218,6 +224,7 @@ set(_umd_summary_vars
     TT_UMD_BUILD_STATIC
     TT_UMD_BUILD_TESTS
     TT_UMD_BUILD_TOOLS
+    TT_UMD_BUILD_MICROBENCHMARKS
     TT_UMD_ENABLE_CLANG_TIDY
     TT_UMD_ENABLE_LOGGING
     TT_UMD_ENABLE_TRACY

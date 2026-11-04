@@ -19,7 +19,6 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "pcie/kmd_power_hold.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
@@ -71,8 +70,6 @@ enum class RiscType : std::uint64_t;
 
 TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
 
-TTDevice::~TTDevice() = default;
-
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
@@ -90,38 +87,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     // Waits for the firmware and builds the components that read what it publishes; the model's
     // firmware owns them, and the accessors below lend them onward.
     get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
-    // Init so far has only touched ARC, which stays reachable while Tensix is clock-gated.
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        hold_power_for_jtag();
-    }
     construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
-}
-
-// tt-kmd clock-gates Tensix once no open fd on the chip's PCIe device requests power, and a JTAG NOC access to
-// gated Tensix never completes and leaves ARC unresponsive until a reset. Requesting power through that device
-// stays correct alongside PCIe clients because tt-kmd aggregates the requests of all open fds.
-void TTDevice::hold_power_for_jtag() {
-    FirmwareTelemetryReader *telemetry_reader = get_firmware_telemetry_reader();
-    if (!telemetry_reader->is_entry_available(TelemetryTag::ASIC_ID_HIGH) ||
-        !telemetry_reader->is_entry_available(TelemetryTag::ASIC_ID_LOW)) {
-        log_warning(
-            LogUMD,
-            "Firmware of JTAG device {} does not report its ASIC id, so its PCIe device cannot be held open. "
-            "Tensix may be clock-gated, and accessing it can leave the chip unresponsive until reset.",
-            get_communication_device_id());
-        return;
-    }
-    const uint64_t asic_id = (static_cast<uint64_t>(telemetry_reader->read_entry(TelemetryTag::ASIC_ID_HIGH)) << 32) |
-                             telemetry_reader->read_entry(TelemetryTag::ASIC_ID_LOW);
-    kmd_power_hold_ = KmdPowerHold::create(asic_id);
-    if (kmd_power_hold_ == nullptr) {
-        log_warning(
-            LogUMD,
-            "No PCIe device found for JTAG device {} (ASIC id {:#x}). Tensix may be clock-gated, and accessing it "
-            "can leave the chip unresponsive until reset.",
-            get_communication_device_id(),
-            asic_id);
-    }
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(

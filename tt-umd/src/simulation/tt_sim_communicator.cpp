@@ -237,23 +237,8 @@ void TTSimCommunicator::initialize() {
     // routes inter-chip eth internally).
     //
     // The library is loaded once per process, so every chip opened on it has to be one of its own
-    // endpoints. Asking for more chips than it exposes means the topology came from somewhere other
-    // than the image -- typically a cluster descriptor written for silicon.
+    // endpoints; start_sim() checks that against the running image.
     if (num_chips_ > 1) {
-        const uint32_t endpoint_count =
-            image_endpoint_count_.has_value()
-                ? *image_endpoint_count_
-                : static_cast<uint32_t>(enumerate_mmio_device_bdfs(simulator_directory_).size());
-        UMD_ASSERT(
-            num_chips_ <= endpoint_count,
-            error::RuntimeError,
-            fmt::format(
-                "Simulator {} exposes {} PCI endpoint(s), but {} chips were requested over PCIe. Use a multichip "
-                "simulator build, or drop the cluster descriptor and let UMD discover the topology.",
-                simulator_directory_.string(),
-                endpoint_count,
-                num_chips_));
-
         std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!shared_lib) {
             void *handle = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
@@ -398,6 +383,20 @@ void TTSimCommunicator::resolve_pci_bdf() {
     // have: chips are numbered in BDF order, and an image this communicator has to itself holds its
     // chip as the first endpoint. For a linear image that is bus 0, device chip_id (or device 0).
     const std::vector<uint32_t> bdfs = scan_pci_endpoints(pfn_libttsim_pci_config_rd32_);
+    // Chips that share an image without being handed their BDFs were laid out by a cluster
+    // descriptor, so a chip without an endpoint is the descriptor's doing. Checking the count as well
+    // as this chip's id refuses on the first chip opened rather than after some are up.
+    UMD_ASSERT(
+        !shared_bdf_mode_ || (num_chips_ <= bdfs.size() && chip_id_ < bdfs.size()),
+        error::RuntimeError,
+        fmt::format(
+            "Simulator {} exposes {} PCI endpoint(s), but the cluster descriptor opens {} chip(s) over PCIe on it, "
+            "chip {} among them. Each needs its own endpoint, the chip id naming it in BDF order. Use a multichip "
+            "simulator build, or drop the cluster descriptor and let UMD discover the topology.",
+            simulator_directory_.string(),
+            bdfs.size(),
+            num_chips_,
+            chip_id_));
     const uint32_t index = shared_bdf_mode_ ? chip_id_ : 0;
     UMD_ASSERT(
         index < bdfs.size(),

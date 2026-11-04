@@ -32,9 +32,9 @@ public:
      *   for legacy single-chip consumers.
      * @param num_chips How many chips are opened over PCIe on this image. Without the multichip ABI,
      *   more than one needs an image exposing at least that many endpoints, as every chip is one of
-     *   them; initialize() throws otherwise.
+     *   them, with chip_id naming it in BDF order; start_sim() throws otherwise.
      * @param image_endpoint_count How many host-visible PCI endpoints the .so exposes, as reported
-     *   by enumerate_mmio_device_bdfs(). Unset, initialize() enumerates the image when it needs to know.
+     *   by enumerate_mmio_device_bdfs().
      * @param pci_bdf Bus/device/function of this chip's endpoint, as reported by
      *   enumerate_mmio_device_bdfs(). The chip id is a dense index and says nothing about where the
      *   endpoint sits, so config-space reads go to this BDF. Unset, start_sim() scans the running

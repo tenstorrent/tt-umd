@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -240,11 +241,17 @@ void bind_tt_device(nb::module_ &m) {
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(
-                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
+            [](int device_number,
+               IODeviceType device_type,
+               std::optional<bool> use_safe_api,
+               const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+                // None enables the safe API wherever it is supported, which is PCIe only.
+                bool resolved_use_safe_api = use_safe_api.value_or(device_type == IODeviceType::PCIe);
+                return TTDevice::create(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
+            },
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
-            nb::arg("use_safe_api") = true,
+            nb::arg("use_safe_api") = nb::none(),
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil(),

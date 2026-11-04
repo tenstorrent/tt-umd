@@ -1527,6 +1527,8 @@ std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     } else if (arch == tt::ARCH::BLACKHOLE) {
         // Enable 4th ATU window.
         return 1ULL << 60;
+    } else if (arch == tt::ARCH::QUASAR) {
+        return 2ULL << 48;
     } else {
         return 0;
     }

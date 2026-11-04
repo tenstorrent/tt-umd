@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
@@ -126,11 +127,17 @@ protected:
     bool is_device_closed() override;
     bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    bool should_use_cached_tlb_window() override;
     void after_read() override;
 
 private:
     void configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size);
+
+    uint64_t read_bar_base(uint32_t config_offset);
+
+    // Backs TTSimTlbHandle::QuasarInboundRoute for this device's windows. It runs on every access, so
+    // init_quasar_inbound_routes() looks up the cores it reaches once.
+    void init_quasar_inbound_routes();
+    std::optional<uint64_t> get_quasar_inbound_address(tt_xy_pair core, uint64_t addr) const;
 
     // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
     // coordinate; returns true when the access was serviced against the backend DRAM model. These
@@ -165,6 +172,9 @@ private:
     std::function<void()> teardown_;
 
     uint32_t tlb_region_size_ = 0;
+    std::optional<tt_xy_pair> quasar_pcie_core_;
+    // TLB_APP_IN0 physical address of each Tensix's boot NEO window.
+    std::unordered_map<tt_xy_pair, uint64_t> quasar_neo_windows_;
     std::unique_ptr<TTSimCommunicator> communicator_;
     ChipId chip_id_;
     uint32_t libttsim_pci_device_id;

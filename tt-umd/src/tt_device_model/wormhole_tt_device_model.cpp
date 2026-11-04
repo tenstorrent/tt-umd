@@ -44,12 +44,10 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 }
 
 WormholeTTDeviceModel::WormholeTTDeviceModel(
-    std::unique_ptr<JtagDevice> jtag_device,
-    uint8_t jlink_id,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    std::unique_ptr<JtagDevice> jtag_device, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<WormholeImplementation>()) {
-    auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
+    auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device));
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
     hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());

@@ -97,20 +97,24 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
+        device_type == IODeviceType::PCIe || device_type == IODeviceType::JTAG,
+        error::RuntimeError,
+        fmt::format("Unsupported device type {} for TTDevice::create.", DeviceTypeToString.at(device_type)));
+    UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
         error::RuntimeError,
         "Safe I/O API is not supported for non-PCIe device types.");
     tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
-        auto jtag_device = JtagDevice::create();
-        arch = jtag_device->get_jtag_arch(device_number);
+        auto jtag_device = JtagDevice::create(static_cast<uint32_t>(device_number));
+        arch = jtag_device->get_jtag_arch();
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(
+                    new TTDevice(std::make_unique<WormholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<BlackholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(new TTDevice(
+                    std::make_unique<BlackholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,

@@ -155,6 +155,18 @@ enum tt_noc_ordering {
 int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_flags);
 
 /**
+ * @brief Open the Tenstorrent device of the chip with the given ASIC id.
+ *
+ * The chip is identified by the tt_asic_id attribute the driver publishes in sysfs.
+ *
+ * @param asic_id ASIC id of the chip, as reported in its firmware telemetry
+ * @param out_dev Device handle
+ * @param extra_flags Additional flags to pass to open(2), e.g. O_APPEND.
+ * @return 0 on success, -ENODEV if no device has that ASIC id, negative error code on other failures
+ */
+int tt_device_open_by_asic_id(uint64_t asic_id, tt_device_t** out_dev, int extra_flags);
+
+/**
  * @brief Close a Tenstorrent device.
  *
  * @param dev Device handle

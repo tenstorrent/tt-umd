@@ -4,8 +4,10 @@
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,6 +92,46 @@ int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_fl
     *out_dev = dev;
 
     return 0;
+}
+
+static bool read_sysfs_asic_id(const char* device_name, uint64_t* out_asic_id) {
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "/sys/class/tenstorrent/%s/tt_asic_id", device_name);
+    FILE* file = fopen(path, "r");
+    if (!file) {
+        return false;
+    }
+    unsigned long long asic_id = 0;
+    bool found = fscanf(file, "%llx", &asic_id) == 1;
+    fclose(file);
+    *out_asic_id = asic_id;
+    return found;
+}
+
+int tt_device_open_by_asic_id(uint64_t asic_id, tt_device_t** out_dev, int extra_flags) {
+    static const char device_prefix[] = "tenstorrent!";
+    DIR* dir = opendir("/sys/class/tenstorrent");
+    if (!dir) {
+        return -ENODEV;
+    }
+
+    int ret = -ENODEV;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        uint64_t device_asic_id = 0;
+        if (strncmp(entry->d_name, device_prefix, sizeof(device_prefix) - 1) != 0 ||
+            !read_sysfs_asic_id(entry->d_name, &device_asic_id) || device_asic_id != asic_id) {
+            continue;
+        }
+        // The sysfs name "tenstorrent!N" belongs to the character device /dev/tenstorrent/N.
+        char chardev_path[PATH_MAX];
+        snprintf(chardev_path, sizeof(chardev_path), "/dev/tenstorrent/%s", entry->d_name + sizeof(device_prefix) - 1);
+        ret = tt_device_open(chardev_path, out_dev, extra_flags);
+        break;
+    }
+
+    closedir(dir);
+    return ret;
 }
 
 int tt_device_close(tt_device_t* dev) {

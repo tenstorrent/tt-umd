@@ -51,7 +51,7 @@ env:
 jobs:
   run:
     name: Run on exabox (${{ inputs.hardware }})
-    timeout-minutes: ${{ inputs.timeout }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - exabox-multihost-ci-${{ inputs.hardware }}
     # Consumed by the multihost runner container hook to provision remote

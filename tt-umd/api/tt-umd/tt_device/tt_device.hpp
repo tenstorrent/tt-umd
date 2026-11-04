@@ -57,7 +57,6 @@ class SimulationSysmemManager;
 class DmaInterface;
 class JtagDevice;
 class JtagInterface;
-class KmdPowerHold;
 class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
@@ -73,6 +72,10 @@ public:
      *
      * Creates and returns a unique pointer to a TTDevice object configured with the
      * specified parameters. This is the primary way to instantiate TTDevice objects.
+     *
+     * A JTAG device does not request power for its chip. The caller has to keep Tensix powered for as long as it
+     * accesses Tensix cores over JTAG, for example by keeping the chip's PCIe TTDevice open with
+     * set_power_state(PowerState::BUSY): a JTAG access to clock-gated Tensix leaves the chip unresponsive until reset.
      *
      * @param device_number The device identifier to connect to, specific to the I/O device interface: the PCIe device
      *                      number, or the J-Link serial number for JTAG.
@@ -106,7 +109,7 @@ public:
         std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
 #endif  // TT_UMD_BUILD_SIMULATION
 
-    virtual ~TTDevice();
+    virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
@@ -626,11 +629,6 @@ private:
 
     RiscReset *get_risc_reset();
 
-    // Keeps Tensix powered for as long as the chip is used over JTAG.
-    void hold_power_for_jtag();
-
-    // Declared before model_ so the chip stays powered until the model has closed its JTAG connection.
-    std::unique_ptr<KmdPowerHold> kmd_power_hold_;
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 };

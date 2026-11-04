@@ -68,7 +68,6 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     ChipId chip_id,
     int num_host_mem_channels,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
     const tt::ARCH arch = get_simulator_arch(simulator_directory);
     ChipInfo chip_info{};
@@ -85,7 +84,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
                                                      : std::make_shared<SocArchDescriptor>(soc_desc_path);
     SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, image_endpoint_count, pci_bdf);
+        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, pci_bdf);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
@@ -109,7 +108,6 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     int num_host_mem_channels,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
@@ -124,11 +122,7 @@ TTSimTTDevice::TTSimTTDevice(
     // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
     // image addressed per-chip by PCI device. Single-chip loads the library on its own.
     communicator_(std::make_unique<TTSimCommunicator>(
-        simulator_directory,
-        static_cast<uint32_t>(chip_id),
-        static_cast<uint32_t>(num_chips),
-        image_endpoint_count,
-        pci_bdf)),
+        simulator_directory, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips), pci_bdf)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).

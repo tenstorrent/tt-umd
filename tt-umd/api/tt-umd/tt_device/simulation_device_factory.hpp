@@ -9,7 +9,6 @@
 #include <filesystem>
 #include <map>
 #include <memory>
-#include <optional>
 
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
@@ -43,8 +42,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     const SocDescriptor &soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels = 0,
-    std::optional<uint32_t> image_endpoint_count = std::nullopt);
+    int num_host_mem_channels = 0);
 
 /**
  * Enumerate a simulator image's host-visible endpoints and create one device per endpoint.

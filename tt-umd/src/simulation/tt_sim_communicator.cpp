@@ -63,13 +63,8 @@ TTSimCommunicator::TTSimCommunicator(
     const std::filesystem::path &simulator_directory,
     uint32_t chip_id,
     uint32_t num_chips,
-    std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) :
-    simulator_directory_(simulator_directory),
-    chip_id_(chip_id),
-    num_chips_(num_chips),
-    image_endpoint_count_(image_endpoint_count),
-    pci_bdf_(pci_bdf) {
+    simulator_directory_(simulator_directory), chip_id_(chip_id), num_chips_(num_chips), pci_bdf_(pci_bdf) {
     // Every endpoint a simulator exposes is single-function, and the simulator rejects a BDF wider
     // than 16 bits fatally, so anything else did not come from enumerating it.
     UMD_ASSERT(

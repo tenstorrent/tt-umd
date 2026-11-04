@@ -317,12 +317,12 @@ TEST(TTSimScanPciEndpoints, EmptyConfigSpaceFindsNothing) {
 // is loaded, rather than misrouting config reads later.
 TEST(TTSimCommunicatorBdf, RefusesABdfThatIsNotAFunctionZeroEndpoint) {
     const std::filesystem::path unused = "/nonexistent/libttsim.so";
-    EXPECT_THROW(TTSimCommunicator(unused, 0, 2, 2, bdf_of(0x40, 1) | 1), std::exception);
-    EXPECT_THROW(TTSimCommunicator(unused, 0, 2, 2, 0x10000), std::exception);
+    EXPECT_THROW(TTSimCommunicator(unused, 0, 2, bdf_of(0x40, 1) | 1), std::exception);
+    EXPECT_THROW(TTSimCommunicator(unused, 0, 2, 0x10000), std::exception);
 
-    TTSimCommunicator linear(unused, 0, 2, 2);
+    TTSimCommunicator linear(unused, 0, 2);
     EXPECT_EQ(linear.get_pci_bdf(), std::nullopt);
-    TTSimCommunicator sparse(unused, 0, 2, 2, bdf_of(0xC0, 8));
+    TTSimCommunicator sparse(unused, 0, 2, bdf_of(0xC0, 8));
     EXPECT_EQ(sparse.get_pci_bdf(), bdf_of(0xC0, 8));
 }
 
@@ -420,16 +420,14 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
                      << " endpoint(s); multi-device I/O needs at least two.";
     }
     const size_t num_chips = bdfs.size();
-    const auto endpoint_count = static_cast<uint32_t>(bdfs.size());
 
-    // The endpoint count selects shared-BDF addressing: the two devices share one image, each
+    // A chip count above one selects shared-BDF addressing: the two devices share one image, each
     // reaching its own endpoint by the BDF enumeration found it at.
     auto dev_0 = TTSimTTDevice::create_for_chip(
         simulator_path_,
         static_cast<ChipId>(0),
         /*num_host_mem_channels=*/0,
         num_chips,
-        endpoint_count,
         bdfs[0]);
     ASSERT_NE(dev_0, nullptr);
     auto dev_1 = TTSimTTDevice::create_for_chip(
@@ -437,7 +435,6 @@ TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
         static_cast<ChipId>(1),
         /*num_host_mem_channels=*/0,
         num_chips,
-        endpoint_count,
         bdfs[1]);
     ASSERT_NE(dev_1, nullptr);
 

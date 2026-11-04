@@ -41,7 +41,6 @@ public:
         ChipId chip_id,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt,
         std::optional<uint32_t> pci_bdf = std::nullopt);
 
     ~TTSimTTDevice();
@@ -60,7 +59,6 @@ public:
         ChipId chip_id,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt,
         std::optional<uint32_t> pci_bdf = std::nullopt);
 
     // Builds a client-mode device from device identity the connector already fetched over the

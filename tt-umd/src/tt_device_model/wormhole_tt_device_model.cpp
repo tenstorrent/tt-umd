@@ -50,7 +50,6 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device));
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
-    hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
 
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(

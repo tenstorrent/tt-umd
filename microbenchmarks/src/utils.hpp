@@ -23,6 +23,24 @@ inline constexpr size_t ONE_KIB = 1 << 10;
 inline constexpr size_t ONE_MIB = 1 << 20;
 inline constexpr size_t ONE_GIB = 1 << 30;
 
+// Formats a value as "<value> <unit>". An empty or "byte" unit is scaled to B/KiB/MiB/GiB, any other unit is printed
+// as is.
+inline std::string format_with_unit(double value, const std::string& unit) {
+    if (!unit.empty() && unit != "byte") {
+        return fmt::format("{:.2f} {}", value, unit);
+    }
+    if (value >= ONE_GIB) {
+        return fmt::format("{:.2f} GiB", value / ONE_GIB);
+    }
+    if (value >= ONE_MIB) {
+        return fmt::format("{:.2f} MiB", value / ONE_MIB);
+    }
+    if (value >= ONE_KIB) {
+        return fmt::format("{:.2f} KiB", value / ONE_KIB);
+    }
+    return fmt::format("{:.2f} B", value);
+}
+
 // Builds nanobench's JSON template with a "context" object per result holding the given context variables, since the
 // stock template omits them. Every rendered result must have set each listed variable via Bench::context(), otherwise
 // rendering throws.

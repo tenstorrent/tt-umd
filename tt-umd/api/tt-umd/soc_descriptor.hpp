@@ -83,6 +83,7 @@ public:
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
+    // Smallest rectangle containing every core of core_type, as its {min x, min y} and {max x, max y} corners.
     std::pair<CoreCoord, CoreCoord> get_bounding_rectangle(
         CoordSystem coord_system = CoordSystem::TRANSLATED, CoreType core_type = CoreType::TENSIX) const;
 

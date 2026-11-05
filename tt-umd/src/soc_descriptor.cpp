@@ -557,19 +557,19 @@ std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
             fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
     }
 
-    CoreCoord upper_left = cores.front();
-    CoreCoord lower_right = cores.front();
+    // Extremes are taken per axis, so a corner need not be one of the cores when the set is not a full grid.
+    size_t min_x = cores.front().x;
+    size_t min_y = cores.front().y;
+    size_t max_x = cores.front().x;
+    size_t max_y = cores.front().y;
     for (const CoreCoord &core : cores) {
-        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
-        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
-            upper_left = core;
-        }
-        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
-            lower_right = core;
-        }
+        min_x = std::min(min_x, core.x);
+        min_y = std::min(min_y, core.y);
+        max_x = std::max(max_x, core.x);
+        max_y = std::max(max_y, core.y);
     }
 
-    return {upper_left, lower_right};
+    return {CoreCoord(min_x, min_y, core_type, coord_system), CoreCoord(max_x, max_y, core_type, coord_system)};
 }
 
 }  // namespace tt::umd

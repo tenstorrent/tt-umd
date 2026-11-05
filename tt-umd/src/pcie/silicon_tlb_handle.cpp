@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <string>
 
-#include "tracy.hpp"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
 

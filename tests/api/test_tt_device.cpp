@@ -30,6 +30,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -420,4 +421,8 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         EXPECT_THROW(tt_device->read_from_device(&readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof value), err);
         EXPECT_EQ(value, readback);
     }
+}
+
+TEST(ApiTTDeviceTest, CreateRejectsUndefinedDeviceType) {
+    EXPECT_THROW(TTDevice::create(0, IODeviceType::UNDEFINED), error::UmdException<error::RuntimeError>);
 }

@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -17,10 +16,11 @@
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 
 namespace tt::umd {
@@ -96,13 +96,12 @@ private:
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
-    TlbWindow* get_cached_wc_tlb_window();
-    TlbWindow* get_cached_uc_tlb_window();
+    std::unique_ptr<IoWindow> create_cached_window(HostMemoryCaching caching);
+    IoWindow* get_cached_wc_tlb_window();
+    IoWindow* get_cached_uc_tlb_window();
 
-    std::function<bool(NocId)> make_io_timeout_hang_check();
-
-    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
-    std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+    std::unique_ptr<IoWindow> cached_wc_tlb_window = nullptr;
+    std::unique_ptr<IoWindow> cached_uc_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;

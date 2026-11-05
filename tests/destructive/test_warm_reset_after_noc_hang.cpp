@@ -11,6 +11,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -19,7 +20,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

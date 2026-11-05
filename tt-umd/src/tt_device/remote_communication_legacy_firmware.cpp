@@ -14,6 +14,7 @@
 
 #include "noc_access.hpp"
 #include "topology/topology_utils.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
@@ -22,7 +23,6 @@
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 

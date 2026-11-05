@@ -28,9 +28,7 @@ public:
         bool use_safe_api,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     BlackholeTTDeviceModel(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        std::unique_ptr<JtagDevice> jtag_device, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     ~BlackholeTTDeviceModel() override;
 

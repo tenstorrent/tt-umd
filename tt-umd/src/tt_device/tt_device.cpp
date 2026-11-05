@@ -19,7 +19,7 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -97,20 +97,24 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
+        device_type == IODeviceType::PCIe || device_type == IODeviceType::JTAG,
+        error::RuntimeError,
+        fmt::format("Unsupported device type {} for TTDevice::create.", DeviceTypeToString.at(device_type)));
+    UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
         error::RuntimeError,
         "Safe I/O API is not supported for non-PCIe device types.");
     tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
-        auto jtag_device = JtagDevice::create();
-        arch = jtag_device->get_jtag_arch(device_number);
+        auto jtag_device = JtagDevice::create(static_cast<uint32_t>(device_number));
+        arch = jtag_device->get_jtag_arch();
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(
+                    new TTDevice(std::make_unique<WormholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<BlackholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(new TTDevice(
+                    std::make_unique<BlackholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -753,6 +757,32 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
+}
+
+bool TTDevice::dma_write_zero_copy_start(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    return get_dma_interface()->dma_write_zero_copy_start(
+        src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+bool TTDevice::dma_read_zero_copy_start(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    return get_dma_interface()->dma_read_zero_copy_start(
+        dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interface()->dma_write_zero_copy_check(); }
+
+DmaTransferState TTDevice::dma_read_zero_copy_check() { return get_dma_interface()->dma_read_zero_copy_check(); }
+
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+    return get_dma_interface()->dma_zero_copy_max_size(device_addr);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {

@@ -1,6 +1,8 @@
 access_points:
   - host_access: col0
+    ip_block: 0
   - host_access: col1
+    ip_block: 0
 devices:
   - id: 1
     access_points: [0]

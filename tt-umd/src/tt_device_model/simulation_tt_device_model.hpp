@@ -12,6 +12,7 @@
 
 namespace tt::umd {
 
+class RiscReset;
 class SocDescriptor;
 class TTSimProtocol;
 
@@ -39,6 +40,12 @@ public:
     HangDetector *get_hang_detector() override;
 
     DeviceFirmware *get_device_firmware() override;
+
+    RiscReset *get_risc_reset() override;
+
+    // Installed by the backend device: reset drives state only the backend owns, so the device
+    // builds the component and hands it over.
+    void set_risc_reset(std::unique_ptr<RiscReset> risc_reset);
 
     // Lent onward from the firmware, exactly as the silicon models do.
     FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
@@ -69,6 +76,7 @@ private:
     std::unique_ptr<TTSimProtocol> tt_sim_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     std::unique_ptr<DeviceFirmware> device_firmware_;
+    std::unique_ptr<RiscReset> risc_reset_;
     // The telemetry reader and info provider belong to the concrete architecture firmwares rather
     // than to the DeviceFirmware interface, and exist only once init_firmware has run, so they are
     // captured as lookups read at call time. Empty while the firmware reports nothing.

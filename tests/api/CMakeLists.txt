@@ -1,6 +1,7 @@
 set(API_TESTS_SRCS
     test_cluster_descriptor.cpp
     test_soc_descriptor.cpp
+    test_dma_zero_copy_async.cpp
     test_device_memcpy.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp

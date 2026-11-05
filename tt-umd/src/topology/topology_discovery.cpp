@@ -10,13 +10,13 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,7 +26,8 @@
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
 #include "topology/topology_utils.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
@@ -36,6 +37,7 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery_error.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -78,13 +80,10 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
             return pci_devices_info.begin()->second.get_arch();
         }
         case IODeviceType::JTAG: {
-            auto jtag_device = JtagDevice::create();
-            if (!jtag_device->get_device_cnt()) {
-                return ARCH::Invalid;
-            }
+            // Invalid when there are no usable J-Links.
+            const tt::ARCH arch = JtagDevice::enumerate().arch;
             // This guard previously compared the architecture before it had been probed, so it
             // could never fire. Comparing the probed value is what it was meant to do.
-            const tt::ARCH arch = jtag_device->get_jtag_arch(0);
             UMD_ASSERT(
                 arch != tt::ARCH::BLACKHOLE,
                 error::RuntimeError,
@@ -158,6 +157,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     get_connected_devices();
     retrain_eth_cores();
     discover_remote_devices();
+    tunnel_remote_devices_over_all_gateway_links();
     log_info(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
@@ -285,9 +285,8 @@ void TopologyDiscovery::get_connected_devices() {
             break;
         }
         case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create(JtagDevice::jtag_library_path)->get_device_cnt();
-            local_device_ids = std::vector<int>(device_cnt);
-            std::iota(local_device_ids.begin(), local_device_ids.end(), 0);
+            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path).serials;
+            local_device_ids.assign(jlink_serials.begin(), jlink_serials.end());
             break;
         }
         default:
@@ -297,14 +296,7 @@ void TopologyDiscovery::get_connected_devices() {
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
             TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
-        if (options.low_power) {
-            // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
-            log_warning(
-                LogUMD,
-                "Low power mode is not yet supported. The device will remain in high power mode while UMD holds open "
-                "file descriptors.");
-        } else {
-            // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
+        if (!options.low_power) {
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
@@ -492,6 +484,26 @@ void TopologyDiscovery::discover_remote_devices() {
     }
 
     patch_eth_connections();
+}
+
+void TopologyDiscovery::tunnel_remote_devices_over_all_gateway_links() {
+    std::unordered_map<TTDevice*, uint64_t> gateway_asic_ids;
+    for (const auto& [asic_id, tt_device] : devices) {
+        if (tt_device != nullptr && !tt_device->is_remote()) {
+            gateway_asic_ids.emplace(tt_device.get(), asic_id);
+        }
+    }
+    for (const auto& [asic_id, tt_device] : devices) {
+        RemoteCommunication* remote_communication =
+            tt_device != nullptr ? tt_device->get_remote_communication() : nullptr;
+        if (remote_communication == nullptr) {
+            continue;
+        }
+        TTDevice* gateway_device = remote_communication->get_local_device();
+        remote_communication->set_remote_transfer_ethernet_cores(
+            gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                active_eth_channels_per_device.at(gateway_asic_ids.at(gateway_device)), CoordSystem::TRANSLATED));
+    }
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {

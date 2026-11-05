@@ -54,7 +54,14 @@ jobs:
           for src in $(sed -n 's/^COPY[[:space:]]\+//p' "$DOCKERFILE" | tr ' ' '\n'); do
             case "$src" in --*|/*) continue ;; esac
             case " $FILES " in *" .github/$src "*) continue ;; esac
-            [ -f ".github/$src" ] && FILES="$FILES .github/$src"
+            if [ -f ".github/$src" ]; then
+              FILES="$FILES .github/$src"
+            else
+              # Only plain files can be hashed, so a directory or a glob source would drop out
+              # silently and take us straight back to serving a stale image. Say so loudly instead:
+              # whoever adds one needs to extend this loop, not discover the staleness later.
+              echo "::warning::$DOCKERFILE COPYs '$src', which is not a plain file and is therefore not in the image tag's hash"
+            fi
           done
 
           echo "Hashing files: $FILES"

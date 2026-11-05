@@ -32,7 +32,7 @@ mkdir -p "$WORKDIR"
 mount -t 9p -o trans=virtio,version=9p2000.L,msize=1048576 workdir "$WORKDIR" \
     || fail "cannot mount the working directory"
 
-cd "$WORKDIR"
+cd "$WORKDIR" || fail "cannot enter the working directory"
 
 # Bring-up that a simulated chip boots without: programming the inbound TLB and the address
 # translation table, which firmware would have left done on silicon. It runs before tt-kmd claims the

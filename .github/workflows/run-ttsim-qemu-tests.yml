@@ -72,6 +72,12 @@ jobs:
                   export LD_LIBRARY_PATH=build/lib
                   tests=build/test/umd/api/api_tests
                   missing=
+                  # Every pattern ends in "*", and the loop below splits them out of an unquoted
+                  # substitution, so without this the shell expands them against the working
+                  # directory: one stray GrendelAttFoldTest.xml next to the untarred artifact turns
+                  # the pattern into that filename, which then selects no test and fails a step that
+                  # should have passed.
+                  set -f
                   for pattern in $(echo "$1" | tr ":" " "); do
                       selected=$("$tests" --gtest_filter="$pattern" --gtest_list_tests | grep -c "^  ")
                       echo "$pattern selects $selected test(s)"

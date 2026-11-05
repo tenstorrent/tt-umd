@@ -72,7 +72,6 @@ public:
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
     void set_power_state(PowerState state) override;
-    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
     void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
 
 private:

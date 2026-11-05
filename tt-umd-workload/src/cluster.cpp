@@ -1212,7 +1212,7 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
         ordering);
 }
 
-int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering) {
     return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }
 

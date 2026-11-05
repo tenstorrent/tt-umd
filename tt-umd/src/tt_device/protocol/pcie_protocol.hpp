@@ -18,6 +18,7 @@
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -37,13 +38,13 @@ struct tlb_data;
 enum class WindowFlags : uint32_t;
 
 /**
- * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
- * devices.
+ * PcieProtocol implements DeviceProtocol, PcieInterface, DmaInterface and PeerDmaInterface for
+ * PCIe-connected devices.
  *
  * Provides PCIe-based device I/O including DMA transfers, register access,
  * and multicast writes.
  */
-class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface {
+class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface, public PeerDmaInterface {
 public:
     explicit PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api = false);
 
@@ -68,7 +69,6 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
-    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
     void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
 
     // DmaInterface.
@@ -90,6 +90,9 @@ public:
     [[nodiscard]] DmaTransferState dma_write_zero_copy_check() override;
     [[nodiscard]] DmaTransferState dma_read_zero_copy_check() override;
     [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr) const override;
+
+    // PeerDmaInterface.
+    int export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
 
 private:
     TlbWindow* get_cached_tlb_window();

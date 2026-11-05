@@ -28,6 +28,7 @@ class HangDetector;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;
+class PeerDmaInterface;
 class RemoteInterface;
 class SocArchDescriptor;
 
@@ -81,6 +82,8 @@ public:
     virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() { return nullptr; }
 
     virtual FirmwareInfoProvider *get_firmware_info_provider() { return nullptr; }
+
+    virtual PeerDmaInterface *get_peer_dma_interface() { return nullptr; }
 
     // Optional transport interfaces.
     virtual PcieInterface *get_pcie_interface() { return nullptr; }

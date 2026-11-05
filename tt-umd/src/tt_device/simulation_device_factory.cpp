@@ -104,12 +104,12 @@ std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
     const std::optional<RtlSimAttProgram> att_program = RtlSimAttProgram::load(simulator_directory);
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    for (const auto &[chip_id, ip_device_id] : ip_devices) {
+    for (auto &[chip_id, rtl_device] : rtl_devices) {
         if (att_program.has_value()) {
-            att_program->apply(ip_device_id, *rtl_devices.at(chip_id)->get_communicator());
+            rtl_device->apply_att_program(*att_program);
         }
-        rtl_devices.at(chip_id)->check_att_matches_map();
-        devices[chip_id] = std::move(rtl_devices.at(chip_id));
+        rtl_device->check_att_matches_map();
+        devices[chip_id] = std::move(rtl_device);
     }
     return devices;
 }

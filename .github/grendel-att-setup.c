@@ -53,6 +53,8 @@
 #define W_EP_SIZE 6u
 #define W_TABLE_OFF 128u
 #define W_SET 4u
+// Bit 28, translate_addr: hand the endpoint the window-local offset rather than the raw SPA.
+#define W_TRANSLATE (1u << 28)
 
 static volatile uint32_t *bar2;
 
@@ -153,8 +155,13 @@ int main(int argc, char **argv) {
         tlb_set(64 + j, W_COMPARE + ((uint64_t)sel << W_EP_SHIFT));
     }
 
-    // ttsim packs the window as mask[5:0], ep_id_idx[11:6], ep_id_size[17:12], offset[27:18].
-    uint32_t entry = W_MASK_BITS | (W_EP_SHIFT << 6) | (W_EP_SIZE << 12) | (W_TABLE_OFF << 18);
+    // ttsim packs the window as mask[5:0], ep_id_idx[11:6], ep_id_size[17:12], offset[27:18],
+    // translate_addr[28]. translate_addr is what rebases the access onto the endpoint: with it set
+    // the tile is handed the 16 MB-local offset, without it the tile is handed the whole SPA. UMD's
+    // QSR1_WORKER_WINDOW sets translate_address and so does ttsim's own boot, so clearing it here
+    // made every tile see an address 0x10000000000 too high.
+    uint32_t entry =
+        W_MASK_BITS | (W_EP_SHIFT << 6) | (W_EP_SIZE << 12) | (W_TABLE_OFF << 18) | W_TRANSLATE;
     wr32(ATT_MASK_ENTRY(W_SET), entry);
     wr32(ATT_MASK_ENTRY(W_SET) + 0x08, (uint32_t)W_COMPARE);
     wr32(ATT_MASK_ENTRY(W_SET) + 0x0C, (uint32_t)(W_COMPARE >> 32));

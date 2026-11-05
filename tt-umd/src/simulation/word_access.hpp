@@ -16,7 +16,7 @@ namespace tt::umd {
 //
 // A write with a partial first or last word reads that word, merges the new bytes and writes it back
 // whole, so the bytes around the range keep their values. That read-merge-write isn't atomic: the
-// caller serializes host access (RtlSimulationTTDevice holds its device lock), but a device-side
+// caller serializes host access (RtlSimProtocol holds its IO lock), but a device-side
 // writer to the same word in between would be overwritten.
 
 inline constexpr uint64_t WORD_BYTES = sizeof(uint32_t);

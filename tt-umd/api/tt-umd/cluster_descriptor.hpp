@@ -42,7 +42,7 @@ namespace tt::umd {
 class Cluster;
 
 class ClusterDescriptor {
-    friend class TopologyDiscovery;
+    friend class TopologyDiscoveryBase;
 
 public:
     /* Construction related functions. */

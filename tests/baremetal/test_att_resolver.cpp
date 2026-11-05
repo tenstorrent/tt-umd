@@ -327,7 +327,7 @@ INSTANTIATE_TEST_SUITE_P(
     AttIoWindowUnicast,
     ::testing::Combine(
         ::testing::Values(WindowFlags::Bidirectional, WindowFlags::UnicastWrite, WindowFlags::UnicastRead),
-        ::testing::Values(IoOrdering::Relaxed, IoOrdering::Strict, IoOrdering::Posted)));
+        ::testing::Values(IoOrdering::RELAXED, IoOrdering::STRICT, IoOrdering::POSTED)));
 
 // The maps carry no multicast, atomic or snoop window, so those IoWindows have no flat address.
 class AttIoWindowWithoutAWindow : public ::testing::TestWithParam<WindowFlags> {};
@@ -336,7 +336,7 @@ TEST_P(AttIoWindowWithoutAWindow, HasNoFlatAddress) {
     const att::EndpointResolver resolver(att::HORIZON_2X3_MAP);
     const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
     EXPECT_EQ(
-        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, GetParam(), IoOrdering::Strict, 0x100),
+        att::resolve_io_window(resolver, quasar_soc_descriptor(), tensix, GetParam(), IoOrdering::STRICT, 0x100),
         std::nullopt);
 }
 

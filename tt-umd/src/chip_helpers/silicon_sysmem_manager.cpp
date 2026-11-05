@@ -43,24 +43,29 @@ namespace tt::umd {
 // regardless of size, so 1GB (PUD/level-1 block) consumes half as many TLB entries as
 // 512MB (PMD/level-2 block) for the same total memory, reducing IOMMU mapping overhead.
 // 512MB is only meaningful on AArch64 with 64K base pages; it is not exposed on x86.
-static void *mmap_with_hugepage_fallback(size_t size) {
+// Sets mapping_size to the size actually mapped, which can exceed size when 1GB hugepages are used.
+static void *mmap_with_hugepage_fallback(size_t size, size_t &mapping_size) {
     constexpr size_t kHugepage1GiB = 1ULL << 30;
     constexpr size_t kHugepage512MiB = 512ULL << 20;
     constexpr size_t kHugepage2MiB = 2ULL << 20;
 
     void *addr = MAP_FAILED;
+    mapping_size = size;
 
-    // Only attempt 1GiB hugepages when the size is a multiple of 1GiB.
-    if (size >= kHugepage1GiB && (size % kHugepage1GiB) == 0) {
+    // A size of 1GiB or more is rounded up to whole 1GiB hugepages. Host memory channels need this: on WH they stop
+    // 256MB short of a whole number of gigabytes, and smaller pages would multiply their IOMMU entries.
+    const size_t size_in_1gib_pages = (size + kHugepage1GiB - 1) / kHugepage1GiB * kHugepage1GiB;
+    if (size >= kHugepage1GiB) {
         addr = mmap(
             nullptr,
-            size,
+            size_in_1gib_pages,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
             -1,
             0);
         if (addr != MAP_FAILED) {
-            log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size);
+            log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size_in_1gib_pages);
+            mapping_size = size_in_1gib_pages;
             return addr;
         }
     }
@@ -444,7 +449,8 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     }
 
     log_debug(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
-    iommu_mapping = mmap_with_hugepage_fallback(size);
+    size_t mapping_size = 0;
+    iommu_mapping = mmap_with_hugepage_fallback(size, mapping_size);
 
     if (iommu_mapping == MAP_FAILED) {
         UMD_THROW(
@@ -595,7 +601,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     if (!pci_device_->is_iommu_enabled()) {
         return allocate_hugepage_buffer(sysmem_buffer_size);
     }
-    void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
+    size_t mapping_size = 0;
+    void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size, mapping_size);
     if (mapping == MAP_FAILED) {
         UMD_THROW(
             error::RuntimeError,
@@ -603,7 +610,6 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     }
     // This mapping belongs to the buffer, so it is released along with the pinning. mmap returns a
     // page-aligned address, so the aligned base pin_and_wrap() releases is the one to munmap.
-    const size_t mapping_size = sysmem_buffer_size;
     const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
         if (munmap(aligned_va, mapping_size) != 0) {
             log_warning(

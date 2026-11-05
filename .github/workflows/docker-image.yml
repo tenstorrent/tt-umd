@@ -44,10 +44,25 @@ jobs:
         run: |
           DOCKERFILE=".github/${{ inputs.docker-version }}.Dockerfile"
 
-          # Collect the Dockerfile itself plus any scripts it COPYs
+          # Collect the Dockerfile itself plus every file it COPYs out of .github. Matching only
+          # *.sh leaves anything else the image is built from out of the hash, so the image does not
+          # rebuild when that file changes and CI quietly serves the one built from the old content.
+          # Every source here happens to be a shell script today; this does not depend on that.
           FILES="$DOCKERFILE"
-          for script in $(grep -oP '(?<=COPY )\S+\.sh' "$DOCKERFILE" || true); do
-            FILES="$FILES .github/$script"
+          # A COPY source is relative to the build context; the --from=stage flag and the
+          # destination are not sources, and the destinations here are all absolute.
+          for src in $(sed -n 's/^COPY[[:space:]]\+//p' "$DOCKERFILE" | tr ' ' '\n'); do
+            case "$src" in --*|/*) continue ;; esac
+            case " $FILES " in *" .github/$src "*) continue ;; esac
+            if [ -f ".github/$src" ]; then
+              FILES="$FILES .github/$src"
+            else
+              # Only plain files can be hashed, so a directory or a glob source would drop out
+              # silently and take us straight back to serving a stale image. Say so loudly instead:
+              # whoever adds one needs to extend this loop, not discover the staleness later.
+              echo "::warning::$DOCKERFILE COPYs '$src', not a plain file," \
+                   "so it is not in the image tag's hash"
+            fi
           done
 
           echo "Hashing files: $FILES"

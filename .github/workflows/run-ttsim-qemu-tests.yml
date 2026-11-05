@@ -19,8 +19,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
-          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G}
+          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          # Grendel wants three things the other cards do not: a BAR0 big enough to hold tt-kmd's own
+          # TLB window (entry 164, 2.56 GB in), a driver that knows Keraunos, and the inbound TLB and
+          # ATT programming that firmware would have left done. GrendelDmaLoopbackTest is left out on
+          # purpose: nothing in the model routes the host window, and the miss aborts the simulator
+          # rather than failing the case, which would take the whole job with it.
+          #
+          # BAR4 is 32G, not the 512G the model gives Quasar. tt-kmd's mmap offset space hands each
+          # BAR 64 GiB (MMAP_RESOURCE_SIZE = 1<<36) with BAR4 at 4<<36 and the TLB windows at 6<<36
+          # and 7<<36, so a 512G BAR4 runs to 12<<36 and swallows both TLB regions: a TLB mmap then
+          # resolves into BAR4 and dies in the model as `tlb_in: entry=336`, entry >= 320 being the
+          # tell that an access landed in BAR4. Anything <= 128G clears 6<<36. Nothing here uses
+          # BAR4, so a smaller aperture costs this row nothing -- but on silicon with a real 512 GiB
+          # BAR4 the per-BAR mmap budget has to grow, and that is a tt-kmd fix, not a test artifact.
+          - {card: grendel, lib: libttsim_qsr.so, bar4-size: 32G,
+             vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko",
+             tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*"}
+    # The Grendel row's suites are not on main yet, so against main its filter check fails by design.
+    # It reports without failing the pipeline until they land. See docs/TTSIM_QEMU.md.
+    continue-on-error: ${{ matrix.card == 'grendel' }}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
     runs-on: ubuntu-22.04
     container:
@@ -45,11 +66,34 @@ jobs:
 
       - name: Check tt-kmd binds the simulated chip
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
-              ls -l /dev/tenstorrent/0
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
+              ${{ matrix.vm-opts }} -- ls -l /dev/tenstorrent/0
 
-      - name: Open all chips
+      - name: Run the tests this card covers
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
-              env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-              --gtest_filter=ApiClusterTest.OpenAllSiliconChips
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
+              ${{ matrix.vm-opts }} -- \
+              bash -c '
+                  # A gtest filter that selects nothing still exits 0, so a build missing the suites
+                  # this row names would report green having run no test at all, and one missing only
+                  # some of them would quietly run fewer. Require every pattern to select something.
+                  export LD_LIBRARY_PATH=build/lib
+                  tests=build/test/umd/api/api_tests
+                  missing=
+                  # Every pattern ends in "*", and the loop below splits them out of an unquoted
+                  # substitution, so without this the shell expands them against the working
+                  # directory: one stray GrendelAttFoldTest.xml next to the untarred artifact turns
+                  # the pattern into that filename, which then selects no test and fails a step that
+                  # should have passed.
+                  set -f
+                  for pattern in $(echo "$1" | tr ":" " "); do
+                      selected=$("$tests" --gtest_filter="$pattern" --gtest_list_tests | grep -c "^  ")
+                      echo "$pattern selects $selected test(s)"
+                      [ "$selected" -eq 0 ] && missing="$missing $pattern"
+                  done
+                  if [ -n "$missing" ]; then
+                      echo "this build carries no test matching:$missing" >&2
+                      exit 1
+                  fi
+                  exec "$tests" --gtest_filter="$1"
+              ' run-ttsim-qemu-tests '${{ matrix.tests }}'

@@ -18,8 +18,20 @@ at the same path, runs the command there and returns its exit code:
 run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 ```
 
-`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole. Quasar is not
-supported, because ttsim does not implement its host MMIO path.
+`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole, `512G` for Quasar.
+The Grendel CI row deliberately passes `32G` rather than `512G`: tt-kmd's mmap offset space gives each
+BAR 64 GiB with BAR4 at `4<<36` and the TLB windows at `6<<36` and `7<<36`, so a 512 GiB BAR4 reaches
+`12<<36` and swallows both TLB regions. A TLB mmap then resolves into BAR4 and the model aborts with
+`tlb_in: entry=336` -- an entry at or above 320 is the tell that an access landed in BAR4. Anything up
+to `128G` clears `6<<36`. On silicon with a real 512 GiB BAR4 the per-BAR mmap budget has to grow,
+which is a tt-kmd change.
+
+The 64-bit PCI hole and the guest's physical address width are derived from it, because firmware
+places a 64-bit BAR at its natural alignment and a BAR too big for the hole is left unassigned
+with no error -- the guest simply has no `resource4`.
+
+Two further options exist for Quasar, and are described under Grendel below: `--bar0-size` and
+`--kmd-module`.
 
 The simulator is never part of the image; download the one you need from the
 [ttsim releases](https://github.com/tenstorrent/ttsim/releases) and pass it in. For example, to open
@@ -34,6 +46,44 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 ```
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
+
+## Grendel
+
+A Grendel function needs three things a Wormhole or Blackhole one does not, and the runner takes an
+option for each:
+
+| Option | Why |
+| --- | --- |
+| `--bar0-size 4G` | tt-kmd reserves inbound TLB entry 164 for its own kernel window, which sits `164 << 24` = 2.56 GB into BAR0. At the default size the driver still binds, then logs `BAR0 (0x20000000) too small for AppIn0 entry 164 window; NOC access disabled` and every ioctl returns `ENODEV`. |
+| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from a branch. The released driver stays the default for every other card. |
+
+```bash
+curl -L -o libttsim_qsr.so https://github.com/tenstorrent/ttsim/releases/latest/download/libttsim_qsr.so
+
+docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-ttsim-qemu:latest \
+    run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 32G --bar0-size 4G \
+    --kmd-module /opt/tenstorrent-keraunos.ko -- \
+    env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
+    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*'
+```
+
+Those three suites are what a Grendel function covers today: 11 device-I/O cases, 2 coordinate-fold
+cases and 4 window cases, all measured passing in this guest. A filter that selects nothing still
+exits 0, so the CI row counts what it selected before running it and fails the step when the count is
+zero -- otherwise a build missing those suites would report green having run nothing.
+
+`--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device. BAR0 used to be a
+compile-time 512 MiB constant there, and simply raising it is not an option because one image serves
+every card. The property landed upstream in ttsim-qemu `aa112ebe16`, which is what
+`TTSIM_QEMU_COMMIT` pins; it gives BAR0 the treatment BAR4 already has, so BAR0 stays 512 MiB unless
+a caller asks for more and the Wormhole and Blackhole rows are unaffected.
+
+The Grendel CI row stays `continue-on-error` while the suites it names are still in review: the
+filter check fails the step rather than reporting a green run of nothing.
+
+`GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
+for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside
+libttsim — which takes QEMU and the guest with it rather than failing the one case.
 
 Binaries run inside an Ubuntu 22.04 guest, so build them on Ubuntu 22.04, for example in the
 `tt-umd-ci-ubuntu-22.04` image. The guest's console, including the command's output, goes to stdout.

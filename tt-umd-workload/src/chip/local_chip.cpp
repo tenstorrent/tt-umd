@@ -97,7 +97,7 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
     }
 
     if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), /*num_host_mem_channels=*/0);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get());
         num_channels = count_host_mem_channels(tt_device->get_pci_device(), num_host_mem_channels);
     }
 

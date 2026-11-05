@@ -75,17 +75,13 @@ RUN ls /lib/modules > /kver \
     && make -C /tt-kmd KDIR=/lib/modules/"$(cat /kver)"/build
 
 # Stage 2b: tt-kmd with Keraunos support, kept as a separate module so the released driver stays
-# what every other card loads. The same stage builds the Grendel bring-up helper, because it is the
-# only one with a compiler and the guest deliberately has none.
+# what every other card loads.
 FROM kmd AS kmd-keraunos
 
 ARG TT_KMD_KERAUNOS_REF
 
 RUN git clone --depth 1 --branch ${TT_KMD_KERAUNOS_REF} https://github.com/tenstorrent/tt-kmd.git /tt-kmd-keraunos \
     && make -C /tt-kmd-keraunos KDIR=/lib/modules/"$(cat /kver)"/build
-
-COPY grendel-att-setup.c /grendel-att-setup.c
-RUN gcc -O2 -Wall -Wextra -o /grendel-att-setup /grendel-att-setup.c
 
 # Stage 3: the guest root filesystem. It boots as an initramfs, so it needs no disk image, and PID 1
 # is ttsim-vm-init.sh instead of an init system.
@@ -102,7 +98,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=kmd /tt-kmd/tenstorrent.ko /opt/tenstorrent.ko
 COPY --from=kmd-keraunos /tt-kmd-keraunos/tenstorrent.ko /opt/tenstorrent-keraunos.ko
-COPY --from=kmd-keraunos /grendel-att-setup /opt/grendel-att-setup
 COPY ttsim-vm-init.sh /init
 RUN chmod +x /init
 

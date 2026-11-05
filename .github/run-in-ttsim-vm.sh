@@ -5,14 +5,12 @@
 # docs/TTSIM_QEMU.md.
 #
 # Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size>
-#            [--bar0-size <size>] [--kmd-module <path>] [--pre-kmd <command>] -- <command> [args...]
+#            [--bar0-size <size>] [--kmd-module <path>] -- <command> [args...]
 #   --bar4-size   BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole.
 #   --bar0-size   BAR0 size, when what the device advertises by default is not enough. Keraunos
 #                 needs 4G: tt-kmd's own TLB window is entry 164, which sits 2.56 GB into BAR0.
 #   --kmd-module  tt-kmd to load instead of the released build, for an architecture no release
 #                 knows about yet.
-#   --pre-kmd     Command to run in the guest before tt-kmd is loaded, for bring-up that a simulated
-#                 chip boots without. It runs in the shared working directory.
 #
 # Example, from a directory holding libttsim_wh.so:
 #   docker run --rm -v "$PWD:$PWD" -w "$PWD" \
@@ -32,14 +30,12 @@ lib=""
 bar4_size=""
 bar0_size=""
 kmd_module=""
-pre_kmd=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --lib) lib="$2"; shift 2 ;;
         --bar4-size) bar4_size="$2"; shift 2 ;;
         --bar0-size) bar0_size="$2"; shift 2 ;;
         --kmd-module) kmd_module="$2"; shift 2 ;;
-        --pre-kmd) pre_kmd="$2"; shift 2 ;;
         --) shift; break ;;
         *) usage ;;
     esac
@@ -53,7 +49,6 @@ pwd > "$control/workdir"
 printf '%q ' "$@" > "$control/cmd"
 # Both are optional: the init treats an absent or empty file as "nothing to do".
 printf '%s' "$kmd_module" > "$control/kmd-module"
-printf '%s' "$pre_kmd" > "$control/pre-kmd"
 
 # BAR0 is a fixed size in the device unless asked for otherwise, so the option is only passed when set.
 ttsim_device="ttsim,lib=$lib,bar4-size=$bar4_size"

@@ -20,7 +20,8 @@
 namespace tt::umd {
 
 // IoOrdering carries the TLB hardware encoding directly, so translating between the two is a cast.
-// If these ever diverge, the casts in configure()/get_io_ordering() below become silently wrong.
+// If these ever diverge, the casts in configure()/get_io_ordering() below and in
+// PcieProtocol::export_window() become silently wrong.
 // TEMP: these live exactly as long as those casts do, i.e. until tlb_data is gone from the
 // window API and IoOrdering is what callers pass all the way down. tlb_data itself stays either way --
 // it is the hardware register descriptor (see tlb_data::apply_offset) and remains internal to the

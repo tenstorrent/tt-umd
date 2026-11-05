@@ -32,6 +32,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
+    peer_dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
     hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
     if (use_safe_api) {
@@ -108,6 +109,8 @@ HangDetector *WormholeTTDeviceModel::get_hang_detector() { return hang_detector_
 PcieInterface *WormholeTTDeviceModel::get_pcie_interface() { return pcie_interface_; }
 
 DmaInterface *WormholeTTDeviceModel::get_dma_interface() { return dma_interface_; }
+
+PeerDmaInterface *WormholeTTDeviceModel::get_peer_dma_interface() { return peer_dma_interface_; }
 
 JtagInterface *WormholeTTDeviceModel::get_jtag_interface() { return jtag_interface_; }
 

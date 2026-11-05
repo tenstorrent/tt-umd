@@ -365,12 +365,18 @@ public:
      * Waits for ETH core training to complete.
      * @param eth_core Specific ETH core to wait on.
      * @param timeout_ms Timeout in ms.
-     * @return Time taken in ms.
+     * @return true if training completed within the timeout.
      */
-    std::chrono::milliseconds wait_eth_core_training(
+    bool wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    void wait_dram_channel_training(
+    /**
+     * Waits for DRAM channel training to complete.
+     * @param dram_channel Index of the DRAM channel to wait on.
+     * @param timeout_ms Timeout in ms.
+     * @return true if training completed within the timeout.
+     */
+    bool wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void bar_write32(uint32_t addr, uint32_t data);
@@ -413,9 +419,9 @@ public:
      * @throws error::UninitializedDeviceError before init_tt_device() has run.
      * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
      */
-    uint32_t get_clock();
+    uint32_t get_clock() const;
 
-    uint32_t get_max_clock_freq();
+    uint32_t get_max_clock_freq() const;
 
     /**
      * @brief Retrieves the minimum supported clock frequency of the device.
@@ -425,7 +431,7 @@ public:
      *
      * @return uint32_t Minimum clock frequency in MHz.
      */
-    uint32_t get_min_clock_freq();
+    uint32_t get_min_clock_freq() const;
 
     // Advance the device by one clock cycle. No-op by default; overridden by devices with a
     // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
@@ -433,23 +439,23 @@ public:
     // background thread.
     virtual void advance_device_execution();
 
-    uint64_t get_board_id();
+    uint64_t get_board_id() const;
 
-    uint8_t get_asic_location();
+    uint8_t get_asic_location() const;
 
-    BoardType get_board_type();
+    BoardType get_board_type() const;
 
-    bool get_noc_translation_enabled();
+    bool get_noc_translation_enabled() const;
 
-    double get_asic_temperature();
+    double get_asic_temperature() const;
 
     virtual void wait_for_non_mmio_flush();
 
-    bool is_remote();
+    bool is_remote() const;
 
     void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
-    uint64_t get_refclk_counter();
+    uint64_t get_refclk_counter() const;
 
     int get_communication_device_id() const;
 
@@ -488,7 +494,7 @@ public:
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
     virtual void deassert_risc_reset(
-        CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC);
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 

@@ -219,7 +219,7 @@ void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
     get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
-bool TTDevice::get_noc_translation_enabled() {
+bool TTDevice::get_noc_translation_enabled() const {
     // The overrides this replaces routed their device reads per the thread-selected NOC (via the
     // TTDevice accessors); keep that.
     return get_device_firmware()->get_noc_translation_enabled(get_selected_noc_id());
@@ -470,20 +470,15 @@ void TTDevice::write_to_device_reg(
     get_device_protocol()->write_ctrl(mem_ptr, xy, target, size, noc_id, width);
 }
 
-void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
+bool TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
+    return get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
 }
 
-std::chrono::milliseconds TTDevice::wait_eth_core_training(
-    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
+bool TTDevice::wait_eth_core_training(CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    // The overrides this replaces measured the poll loop's duration; measuring around the firmware
-    // call reports the same thing to the callers that subtract it from a timeout budget.
     const NocId noc_id = get_selected_noc_id();
-    auto start = std::chrono::steady_clock::now();
-    get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+    return get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
 }
 
 EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
@@ -520,7 +515,7 @@ void TTDevice::wait_for_non_mmio_flush() {
     get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
 }
 
-bool TTDevice::is_remote() { return model_->get_remote_interface() != nullptr; }
+bool TTDevice::is_remote() const { return model_->get_remote_interface() != nullptr; }
 
 // A simulation model reaches its device in-process, so it has no protocol and no communication
 // device to be addressed within.
@@ -546,15 +541,19 @@ IODeviceType TTDevice::get_communication_device_type() const {
     return IODeviceType::UNDEFINED;
 }
 
-BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+BoardType TTDevice::get_board_type() const { return get_board_type_from_board_id(get_board_id()); }
 
-uint64_t TTDevice::get_refclk_counter() { return get_device_firmware()->get_refclk_counter(get_selected_noc_id()); }
+uint64_t TTDevice::get_refclk_counter() const {
+    return get_device_firmware()->get_refclk_counter(get_selected_noc_id());
+}
 
-uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id().value_or(0); }
+uint64_t TTDevice::get_board_id() const { return get_firmware_info_provider()->get_board_id().value_or(0); }
 
-double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature().value_or(0.0); }
+double TTDevice::get_asic_temperature() const {
+    return get_firmware_info_provider()->get_asic_temperature().value_or(0.0);
+}
 
-uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
+uint8_t TTDevice::get_asic_location() const { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
 ChipInfo TTDevice::get_chip_info() {
     // The overrides this replaces read harvesting through ArcMessenger, which routed on the
@@ -562,9 +561,9 @@ ChipInfo TTDevice::get_chip_info() {
     return get_device_firmware()->get_chip_info(get_selected_noc_id());
 }
 
-uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
+uint32_t TTDevice::get_max_clock_freq() const { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
-uint32_t TTDevice::get_clock() {
+uint32_t TTDevice::get_clock() const {
     const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
     if (!aiclk.has_value()) {
         UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
@@ -572,7 +571,7 @@ uint32_t TTDevice::get_clock() {
     return *aiclk;
 }
 
-uint32_t TTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
+uint32_t TTDevice::get_min_clock_freq() const { return model_->get_architecture_impl()->get_min_clock_freq(); }
 
 void TTDevice::advance_device_execution() {
     if (model_->get_remote_interface() != nullptr) {

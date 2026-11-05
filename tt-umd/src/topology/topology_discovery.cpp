@@ -735,7 +735,9 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        const auto start = std::chrono::steady_clock::now();
+        tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        timeout_left -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     }
     log_debug(
         LogUMD,

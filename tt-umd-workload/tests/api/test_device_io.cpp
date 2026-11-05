@@ -642,6 +642,12 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
     std::unique_ptr<Cluster> cluster =
         test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+    // Of the simulators, only TTSim (a .so) models Quasar's sysmem route.
+    if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR &&
+        (!is_simulation_test() || std::filesystem::path(std::getenv("TT_UMD_SIMULATOR")).extension() != ".so")) {
+        GTEST_SKIP() << "Quasar sysmem is only modeled by TTSim.";
+    }
+
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;
         static std::mt19937_64 gen(rd());

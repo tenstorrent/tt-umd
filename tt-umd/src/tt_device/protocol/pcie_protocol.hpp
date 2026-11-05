@@ -45,7 +45,10 @@ enum class WindowFlags : uint32_t;
  */
 class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface {
 public:
-    explicit PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api = false);
+    // io_timeout_hang_check is consulted with the in-flight op's NOC when an MMIO op overruns its timeout:
+    // true confirms a hung NOC and aborts the op, false lets it continue.
+    PcieProtocol(
+        std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, std::function<bool(NocId)> io_timeout_hang_check);
 
     ~PcieProtocol() override;
 
@@ -69,7 +72,11 @@ public:
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
-    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
+
+    // Builds a 32-bit NOC register reader for a hang detector to probe NOC liveness with. It is safe to call
+    // from io_timeout_hang_check, inside a timed-out op: it reads through its own window and lock, and a hung
+    // NOC shows up in the value read rather than as an error.
+    std::function<uint32_t(tt_xy_pair core, uint64_t addr, NocId noc)> make_noc_probe_reader();
 
     // DmaInterface.
     [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
@@ -152,10 +159,7 @@ private:
     std::condition_variable dma_idle_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
-
-    // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
-    // TTDevice::wire_hang_detector).
-    std::function<bool(NocId)> hang_check_;
+    std::function<bool(NocId)> io_timeout_hang_check_;
 };
 
 }  // namespace tt::umd

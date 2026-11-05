@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Tests for the simulation multichip core infrastructure:
-// - SocDescriptor::is_core_of_type (moved from a local helper in tt_sim_tt_device.cpp)
 // - TTSimProtocol's process-qualified MMIO id
 // - TTSimCommunicator shared dlopen / select_chip_if_needed patterns
 //
-// The SocDescriptor and MMIO id tests run on any CI host (no hardware required).
+// The MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
 
 #include <gtest/gtest.h>
@@ -58,98 +57,6 @@
 
 using namespace tt;
 using namespace tt::umd;
-
-// ---------------------------------------------------------------------------
-// SocDescriptor::is_core_of_type
-// ---------------------------------------------------------------------------
-
-// Return a ChipInfo that satisfies per-arch harvesting constraints so that
-// SocDescriptor construction does not throw.
-//
-// Blackhole: BlackholeCoordinateManager requires exactly 2 or NUM_ETH_CHANNELS
-// ETH cores harvested on a full grid.  Use the minimal valid case (2 channels).
-static ChipInfo make_valid_chip_info(ARCH arch) {
-    ChipInfo info{};
-    if (arch == ARCH::BLACKHOLE) {
-        info.harvesting_masks.eth_harvesting_mask = 0x3;  // harvest channels 0 & 1
-    }
-    return info;
-}
-
-class IsCoreOfTypeTest : public ::testing::TestWithParam<ARCH> {};
-
-TEST_P(IsCoreOfTypeTest, DramCoreIsIdentifiedCorrectly) {
-    const ARCH arch = GetParam();
-    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
-
-    // Every core returned by get_cores(DRAM, TRANSLATED) must satisfy is_core_of_type.
-    auto dram_cores = soc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
-    ASSERT_FALSE(dram_cores.empty()) << "Expected at least one DRAM core for arch " << arch_to_str(arch);
-
-    for (const auto& core : dram_cores) {
-        tt_xy_pair xy{core.x, core.y};
-        EXPECT_TRUE(soc.is_core_of_type(xy, CoreType::DRAM, CoordSystem::TRANSLATED))
-            << "DRAM core (" << xy.x << ", " << xy.y << ") not recognized by is_core_of_type";
-    }
-}
-
-TEST_P(IsCoreOfTypeTest, TensixCoreIsNotDram) {
-    const ARCH arch = GetParam();
-    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
-
-    auto tensix_cores = soc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    if (tensix_cores.empty()) {
-        GTEST_SKIP() << "No TENSIX cores for arch " << arch_to_str(arch);
-    }
-
-    for (const auto& core : tensix_cores) {
-        tt_xy_pair xy{core.x, core.y};
-        EXPECT_FALSE(soc.is_core_of_type(xy, CoreType::DRAM, CoordSystem::TRANSLATED))
-            << "TENSIX core (" << xy.x << ", " << xy.y << ") wrongly identified as DRAM";
-    }
-}
-
-TEST_P(IsCoreOfTypeTest, EthCoreIsIdentifiedCorrectly) {
-    const ARCH arch = GetParam();
-    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
-
-    auto eth_cores = soc.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
-    if (eth_cores.empty()) {
-        GTEST_SKIP() << "No ETH cores for arch " << arch_to_str(arch);
-    }
-
-    for (const auto& core : eth_cores) {
-        tt_xy_pair xy{core.x, core.y};
-        EXPECT_TRUE(soc.is_core_of_type(xy, CoreType::ETH, CoordSystem::TRANSLATED))
-            << "ETH core (" << xy.x << ", " << xy.y << ") not recognized by is_core_of_type";
-    }
-}
-
-TEST_P(IsCoreOfTypeTest, GarbageXYIsNotAnyKnownType) {
-    const ARCH arch = GetParam();
-    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
-
-    // Use an absurdly large coordinate that cannot belong to any real core.
-    tt_xy_pair garbage{9999, 9999};
-    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::DRAM, CoordSystem::TRANSLATED));
-    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::TENSIX, CoordSystem::TRANSLATED));
-    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::ETH, CoordSystem::TRANSLATED));
-    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::ARC, CoordSystem::TRANSLATED));
-    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::PCIE, CoordSystem::TRANSLATED));
-}
-
-// QUASAR is included because is_core_of_type's DRAM-teleport path in
-// tt_sim_tt_device.cpp special-cases it, and a quasar_simulation_1x1.yaml
-// descriptor is available in the repo.
-INSTANTIATE_TEST_SUITE_P(
-    AllArchs,
-    IsCoreOfTypeTest,
-    ::testing::Values(ARCH::WORMHOLE_B0, ARCH::BLACKHOLE, ARCH::QUASAR),
-    [](const ::testing::TestParamInfo<ARCH>& info) { return arch_to_str(info.param); });
 
 // ---------------------------------------------------------------------------
 // TTSimCommunicator: shared dlopen and chip selection

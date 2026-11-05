@@ -32,6 +32,7 @@
 namespace tt::umd {
 
 class RiscReset;
+class RtlSimAttProgram;
 class RtlSimCommunicator;
 class SimulationNocProtocol;
 class SimulationSysmemManager;
@@ -99,6 +100,15 @@ public:
         WindowFlags flags,
         IoOrdering ordering,
         uint64_t offset = 0) const override;
+
+    /**
+     * Replays this device's writes of the build's ATT program, by coordinate: the device's own IO goes
+     * through the ATTs, which aren't programmed yet. Call it once the session serves the device, before
+     * check_att_matches_map() and before any core runs. Only for a device of the build's ip_layout.yaml.
+     *
+     * @throws error::RuntimeError if a register reads back other than written.
+     */
+    void apply_att_program(const RtlSimAttProgram& program);
 
     /**
      * Checks that the build's ATT reaches every Tensix and Dispatch tile, through each of the device's

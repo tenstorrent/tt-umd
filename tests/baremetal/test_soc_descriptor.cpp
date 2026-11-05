@@ -815,3 +815,33 @@ TEST(CoordinateManager, DispatchCoreCoordinateTranslation) {
     EXPECT_EQ(noc1.x, noc0_to_noc1[dispatch_noc0.x]);
     EXPECT_EQ(noc1.y, noc0_to_noc1[dispatch_noc0.y]);
 }
+
+struct BoundingRectangleCase {
+    std::string name;
+    size_t dram_harvesting_mask;
+};
+
+// Blackhole DRAM cores sit in NOC0 columns 0 and 9, rows 0 to 11. Harvesting a bank that holds rows 0, 1 and 11
+// of one column leaves a set that is not a full grid, while the other column still spans every row, so the
+// rectangle keeps its full extent and its corners are not both cores of the set.
+class SocDescriptorBoundingRectangle : public ::testing::TestWithParam<BoundingRectangleCase> {};
+
+TEST_P(SocDescriptorBoundingRectangle, CornersAreThePerAxisExtremes) {
+    SocDescriptor soc_desc(
+        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml")),
+        {.noc_translation_enabled = true,
+         .harvesting_masks = {.tensix_harvesting_mask = 0, .dram_harvesting_mask = GetParam().dram_harvesting_mask}});
+
+    const auto [first, last] = soc_desc.get_bounding_rectangle(CoordSystem::NOC0, CoreType::DRAM);
+
+    EXPECT_EQ(first, CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0));
+    EXPECT_EQ(last, CoreCoord(9, 11, CoreType::DRAM, CoordSystem::NOC0));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BlackholeDramHarvesting,
+    SocDescriptorBoundingRectangle,
+    ::testing::Values(
+        BoundingRectangleCase{"Column0RowsZeroOneElevenHarvested", 1 << 0},
+        BoundingRectangleCase{"Column9RowsZeroOneElevenHarvested", 1 << 4}),
+    [](const ::testing::TestParamInfo<BoundingRectangleCase>& info) { return info.param.name; });

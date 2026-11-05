@@ -7,18 +7,18 @@
 #include <cstdint>
 #include <string>
 
-#include "tt-umd/topology/topology_discovery.hpp"
+#include "topology/topology_discovery_base.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 
 namespace tt::umd {
 struct TopologyDiscoveryOptions;
 
-class TopologyDiscoveryBlackhole : public TopologyDiscovery {
+class TopologyDiscoveryBlackhole : public TopologyDiscoveryBase {
 public:
     TopologyDiscoveryBlackhole(
         std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options) :
-        TopologyDiscovery(std::move(soc_arch_descriptor), options) {}
+        TopologyDiscoveryBase(std::move(soc_arch_descriptor), options) {}
 
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::BLACKHOLE; }

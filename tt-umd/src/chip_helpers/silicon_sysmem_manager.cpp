@@ -107,6 +107,25 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
+// The page-aligned extent covering a buffer. Pinning works on whole pages, so an unaligned start is
+// rounded down and the size grown to cover the user's whole range.
+struct AlignedRange {
+    void *base = nullptr;           // What gets pinned and released.
+    size_t mapped_size = 0;         // Page-rounded size covering the user's whole range.
+    uint64_t offset_from_base = 0;  // Distance from base to the user's virtual address.
+};
+
+static AlignedRange page_align(void *buffer_va, size_t buffer_size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t va = reinterpret_cast<uint64_t>(buffer_va);
+    const uint64_t base = va & ~(page_size - 1);
+    AlignedRange range{};
+    range.base = reinterpret_cast<void *>(base);
+    range.offset_from_base = va - base;
+    range.mapped_size = (buffer_size + range.offset_from_base + page_size - 1) & ~(page_size - 1);
+    return range;
+}
+
 // Unpins the pages on destruction unless disarmed.
 //
 // It covers the whole window between pinning and a SysmemBuffer taking ownership, not just the
@@ -476,17 +495,16 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     const bool map_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory) {
-    // The buffer reports offsets against the user's address, but the pages that get pinned are the aligned
-    // range covering it. page_align() is what keeps the two in agreement.
-    const SysmemBuffer::AlignedRange range = SysmemBuffer::page_align(buffer_va, buffer_size);
+    // Pinning covers whole pages, but the buffer sees only the user's range: it gets the IOVA of the user's
+    // start, and the deleter keeps the aligned range to unpin.
+    const AlignedRange range = page_align(buffer_va, buffer_size);
 
-    uint64_t device_io_addr = 0;
+    uint64_t aligned_iova = 0;
     std::optional<uint64_t> noc_addr = std::nullopt;
     if (map_to_noc) {
-        std::tie(noc_addr, device_io_addr) =
-            pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
+        std::tie(noc_addr, aligned_iova) = pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
     } else {
-        device_io_addr = pci_device_->map_for_dma(range.base, range.mapped_size, device_access);
+        aligned_iova = pci_device_->map_for_dma(range.base, range.mapped_size, device_access);
     }
 
     // Armed immediately after pinning: everything below here can throw, and until create_buffer()
@@ -495,26 +513,31 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
 
     // The buffer's deleter unpins, then releases the backing memory if this manager owns it.
     SysmemBuffer::Deleter deleter = [pci_device = pci_device_,
-                                     mapped_size = range.mapped_size,
-                                     device_io_addr,
-                                     release = std::move(release_backing_memory)](void *aligned_va) {
+                                     range,
+                                     aligned_iova,
+                                     release = std::move(release_backing_memory)](void *) {
         try {
-            pci_device->unmap_for_dma(aligned_va, mapped_size);
+            pci_device->unmap_for_dma(range.base, range.mapped_size);
         } catch (...) {
             log_warning(
-                LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, device_io_addr);
+                LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", range.mapped_size, aligned_iova);
         }
         if (release) {
-            release(aligned_va);
+            release(range.base);
         }
     };
+
+    // Both device addresses must name the user's start, like the IOVA.
+    if (noc_addr.has_value()) {
+        *noc_addr += range.offset_from_base;
+    }
 
     // The KMD assigns the NOC address at pin time, so this manager supplies no binder.
     std::unique_ptr<SysmemBuffer> buffer = create_buffer(
         tt_device_,
         buffer_va,
         buffer_size,
-        device_io_addr,
+        aligned_iova + range.offset_from_base,
         communication_id_,
         std::move(deleter),
         noc_addr,
@@ -535,7 +558,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
             fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
     // This mapping belongs to the buffer, so it is released along with the pinning. mmap returns a
-    // page-aligned address, so the pointer the deleter receives is the one to munmap.
+    // page-aligned address, so the aligned base pin_and_wrap() releases is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
     const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
         if (munmap(aligned_va, mapping_size) != 0) {

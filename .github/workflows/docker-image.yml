@@ -60,7 +60,8 @@ jobs:
               # Only plain files can be hashed, so a directory or a glob source would drop out
               # silently and take us straight back to serving a stale image. Say so loudly instead:
               # whoever adds one needs to extend this loop, not discover the staleness later.
-              echo "::warning::$DOCKERFILE COPYs '$src', which is not a plain file and is therefore not in the image tag's hash"
+              echo "::warning::$DOCKERFILE COPYs '$src', not a plain file," \
+                   "so it is not in the image tag's hash"
             fi
           done
 

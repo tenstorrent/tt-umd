@@ -166,6 +166,38 @@ class TestSocDescriptor(unittest.TestCase):
                 )
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
+    def test_get_arch_descriptor_from_tt_device(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            self.skipTest("No PCI devices found")
+
+        dev = tt_umd.TTDevice.create(pci_ids[0])
+        dev.init_tt_device()
+        arch_descriptor = dev.get_soc_descriptor().get_arch_descriptor()
+        self.assertEqual(arch_descriptor.arch, dev.get_arch())
+
+    def test_soc_descriptor_from_arch_descriptor(self):
+        chip_info = tt_umd.ChipInfo()
+        chip_info.noc_translation_enabled = True
+        chip_info.harvesting_masks.tensix_harvesting_mask = 1
+        soc_descriptor = tt_umd.SocDescriptor(
+            tt_umd.SocArchDescriptor(tt_umd.ARCH.WORMHOLE_B0), chip_info
+        )
+
+        arch_descriptor = soc_descriptor.get_arch_descriptor()
+        self.assertEqual(arch_descriptor.arch, tt_umd.ARCH.WORMHOLE_B0)
+        self.assertEqual(
+            (arch_descriptor.grid_size.x, arch_descriptor.grid_size.y), (10, 12)
+        )
+        self.assertTrue(soc_descriptor.noc_translation_enabled)
+        self.assertEqual(soc_descriptor.harvesting_masks.tensix_harvesting_mask, 1)
+        self.assertEqual(
+            len(soc_descriptor.get_harvested_cores(tt_umd.CoreType.TENSIX)), 8
+        )
+
+    def test_ip_variant_is_none_without_soc_descriptor_file(self):
+        self.assertIsNone(tt_umd.SocArchDescriptor(tt_umd.ARCH.QUASAR).ip_variant)
+
 
 if __name__ == "__main__":
     unittest.main()

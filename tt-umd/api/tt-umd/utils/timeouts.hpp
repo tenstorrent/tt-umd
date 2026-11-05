@@ -9,11 +9,10 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
-// Per-operation budget for a SimulationClient exchange over the host socket: how long transact()
-// waits on the reply before giving up. Guards against a host that is bound but not yet (or no
-// longer) serving -- a client can connect (the listen backlog accepts it) and would otherwise block
-// forever waiting for a response. Generous, since it also covers a slow backend bring-up; a genuine
-// per-request round trip is far quicker.
+// How long a SimulationClient waits on the host socket before the host has answered once. Guards
+// against a host that is bound but not yet serving -- a client can connect (the listen backlog
+// accepts it) and would otherwise block forever waiting for a response. Not applied once the host
+// serves: a large read from an RTL simulator can take minutes.
 inline constexpr auto SIMULATION_SOCKET_TIMEOUT = std::chrono::milliseconds(30'000);
 
 // How long RtlSimSession::start() waits for the simulator's ack on each socket. Covers job
@@ -30,6 +29,8 @@ inline constexpr auto RTL_SIM_ACK_TIMEOUT = std::chrono::minutes(60);
 // treated as a false alarm (see SiliconTlbWindow). This makes the budget robust to a low value even on a
 // contended/virtualized host (e.g. a viommu CI runner) where a single op can take several ms.
 inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(2);
+
+inline constexpr auto DMA_TIMEOUT = std::chrono::seconds(10);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 // ARC clears the interrupt trigger bit quickly; this just guards against concurrent

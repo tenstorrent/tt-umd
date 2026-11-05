@@ -1,7 +1,4 @@
-set(UNIFIED_TESTS_SRCS
-    multiprocess.cpp
-    test_tlb.cpp
-)
+set(UNIFIED_TESTS_SRCS test_tlb.cpp)
 
 add_executable(unified_tests ${UNIFIED_TESTS_SRCS})
 target_link_libraries(unified_tests PRIVATE test_common)

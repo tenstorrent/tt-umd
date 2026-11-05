@@ -9,7 +9,7 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/types/wormhole_l1.hpp"
 #include "tt-umd/types/xy_pair.hpp"

@@ -10,7 +10,7 @@
 #include <optional>
 #include <vector>
 
-#include "tt-umd/topology/ip_layout.hpp"
+#include "tt-umd/topology/ip_block_layout.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {

@@ -152,9 +152,15 @@ void SimulationServerSocket::do_accept() {
                             send_framed(*sock, handler(recv_framed(*sock)));
                         }
                     } catch (const std::exception&) {
-                        // Peer disconnected (recv_framed threw on EOF) or a socket error: the
-                        // session ends. Teardown joins this thread; the socket closes with `sock`.
+                        // Peer disconnected (recv_framed threw on EOF), a socket error, or the
+                        // handler threw: the session ends. Teardown joins this thread; the socket
+                        // closes with `sock`.
                     }
+                    // `sock` stays open until this connection is reaped, so signal EOF now: a
+                    // client waiting on a reply this session will never send must not hang.
+                    // shutdown() rather than close(), so teardown never touches a reused fd.
+                    std::error_code ec;
+                    sock->shutdown(stream_protocol::socket::shutdown_both, ec);
                     finished->store(true);
                 });
                 impl_->connections.push_back({sock, std::move(thread), finished});

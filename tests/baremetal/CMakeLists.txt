@@ -5,7 +5,8 @@ set(BAREMETAL_TESTS_SRCS
     test_att_window.cpp
     test_att_resolver.cpp
     test_grendel_att_map.cpp
-    test_ip_layout.cpp
+    test_horizon_x2_att_map.cpp
+    test_ip_block_layout.cpp
     test_cluster_descriptor_offline.cpp
     test_cluster_descriptor_cluster_id.cpp
     test_core_coord_translation_wh.cpp
@@ -15,9 +16,9 @@ set(BAREMETAL_TESTS_SRCS
     test_soc_descriptor.cpp
     test_long_jump.cpp
     test_notification_mechanism.cpp
-    test_cluster.cpp
     test_blackhole_arc_apb.cpp
     test_risc_reset.cpp
+    test_tsc_risc_reset.cpp
     test_wormhole_arc_window.cpp
     test_blackhole_arc_message_queue.cpp
     test_register_access.cpp
@@ -46,17 +47,13 @@ get_target_property(YAML_CPP_TYPE yaml-cpp::yaml-cpp TYPE)
 if(YAML_CPP_TYPE STREQUAL "SHARED_LIBRARY")
     target_link_libraries(baremetal_tests PRIVATE yaml-cpp::yaml-cpp)
 endif()
-if(TT_UMD_BUILD_EMULE)
-    target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
-    target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
-endif()
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         baremetal_tests
         PRIVATE
             test_simulation_tlb_allocator.cpp
             test_rtl_sim_att_program.cpp
-            test_rtl_sim_ip_layout.cpp
+            test_rtl_sim_ip_block_layout.cpp
             test_rtl_sim_session.cpp
             test_rtl_sim_tlb_window.cpp
             test_word_access.cpp

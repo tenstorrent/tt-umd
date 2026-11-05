@@ -26,8 +26,12 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
+struct tt_tlb_t;
 
 namespace tt::umd {
+
+// The architecture a Tenstorrent PCI device id names, or Invalid for an id UMD does not know.
+tt::ARCH arch_from_pci_device_id(uint16_t device_id);
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -137,12 +141,12 @@ enum class NocAddressSpace {
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
-    const int pci_device_file_desc;  // Character device file descriptor
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const SemVer kmd_version;        // KMD version
+    const int pci_device_file_desc;  // Character device file descriptor; opened after arch/kmd_version are known
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
@@ -323,14 +327,20 @@ public:
      * Configure TLB register in user space by writing directly to BAR0.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_config The TLB configuration data
+     * @param tlb_handle The window's driver handle, used where the architecture's configuration
+     *                   registers are not reachable from the host and the driver has to program
+     *                   the window on our behalf. May be null for architectures that write their
+     *                   own registers.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address; where the
+     *                   registers hold a window index instead, the conversion happens here.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip.
+     *               PCIe round trip. Ignored where the driver programs the window.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(
+        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.

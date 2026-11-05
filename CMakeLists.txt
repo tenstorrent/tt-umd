@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
 
-option(TT_UMD_BUILD_JTAG "Enable JTAG support" OFF)
-set(DOWNLOAD_TTEXALENS_PRIVATE ${TT_UMD_BUILD_JTAG})
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
@@ -179,6 +176,7 @@ add_compile_options(-fno-omit-frame-pointer)
 add_subdirectory(tt-kmd-lib)
 add_subdirectory(tt-umd-utils)
 add_subdirectory(tt-umd)
+add_subdirectory(tt-umd-workload)
 if(TT_UMD_BUILD_PYTHON)
     add_subdirectory(nanobind)
 endif()
@@ -197,6 +195,8 @@ endif()
 
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
+    # Adds tests to the binaries defined in tests/, so it has to come after it.
+    add_subdirectory(tt-umd-workload/tests)
 endif(TT_UMD_BUILD_TESTS)
 
 include(packaging)
@@ -212,7 +212,6 @@ set(_umd_summary_vars
     TT_UMD_BUILD_ALL
     TT_UMD_BUILD_EMULE
     TT_UMD_BUILD_EXAMPLES
-    TT_UMD_BUILD_JTAG
     TT_UMD_BUILD_PIP
     TT_UMD_BUILD_PYTHON
     TT_UMD_BUILD_SIMULATION

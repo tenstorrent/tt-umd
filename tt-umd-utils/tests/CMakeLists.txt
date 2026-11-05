@@ -1,4 +1,5 @@
 set(TT_UMD_UTILS_TESTS_SRCS
+    test_cpp_compat.cpp
     test_errors.cpp
     test_op_timeout_guard.cpp
     test_robust_mutex.cpp
@@ -10,6 +11,7 @@ target_link_libraries(
     tt_umd_utils_tests
     PRIVATE
         tt-umd-utils::tt-umd-utils
+        tt-umd-utils::internal
         gtest_main
         gtest
         pthread

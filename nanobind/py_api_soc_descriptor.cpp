@@ -112,6 +112,11 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def_prop_ro("unpacker_version", &SocArchDescriptor::get_unpacker_version, release_gil())
         .def_prop_ro("dst_size_alignment", &SocArchDescriptor::get_dst_size_alignment, release_gil())
         .def_prop_ro("packer_version", &SocArchDescriptor::get_packer_version, release_gil())
+        .def_prop_ro(
+            "ip_variant",
+            &SocArchDescriptor::get_ip_variant,
+            release_gil(),
+            "IP variant, or None for the default design of the arch")
         .def_prop_ro("trisc_sizes", &SocArchDescriptor::get_trisc_sizes, release_gil())
         .def_prop_ro("device_descriptor_file_path", &SocArchDescriptor::get_device_descriptor_file_path, release_gil())
         .def_prop_ro("worker_grid_size", &SocArchDescriptor::get_worker_grid_size, release_gil())
@@ -138,6 +143,20 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("tt_device"),
             release_gil(),
             "Create a SocDescriptor from a TTDevice")
+        .def(
+            nb::init<std::shared_ptr<const SocArchDescriptor>, const ChipInfo>(),
+            nb::arg("arch_descriptor"),
+            nb::arg("chip_info") = ChipInfo(),
+            release_gil(),
+            "Create a SocDescriptor from a SocArchDescriptor and per-chip info")
+        .def(
+            "get_arch_descriptor",
+            &SocDescriptor::get_arch_descriptor,
+            nb::rv_policy::reference_internal,
+            release_gil(),
+            "Get the SocArchDescriptor this SocDescriptor is built from")
+        .def_ro("harvesting_masks", &SocDescriptor::harvesting_masks)
+        .def_ro("noc_translation_enabled", &SocDescriptor::noc_translation_enabled)
         .def(
             "get_cores",
             &SocDescriptor::get_cores,

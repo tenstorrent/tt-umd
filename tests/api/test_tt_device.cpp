@@ -17,18 +17,20 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
-#include "tt-umd/chip/chip.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -373,6 +375,8 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_THROW(tt_device->get_clock(), err);
         EXPECT_THROW(tt_device->get_max_clock_freq(), err);
         EXPECT_THROW(tt_device->get_firmware_version(), err);
+        EXPECT_THROW(tt_device->get_device_firmware()->get_runtime_telemetry_buffer_size(), err);
+        EXPECT_THROW(tt_device->get_device_firmware()->get_runtime_telemetry_buffer_address(), err);
 
         // Initialize device.
         ASSERT_NO_THROW(tt_device->init_tt_device());
@@ -417,4 +421,8 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         EXPECT_THROW(tt_device->read_from_device(&readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof value), err);
         EXPECT_EQ(value, readback);
     }
+}
+
+TEST(ApiTTDeviceTest, CreateRejectsUndefinedDeviceType) {
+    EXPECT_THROW(TTDevice::create(0, IODeviceType::UNDEFINED), error::UmdException<error::RuntimeError>);
 }

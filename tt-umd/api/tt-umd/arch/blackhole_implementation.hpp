@@ -278,7 +278,9 @@ inline constexpr uint32_t AICLK_IDLE_VAL = 800;
 
 inline constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 inline constexpr uint32_t ETH_L1_SIZE = 262144;
-inline constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
+// 4 GiB minus 16 MiB: a DRAM core's NoC addresses from 0xFF000000 up reach the DRAM tile's own
+// registers, not GDDR.
+inline constexpr uint64_t DRAM_BANK_SIZE = 4278190080;
 
 inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},

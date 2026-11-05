@@ -8,7 +8,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "utils.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/wait_progress_logger.hpp"
 
 using namespace tt::umd::utils;
 using namespace std::chrono_literals;

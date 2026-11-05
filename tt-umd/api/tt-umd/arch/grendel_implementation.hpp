@@ -167,32 +167,35 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // TODO: Copied from blackhole. Need to verify.
+// The only window size TLBAppIn0 offers, so also the size UMD keeps its cached windows at.
+inline constexpr uint32_t STATIC_TLB_SIZE = 16 * 1024 * 1024;
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
-inline constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
+// A window's configuration registers sit behind a control plane that only the kernel driver
+// maps, so neither of these is an address the host can write. A window is configured by asking
+// the driver instead, which is why ArchitectureTlbs marks this architecture as having no
+// host-writable configuration registers.
+inline constexpr uint32_t STATIC_TLB_CFG_ADDR = 0;
+inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 0;
 
-inline constexpr uint32_t TLB_COUNT_2M = 202;
-inline constexpr uint32_t TLB_BASE_2M = 0;  // 0 in BAR0
+// TLBAppIn0: 256 entries, each a 16MB window into BAR0 at (entry << 24). Entries 0-163 are
+// statically programmed during bring-up and 164 is the driver's own scalar access window, so in
+// practice only 165-255 are ever handed out. The count still covers the whole bank because a
+// window is named by its entry number, not by its position among the free ones.
+inline constexpr uint32_t TLB_16M_SHIFT = 24;
+inline constexpr uint64_t TLB_16M_SIZE = 1ULL << TLB_16M_SHIFT;
+inline constexpr uint32_t TLB_COUNT_16M = 256;
+inline constexpr uint32_t TLB_BASE_16M = 0;  // 0 in BAR0
+inline constexpr uint32_t TLB_BASE_INDEX_16M = 0;
+inline constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
+
+// Blackhole-derived leftovers, kept only because AXI_RESET_OFFSET and the REG_TLB/MEM_* indices
+// below are still expressed in terms of them. They do not describe TLBAppIn0 and take no part in
+// the window pool.
+inline constexpr uint32_t TLB_BASE_2M = 0;
 inline constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 inline constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
-
-inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
-
-inline constexpr uint32_t TLB_COUNT_4G = 8;
-inline constexpr uint32_t TLB_BASE_4G = 0;  // 0 in BAR4
-inline constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
-inline constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-inline constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;
-inline constexpr uint32_t DYNAMIC_TLB_4G_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_4G * TLB_CFG_REG_SIZE_BYTES);
-inline constexpr uint32_t DYNAMIC_TLB_4G_BASE = TLB_BASE_4G;
-
-inline constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
-
-inline constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
-inline constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
-inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.

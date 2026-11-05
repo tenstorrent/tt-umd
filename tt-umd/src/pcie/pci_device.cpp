@@ -30,9 +30,11 @@
 #include <utility>
 #include <vector>
 
-#include "tracy.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/silicon_tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -40,7 +42,6 @@
 #include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -230,16 +231,18 @@ static void send_reset_ioctl(int device_id, uint32_t flags) {
     }
 }
 
-tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
+tt::ARCH arch_from_pci_device_id(uint16_t device_id) {
+    if (device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
+    } else if (device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
-    } else if (this->device_id == TT_QUASAR_PCI_DEVICE_ID) {
+    } else if (device_id == TT_QUASAR_PCI_DEVICE_ID) {
         return tt::ARCH::QUASAR;
     }
     return tt::ARCH::Invalid;
 }
+
+tt::ARCH PciDeviceInfo::get_arch() const { return arch_from_pci_device_id(this->device_id); }
 
 std::vector<int> PCIDevice::enumerate_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -385,23 +388,33 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
-static int open_pci_device(const std::string &device_path) {
-    // O_APPEND is temporarily disabled to investigate NOC1 issues. See
-    // https://github.com/tenstorrent/tt-umd/issues/2531.
-    int flags = O_RDWR | O_CLOEXEC;
-    log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
+// O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states. A power
+// aware fd contributes nothing to the device's power state until set_power_state() is called on it. Only Blackhole
+// is opted in, since set_power_state() is a no-op on other architectures and they would never leave low power.
+static int power_aware_open_flags(tt::ARCH arch, const SemVer &kmd_version) {
+    return (arch == tt::ARCH::BLACKHOLE && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+}
+
+static int open_pci_device(const std::string &device_path, tt::ARCH arch, const SemVer &kmd_version) {
+    int flags = O_RDWR | O_CLOEXEC | power_aware_open_flags(arch, kmd_version);
+    log_debug(
+        LogUMD,
+        fmt::format(
+            "Opening device {} in {} mode regarding device power.",
+            device_path,
+            (flags & O_APPEND) ? "power aware" : "legacy"));
     return open(device_path.c_str(), flags);
 }
 
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
+    pci_device_file_desc(open_pci_device(device_path, arch, kmd_version)),
     iommu_enabled(detect_iommu(info)) {
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
@@ -409,7 +422,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
-    int extra_flags = 0;
+    int extra_flags = power_aware_open_flags(arch, kmd_version);
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
@@ -859,15 +872,97 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
+void PCIDevice::configure_tlb(
+    const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
+    const ArchitectureTlbs &arch_tlbs = get_architecture_tlbs(arch);
+    auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
+
+    // Where the configuration registers are not reachable from the host, the driver owns them and
+    // programs the window for us. The address stays a byte address: the driver aligns it to the
+    // window itself, and it refuses a coordinate, because on such an architecture the address is
+    // flat and already carries its target. Nothing is posted, so there is no read-back to do.
+    if (!arch_tlbs.cfg_registers_host_writable) {
+        UMD_ASSERT(
+            tlb_handle != nullptr,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} has no driver handle, and {} cannot configure a window without one.",
+                tlb_index,
+                arch_to_str(arch)));
+
+        // A window the driver programs is flat over system physical address space: the entry is a
+        // target address plus an attribute field reaching only the NOC security header. It has no
+        // coordinate, no multicast group, no NOC selector, no ordering and no virtual channel, so a
+        // caller that set one asked for something this window cannot do.
+        const auto refuse = [&](const char *name, const uint64_t value) {
+            UMD_ASSERT(
+                value == 0,
+                error::RuntimeError,
+                fmt::format(
+                    "TLB index {}: a window the driver programs is flat over system physical address "
+                    "space and cannot carry {} (got {:#x}).",
+                    tlb_index,
+                    name,
+                    value));
+        };
+        refuse("x_end", tlb_config.x_end);
+        refuse("y_end", tlb_config.y_end);
+        refuse("x_start", tlb_config.x_start);
+        refuse("y_start", tlb_config.y_start);
+        refuse("noc_sel", tlb_config.noc_sel);
+        refuse("mcast", tlb_config.mcast);
+        refuse("ordering", tlb_config.ordering);
+        refuse("linked", tlb_config.linked);
+        refuse("static_vc", tlb_config.static_vc);
+        refuse("static_vc_buddy", tlb_config.static_vc_buddy);
+        refuse("static_vc_class", tlb_config.static_vc_class);
+
+        // These two the entry does carry, but only in the width the security header gives them.
+        // Range-check before narrowing, so an out-of-range value is reported rather than silently
+        // becoming a different, valid-looking attribute.
+        const auto narrow = [&](const char *name, const uint64_t value, const uint64_t limit) {
+            UMD_ASSERT(
+                value <= limit,
+                error::RuntimeError,
+                fmt::format(
+                    "TLB index {}: {} is {:#x}, but the NOC security header allows at most {:#x}.",
+                    tlb_index,
+                    name,
+                    value,
+                    limit));
+            return static_cast<uint8_t>(value);
+        };
+
+        tt_noc_addr_config_t config = {};
+        config.addr = tlb_config.local_offset;
+        config.noncacheable = narrow("noncacheable", tlb_config.noncacheable, 1);
+        config.qos_id = narrow("qos_id", tlb_config.qos_id, 0xF);
+
+        const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
+        UMD_ASSERT(
+            ret == 0,
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB index {} at address {:#x} through the driver: {}.",
+                tlb_index,
+                tlb_config.local_offset,
+                strerror(-ret)));
+
+        log_trace(LogUMD, "Configured TLB index {} via the driver at address 0x{:x}", tlb_index, config.addr);
+        return;
+    }
+
+    // The registers hold the window's index within its size class, not a byte address, so the
+    // offset is divided down before it is packed.
+    tlb_data register_config = tlb_config;
+    register_config.local_offset = tlb_config.local_offset / tlb_configuration.size;
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
-    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
+    auto [lower_64, upper_64] = register_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
+    const uint64_t tlb_cfg_reg_size_bytes = arch_tlbs.cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.

@@ -51,6 +51,24 @@ TEST(SimulationDeviceIdentity, DescribeThenRebuildMatches) {
     EXPECT_EQ(rebuilt.harvesting_masks.pcie_harvesting_mask, original.harvesting_masks.pcie_harvesting_mask);
 }
 
+// A descriptor built from the architecture rather than a YAML file travels as the arch alone and is
+// rebuilt from it, as for a libttsim image that ships no soc_descriptor.yaml.
+TEST(SimulationDeviceIdentity, DescribeThenRebuildBuiltInDescriptor) {
+    ChipInfo chip_info{};
+    chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
+    SocDescriptor original(std::make_shared<SocArchDescriptor>(tt::ARCH::BLACKHOLE), chip_info);
+
+    const SimulationServerDeviceInfo info =
+        describe_device(original, SimulationBackendType::TTSIM, "/opt/sim_bh/libttsim.so");
+    EXPECT_EQ(info.status, 0);
+    EXPECT_TRUE(info.soc_descriptor_yaml.empty());
+
+    const SocDescriptor rebuilt = build_soc_descriptor(info);
+    EXPECT_EQ(rebuilt.arch, tt::ARCH::BLACKHOLE);
+    EXPECT_EQ(rebuilt.get_arch_descriptor().get_grid_size(), tt_xy_pair(17, 12));
+    EXPECT_EQ(rebuilt.harvesting_masks.eth_harvesting_mask, 0x3000u);
+}
+
 // describe_cluster() reads the build's cluster_descriptor.yaml from the simulator directory, so both
 // cases below need a scratch directory. The fixture owns its lifecycle (unique per process, created
 // fresh and removed after each test) so the tests only differ in what they put in it.

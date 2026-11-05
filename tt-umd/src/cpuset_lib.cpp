@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "tt-kmd-lib/pci_ids.h"
+
 namespace tt::cpuset {
 
 namespace fs = std::filesystem;
@@ -109,7 +111,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
 
     while ((pci_device_obj = hwloc_get_next_pcidev(m_topology, pci_device_obj))) {
         if (hwloc_obj_type_is_io(pci_device_obj->type) &&
-            (pci_device_obj->attr->pcidev.vendor_id == TENSTORRENT_VENDOR_ID)) {
+            (pci_device_obj->attr->pcidev.vendor_id == TT_PCI_VENDOR_ID)) {
             std::pair<uint16_t, uint16_t> device_id_revision =
                 std::make_pair(pci_device_obj->attr->pcidev.device_id, pci_device_obj->attr->pcidev.revision);
             m_num_tt_device_by_pci_device_id_map[device_id_revision] += 1;
@@ -187,8 +189,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     }
 
     if (m_all_tt_devices.empty()) {
-        log_warning(
-            LogUMD, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
+        log_warning(LogUMD, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TT_PCI_VENDOR_ID);
         return false;
     }
 

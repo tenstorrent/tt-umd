@@ -7,7 +7,6 @@
 #include <fmt/format.h>
 
 #include <cstdint>
-#include <filesystem>
 #include <iostream>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -28,14 +27,6 @@ void DlCloser::operator()(void* handle) const {
 }
 
 void Jtag::openLibrary(const std::string& filePath, int flags) {
-    if (!std::filesystem::exists(filePath)) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "You do not have a JTAG library at {}.\n"
-                "File path could be wrong.",
-                filePath));
-    }
     if (handle != nullptr) {
         return;
     }

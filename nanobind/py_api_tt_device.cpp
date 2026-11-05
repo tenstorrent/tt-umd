@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -15,9 +16,9 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -240,14 +241,21 @@ void bind_tt_device(nb::module_ &m) {
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(
-                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
+            [](int device_number,
+               IODeviceType device_type,
+               std::optional<bool> use_safe_api,
+               const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+                // None enables the safe API wherever it is supported, which is PCIe only.
+                bool resolved_use_safe_api = use_safe_api.value_or(device_type == IODeviceType::PCIe);
+                return TTDevice::create(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
+            },
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
-            nb::arg("use_safe_api") = true,
+            nb::arg("use_safe_api") = nb::none(),
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
-            release_gil())
+            release_gil(),
+            "Creates a TTDevice. device_number is the PCIe device number, or the J-Link serial number for JTAG.")
         .def(
             "set_power_state",
             &TTDevice::set_power_state,
@@ -350,6 +358,41 @@ void bind_tt_device(nb::module_ &m) {
             nb::sig("def noc_write(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> "
                     "None"),
             "Write arbitrary-length data to a core at the specified address")
+        .def(
+            "read_from_device_reg",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
+                tt_xy_pair core = {core_x, core_y};
+                std::vector<uint8_t> buffer(size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device_reg(buffer.data(), core, addr, size, get_selected_noc_id());
+                }
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read registers from a core at the specified address with one 32-bit access per register. addr and size "
+            "must be multiples of 4.")
+        .def(
+            "write_to_device_reg",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
+                PyBufferView buffer(data);
+                tt_xy_pair core = {core_x, core_y};
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device_reg(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
+                }
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::sig("def write_to_device_reg(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
+            "Write registers to a core at the specified address with one 32-bit access per register. addr and the data "
+            "size must be multiples of 4. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_broadcast",
             [](TTDevice &self, uint64_t addr, nb::handle data) -> void {
@@ -761,11 +804,9 @@ void bind_tt_device(nb::module_ &m) {
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
         "create_simulation_tt_device",
-        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int, bool)>(
-            &create_simulation_tt_device),
+        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int)>(&create_simulation_tt_device),
         nb::arg("simulator_path"),
         nb::arg("num_host_mem_channels") = 0,
-        nb::arg("copy_sim_binary") = false,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Creates a simulation TTDevice from a simulator path. "
@@ -778,7 +819,6 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::create,
             nb::arg("simulator_directory"),
             nb::arg("num_host_mem_channels") = 0,
-            nb::arg("copy_sim_binary") = false,
             release_gil(),
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(

@@ -167,7 +167,7 @@ directory; UMD sees the live sockets, attaches to each as a client, and hands yo
 exactly as you would silicon.
 
 ```cpp
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt::umd;

@@ -59,6 +59,12 @@ void bind_basic_types(nb::module_ &m) {
         .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
         .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
 
+    nb::enum_<tt::IpVariant>(m, "IpVariant")
+        .value("GRENDEL", tt::IpVariant::GRENDEL)
+        .value("HORIZON", tt::IpVariant::HORIZON)
+        .value("SATURN", tt::IpVariant::SATURN)
+        .value("TRINITY", tt::IpVariant::TRINITY);
+
     nb::enum_<RiscType>(m, "RiscType")
         .value("NONE", RiscType::NONE)
         .value("ALL", RiscType::ALL)

@@ -19,12 +19,13 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -48,7 +49,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 #include "tt_device/hang_detection/hang_detector_implementation.hpp"
@@ -57,6 +57,7 @@
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
 #include "tt_device_model/blackhole_tt_device_model.hpp"
+#include "tt_device_model/grendel_tt_device_model.hpp"
 #include "tt_device_model/wormhole_tt_device_model.hpp"
 #include "utils.hpp"
 
@@ -67,14 +68,7 @@ enum class RiscType : std::uint64_t;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {
-    if (model_->get_pcie_interface() != nullptr) {
-        // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
-        LockManager::initialize_mutex(
-            MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-    }
-    wire_hang_detector();
-}
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
 
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
@@ -103,20 +97,24 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
+        device_type == IODeviceType::PCIe || device_type == IODeviceType::JTAG,
+        error::RuntimeError,
+        fmt::format("Unsupported device type {} for TTDevice::create.", DeviceTypeToString.at(device_type)));
+    UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
         error::RuntimeError,
         "Safe I/O API is not supported for non-PCIe device types.");
     tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
-        auto jtag_device = JtagDevice::create();
-        arch = jtag_device->get_jtag_arch(device_number);
+        auto jtag_device = JtagDevice::create(static_cast<uint32_t>(device_number));
+        arch = jtag_device->get_jtag_arch();
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<WormholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(
+                    new TTDevice(std::make_unique<WormholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<TTDevice>(new TTDevice(std::make_unique<BlackholeTTDeviceModel>(
-                    std::move(jtag_device), device_number, soc_arch_descriptor)));
+                return std::unique_ptr<TTDevice>(new TTDevice(
+                    std::make_unique<BlackholeTTDeviceModel>(std::move(jtag_device), soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -134,6 +132,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         case ARCH::BLACKHOLE:
             return std::unique_ptr<TTDevice>(new TTDevice(
                 std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
+        case ARCH::QUASAR:
+            // Quasar has no window for userspace to map, so the driver performs each access and
+            // there is no safe/unsafe pair of paths to choose between.
+            return std::unique_ptr<TTDevice>(new TTDevice(
+                std::make_unique<GrendelTTDeviceModel>(std::move(pci_device), device_number, soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -441,26 +444,30 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_device_protocol()->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(
     void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
     ZoneScopedC(tracy::Color::Orange);
     validate_register_access_width(get_arch(), width);
-    get_device_protocol()->read_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id, width);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->read_ctrl(mem_ptr, xy, target, size, noc_id, width);
 }
 
 void TTDevice::write_to_device_reg(
     const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
     ZoneScopedC(tracy::Color::Orange);
     validate_register_access_width(get_arch(), width);
-    get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id, width);
+    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
+    get_device_protocol()->write_ctrl(mem_ptr, xy, target, size, noc_id, width);
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
@@ -558,31 +565,6 @@ ChipInfo TTDevice::get_chip_info() {
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
 uint32_t TTDevice::get_clock() {
-    // TODO: temporary - Wormhole keeps the GET_AICLK firmware command it always used, preserving
-    // the exact behavior, until a test confirms the firmware info provider's telemetry read
-    // reports the same value (the smbus telemetry word can lag the instantaneous readout). Once
-    // confirmed, delete this branch; if they differ, the provider grows the per-arch handling
-    // instead.
-    if (get_arch() == tt::ARCH::WORMHOLE_B0) {
-        // The clock is firmware-reported state, so refuse before the firmware is up rather than putting a
-        // message to one that has not reported ready; this throws UninitializedDeviceError when it is not.
-        // send_device_command() no longer makes that check itself -- a Wormhole ARC message rides scratch
-        // registers that are readable from reset -- so it belongs to the callers that actually need it.
-        static_cast<void>(get_firmware_info_provider());
-
-        // There is one return value from the GET_AICLK message.
-        DeviceCommandResult result = get_device_firmware()->send_device_command(
-            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-            {0xFFFF, 0xFFFF},
-            timeout::ARC_MESSAGE_TIMEOUT,
-            get_selected_noc_id());
-        if (result.exit_code != 0) {
-            UMD_THROW(
-                error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
-        }
-        return result.return_values.at(0);
-    }
-
     const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
     if (!aiclk.has_value()) {
         UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
@@ -710,9 +692,6 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
@@ -720,7 +699,6 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
     }
 
     // DMA unavailable, fall back to regular write.
-    pcie_dma_lock.unlock();
     write_to_device(src, core, dst_addr, size, noc_id);
 }
 
@@ -729,9 +707,6 @@ void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord cor
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
@@ -739,7 +714,6 @@ void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord cor
     }
 
     // DMA unavailable, fall back to regular read.
-    pcie_dma_lock.unlock();
     read_from_device(dst, core, src_addr, size, noc_id);
 }
 
@@ -749,9 +723,6 @@ void TTDevice::dma_write_to_core_range(
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
         src, dst_addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
@@ -761,7 +732,6 @@ void TTDevice::dma_write_to_core_range(
     }
 
     // DMA unavailable, fall back to regular multicast write.
-    pcie_dma_lock.unlock();
     noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
 }
 
@@ -770,9 +740,6 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     bool dma_success =
         get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
@@ -785,14 +752,37 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
-    auto pcie_dma_lock =
-        LockManager::acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
-
     bool dma_success =
         get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
+}
+
+bool TTDevice::dma_write_zero_copy_start(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    return get_dma_interface()->dma_write_zero_copy_start(
+        src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+bool TTDevice::dma_read_zero_copy_start(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+    if (is_remote()) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    return get_dma_interface()->dma_read_zero_copy_start(
+        dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+}
+
+DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interface()->dma_write_zero_copy_check(); }
+
+DmaTransferState TTDevice::dma_read_zero_copy_check() { return get_dma_interface()->dma_read_zero_copy_check(); }
+
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+    return get_dma_interface()->dma_zero_copy_max_size(device_addr);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {
@@ -815,6 +805,52 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
         UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
     }
     soc_descriptor_ = soc_descriptor;
+}
+
+// Wormhole and Blackhole carry the destination out of band, so the pair is the resolved coordinate
+// and the caller's address unchanged. Quasar is the opposite: its NOC decodes a flat address into a
+// destination, so the coordinate is folded into the address and the coordinate on the wire becomes
+// the origin.
+//
+// A LITERAL coordinate is never folded. It already means "device-ready by contract" to both
+// resolve_coordinate() and att::resolve_core(), which is what lets a caller address a system
+// physical range directly on an architecture that otherwise resolves by coordinate.
+std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const {
+    const att::EndpointResolver *resolver = model_->get_endpoint_resolver();
+
+    // No resolver, or an address the caller states is already device-ready: nothing to fold.
+    if (resolver == nullptr || core.coord_system == CoordSystem::LITERAL) {
+        return {resolve_coordinate(core, noc_id), addr};
+    }
+
+    // What the fold produces is a system physical address, and only NOC0 routes one. The caller
+    // chooses the address space with noc_id further down, so folding for SYSTEM_NOC would hand a
+    // system physical address to the device-local aperture and land somewhere else entirely. A
+    // device-local target names itself, so it arrives LITERAL and has already returned above.
+    UMD_ASSERT(
+        noc_id != NocId::SYSTEM_NOC,
+        error::RuntimeError,
+        fmt::format(
+            "A folded address is system physical and only NOC0 carries one, so {} cannot be reached with core {}; "
+            "address a device-local target with a LITERAL coordinate.",
+            noc_to_str(noc_id),
+            core.str()));
+
+    // The fold consumes the coordinate, so what travels is the origin: a Quasar address names its
+    // own target and the protocol below refuses a coordinate that claims otherwise.
+    //
+    // The descriptor is only consulted to translate a coordinate into NOC0, or to look up a core
+    // type the caller left unspecified. A caller supplying both has already said everything the
+    // resolver asks for, and reaching for the descriptor anyway would make every folded access
+    // depend on init_tt_device() having run -- a precondition the I/O path should not carry, and
+    // one an architecture whose firmware cannot report chip info may never satisfy.
+    if (core.coord_system == CoordSystem::NOC0 && core.core_type != CoreType::UNSPECIFIED) {
+        return {xy_pair(0, 0), resolver->resolve(tt_xy_pair(core.x, core.y), core.core_type, addr, size)};
+    }
+
+    // Anything else needs translating, and translating a LOGICAL coordinate without the harvesting
+    // the descriptor carries would be quietly wrong rather than merely unavailable.
+    return {xy_pair(0, 0), att::resolve_core(*resolver, get_soc_descriptor(), core, addr, size)};
 }
 
 xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {

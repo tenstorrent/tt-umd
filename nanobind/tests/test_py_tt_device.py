@@ -158,6 +158,56 @@ class TestTTDevice(unittest.TestCase):
                 dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
+    def test_register_write_read(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        registers = bytes.fromhex("78563412efbeaddeefcdab8967452301")
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.init_tt_device()
+            tensix_core = tt_umd.SocDescriptor(dev).get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+
+            # L1 accepts 32-bit accesses, so it stands in for registers the test can safely overwrite.
+            original = dev.noc_read(tensix_core.x, tensix_core.y, 0x1000, 16)
+            try:
+                dev.write_to_device_reg(tensix_core.x, tensix_core.y, 0x1000, registers)
+                self.assertEqual(
+                    dev.read_from_device_reg(tensix_core.x, tensix_core.y, 0x1000, 16),
+                    registers,
+                )
+                self.assertEqual(
+                    dev.noc_read(tensix_core.x, tensix_core.y, 0x1000, 16), registers
+                )
+            finally:
+                dev.noc_write(tensix_core.x, tensix_core.y, 0x1000, original)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+
+    def test_register_access_rejects_unaligned_access(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.init_tt_device()
+            tensix_core = tt_umd.SocDescriptor(dev).get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+
+            with self.assertRaises(tt_umd.error.UmdBaseException):
+                dev.read_from_device_reg(tensix_core.x, tensix_core.y, 0x1002, 4)
+            with self.assertRaises(tt_umd.error.UmdBaseException):
+                dev.write_to_device_reg(tensix_core.x, tensix_core.y, 0x1000, bytes(6))
+            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+
     def test_dma_tt_device(self):
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
         print("Devices found: ", pci_ids)

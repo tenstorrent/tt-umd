@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
@@ -28,7 +29,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -505,6 +505,9 @@ void BlackholeDeviceFirmware::write_to_arc_apb(
 }
 
 std::optional<uint64_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 12, 0)) {
         return std::nullopt;
     }
@@ -514,6 +517,9 @@ std::optional<uint64_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_ad
 }
 
 std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 12, 0)) {
         return std::nullopt;
     }

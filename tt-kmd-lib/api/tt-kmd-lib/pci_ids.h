@@ -8,6 +8,11 @@
 #include <stdint.h>
 
 /**
+ * @brief PCI vendor ID of Tenstorrent hardware.
+ */
+static const uint16_t TT_PCI_VENDOR_ID = 0x1e52;
+
+/**
  * @brief PCI device IDs for Tenstorrent hardware.
  */
 static const uint16_t TT_WORMHOLE_PCI_DEVICE_ID = 0x401e;

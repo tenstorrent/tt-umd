@@ -6,9 +6,11 @@
 
 #include <fmt/format.h>
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
@@ -31,7 +33,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -489,22 +490,17 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
     uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms) {
     constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
+    // Polls the telemetry copy rather than the live ARC readout: telemetry lags a clock change, so
+    // returning only once it has caught up keeps every later get_clock read consistent with the
+    // state just set. Read through the provider, which maps the tag per firmware version.
     uint32_t aiclk = 0;
     const bool settled = utils::poll_until(
         [&] {
-            // Wormhole reads AICLK through an ARC message rather than telemetry. The 0xFFFF pair
-            // packs to the firmware's no-argument sentinel, exactly as TTDevice::get_clock sends it;
-            // a failed read throws rather than settling on garbage, as the deleted path did.
-            DeviceCommandResult result = send_device_command(
-                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-                {0xFFFF, 0xFFFF},
-                timeout::ARC_MESSAGE_TIMEOUT,
-                noc_id);
-            if (result.exit_code != 0) {
-                UMD_THROW(
-                    error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
+            const std::optional<uint32_t> telemetry_aiclk = firmware_info_provider_->get_aiclk(noc_id);
+            if (!telemetry_aiclk.has_value()) {
+                UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Wormhole device.");
             }
-            aiclk = result.return_values.at(0);
+            aiclk = *telemetry_aiclk;
             return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
         },
         timeout_ms,
@@ -728,6 +724,9 @@ void WormholeDeviceFirmware::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_
 }
 
 std::optional<uint64_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
         return std::nullopt;
     }
@@ -739,6 +738,9 @@ std::optional<uint64_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_add
 }
 
 std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
     if (firmware_info_provider_->get_firmware_version(noc_id) < FirmwareBundleVersion(19, 13, 0)) {
         return std::nullopt;
     }

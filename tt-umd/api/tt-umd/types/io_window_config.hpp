@@ -4,9 +4,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 
 #include "tt-umd/types/noc_id.hpp"
@@ -35,6 +38,18 @@ enum class IoOrdering : uint8_t {
     Posted = 2,   ///< Writes are posted; no completion acknowledgement.
 };
 
+inline std::string to_str(IoOrdering ordering) {
+    switch (ordering) {
+        case IoOrdering::Relaxed:
+            return "Relaxed";
+        case IoOrdering::Strict:
+            return "Strict";
+        case IoOrdering::Posted:
+            return "Posted";
+    }
+    return "Unknown";
+}
+
 /**
  * @brief Type-safe transaction attributes for an IoWindow target.
  *
@@ -47,8 +62,9 @@ enum class IoOrdering : uint8_t {
  */
 enum class WindowFlags : uint32_t {
     None = 0,
-    Atomic = 1 << 0,  ///< Issue transaction as atomic on the target interconnect.
-    Snoop = 1 << 1,   ///< Mark transaction as snoopable for cache coherency.
+    Atomic = 1 << 0,        ///< Issue transaction as atomic on the target interconnect.
+    Snoop = 1 << 1,         ///< Mark transaction as snoopable for cache coherency.
+    NonCacheable = 1 << 4,  ///< Drive AxCACHE to 0 instead of 0xF on the window's accesses.
 
     Bidirectional = 0 << 2,   ///< Mapping serves both reads and writes. Default.
     UnicastWrite = 1 << 2,    ///< Mapping serves writes to a single core.
@@ -105,3 +121,10 @@ struct HostIoWindowConfig {
 };
 
 }  // namespace tt::umd
+
+template <>
+struct fmt::formatter<tt::umd::IoOrdering> : fmt::formatter<std::string> {
+    auto format(tt::umd::IoOrdering ordering, fmt::format_context& ctx) const {
+        return fmt::formatter<std::string>::format(tt::umd::to_str(ordering), ctx);
+    }
+};

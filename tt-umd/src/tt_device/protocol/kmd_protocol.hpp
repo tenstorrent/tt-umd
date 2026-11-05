@@ -58,9 +58,6 @@ public:
     PCIDevice* get_pci_device();
 
 private:
-    /** The address space @p noc_id names, rejecting a NOC this path cannot serve. */
-    static NocAddressSpace address_space(NocId noc_id);
-
     /** Rejects a request the driver would refuse, naming what is wrong with it. */
     static void validate(tt_xy_pair core, uint64_t addr, size_t size, uint32_t access_width);
 

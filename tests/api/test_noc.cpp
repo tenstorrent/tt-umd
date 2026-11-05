@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

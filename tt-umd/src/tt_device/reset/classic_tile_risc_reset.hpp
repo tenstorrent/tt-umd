@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
 
 namespace tt::umd {
@@ -34,6 +36,8 @@ private:
 
     DeviceProtocol* device_protocol_ = nullptr;
     ArchitectureImplementation* architecture_impl_ = nullptr;
+    // Serializes each read-modify-write so concurrent resets of different RISCs on one tile keep each other's bits.
+    std::mutex reset_register_mutex_;
 };
 
 }  // namespace tt::umd

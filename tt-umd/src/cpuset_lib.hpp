@@ -56,8 +56,6 @@ private:
 
     cpuset_allocator();
 
-    int TENSTORRENT_VENDOR_ID = 0x1e52;
-
     bool bind_area_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len);
     int _get_num_tt_pci_devices();
     int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);

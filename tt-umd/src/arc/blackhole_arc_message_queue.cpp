@@ -13,12 +13,12 @@
 #include <string>
 #include <vector>
 
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/tt_device/firmware/blackhole_arc_apb.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "utils.hpp"
 
 namespace tt::umd::blackhole {
 enum class ArcMessageType : uint8_t;

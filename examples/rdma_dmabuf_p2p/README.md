@@ -140,8 +140,7 @@ read-completion concurrency and latency rather than raw link bandwidth.
 
 ## Notes
 
-- `addr + size` must stay within a single DRAM bank. On Blackhole the usable bank space ends short
-  of the nominal `DRAM_BANK_SIZE` — keep clear of the tail when picking large `--size`/`--addr`.
+- `addr + size` must stay within a single DRAM bank (`DRAM_BANK_SIZE`, 4080 MiB on Blackhole).
 - The underlying TLB window size is chosen by `tt_tlb_alloc()`, which accepts only specific size
   classes — on Blackhole exactly 2 MiB or 4 GiB (see the size class tables in
   `tt-umd/src/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class

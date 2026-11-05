@@ -14,11 +14,12 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/internal/host.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -32,7 +33,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -76,6 +76,7 @@ protected:
 
     void init_device(int pci_device_id) {
         tt_device_ = TTDevice::create(pci_device_id);
+        tt_device_->set_power_state(TTDevice::PowerState::BUSY);
         tt_device_->init_tt_device();
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }

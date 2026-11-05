@@ -14,7 +14,7 @@
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/vector.h>
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

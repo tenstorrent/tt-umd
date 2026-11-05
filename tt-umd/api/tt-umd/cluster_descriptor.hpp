@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>  // IWYU pragma: export
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -18,14 +19,20 @@
 #include <variant>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd/soc_descriptor.hpp"  // IWYU pragma: export
 #include "tt-umd/topology/topology_discovery_error.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"  // IWYU pragma: export
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/cluster_types.hpp"  // IWYU pragma: export
 #include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/io_window_config.hpp"  // IWYU pragma: export
+#include "tt-umd/types/risc_type.hpp"         // IWYU pragma: export
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/lock_manager.hpp"  // IWYU pragma: export
 #include "tt-umd/utils/semver.hpp"
+#include "tt-umd/utils/timeouts.hpp"  // IWYU pragma: export
 
 namespace YAML {
 class Node;

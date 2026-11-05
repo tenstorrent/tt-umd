@@ -57,6 +57,9 @@ public:
     // The cores should be in translated coordinates.
     void set_remote_transfer_ethernet_cores(const std::unordered_set<tt_xy_pair>& cores);
 
+    // The ethernet cores remote transfers are spread over, in translated coordinates.
+    const std::vector<tt_xy_pair>& get_remote_transfer_ethernet_cores() const;
+
     TTDevice* get_local_device();
 
     virtual std::optional<EthCoord> get_target_eth_coord() = 0;

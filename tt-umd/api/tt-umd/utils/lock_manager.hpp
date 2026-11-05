@@ -75,7 +75,7 @@ public:
 
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
     static void initialize_mutex(MutexType mutex_type);
-    static std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
+    [[nodiscard]] static std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
     //
@@ -86,7 +86,12 @@ public:
     // Either way the lock keeps one name, so acquire_mutex() below is unaffected by the choice.
     static void initialize_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type, bool kmd_lock_available = true);
-    static std::unique_lock<MutexInterface> acquire_mutex(
+    [[nodiscard]] static std::unique_lock<MutexInterface> acquire_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
+
+    // Takes the lock if it is free and returns right away either way. The returned lock owns the
+    // mutex only if it was acquired, which the caller checks with owns_lock().
+    [[nodiscard]] static std::unique_lock<MutexInterface> try_acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Reports whether a mutex is currently held, without holding it afterwards. Returns the owning {pid, tid} if it is

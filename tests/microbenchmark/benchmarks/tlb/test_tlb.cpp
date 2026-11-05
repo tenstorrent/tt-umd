@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"

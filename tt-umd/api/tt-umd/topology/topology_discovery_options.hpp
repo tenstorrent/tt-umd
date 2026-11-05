@@ -105,9 +105,9 @@ struct TopologyDiscoveryOptions {
      */
     bool perform_6u_eth_retrain = false;
 
-    // Open devices in low-power mode. When true, devices are opened with O_APPEND
-    // to opt out of KMD legacy mode (KMD >= 2.6.0), allowing idle power reduction.
-    // Default is false (high-power / legacy mode) to preserve backward compatibility.
+    // Leave discovered devices in low-power mode. Blackhole devices are always opened power aware
+    // (O_APPEND, KMD >= 2.6.0); unless this is set, discovery requests BUSY on each local device.
+    // When true, Tensix may be clock gated and must not be accessed until set_power_state(BUSY).
     bool low_power = false;
 
     /**

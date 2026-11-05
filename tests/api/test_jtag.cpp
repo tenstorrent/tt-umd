@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/jtag/jtag.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -34,6 +34,28 @@
 using namespace tt;
 using namespace tt::umd;
 
+static bool jtag_library_loadable() {
+    try {
+        Jtag jtag(JtagDevice::jtag_library_path.c_str());
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
+// JTAG devices do not request power for their chips, and tt-kmd clock-gates Tensix on chips no PCIe client keeps busy.
+// Opening a PCIe device already keeps its chip powered on Wormhole, which UMD opens in tt-kmd's legacy power mode;
+// on Blackhole the BUSY request does it. Covers the chips of all PCIe devices visible to this process.
+static std::vector<std::unique_ptr<TTDevice>> keep_pcie_devices_busy() {
+    std::vector<std::unique_ptr<TTDevice>> pcie_devices;
+    for (int pci_device_id : PCIDevice::enumerate_devices()) {
+        auto pcie_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        pcie_device->set_power_state(TTDevice::PowerState::BUSY);
+        pcie_devices.push_back(std::move(pcie_device));
+    }
+    return pcie_devices;
+}
+
 class ApiJtagDeviceTest : public ::testing::Test {
 protected:
     struct DeviceData {
@@ -42,8 +64,8 @@ protected:
     };
 
     static void SetUpTestSuite() {
-        if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-            log_warning(tt::LogUMD, "JTAG library does not exist at {}", JtagDevice::jtag_library_path.string());
+        if (!jtag_library_loadable()) {
+            log_warning(tt::LogUMD, "JTAG library {} cannot be loaded", JtagDevice::jtag_library_path.string());
             return;
         }
 
@@ -53,16 +75,17 @@ protected:
             return;
         }
 
-        auto jlink_device_count_ = JtagDevice::create()->get_device_cnt();
+        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate().serials;
 
-        if (!jlink_device_count_) {
+        if (jlink_serials.empty()) {
             log_warning(tt::LogUMD, "Jlink devices discovered but not usable with current Jtag implementation.");
             return;
         }
 
-        for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
+        busy_pcie_devices_ = keep_pcie_devices_busy();
+        for (uint32_t jlink_serial : jlink_serials) {
             DeviceData device_data;
-            device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
+            device_data.tt_device_ = TTDevice::create(static_cast<int>(jlink_serial), IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
             device_data.tensix_core_ = device_data.tt_device_->get_soc_descriptor()
                                            .get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0]
@@ -78,6 +101,7 @@ protected:
         // runs from atexit, by which point statics owned by other translation units may already be gone, and tearing
         // down a device involves closing OS resources that depend on them.
         device_data_.clear();
+        busy_pcie_devices_.clear();
         setup_successful_ = false;
     }
 
@@ -101,10 +125,12 @@ protected:
         ASSERT_EQ(data_write, data_read);
     }
 
+    static std::vector<std::unique_ptr<TTDevice>> busy_pcie_devices_;
     static std::vector<DeviceData> device_data_;
     static bool setup_successful_;
 };
 
+std::vector<std::unique_ptr<TTDevice>> ApiJtagDeviceTest::busy_pcie_devices_;
 std::vector<ApiJtagDeviceTest::DeviceData> ApiJtagDeviceTest::device_data_;
 bool ApiJtagDeviceTest::setup_successful_ = false;
 
@@ -219,14 +245,15 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
 }
 
 TEST(ApiJtagClusterTest, JtagClusterIOTest) {
-    if (!std::filesystem::exists(JtagDevice::jtag_library_path)) {
-        GTEST_SKIP() << "JTAG library does not exist at " << JtagDevice::jtag_library_path.string();
+    if (!jtag_library_loadable()) {
+        GTEST_SKIP() << "JTAG library " << JtagDevice::jtag_library_path.string() << " cannot be loaded";
     }
 
-    if (!JtagDevice::create()->get_device_cnt()) {
+    if (JtagDevice::enumerate().serials.empty()) {
         GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
     }
 
+    const auto busy_pcie_devices = keep_pcie_devices_busy();
     std::unique_ptr<Cluster> umd_cluster =
         test_utils::make_default_test_cluster(ClusterOptions{.io_device_type = IODeviceType::JTAG});
 

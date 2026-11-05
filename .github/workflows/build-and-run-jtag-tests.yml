@@ -15,7 +15,6 @@ on:
   schedule:
     - cron: "0 22 * * *"
       timezone: "Europe/Belgrade"
-  pull_request:
 
 jobs:
   # Nightly runs of an unchanged main would just repeat the last result, so skip them if this commit

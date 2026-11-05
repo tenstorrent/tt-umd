@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "cpuset_lib.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -101,12 +102,12 @@ uint32_t get_available_num_host_mem_channels(
     }
 
     UMD_ASSERT(
-        num_channels_per_device_available <= MAX_HOST_MEM_CHANNELS,
+        num_channels_per_device_available <= SysmemManager::MAX_HOST_MEM_CHANNELS,
         error::RuntimeError,
         fmt::format(
             "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
             num_channels_per_device_available,
-            MAX_HOST_MEM_CHANNELS));
+            SysmemManager::MAX_HOST_MEM_CHANNELS));
 
     return num_channels_per_device_available;
 }

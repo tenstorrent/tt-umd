@@ -13,10 +13,12 @@
 //   * the d2d0 ATT holds one boot mask set sized for BAR4, not the QSR1 worker window.
 // Both are reached through BAR2, which boot does leave usable.
 //
-// The endpoint words carry a +2 on each axis relative to UMD's tables. UMD is in the POR package
-// frame (Quasar mesh origin (3,3)); ttsim's coord_to_tile reads the word in the soc-descriptor frame
-// (origin (1,1)). Writing UMD's words verbatim silently lands 12 of 32 selectors on the wrong tile
-// and gets the other 20 refused, so the shift is applied on the way in.
+// The endpoint words sit 2 lower on each axis than UMD's tables. UMD is in the POR package frame
+// (Quasar mesh origin (3,3)); ttsim's coord_to_tile reads the same word in the soc-descriptor frame
+// (origin (1,1)), so a POR coordinate reaches the intended tile only as POR - 2. UMD's worker words
+// run 0x104 = (4,4) to 0x1cb = (11,7); the rows below are written (2,2) to (9,5). Writing UMD's
+// words verbatim silently lands 12 of 32 selectors on the wrong tile -- those still inside ttsim's
+// Tensix range, x 2..9 and y 2..5 -- and gets the other 20 refused, which is _Exit(1).
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -140,9 +142,12 @@ int main(int argc, char **argv) {
     tlb_set(63, ATT_SPA);
 
     // The whole 4 GB of BAR0 as 256 consecutive 16 MB windows onto the worker window, so BAR0 offset
-    // s*16MB carries selector s exactly as UMD's make_address() puts it there. Only the first 64
-    // selectors are meaningful (the window's selector field is 6 bits); the rest are pointed at
-    // selector 0 so no entry is left invalid enough to _Exit the simulator.
+    // s*16MB carries selector s exactly as UMD's make_address() puts it there. The selector field is
+    // 6 bits, so there are only 64 selectors and the 256 windows alias onto them four times over:
+    // BAR0 windows 36, 100, 164 and 228 all reach selector 36. Every entry still has to be valid,
+    // because an access to an invalid one is _Exit(1) rather than a fault, so aliasing is the
+    // cheapest way to leave none of them invalid. Firmware would give each window its own endpoint;
+    // this is a bring-up stub, so two windows 64 apart are not distinct destinations here.
     for (unsigned j = 0; j < 256; j++) {
         unsigned sel = j & 0x3F;
         tlb_set(64 + j, W_COMPARE + ((uint64_t)sel << W_EP_SHIFT));

@@ -32,22 +32,14 @@ namespace tt::umd {
 class TopologyDiscovery {
 public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discover(
-        const TopologyDiscoveryOptions& options = {},
-        IODeviceType io_device_type = IODeviceType::PCIe,
-        const std::string& soc_descriptor_path = "");
+        const TopologyDiscoveryOptions& options = {});
 
     virtual ~TopologyDiscovery() = default;
 
 protected:
-    TopologyDiscovery(
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
-        const TopologyDiscoveryOptions& options = {},
-        IODeviceType io_device_type = IODeviceType::PCIe);
+    TopologyDiscovery(std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options);
 
-    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
-        const TopologyDiscoveryOptions& options = {},
-        IODeviceType io_device_type = IODeviceType::PCIe,
-        const std::string& soc_descriptor_path = "");
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(const TopologyDiscoveryOptions& options);
 
     virtual tt::ARCH get_topology_arch() const = 0;
 
@@ -159,7 +151,6 @@ protected:
     bool is_running_on_6u = false;
 
     const TopologyDiscoveryOptions options;
-    const IODeviceType io_device_type = IODeviceType::PCIe;
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 

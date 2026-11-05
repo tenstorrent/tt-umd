@@ -98,14 +98,14 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
 }  // namespace
 
 std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
+    const TopologyDiscoveryOptions& options) {
     // A simulator's architecture is read from the image itself rather than from the supplied
     // descriptor, which is what gives the cross-check below two things to compare -- a supplied
     // descriptor that disagrees with the image selects no topology at all instead of the subclass
     // of an architecture the devices are not.
     tt::ARCH current_arch = ARCH::Invalid;
     if (!options.simulation.has_value()) {
-        current_arch = probe_bus_architecture(io_device_type);
+        current_arch = probe_bus_architecture(options.io_device_type);
     } else {
 #ifdef TT_UMD_BUILD_SIMULATION
         current_arch = get_simulator_arch(options.simulation->simulator_path);
@@ -119,17 +119,17 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     }
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
-    if (soc_descriptor_path.empty()) {
+    if (options.soc_descriptor_path.empty()) {
         soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
     } else {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(options.soc_descriptor_path);
         if (soc_arch_descriptor->get_arch() != current_arch) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
                     "Architecture {} in SocArchDescriptor file on path {} does not match the device architecture {}.",
                     arch_to_str(soc_arch_descriptor->get_arch()),
-                    soc_descriptor_path,
+                    options.soc_descriptor_path,
                     arch_to_str(current_arch)));
         }
     }
@@ -137,19 +137,17 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options, io_device_type);
+            return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(soc_arch_descriptor, options, io_device_type);
+            return std::make_unique<TopologyDiscoveryBlackhole>(soc_arch_descriptor, options);
         default:
             UMD_THROW(error::RuntimeError, fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
-    const TopologyDiscoveryOptions& options,
-    IODeviceType io_device_type) :
-    options(options), io_device_type(io_device_type), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options) :
+    options(options), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -163,11 +161,10 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
+    const TopologyDiscoveryOptions& options) {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    std::unique_ptr<TopologyDiscovery> td =
-        TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
+    std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(options);
     if (td == nullptr) {
         // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
         // Callers and the Python bindings go through discover() even on an empty machine.
@@ -212,7 +209,7 @@ void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, in
         log_warning(
             LogUMD,
             "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
-            DeviceTypeToString.at(io_device_type),
+            DeviceTypeToString.at(options.io_device_type),
             device_id,
             asic_id);
         return;
@@ -244,7 +241,7 @@ void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, in
     log_debug(
         LogUMD,
         "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
-        DeviceTypeToString.at(io_device_type),
+        DeviceTypeToString.at(options.io_device_type),
         device_id,
         asic_id);
 }
@@ -261,11 +258,11 @@ void TopologyDiscovery::get_connected_devices() {
         // whatever the caller asked for. Accepting JTAG here would label the cluster descriptor with
         // a transport none of its devices speak; refuse instead of misreporting it.
         UMD_ASSERT(
-            io_device_type == IODeviceType::PCIe,
+            options.io_device_type == IODeviceType::PCIe,
             error::RuntimeError,
             fmt::format(
                 "Simulation topology discovery models PCIe, but {} was requested.",
-                DeviceTypeToString.at(io_device_type)));
+                DeviceTypeToString.at(options.io_device_type)));
         for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(
                  options.simulation->simulator_path, options.simulation->num_host_mem_channels)) {
             add_local_device(std::move(tt_device), chip_id);
@@ -279,7 +276,7 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     std::vector<int> local_device_ids;
-    switch (io_device_type) {
+    switch (options.io_device_type) {
         case IODeviceType::PCIe: {
             local_device_ids = PCIDevice::enumerate_devices();
             break;
@@ -295,7 +292,7 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+            TTDevice::create(device_id, options.io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
@@ -510,7 +507,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
 
     // Workaround: a simulator reports PCIe with process-local ids, so skip host enumeration in simulation.
-    const bool has_host_pci_devices = io_device_type == IODeviceType::PCIe && !options.simulation.has_value();
+    const bool has_host_pci_devices = options.io_device_type == IODeviceType::PCIe && !options.simulation.has_value();
     const std::map<int, PciDeviceInfo> pci_devices_info =
         has_host_pci_devices ? PCIDevice::enumerate_devices_info() : std::map<int, PciDeviceInfo>{};
 
@@ -537,7 +534,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
         // A simulated device reports PCIe but has no PCIDevice behind it, so its BDF is the one its
         // simulator image enumerated, spelled the way PCIDevice spells a real one.
-        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
+        if (options.io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
                 cluster_desc->chip_pci_bdfs.emplace(chip_id, pci_info->pci_bdf);
                 cluster_desc->chip_pcie_lane_counts.emplace(chip_id, tt_device->get_pcie_interface()->get_lane_count());
@@ -634,7 +631,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
     // The caller-supplied cluster id, else the OS hostname. Stays unset if neither is usable.
     cluster_desc->cluster_id = utils::resolve_cluster_id(options.cluster_id);
-    cluster_desc->io_device_type = io_device_type;
+    cluster_desc->io_device_type = options.io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->fw_bundle_version = first_fw_bundle_version;
     cluster_desc->merge_cluster_ids();

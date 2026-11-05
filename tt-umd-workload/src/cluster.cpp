@@ -444,8 +444,11 @@ Cluster::Cluster(ClusterOptions options) {
                 UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
-            auto [desc, devices] = TopologyDiscovery::discover(
-                options.topology_discovery_options, options.io_device_type, options.sdesc_path);
+            // ClusterOptions' own transport and SoC descriptor fields decide those for discovery.
+            TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+            discovery_options.io_device_type = options.io_device_type;
+            discovery_options.soc_descriptor_path = options.sdesc_path;
+            auto [desc, devices] = TopologyDiscovery::discover(discovery_options);
             cluster_desc = std::move(desc);
             tt_devices = std::move(devices);
             break;
@@ -569,6 +572,8 @@ Cluster::Cluster(ClusterOptions options) {
                     is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+                    discovery_options.io_device_type = options.io_device_type;
+                    discovery_options.soc_descriptor_path = options.sdesc_path;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
                     // to produce -- and a simulated device sizes its system memory as it is constructed.
                     // So absent an explicit count, discovery builds with a provisional 1, which the grow
@@ -577,8 +582,7 @@ Cluster::Cluster(ClusterOptions options) {
                         .simulator_path = options.simulator_directory.string(),
                         .num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                     };
-                    auto [discovered_desc, discovered_devices] =
-                        TopologyDiscovery::discover(discovery_options, options.io_device_type, options.sdesc_path);
+                    auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
                     // discover() answers with a valid, chipless descriptor when it found nothing --
                     // callers and the Python bindings go through it on an empty machine too -- so
                     // the devices, not the pointer, are what say whether this simulator was
@@ -1556,7 +1560,9 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
         log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
         adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
     }
-    return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
+    adjusted_topology_options.io_device_type = device_type;
+    adjusted_topology_options.soc_descriptor_path = sdesc_path;
+    return TopologyDiscovery::discover(adjusted_topology_options).first;
 }
 
 }  // namespace tt::umd

@@ -59,13 +59,35 @@ printf '%s' "$pre_kmd" > "$control/pre-kmd"
 ttsim_device="ttsim,lib=$lib,bar4-size=$bar4_size"
 [[ -n "$bar0_size" ]] && ttsim_device="$ttsim_device,bar0-size=$bar0_size"
 
-# The default 64-bit PCI window cannot fit a Blackhole BAR4. 64G covers its 32G BAR4 plus the other
-# BARs at their natural alignment.
+# Firmware places a 64-bit BAR inside the 64-bit PCI hole at its natural alignment, so the hole has
+# to be at least twice the largest BAR -- a 512 GiB BAR4 needs a 512 GiB-aligned slot, and in a 64G
+# hole it simply goes unassigned: `info pci` reports "BAR4: 64 bit memory (not mapped)", the guest
+# never sees resource4, and nothing says so unless a test happens to touch it. The guest's physical
+# address width has to cover the hole too, and -cpu max gives 40 bits under TCG, which a 1 TiB hole
+# does not fit in. Both are derived from the BAR sizes, so a Wormhole or Blackhole command line comes
+# out exactly as before (64G hole, 40 bits) and only Keraunos gets the bigger window.
+to_bytes() {
+    local n=${1%%[KkMmGgTt]}
+    case "$1" in
+        *[Kk]) echo $(( n << 10 )) ;;
+        *[Mm]) echo $(( n << 20 )) ;;
+        *[Gg]) echo $(( n << 30 )) ;;
+        *[Tt]) echo $(( n << 40 )) ;;
+        *)     echo "$n" ;;
+    esac
+}
+hole64=$(( 64 << 30 ))
+largest_bar=$(to_bytes "$bar4_size")
+[[ -n "$bar0_size" ]] && (( $(to_bytes "$bar0_size") > largest_bar )) && largest_bar=$(to_bytes "$bar0_size")
+while (( hole64 < 2 * largest_bar )); do hole64=$(( hole64 * 2 )); done
+phys_bits=40
+while (( (1 << phys_bits) < 4 * hole64 )); do phys_bits=$(( phys_bits + 1 )); done
+
 # TCG rather than KVM: every BAR access is emulated MMIO forwarded to libttsim, and KVM cannot emulate
 # the AVX2 loads and stores UMD uses for device copies, so the guest would get SIGILL.
 "$QEMU" \
-    -machine q35,accel=tcg -cpu max -smp 4 -m 4G \
-    -global q35-pcihost.pci-hole64-size=64G \
+    -machine q35,accel=tcg -cpu "max,phys-bits=$phys_bits" -smp 4 -m 4G \
+    -global "q35-pcihost.pci-hole64-size=$hole64" \
     -kernel "$VM_DIR/vmlinuz" -initrd "$VM_DIR/rootfs.cpio.gz" \
     -append "console=ttyS0 loglevel=4 panic=-1" \
     -nographic -no-reboot \

@@ -19,6 +19,9 @@ run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 ```
 
 `--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole, `512G` for Quasar.
+The 64-bit PCI hole and the guest's physical address width are derived from it, because firmware
+places a 64-bit BAR at its natural alignment and a BAR too big for the hole is left unassigned
+with no error -- the guest simply has no `resource4`.
 
 Three further options exist for Quasar, and are described under Grendel below: `--bar0-size`,
 `--kmd-module` and `--pre-kmd`.

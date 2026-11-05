@@ -28,6 +28,7 @@
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -423,6 +424,14 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
     }
 }
 
-TEST(ApiTTDeviceTest, CreateRejectsUndefinedDeviceType) {
-    EXPECT_THROW(TTDevice::create(0, IODeviceType::UNDEFINED), error::UmdException<error::RuntimeError>);
+class ApiTTDeviceUnsupportedTypeTest : public ::testing::TestWithParam<IODeviceType> {};
+
+TEST_P(ApiTTDeviceUnsupportedTypeTest, CreateRejectsDeviceType) {
+    EXPECT_THROW(TTDevice::create(0, GetParam()), error::UmdException<error::RuntimeError>);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    UnsupportedTypes,
+    ApiTTDeviceUnsupportedTypeTest,
+    ::testing::Values(IODeviceType::AXI, IODeviceType::UNDEFINED),
+    [](const ::testing::TestParamInfo<IODeviceType>& info) { return DeviceTypeToString.at(info.param); });

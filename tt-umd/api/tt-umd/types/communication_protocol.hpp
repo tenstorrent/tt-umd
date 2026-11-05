@@ -11,6 +11,7 @@ namespace tt::umd {
 enum class IODeviceType {
     PCIe,
     JTAG,
+    AXI,
     UNDEFINED,
 };
 
@@ -18,6 +19,7 @@ enum class IODeviceType {
 static const std::unordered_map<IODeviceType, std::string> DeviceTypeToString = {
     {IODeviceType::PCIe, "PCIe"},
     {IODeviceType::JTAG, "JTAG"},
+    {IODeviceType::AXI, "AXI"},
     {IODeviceType::UNDEFINED, "Undefined"},
 };
 

@@ -28,13 +28,13 @@ using NocRegReader = std::function<uint32_t(xy_pair core, uint64_t addr, NocId n
 /**
  * HangDetector checks whether the device hardware is hung.
  *
- * Depends only on DeviceProtocol for I/O. For BAR access it requires
+ * Depends only on DeviceProtocol for I/O. For bus access it requires
  * a PcieInterface — returns std::nullopt if unavailable.
  * For NOC access it requires a non-remote protocol (PCIe or JTAG) —
  * returns std::nullopt for remote protocols.
  *
  * Arch-specific variants (Wormhole, Blackhole) override the protected
- * read_hang_check_reg_via_bar() and read_hang_check_reg_via_noc(NocId noc) with the
+ * read_hang_check_reg_via_bus() and read_hang_check_reg_via_noc(NocId noc) with the
  * appropriate core type.
  */
 class HangDetectorImplementation : public HangDetector {
@@ -54,9 +54,9 @@ protected:
     // (core, addr) for their hang-check register and route the actual read through here.
     uint32_t read_noc_reg(xy_pair core, uint64_t addr, NocId noc);
 
-    virtual bool is_bus_available() override { return pcie_interface_ != nullptr; }
+    virtual bool is_bus_available() const override { return pcie_interface_ != nullptr; }
 
-    virtual bool is_noc_available() override { return is_mmio_protocol_; }
+    virtual bool is_noc_available() const override { return is_mmio_protocol_; }
 
 private:
     DeviceProtocol* protocol_;

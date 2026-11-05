@@ -17,7 +17,7 @@ std::optional<bool> HangDetector::is_bus_hung(uint32_t data_read) {
     if (!is_bus_available()) {
         return std::nullopt;
     }
-    return read_hang_check_reg_via_bar() == HANG_READ_VALUE;
+    return read_hang_check_reg_via_bus() == HANG_READ_VALUE;
 }
 
 std::optional<bool> HangDetector::is_noc_hung(NocId noc) {

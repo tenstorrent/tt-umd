@@ -21,7 +21,7 @@ BlackholeHangDetector::BlackholeHangDetector(DeviceProtocol* protocol, bool noc_
     noc_translation_enabled_(noc_translation_enabled),
     registers_(get_architecture_registers(tt::ARCH::BLACKHOLE)) {}
 
-uint32_t BlackholeHangDetector::read_hang_check_reg_via_bar() {
+uint32_t BlackholeHangDetector::read_hang_check_reg_via_bus() {
     return get_pcie_interface()->bar_read32(registers_.noc_node_id_bar_offset);
 }
 

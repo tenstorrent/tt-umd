@@ -19,7 +19,7 @@ namespace tt::umd {
 WormholeHangDetector::WormholeHangDetector(DeviceProtocol* protocol) :
     HangDetectorImplementation(protocol), registers_(get_architecture_registers(tt::ARCH::WORMHOLE_B0)) {}
 
-uint32_t WormholeHangDetector::read_hang_check_reg_via_bar() {
+uint32_t WormholeHangDetector::read_hang_check_reg_via_bus() {
     return get_pcie_interface()->bar_read32(registers_.noc_node_id_bar_offset);
 }
 

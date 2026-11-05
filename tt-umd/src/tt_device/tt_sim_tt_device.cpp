@@ -190,7 +190,7 @@ void TTSimTTDevice::initialize_backend() {
         }
     }
 
-    init_tlb_allocator(bar0_base, bar2_base, bar4_base);
+    init_tlb_allocator(bar0_base, bar4_base, bar2_base);
     setup_cached_tlb_window();
 
     // The protocol is now usable: the backend is up, BAR bases are known, and the TLB window the

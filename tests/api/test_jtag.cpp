@@ -43,6 +43,19 @@ static bool jtag_library_loadable() {
     }
 }
 
+// JTAG devices do not request power for their chips, and tt-kmd clock-gates Tensix on chips no PCIe client keeps busy.
+// Opening a PCIe device already keeps its chip powered on Wormhole, which UMD opens in tt-kmd's legacy power mode;
+// on Blackhole the BUSY request does it. Covers the chips of all PCIe devices visible to this process.
+static std::vector<std::unique_ptr<TTDevice>> keep_pcie_devices_busy() {
+    std::vector<std::unique_ptr<TTDevice>> pcie_devices;
+    for (int pci_device_id : PCIDevice::enumerate_devices()) {
+        auto pcie_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        pcie_device->set_power_state(TTDevice::PowerState::BUSY);
+        pcie_devices.push_back(std::move(pcie_device));
+    }
+    return pcie_devices;
+}
+
 class ApiJtagDeviceTest : public ::testing::Test {
 protected:
     struct DeviceData {
@@ -69,6 +82,7 @@ protected:
             return;
         }
 
+        busy_pcie_devices_ = keep_pcie_devices_busy();
         for (uint32_t jlink_serial : jlink_serials) {
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(static_cast<int>(jlink_serial), IODeviceType::JTAG);
@@ -87,6 +101,7 @@ protected:
         // runs from atexit, by which point statics owned by other translation units may already be gone, and tearing
         // down a device involves closing OS resources that depend on them.
         device_data_.clear();
+        busy_pcie_devices_.clear();
         setup_successful_ = false;
     }
 
@@ -110,10 +125,12 @@ protected:
         ASSERT_EQ(data_write, data_read);
     }
 
+    static std::vector<std::unique_ptr<TTDevice>> busy_pcie_devices_;
     static std::vector<DeviceData> device_data_;
     static bool setup_successful_;
 };
 
+std::vector<std::unique_ptr<TTDevice>> ApiJtagDeviceTest::busy_pcie_devices_;
 std::vector<ApiJtagDeviceTest::DeviceData> ApiJtagDeviceTest::device_data_;
 bool ApiJtagDeviceTest::setup_successful_ = false;
 
@@ -236,6 +253,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
         GTEST_SKIP() << "No usable JTAG devices with current JTAG implementation.";
     }
 
+    const auto busy_pcie_devices = keep_pcie_devices_busy();
     std::unique_ptr<Cluster> umd_cluster =
         test_utils::make_default_test_cluster(ClusterOptions{.io_device_type = IODeviceType::JTAG});
 

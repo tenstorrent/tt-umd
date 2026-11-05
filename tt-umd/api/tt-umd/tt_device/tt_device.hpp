@@ -73,7 +73,12 @@ public:
      * Creates and returns a unique pointer to a TTDevice object configured with the
      * specified parameters. This is the primary way to instantiate TTDevice objects.
      *
-     * @param device_number The device identifier/index to connect to, specific to the I/O device interface.
+     * A JTAG device does not request power for its chip. The caller has to keep Tensix powered for as long as it
+     * accesses Tensix cores over JTAG, for example by keeping the chip's PCIe TTDevice open with
+     * set_power_state(PowerState::BUSY): a JTAG access to clock-gated Tensix leaves the chip unresponsive until reset.
+     *
+     * @param device_number The device identifier to connect to, specific to the I/O device interface: the PCIe device
+     *                      number, or the J-Link serial number for JTAG.
      * @param device_type The type of I/O device interface to use. (default: PCIe)
      * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
      *                     Available only for PCIe I/O device type. (default: false)

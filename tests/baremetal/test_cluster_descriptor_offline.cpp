@@ -471,6 +471,25 @@ TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
 }
 
+class MockClusterBoardTypeTest : public ::testing::TestWithParam<std::tuple<tt::ARCH, BoardType>> {};
+
+// A simulation client builds its devices from the descriptor its host serializes, so the round trip must
+// keep the board type the host uses.
+TEST_P(MockClusterBoardTypeTest, SurvivesSerializeRoundTrip) {
+    const auto [arch, board_type] = GetParam();
+    std::unique_ptr<ClusterDescriptor> reloaded = ClusterDescriptor::create_from_yaml_content(
+        ClusterDescriptor::create_mock_cluster({0}, arch, false)->serialize());
+    EXPECT_EQ(reloaded->get_board_type(0), board_type);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MockArchs,
+    MockClusterBoardTypeTest,
+    ::testing::Values(
+        std::make_tuple(tt::ARCH::WORMHOLE_B0, BoardType::N150),
+        std::make_tuple(tt::ARCH::BLACKHOLE, BoardType::UNKNOWN),
+        std::make_tuple(tt::ARCH::QUASAR, BoardType::UNKNOWN)));
+
 class ClusterDescriptorPcieLaneCountsTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(ClusterDescriptorPcieLaneCountsTest, EntryPerMmioChip) {

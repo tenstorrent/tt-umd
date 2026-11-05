@@ -4,9 +4,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 
 #include "tt-umd/types/noc_id.hpp"
@@ -34,6 +37,18 @@ enum class IoOrdering : uint8_t {
     Strict = 1,   ///< Transactions complete in issue order.
     Posted = 2,   ///< Writes are posted; no completion acknowledgement.
 };
+
+inline std::string to_str(IoOrdering ordering) {
+    switch (ordering) {
+        case IoOrdering::Relaxed:
+            return "Relaxed";
+        case IoOrdering::Strict:
+            return "Strict";
+        case IoOrdering::Posted:
+            return "Posted";
+    }
+    return "Unknown";
+}
 
 /**
  * @brief Type-safe transaction attributes for an IoWindow target.
@@ -106,3 +121,10 @@ struct HostIoWindowConfig {
 };
 
 }  // namespace tt::umd
+
+template <>
+struct fmt::formatter<tt::umd::IoOrdering> : fmt::formatter<std::string> {
+    auto format(tt::umd::IoOrdering ordering, fmt::format_context& ctx) const {
+        return fmt::formatter<std::string>::format(tt::umd::to_str(ordering), ctx);
+    }
+};

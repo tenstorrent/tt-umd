@@ -10,7 +10,11 @@
 # copies in just those outputs, so toolchains, sources and headers stay out of the shipped image.
 
 ARG UBUNTU_VERSION=22.04
-ARG TTSIM_QEMU_COMMIT=cade2422b833f77e5afddcec7da6916993bc2416
+# Pinned to the commit that gives BAR0 a bar0-size property. Keraunos needs a 4 GiB BAR0 -- tt-kmd's
+# own TLB window is inbound entry 164, which sits 2.56 GB in -- and before this commit the ttsim
+# device fixed BAR0 at a compile-time 512 MiB. The property defaults to that old 512 MiB, so the N150
+# and P150 rows that share this image are unaffected. It lives on stable-11.0-ttsim, not master.
+ARG TTSIM_QEMU_COMMIT=aa112ebe16f9c4ef68a838fa24fec04090018a28
 ARG TT_KMD_TAG=ttkmd-2.11.0
 # Keraunos support is in no tt-kmd release yet, so the Grendel row builds a second module from a
 # branch. Every other card keeps the released driver above.
@@ -45,16 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Keraunos needs a 4 GiB BAR0 -- tt-kmd's own TLB window is inbound entry 164, which sits 2.56 GB
-# in -- and upstream's ttsim device fixes BAR0 at a compile-time 512 MiB. The patch gives BAR0 the
-# treatment BAR4 already has, a bar0-size property defaulting to the old 512 MiB, so the N150 and
-# P150 rows that share this image are unaffected. Remove the COPY and the git apply once it is
-# upstream, and move TTSIM_QEMU_COMMIT to the commit carrying it.
-COPY ttsim-qemu-bar0-size.patch /ttsim-qemu-bar0-size.patch
-
 RUN git clone --filter=blob:none --no-checkout https://github.com/tenstorrent/ttsim-qemu.git /src \
     && cd /src && git checkout ${TTSIM_QEMU_COMMIT} \
-    && git apply /ttsim-qemu-bar0-size.patch \
     && ./configure --target-list=x86_64-softmmu --prefix=/opt/ttsim-qemu \
         --enable-virtfs --disable-docs --disable-werror \
     && make -j"$(nproc)" install \

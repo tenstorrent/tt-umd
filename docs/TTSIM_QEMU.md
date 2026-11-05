@@ -63,12 +63,11 @@ cases and 4 window cases, all measured passing in this guest. A filter that sele
 exits 0, so the CI row counts what it selected before running it and fails the step when the count is
 zero -- otherwise a build missing those suites would report green having run nothing.
 
-`--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device, which upstream does not
-carry yet: BAR0 is a compile-time 512 MiB constant there, and simply raising it is not an option
-because one image serves every card. The image therefore applies `.github/ttsim-qemu-bar0-size.patch`
-to the pinned checkout before building qemu. It gives BAR0 the treatment BAR4 already has, so BAR0
-stays 512 MiB unless a caller asks for more and the Wormhole and Blackhole rows are unaffected. Once
-the property is upstream, drop the patch and move `TTSIM_QEMU_COMMIT` to the commit carrying it.
+`--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device. BAR0 used to be a
+compile-time 512 MiB constant there, and simply raising it is not an option because one image serves
+every card. The property landed upstream in ttsim-qemu `aa112ebe16`, which is what
+`TTSIM_QEMU_COMMIT` pins; it gives BAR0 the treatment BAR4 already has, so BAR0 stays 512 MiB unless
+a caller asks for more and the Wormhole and Blackhole rows are unaffected.
 
 The Grendel CI row stays `continue-on-error` while the suites it names are still in review: the
 filter check fails the step rather than reporting a green run of nothing.

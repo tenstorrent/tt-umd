@@ -358,9 +358,7 @@ public:
         return 0;
     }  // grendel does not support staggered start ??
 
-    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
-        return grendel::HARVESTING_NOC_LOCATIONS;
-    }
+    std::vector<uint32_t> get_harvesting_noc_locations() const override { return grendel::HARVESTING_NOC_LOCATIONS; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
 };

@@ -65,8 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # card: [p150, n150, n300]
-        card: [n300]
+        card: [p150, n150, n300]
     name: JTAG tests (${{ matrix.card }}, ubuntu-24.04)
     timeout-minutes: 30
     runs-on: [umd-lab, "${{ matrix.card }}"]

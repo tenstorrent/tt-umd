@@ -63,8 +63,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device));
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
-    hang_detector_ = std::make_unique<BlackholeHangDetector>(
-        protocol_.get(), read_noc_translation_enabled(/*pcie_interface=*/nullptr, jtag_interface_));
 
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(

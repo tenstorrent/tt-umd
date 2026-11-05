@@ -44,7 +44,8 @@ static bool jtag_library_loadable() {
 }
 
 // JTAG devices do not request power for their chips, and tt-kmd clock-gates Tensix on chips no PCIe client keeps busy.
-// Keeping every local PCIe device busy for as long as the returned devices live covers the chips the J-Links reach.
+// Opening a PCIe device already keeps its chip powered on Wormhole, which UMD opens in tt-kmd's legacy power mode;
+// on Blackhole the BUSY request does it. Covers the chips of all PCIe devices visible to this process.
 static std::vector<std::unique_ptr<TTDevice>> keep_pcie_devices_busy() {
     std::vector<std::unique_ptr<TTDevice>> pcie_devices;
     for (int pci_device_id : PCIDevice::enumerate_devices()) {

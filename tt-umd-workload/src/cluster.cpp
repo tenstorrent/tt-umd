@@ -1418,6 +1418,21 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         return;
     }
 
+    constexpr uint64_t tensix_soft_reset_addr = 0xFFB121B0;
+    if (!ethernet_broadcast_) {
+        // The host writes each core itself, so this must use the uncached register path: the CPU may speculatively
+        // read a write-combined mapping, and a read landing in the unmapped space around this register never
+        // completes, which drops the device off PCIe.
+        for (const ChipId chip : all_chip_ids_) {
+            for (const CoreCoord& core : get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                write_to_device_reg(&reg_value, sizeof(uint32_t), chip, core, tensix_soft_reset_addr);
+            }
+        }
+        // Ensure that reset signal is globally visible.
+        wait_for_non_mmio_flush();
+        return;
+    }
+
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;
     std::set<uint32_t> columns_to_exclude;
@@ -1443,7 +1458,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     broadcast_write_to_cluster(
         &reg_value,
         sizeof(uint32_t),
-        0xFFB121B0,
+        tensix_soft_reset_addr,
         chips_to_exclude,
         rows_to_exclude,
         columns_to_exclude,

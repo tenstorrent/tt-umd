@@ -37,7 +37,7 @@ jobs:
           # BAR4, so a smaller aperture costs this row nothing -- but on silicon with a real 512 GiB
           # BAR4 the per-BAR mmap budget has to grow, and that is a tt-kmd fix, not a test artifact.
           - {card: grendel, lib: libttsim_qsr.so, bar4-size: 32G,
-             vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko --pre-kmd /opt/grendel-att-setup",
+             vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko",
              tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*"}
     # The Grendel row's suites are not on main yet, so against main its filter check fails by design.
     # It reports without failing the pipeline until they land. See docs/TTSIM_QEMU.md.

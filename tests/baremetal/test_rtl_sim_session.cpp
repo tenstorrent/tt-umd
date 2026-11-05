@@ -417,10 +417,10 @@ TEST_F(RtlSimSessionTest, DeviceGivesItsAccessPointsFlatAddresses) {
 
     EXPECT_EQ(device.get_access_points(), (std::vector<AccessPointId>{AccessPointId{2}, AccessPointId{3}}));
     EXPECT_EQ(
-        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
         std::optional<uint64_t>(0x100'0000'0100));
     EXPECT_THROW(
-        device.get_flat_address(AccessPointId{0}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        device.get_flat_address(AccessPointId{0}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
         std::exception);
 }
 
@@ -435,7 +435,7 @@ TEST_F(RtlSimSessionTest, DeviceWithoutAnAttMapHasNoFlatAddresses) {
             AccessPointId{0},
             CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
             WindowFlags::Bidirectional,
-            IoOrdering::Strict),
+            IoOrdering::STRICT),
         std::nullopt);
 }
 
@@ -453,10 +453,10 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
     const CoreCoord tensix(0, 0, CoreType::TENSIX, CoordSystem::LITERAL);
 
     EXPECT_EQ(
-        device.get_flat_address(AccessPointId{2}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        device.get_flat_address(AccessPointId{2}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
         std::optional<uint64_t>(0x20'4020'0100));
     EXPECT_EQ(
-        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::Posted, 0x100),
+        device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
         std::optional<uint64_t>(0x21'4020'0100));
 }
 
@@ -480,7 +480,7 @@ TEST_P(RtlSimSessionColumnLayoutTest, AccessPointReachesItsColumn) {
             AccessPointId{access_point},
             CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LITERAL),
             WindowFlags::UnicastWrite,
-            IoOrdering::Posted,
+            IoOrdering::POSTED,
             0x5'0000),
         std::optional<uint64_t>(address));
 }

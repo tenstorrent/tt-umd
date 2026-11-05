@@ -19,21 +19,6 @@
 
 namespace tt::umd {
 
-namespace {
-
-// Whether NOC address translation is on, read from the NOC0 NIU config. The Blackhole hang detector
-// needs this at construction to pick the core it probes.
-// TODO: temporary - BlackholeTTDevice reads the same register for its own callers; both collapse into
-// DeviceFirmware::get_noc_translation_enabled() once that component exists.
-bool read_noc_translation_enabled(PcieInterface *pcie_interface, JtagInterface *jtag_interface) {
-    const uint32_t niu_cfg = jtag_interface != nullptr
-                                 ? jtag_interface->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR)
-                                 : pcie_interface->bar_read32(blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100);
-    return ((niu_cfg >> 14) & 0x1) != 0;
-}
-
-}  // namespace
-
 BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     std::unique_ptr<PCIDevice> pci_device,
     bool use_safe_api,
@@ -45,8 +30,6 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
-    hang_detector_ = std::make_unique<BlackholeHangDetector>(
-        protocol_.get(), read_noc_translation_enabled(pcie_interface_, /*jtag_interface=*/nullptr));
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -54,6 +37,9 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, architecture_impl_.get());
+    // The hang detector picks the core it probes from the NOC translation state, so it follows the firmware.
+    hang_detector_ =
+        std::make_unique<BlackholeHangDetector>(protocol_.get(), device_firmware_->get_noc_translation_enabled());
 }
 
 BlackholeTTDeviceModel::BlackholeTTDeviceModel(

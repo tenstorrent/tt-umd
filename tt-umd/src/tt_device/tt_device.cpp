@@ -11,14 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "noc_access.hpp"
-#include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arc/firmware_telemetry_reader.hpp"
@@ -51,7 +49,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device/protocol/jtag_protocol.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
@@ -68,7 +65,7 @@ enum class RiscType : std::uint64_t;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {}
 
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
@@ -303,52 +300,6 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
 
 std::function<bool(NocId)> TTDevice::make_io_timeout_hang_check() {
     return [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); };
-}
-
-void TTDevice::wire_hang_detector() {
-    HangDetector *hang_detector = model_->get_hang_detector();
-
-    // The per-op timed MMIO path is PCIe-specific, so the hang-check wiring only applies to PCIe devices.
-    if (model_->get_pcie_interface() == nullptr) {
-        return;
-    }
-
-    // A null detector disables hang detection: clear any previously wired callback and stop before
-    // dereferencing it below.
-    if (hang_detector == nullptr) {
-        get_pcie_interface()->set_io_timeout_callback({});
-        return;
-    }
-
-    // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
-    // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
-    get_pcie_interface()->set_io_timeout_callback(make_io_timeout_hang_check());
-
-    // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
-    // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
-    // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
-    //
-    // get_io_window() is virtual and this runs during TTDevice's own construction, so it resolves to the
-    // base implementation. That is the right one: only a PCIe device gets this far (the guard above), and
-    // the sole override belongs to the simulation backends, which have no PCIe interface.
-    auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
-    auto window_lock = std::make_shared<std::mutex>();
-    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector);
-    UMD_ASSERT(
-        hang_detector_impl != nullptr,
-        error::RuntimeError,
-        "HangDetectorImplementation is required to wire the NOC register reader for hang detection.");
-    hang_detector_impl->set_noc_reg_reader(
-        [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
-            std::lock_guard<std::mutex> lock(*window_lock);
-            // The probe window has no hang check wired, so an overrun is treated as a false alarm and the read
-            // completes rather than throwing; a hung NOC surfaces as HANG_READ_VALUE in `value`. A
-            // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
-            // rather than silently masking it as a hang.
-            uint32_t value = 0;
-            read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
-            return value;
-        });
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

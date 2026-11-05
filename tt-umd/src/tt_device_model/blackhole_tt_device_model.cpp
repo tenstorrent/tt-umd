@@ -10,6 +10,7 @@
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "tt_device/protocol/jtag_protocol.hpp"
@@ -26,9 +27,14 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::BLACKHOLE>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<BlackholeImplementation>()),
     pci_device_(pci_device.get()) {
-    auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
-    pcie_interface_ = pcie_protocol.get();
-    dma_interface_ = pcie_protocol.get();
+    // The protocol's timeout check looks the detector up only when an op overruns. Until it exists, an
+    // overrun is not judged a hang, as when no check is wired.
+    auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api, [this](NocId noc) -> bool {
+        return hang_detector_ != nullptr && hang_detector_->is_noc_hung(noc).value_or(false);
+    });
+    PcieProtocol *pcie = pcie_protocol.get();
+    pcie_interface_ = pcie;
+    dma_interface_ = pcie;
     protocol_ = std::move(pcie_protocol);
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
@@ -37,9 +43,10 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
         protocol_.get(), pcie_interface_, jtag_interface_, architecture_impl_.get());
-    // The hang detector picks the core it probes from the NOC translation state, so it follows the firmware.
-    hang_detector_ =
-        std::make_unique<BlackholeHangDetector>(protocol_.get(), device_firmware_->get_noc_translation_enabled());
+    // The detector probes through a reader the protocol builds, and picks the core it probes from the NOC
+    // translation state the firmware reads, so it comes after both.
+    hang_detector_ = std::make_unique<BlackholeHangDetector>(
+        protocol_.get(), pcie->make_noc_probe_reader(), device_firmware_->get_noc_translation_enabled());
 }
 
 BlackholeTTDeviceModel::BlackholeTTDeviceModel(

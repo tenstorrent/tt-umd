@@ -19,10 +19,10 @@ ARG TT_KMD_TAG=ttkmd-2.11.0
 # Keraunos support is in no tt-kmd release yet, so the Grendel row builds a second module from a
 # branch. Every other card keeps the released driver above.
 #
-# This is the tip of the Keraunos TLB stack, not joelsmith/keraunos2 itself: handing TLB windows to
-# userspace is tt-kmd #305 and #306, which keraunos2 does not carry, and without them every window
-# the QuasarIoWindow suite asks for fails to allocate. Move this back to joelsmith/keraunos2 once
-# the stack lands there.
+# This is the tip of the Keraunos TLB stack, not `keraunos` itself: handing TLB windows to userspace
+# is tt-kmd #305 and #306, which `keraunos` does not carry, and without them every window the
+# QuasarIoWindow suite asks for fails to allocate. Move this back to `keraunos` once the stack lands
+# there.
 ARG TT_KMD_KERAUNOS_REF=pjanevski/keraunos-tlb-attributes
 
 # Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu. ttsim-qemu is Tenstorrent's fork of

@@ -310,9 +310,9 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Test basic write16/read16.
         tlb_write->write16(0, 0xABCD);
@@ -379,9 +379,9 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
         tlb_write->write32(0, 0xAAAABBBB);

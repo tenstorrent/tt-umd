@@ -47,6 +47,7 @@ enum TelemetryTag : uint8_t {
     ENABLED_GDDR = 36,
     ENABLED_L2CPU = 37,
     PCIE_USAGE = 38,
+    INPUT_CURRENT = 39,
     NOC_TRANSLATION = 40,
     FAN_RPM = 41,
     GDDR_0_1_TEMP = 42,
@@ -65,6 +66,7 @@ enum TelemetryTag : uint8_t {
     TDC_LIMIT_MAX = 55,
     THM_LIMIT_THROTTLE = 56,
     TT_FLASH_VERSION = 58,
+    ENABLED_TENSIX_ROW = 59,
     THERM_TRIP_COUNT = 60,
     ASIC_ID_HIGH = 61,
     ASIC_ID_LOW = 62,
@@ -74,7 +76,58 @@ enum TelemetryTag : uint8_t {
     AICLK_ARB_MAX = 66,
     ENABLED_MIN_ARB = 67,
     ENABLED_MAX_ARB = 68,
-    NUMBER_OF_TAGS = 69,
+    AICLK_PPM_INFO = 69,
+    HOST_AICLK_LIMIT = 70,
+    SMBUS_ERRORS = 71,
+    GDDR_WEST_IO_POWER = 73,
+    GDDR_EAST_IO_POWER = 74,
+    KERNEL_THROTTLER = 75,
+    NOP_START_COUNT = 76,
+    NOP_ON_DURATION = 77,
+    // Tags 78 and 79 are Blackhole-only names. Wormhole firmware uses the same numbers for its second fan's
+    // speed and RPM, so these must only be read through Blackhole feature maps.
+    FW_CAPABILITIES_0 = 78,
+    FW_ACTIVE_CONFIG_0 = 79,
+    NUMBER_OF_TAGS = 80,
+};
+
+// Operating mode of a PCIe instance, as configured in the board's firmware table.
+enum class PcieMode : uint8_t {
+    DISABLED = 0,
+    ENDPOINT = 1,
+    ROOT_PORT = 2,
+};
+
+// AICLK maximum-frequency arbiters. Each enabled arbiter imposes a ceiling on AICLK and the lowest ceiling wins.
+// Firmware keeps these values stable across releases; newer firmware may append arbiters past the last one listed.
+enum class AiclkMaxArbiter : uint16_t {
+    FMAX = 0,              // Chip's configured maximum AICLK.
+    TDP = 1,               // Thermal design power limit.
+    FAST_TDC = 2,          // Fast-response thermal design current limit.
+    TDC = 3,               // Thermal design current limit.
+    THERMAL = 4,           // ASIC temperature throttle.
+    BOARD_POWER = 5,       // Board power limit.
+    VOLTAGE = 6,           // Highest AICLK the maximum allowed voltage supports.
+    GDDR_THERMAL = 7,      // GDDR temperature throttle.
+    DOPPLER_SLOW = 8,      // Slow-response di/dt (Doppler) throttle.
+    DOPPLER_CRITICAL = 9,  // Critical di/dt (Doppler) throttle.
+    HOST_FMAX = 10,        // Ceiling set by the host, see FirmwareInfoProvider::get_host_aiclk_limit().
+};
+
+// AICLK minimum-frequency arbiters. Each enabled arbiter imposes a floor on AICLK and the highest floor wins.
+// Firmware keeps these values stable across releases; newer firmware may append arbiters past the last one listed.
+enum class AiclkMinArbiter : uint16_t {
+    FMIN = 0,  // Chip's configured minimum AICLK.
+    BUSY = 1,  // Floor requested while the host has the chip in the busy power state.
+};
+
+// Why the firmware chose the current AICLK target.
+enum class AiclkTargetReason : uint16_t {
+    MIN_ARBITER = 0,  // A minimum arbiter set the target; the arbiter is an AiclkMinArbiter.
+    MAX_ARBITER = 1,  // A maximum arbiter set the target; the arbiter is an AiclkMaxArbiter.
+    FMIN = 2,         // Arbitration landed below the chip's minimum AICLK, so the minimum was used.
+    SWEEP = 3,        // A characterization sweep is choosing random frequencies.
+    FORCED = 4,       // AICLK is forced to a fixed value.
 };
 
 }  // namespace tt::umd

@@ -13,6 +13,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/gddr_telemetry.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 namespace tt::umd {
@@ -341,5 +342,286 @@ public:
      * @return std::optional<uint32_t> Heartbeat counter, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_heartbeat([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the highest core voltage (VDD) the firmware is allowed to request.
+     * A static chip limit from the board's firmware table.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Voltage in mV, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_vdd_max([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the lowest core voltage (VDD) the firmware is allowed to request.
+     * A static chip limit from the board's firmware table.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Voltage in mV, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_vdd_min([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the current clock of each L2CPU (RISC-V) cluster.
+     * Blackhole only. The vector always has one entry per cluster (4), and an entry is std::nullopt when that
+     * cluster's clock is unavailable. Harvested clusters still report a clock; use get_enabled_l2cpus() to tell
+     * which clusters are usable.
+     * @param noc_id NOC to route through.
+     * @return std::vector<std::optional<uint32_t>> Frequency in MHz per cluster, indexed by cluster.
+     */
+    virtual std::vector<std::optional<uint32_t>> get_l2cpu_clocks(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which Tensix columns are enabled (not harvested).
+     * Bit i is set when physical Tensix column i is usable. Blackhole has 14 columns. The bit order is the
+     * firmware's physical order, not the logical order used by SocDescriptor harvesting masks.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled columns, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_tensix_columns(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which Tensix rows are enabled (not harvested).
+     * Bit i is set when physical Tensix row i is usable. Only meaningful on architectures that harvest Tensix by
+     * row. Blackhole firmware does not publish it.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled rows, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_tensix_rows(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which Ethernet cores are enabled (not harvested).
+     * Bit i is set when physical Ethernet channel i may be used. An enabled channel is not necessarily
+     * cabled to anything. Blackhole has 14 channels.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled channels, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_eth_cores([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which GDDR instances are enabled (not harvested).
+     * Bit i is set when GDDR instance i is usable. Blackhole has 8 instances.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled instances, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_gddr([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which L2CPU clusters are enabled (not harvested).
+     * Blackhole only. Bit i is set when L2CPU cluster i is usable. Blackhole has 4 clusters.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled clusters, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_l2cpus([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the configured mode of each PCIe instance.
+     * The vector always has one entry per PCIe instance (2). An entry is std::nullopt when the mode is unavailable
+     * or the firmware reports a mode this API does not know.
+     * @param noc_id NOC to route through.
+     * @return std::vector<std::optional<PcieMode>> Mode per PCIe instance, indexed by instance.
+     */
+    virtual std::vector<std::optional<PcieMode>> get_pcie_modes(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the board's input current.
+     * Not published by any firmware version this API currently decodes, so this returns std::nullopt.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Current in amperes, or std::nullopt if unavailable.
+     */
+    virtual std::optional<double> get_input_current([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the board's total input power, as measured at the board's power input.
+     * Includes everything on the board, not just the ASIC (compare get_tdp()).
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the Thermal Design Current limit the firmware throttles AICLK to stay under.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> TDC limit in amps, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_tdc_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the power drawn by the GDDR IO rail on the west side of the chip.
+     * Blackhole only. Derived by firmware from the rail current and its fixed 1.35 V supply.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_gddr_west_io_power(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the power drawn by the GDDR IO rail on the east side of the chip.
+     * Blackhole only. Derived by firmware from the rail current and its fixed 1.35 V supply.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_gddr_east_io_power(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the effective AICLK floor: the highest frequency requested by any enabled minimum arbiter.
+     * Blackhole only.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_aiclk_arb_min_freq(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which minimum arbiter sets the floor reported by get_aiclk_arb_min_freq().
+     * Blackhole only.
+     * @param noc_id NOC to route through.
+     * @return std::optional<AiclkMinArbiter> The winning arbiter, or std::nullopt if unavailable.
+     */
+    virtual std::optional<AiclkMinArbiter> get_aiclk_arb_min_arbiter(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the effective AICLK ceiling: the lowest limit imposed by any enabled maximum arbiter.
+     * Blackhole only. The ceiling takes precedence over the floor when the two conflict, so if this is below
+     * get_max_clock_freq() the chip is being throttled.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_aiclk_arb_max_freq(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which maximum arbiter sets the ceiling reported by get_aiclk_arb_max_freq(), i.e. what
+     * is currently limiting AICLK. Blackhole only.
+     * @param noc_id NOC to route through.
+     * @return std::optional<AiclkMaxArbiter> The winning arbiter, or std::nullopt if unavailable.
+     */
+    virtual std::optional<AiclkMaxArbiter> get_aiclk_arb_max_arbiter(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which AICLK minimum arbiters are enabled.
+     * Blackhole only. Bit i is set when the arbiter with AiclkMinArbiter value i is enabled.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled arbiters, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_aiclk_min_arbiters(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves which AICLK maximum arbiters are enabled.
+     * Blackhole only. Bit i is set when the arbiter with AiclkMaxArbiter value i is enabled.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Bitmask of enabled arbiters, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_enabled_aiclk_max_arbiters(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves why the firmware chose the current AICLK target.
+     * Blackhole only.
+     * @param noc_id NOC to route through.
+     * @return std::optional<AiclkTargetReason> The reason, or std::nullopt if unavailable.
+     */
+    virtual std::optional<AiclkTargetReason> get_aiclk_target_reason(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the arbiter that set the current AICLK target.
+     * Blackhole only. Only meaningful when get_aiclk_target_reason() is MIN_ARBITER, in which case the value is an
+     * AiclkMinArbiter, or MAX_ARBITER, in which case it is an AiclkMaxArbiter.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint16_t> Arbiter number, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint16_t> get_aiclk_target_arbiter(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the AICLK ceiling set by the host.
+     * Blackhole only. 0 means the host has not set a limit; any other value is enforced by the HOST_FMAX arbiter.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_host_aiclk_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the number of errors the ARC's SMBus target has seen in its traffic with the board
+     * management controller. Blackhole only. Counts since the chip booted.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Error count, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the bitfield of features the firmware supports.
+     * Blackhole only. Bit 0: kernel NOP throttler. Bit 1: GDDR thermal-trip action. Bit 2: extended board ID.
+     * Higher bits are reserved for features added by newer firmware.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Capability bits, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_fw_capabilities([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the bitfield of features currently switched on.
+     * Blackhole only. Uses the same bit layout as get_fw_capabilities(); a set bit means the feature is enabled.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Active-config bits, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_fw_active_config([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Reports whether the firmware supports the kernel NOP throttler.
+     *
+     * The kernel NOP throttler cuts power when lowering AICLK is not enough: once AICLK is at its minimum and core
+     * power is still above the TDP limit, the firmware tells the Tensix cores to execute NOPs between kernel
+     * instructions. It stops once AICLK has recovered to the stop frequency (see
+     * get_kernel_nop_throttler_stop_freq()) and power is back under the limit. Blackhole only.
+     *
+     * @param noc_id NOC to route through.
+     * @return std::optional<bool> true if supported, or std::nullopt if the firmware does not say.
+     */
+    virtual std::optional<bool> is_kernel_nop_throttler_supported(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Reports whether the kernel NOP throttler is switched on. The host can toggle it at runtime.
+     * Blackhole only. std::nullopt when the firmware does not support the throttler.
+     * @param noc_id NOC to route through.
+     * @return std::optional<bool> true if enabled, or std::nullopt if unavailable.
+     */
+    virtual std::optional<bool> is_kernel_nop_throttler_enabled(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the AICLK at which the kernel NOP throttler stops inserting NOPs.
+     * Blackhole only. 0 means the firmware uses the effective AICLK floor (see get_aiclk_arb_min_freq()) as the
+     * stop frequency. std::nullopt when the firmware does not support the throttler.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_kernel_nop_throttler_stop_freq(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves how many times the firmware has started making the Tensix cores execute NOPs since the chip
+     * booted. Blackhole only. Monotonically increasing. Counts every NOP source: the kernel NOP throttler and
+     * critical di/dt (Doppler) throttling, so it can be non-zero even when the kernel NOP throttler is disabled.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Start count, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_nop_start_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves how long the Tensix cores were made to execute NOPs during the firmware's most recent
+     * telemetry update interval. Blackhole only. This is a per-interval value, not a running total, so it is at
+     * most the telemetry update interval. Counts every NOP source, like get_nop_start_count().
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Duration in milliseconds, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_nop_on_duration([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 };
 }  // namespace tt::umd

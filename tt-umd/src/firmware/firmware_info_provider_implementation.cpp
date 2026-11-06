@@ -113,12 +113,20 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
-            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 5, 0)) {
                 return create_blackhole_18_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 7, 0)) {
+                return create_blackhole_19_5_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
+                return create_blackhole_19_7_base();
             } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
                 return create_blackhole_19_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 12, 0)) {
+                return create_blackhole_19_9_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 13, 0)) {
+                return create_blackhole_19_12_base();
             }
-            return create_blackhole_19_9_base();
+            return create_blackhole_19_13_base();
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for telemetry feature map.");
     }
@@ -170,6 +178,17 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         {FirmwareFeature::GDDR_2_3_CORR_ERRS, {TelemetryTag::GDDR_2_3_CORR_ERRS, LinearTransform{}}},
         {FirmwareFeature::GDDR_4_5_CORR_ERRS, {TelemetryTag::GDDR_4_5_CORR_ERRS, LinearTransform{}}},
         {FirmwareFeature::GDDR_6_7_CORR_ERRS, {TelemetryTag::GDDR_6_7_CORR_ERRS, LinearTransform{}}},
+        {FirmwareFeature::VDD_MAX,            {TelemetryTag::VDD_LIMITS, LinearTransform{16, 0xFFFF}}},
+        {FirmwareFeature::VDD_MIN,            {TelemetryTag::VDD_LIMITS, LinearTransform{0, 0xFFFF}}},
+        {FirmwareFeature::ENABLED_TENSIX_COL, {TelemetryTag::ENABLED_TENSIX_COL, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_TENSIX_ROW, {TelemetryTag::ENABLED_TENSIX_ROW, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_ETH,        {TelemetryTag::ENABLED_ETH, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_GDDR,       {TelemetryTag::ENABLED_GDDR, LinearTransform{}}},
+        {FirmwareFeature::PCIE_0_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{0, 0x3}}},
+        {FirmwareFeature::PCIE_1_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{2, 0x3}}},
+        {FirmwareFeature::INPUT_POWER,        {TelemetryTag::INPUT_POWER, LinearTransform{}}},
+        // The tag is defined, but no firmware this map covers publishes it with a known encoding.
+        {FirmwareFeature::INPUT_CURRENT,      {FixedValue{0}, NotAvailable{}}},
     };
 }
 
@@ -259,20 +278,50 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
     map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    // Blackhole harvests Tensix by column, so there is no row mask.
+    map[FirmwareFeature::ENABLED_TENSIX_ROW] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ENABLED_L2CPU] = {TelemetryTag::ENABLED_L2CPU, LinearTransform{}};
+    // The upper 16 bits of the L2CPU clock tags are reserved for a maximum frequency.
+    map[FirmwareFeature::L2CPUCLK0] = {TelemetryTag::L2CPUCLK0, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK1] = {TelemetryTag::L2CPUCLK1, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK2] = {TelemetryTag::L2CPUCLK2, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK3] = {TelemetryTag::L2CPUCLK3, LinearTransform{0, 0xFFFF}};
     return map;
 }
 
-// Blackhole 18.8-19.7: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
+// Blackhole 18.8-19.4: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_18_8_base() {
     FirmwareFeatures map = create_blackhole_18_5_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
     return map;
 }
 
-// Blackhole >= 19.8: firmware gains the adjustable TDP limit and publishes it.
-/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_8_base() {
+// Blackhole 19.5-19.6: AICLK arbitration tags appear. The ARB_MIN/ARB_MAX tags hold only the frequency.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_5_base() {
     FirmwareFeatures map = create_blackhole_18_8_base();
+    map[FirmwareFeature::AICLK_ARB_MIN_FREQ] = {TelemetryTag::AICLK_ARB_MIN, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::AICLK_ARB_MAX_FREQ] = {TelemetryTag::AICLK_ARB_MAX, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS] = {TelemetryTag::ENABLED_MIN_ARB, LinearTransform{}};
+    map[FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS] = {TelemetryTag::ENABLED_MAX_ARB, LinearTransform{}};
+    return map;
+}
+
+// Blackhole 19.7: the winning arbiter is packed above the frequency, and AICLK_PPM_INFO appears.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_7_base() {
+    FirmwareFeatures map = create_blackhole_19_5_base();
+    map[FirmwareFeature::AICLK_ARB_MIN_ARBITER] = {TelemetryTag::AICLK_ARB_MIN, LinearTransform{16, 0xFFFF}};
+    map[FirmwareFeature::AICLK_ARB_MAX_ARBITER] = {TelemetryTag::AICLK_ARB_MAX, LinearTransform{16, 0xFFFF}};
+    // AICLK_PPM_INFO packs the fields the other way round from ARB_MIN/ARB_MAX: arbiter low, reason high.
+    map[FirmwareFeature::AICLK_TARGET_ARBITER] = {TelemetryTag::AICLK_PPM_INFO, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::AICLK_TARGET_REASON] = {TelemetryTag::AICLK_PPM_INFO, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole 19.8: firmware gains the adjustable TDP limit and the host AICLK ceiling, and publishes both.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_8_base() {
+    FirmwareFeatures map = create_blackhole_19_7_base();
     map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
+    map[FirmwareFeature::HOST_AICLK_LIMIT] = {TelemetryTag::HOST_AICLK_LIMIT, LinearTransform{}};
     return map;
 }
 
@@ -281,6 +330,37 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     FirmwareFeatures map = create_blackhole_19_8_base();
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}};
     map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole 19.12: SMBus error count, GDDR IO rail power and the kernel NOP throttler appear.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_12_base() {
+    FirmwareFeatures map = create_blackhole_19_9_base();
+    map[FirmwareFeature::SMBUS_ERRORS] = {TelemetryTag::SMBUS_ERRORS, LinearTransform{}};
+    map[FirmwareFeature::GDDR_WEST_IO_POWER] = {TelemetryTag::GDDR_WEST_IO_POWER, LinearTransform{}};
+    map[FirmwareFeature::GDDR_EAST_IO_POWER] = {TelemetryTag::GDDR_EAST_IO_POWER, LinearTransform{}};
+    map[FirmwareFeature::NOP_START_COUNT] = {TelemetryTag::NOP_START_COUNT, LinearTransform{}};
+    map[FirmwareFeature::NOP_ON_DURATION] = {TelemetryTag::NOP_ON_DURATION, LinearTransform{}};
+    // There is no capability flag yet; every 19.12 firmware ships the throttler.
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {FixedValue{1}, LinearTransform{}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {TelemetryTag::KERNEL_THROTTLER, LinearTransform{0, 0x1}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
+        TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole >= 19.13: firmware publishes feature capability and active-config flags, and the kernel NOP throttler's
+// settings are only meaningful while the firmware reports the throttler as supported. The NOP counters are not gated:
+// they also count NOPs from critical di/dt throttling, which runs regardless of the throttler.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_13_base() {
+    FirmwareFeatures map = create_blackhole_19_12_base();
+    map[FirmwareFeature::FW_CAPABILITIES_0] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{}};
+    map[FirmwareFeature::FW_ACTIVE_CONFIG_0] = {TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{0, 0x1}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {
+        TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{0, 0x1}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
+        TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
     return map;
 }
 
@@ -315,6 +395,10 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
 
     // Check if converter indicates not available.
     if (std::holds_alternative<NotAvailable>(it->second.converter)) {
+        return false;
+    }
+
+    if (it->second.gated_by.has_value() && read_scalar<uint32_t>(it->second.gated_by.value()).value_or(0) == 0) {
         return false;
     }
 
@@ -374,6 +458,7 @@ template std::optional<double> FirmwareInfoProviderImplementation::read_scalar<d
 template std::optional<uint8_t> FirmwareInfoProviderImplementation::read_scalar<uint8_t>(FirmwareFeature feature) const;
 template std::optional<uint16_t> FirmwareInfoProviderImplementation::read_scalar<uint16_t>(
     FirmwareFeature feature) const;
+template std::optional<bool> FirmwareInfoProviderImplementation::read_scalar<bool>(FirmwareFeature feature) const;
 
 FirmwareBundleVersion FirmwareInfoProviderImplementation::get_firmware_version(NocId noc_id) const {
     return firmware_version;
@@ -835,6 +920,155 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
         return std::nullopt;
     }
     return parse_eth_status_bitmask(data.value());
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_vdd_max(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::VDD_MAX);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_vdd_min(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::VDD_MIN);
+}
+
+std::vector<std::optional<uint32_t>> FirmwareInfoProviderImplementation::get_l2cpu_clocks(NocId noc_id) const {
+    return {
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK0),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK1),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK2),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK3),
+    };
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_tensix_columns(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_TENSIX_COL);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_tensix_rows(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_TENSIX_ROW);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_eth_cores(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_ETH);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_gddr(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_GDDR);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_l2cpus(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_L2CPU);
+}
+
+static std::optional<PcieMode> to_pcie_mode(std::optional<uint8_t> raw) {
+    if (!raw.has_value() || raw.value() > static_cast<uint8_t>(PcieMode::ROOT_PORT)) {
+        return std::nullopt;
+    }
+    return static_cast<PcieMode>(raw.value());
+}
+
+std::vector<std::optional<PcieMode>> FirmwareInfoProviderImplementation::get_pcie_modes(NocId noc_id) const {
+    return {
+        to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_0_MODE)),
+        to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_1_MODE)),
+    };
+}
+
+std::optional<double> FirmwareInfoProviderImplementation::get_input_current(NocId noc_id) const {
+    return read_scalar<double>(FirmwareFeature::INPUT_CURRENT);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_input_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::INPUT_POWER);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_tdc_limit(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDC_LIMIT_MAX);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_gddr_west_io_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::GDDR_WEST_IO_POWER);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_gddr_east_io_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::GDDR_EAST_IO_POWER);
+}
+
+// Firmware may append arbiters and reasons in newer releases, so values past the last enumerator are passed through
+// rather than rejected.
+template <typename Enum>
+static std::optional<Enum> to_enum(std::optional<uint16_t> raw) {
+    if (!raw.has_value()) {
+        return std::nullopt;
+    }
+    return static_cast<Enum>(raw.value());
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_aiclk_arb_min_freq(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_FREQ);
+}
+
+std::optional<AiclkMinArbiter> FirmwareInfoProviderImplementation::get_aiclk_arb_min_arbiter(NocId noc_id) const {
+    return to_enum<AiclkMinArbiter>(read_scalar<uint16_t>(FirmwareFeature::AICLK_ARB_MIN_ARBITER));
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_aiclk_arb_max_freq(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_FREQ);
+}
+
+std::optional<AiclkMaxArbiter> FirmwareInfoProviderImplementation::get_aiclk_arb_max_arbiter(NocId noc_id) const {
+    return to_enum<AiclkMaxArbiter>(read_scalar<uint16_t>(FirmwareFeature::AICLK_ARB_MAX_ARBITER));
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_aiclk_min_arbiters(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_aiclk_max_arbiters(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS);
+}
+
+std::optional<AiclkTargetReason> FirmwareInfoProviderImplementation::get_aiclk_target_reason(NocId noc_id) const {
+    return to_enum<AiclkTargetReason>(read_scalar<uint16_t>(FirmwareFeature::AICLK_TARGET_REASON));
+}
+
+std::optional<uint16_t> FirmwareInfoProviderImplementation::get_aiclk_target_arbiter(NocId noc_id) const {
+    return read_scalar<uint16_t>(FirmwareFeature::AICLK_TARGET_ARBITER);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_host_aiclk_limit(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::HOST_AICLK_LIMIT);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_smbus_error_count(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::SMBUS_ERRORS);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_fw_capabilities(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::FW_CAPABILITIES_0);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_fw_active_config(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::FW_ACTIVE_CONFIG_0);
+}
+
+std::optional<bool> FirmwareInfoProviderImplementation::is_kernel_nop_throttler_supported(NocId noc_id) const {
+    return read_scalar<bool>(FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED);
+}
+
+std::optional<bool> FirmwareInfoProviderImplementation::is_kernel_nop_throttler_enabled(NocId noc_id) const {
+    return read_scalar<bool>(FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_kernel_nop_throttler_stop_freq(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_nop_start_count(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::NOP_START_COUNT);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_nop_on_duration(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::NOP_ON_DURATION);
 }
 
 }  // namespace tt::umd

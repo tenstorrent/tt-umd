@@ -407,6 +407,7 @@ TEST(TestRiscProgram, ClusterDestructorClosesDevice) {
 
     // init_tt_device() is required: without the SocDescriptor it builds, the device cannot translate tensix_core.
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+    tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->init_tt_device();
 
     const RiscType reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(

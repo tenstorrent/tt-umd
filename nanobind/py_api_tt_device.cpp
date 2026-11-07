@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -240,14 +241,21 @@ void bind_tt_device(nb::module_ &m) {
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(
-                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
+            [](int device_number,
+               IODeviceType device_type,
+               std::optional<bool> use_safe_api,
+               const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+                // None enables the safe API wherever it is supported, which is PCIe only.
+                bool resolved_use_safe_api = use_safe_api.value_or(device_type == IODeviceType::PCIe);
+                return TTDevice::create(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
+            },
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
-            nb::arg("use_safe_api") = true,
+            nb::arg("use_safe_api") = nb::none(),
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
-            release_gil())
+            release_gil(),
+            "Creates a TTDevice. device_number is the PCIe device number, or the J-Link serial number for JTAG.")
         .def(
             "set_power_state",
             &TTDevice::set_power_state,
@@ -796,11 +804,9 @@ void bind_tt_device(nb::module_ &m) {
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
         "create_simulation_tt_device",
-        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int, bool)>(
-            &create_simulation_tt_device),
+        static_cast<std::unique_ptr<TTDevice> (*)(const std::filesystem::path &, int)>(&create_simulation_tt_device),
         nb::arg("simulator_path"),
         nb::arg("num_host_mem_channels") = 0,
-        nb::arg("copy_sim_binary") = false,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Creates a simulation TTDevice from a simulator path. "
@@ -813,7 +819,6 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::create,
             nb::arg("simulator_directory"),
             nb::arg("num_host_mem_channels") = 0,
-            nb::arg("copy_sim_binary") = false,
             release_gil(),
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(

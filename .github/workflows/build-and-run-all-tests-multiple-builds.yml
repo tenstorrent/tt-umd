@@ -58,10 +58,12 @@ concurrency:
 # build-and-run-all-tests.yml) can call the cancel-workflow API.
 # `contents: read` and `packages: read` mirror the GitHub-default set the
 # build/test reusable workflows rely on (checkout, ghcr.io image pulls).
+# `id-token: write` is required by the exabox multihost runners in run-exabox-tests.yml.
 permissions:
   contents: read
   actions: write
   packages: read
+  id-token: write
 
 jobs:
   # Gatekeeper job allows us to define an environment which only affects pushes to main, but not other types of jobs.
@@ -100,6 +102,18 @@ jobs:
     uses: ./.github/workflows/docker-image.yml
     with:
       docker-version: ttsim-qemu
+
+  # Same as ensure-image, for the image run-exabox-tests provisions the exabox workers from.
+  ensure-exabox-image:
+    name: Ensure exabox Docker image
+    needs: gatekeeper
+    if: ${{ !cancelled() }}  # Don't skip if gatekeeper is skipped.
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04-exabox
 
   # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
   # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -
@@ -140,7 +154,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, ensure-exabox-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
       !cancelled() &&
@@ -159,6 +173,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
+      exabox-image-tag: ${{ needs.ensure-exabox-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -167,7 +182,7 @@ jobs:
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, ensure-exabox-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -184,6 +199,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
+      exabox-image-tag: ${{ needs.ensure-exabox-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -192,7 +208,7 @@ jobs:
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, ensure-exabox-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       !cancelled() &&
@@ -209,6 +225,7 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
+      exabox-image-tag: ${{ needs.ensure-exabox-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -217,7 +234,7 @@ jobs:
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, ensure-exabox-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -233,6 +250,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
+      exabox-image-tag: ${{ needs.ensure-exabox-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
@@ -243,7 +261,7 @@ jobs:
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: [ensure-image, ensure-ttsim-qemu-image, build-exalens-kernels]
+    needs: [ensure-image, ensure-ttsim-qemu-image, ensure-exabox-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       !cancelled() &&
@@ -259,6 +277,7 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       ttsim-qemu-image-tag: ${{ needs.ensure-ttsim-qemu-image.outputs.image-tag }}
+      exabox-image-tag: ${{ needs.ensure-exabox-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
@@ -278,6 +297,7 @@ jobs:
     needs:
       - ensure-image
       - ensure-ttsim-qemu-image
+      - ensure-exabox-image
       - build-exalens-kernels
       - build-release
       - build-asan
@@ -290,6 +310,7 @@ jobs:
         run: |
           echo "ensure-image:          ${{ needs.ensure-image.result }}"
           echo "ensure-ttsim-qemu-image: ${{ needs.ensure-ttsim-qemu-image.result }}"
+          echo "ensure-exabox-image:   ${{ needs.ensure-exabox-image.result }}"
           echo "build-exalens-kernels: ${{ needs.build-exalens-kernels.result }}"
           echo "build-release:         ${{ needs.build-release.result }}"
           echo "build-asan:            ${{ needs.build-asan.result }}"

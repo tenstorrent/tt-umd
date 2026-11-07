@@ -1155,8 +1155,10 @@ std::string ClusterDescriptor::serialize() const {
     for (const auto &[board_id, chips] : board_to_chips) {
         out << YAML::BeginSeq;
         out << YAML::BeginMap << YAML::Key << "board_id" << YAML::Value << board_id << YAML::EndMap;
+        // The stored board type, not one decoded from board_id: a mock board id does not encode its type, so
+        // decoding would hand a reader (e.g. a simulation client) a different board than this descriptor has.
         out << YAML::BeginMap << YAML::Key << "board_type" << YAML::Value
-            << board_type_to_string(get_board_type_from_board_id(board_id)) << YAML::EndMap;
+            << board_type_to_string(get_board_type(*chips.begin())) << YAML::EndMap;
 
         out << YAML::BeginMap << YAML::Key << "chips" << YAML::Value;
         out << YAML::BeginSeq;

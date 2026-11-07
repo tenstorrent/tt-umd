@@ -639,6 +639,17 @@ EthTrainingStatus WormholeDeviceFirmware::get_eth_core_training_status(tt_xy_pai
     return static_cast<EthTrainingStatus>(training_status);
 }
 
+// Wormhole ETH firmware does not report link speed.
+std::optional<uint32_t> WormholeDeviceFirmware::get_eth_core_train_speed(
+    [[maybe_unused]] tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id) {
+    return std::nullopt;
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_eth_core_target_speed(
+    [[maybe_unused]] tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id) {
+    return std::nullopt;
+}
+
 bool WormholeDeviceFirmware::wait_dram_channel_training(
     uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
     // The status comes from the info provider, which exists only once init_firmware() has run; the

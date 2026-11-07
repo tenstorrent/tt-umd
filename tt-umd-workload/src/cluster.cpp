@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
@@ -636,7 +635,7 @@ Cluster::Cluster(ClusterOptions options) {
         for (const auto& [mmio_device_id, chips] : grouped_chips) {
             max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
         }
-        options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
+        options.num_host_mem_ch_per_mmio_device = std::min(SysmemManager::MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
         log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
     }
 

@@ -25,6 +25,9 @@ class TTDevice;
 
 class SysmemManager : public SystemMemoryAllocator {
 public:
+    // Upper bound on the number of host memory channels a single MMIO device can be given.
+    static constexpr uint32_t MAX_HOST_MEM_CHANNELS = 4;
+
     SysmemManager() = default;
     ~SysmemManager() override = default;
 

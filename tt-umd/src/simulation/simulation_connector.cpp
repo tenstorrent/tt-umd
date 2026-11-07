@@ -6,7 +6,6 @@
 
 #include <fmt/format.h>
 
-#include <algorithm>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -100,30 +99,6 @@ Classification classify(const std::filesystem::path& simulator_path) {
     return {SimulationConnector::Role::Client, std::nullopt, std::move(live_sockets)};
 }
 
-// A server is gone when it published sockets and not one of them still has a listener: the host
-// that bound them died without tearing them down. A directory with no socket at all is not gone --
-// it reads exactly like a host that has claimed its directory and not bound yet -- so neither the
-// listing nor the sweep may act on it.
-bool is_server_gone(const SimulationServerInfo& server) {
-    return !server.sockets.empty() &&
-           std::none_of(server.sockets.begin(), server.sockets.end(), [](const auto& socket) {
-               return SimulationServerSocket::is_live(socket.second);
-           });
-}
-
-// Clears up after a server that is gone. Best-effort and quiet when it fails: simulation sockets
-// are cross-user by design, and another user's directory cannot be removed from the temp
-// directory, which every scan would otherwise report.
-bool remove_server_directory(const SimulationServerInfo& server) {
-    std::error_code ec;
-    std::filesystem::remove_all(server.directory, ec);
-    if (ec) {
-        log_debug(LogUMD, "Could not remove {}: {}", server.directory.string(), ec.message());
-        return false;
-    }
-    return true;
-}
-
 // Host path: bring up the in-process backend (the direct hot path). Serving, if requested, is
 // started afterwards by the caller, once the host's topology is known -- it is part of what is served.
 std::unique_ptr<SimulationTTDevice> make_host_device(
@@ -189,19 +164,17 @@ SimulationConnector::ServerScan SimulationConnector::scan_servers() {
     ServerScan scan;
     for (const auto& [index, directory] : SimulationServerSocket::list_server_directories()) {
         SimulationServerInfo server{index, directory, SimulationServerSocket::sockets_in_directory(directory)};
-        if (!is_server_gone(server)) {
-            scan.live.push_back(std::move(server));
-            continue;
+        switch (SimulationServerSocket::sweep_server_directory(directory)) {
+            case SimulationServerSocket::SweepResult::Live:
+                scan.live.push_back(std::move(server));
+                break;
+            case SimulationServerSocket::SweepResult::Removed:
+                scan.removed.push_back(std::move(server));
+                break;
+            case SimulationServerSocket::SweepResult::Unremovable:
+                // Not a server anything can attach to, and not ours to clear up: in neither half.
+                break;
         }
-        // Asked again immediately before removing: the probe above and the removal are not one
-        // operation, and a host may bind a stale socket in between (SimulationServerSocket::create
-        // reclaims one). This narrows that window; only a claim on the directory itself would
-        // close it.
-        if (is_server_gone(server) && remove_server_directory(server)) {
-            scan.removed.push_back(std::move(server));
-        }
-        // A server that is gone and could not be removed is in neither half: not a server anything
-        // can attach to, and not ours to clear up.
     }
     return scan;
 }

@@ -133,7 +133,7 @@ flowchart TB
    sim_server prune
    ```
 
-   It removes the directories and logs of servers that no longer answer, and leaves live ones alone.
+   It removes the directories and logs of servers whose host is gone, and leaves live ones alone.
 
 At a glance, over the life of one server:
 
@@ -260,7 +260,11 @@ client — there is no separate "connect" call.
 - **Sockets.** One per chip, inside that server's directory, named `tt-umd-sim-<chip_id>.sock`. A
   server directory *is* what a client points at, and what `sim_server list` scans — there is no
   central registry, just the directories present on disk. When a server shuts down it removes its
-  sockets and its (now-empty) directory.
+  sockets and its directory.
+- **Claim.** The process that allocates a server directory holds an `flock` on `server.lock` inside
+  it for as long as it lives, and the kernel drops it however that process ends. The sweep in
+  `list` and `prune` removes a directory only once nobody holds that lock, so it never takes a
+  server that is starting or running, and clears up after one that died at any point.
 - **Server logs.** Started with `--detach`, a host is detached from your terminal and its output
   goes to a per-server log in the temporary directory, named after the server directory:
   `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started without

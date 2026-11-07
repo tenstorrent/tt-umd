@@ -98,8 +98,6 @@ TEST(SimulationConnector, CreatesPrivateHostDeviceWhenNotServing) {
     ASSERT_EQ(devices.size(), 1u);
     EXPECT_NE(devices.at(0), nullptr);              // a usable host device...
     EXPECT_FALSE(std::filesystem::exists(socket));  // ...that published no socket
-
-    std::filesystem::remove(server_directory);
 }
 
 // discover() decides the role from what simulator_directory points at (a .so file hosts TTSim, a
@@ -451,15 +449,14 @@ TEST(SimulationConnector, ReportsClientConnection) {
 // sockets a crashed host left behind is not a server to attach to, and saying so beats falling
 // through to hosting an RTL build out of a server directory. Needs no simulator.
 TEST(SimulationConnector, ThrowsOnADirectoryOfOnlyStaleSockets) {
-    // Nothing ever hosts this directory, so no server teardown removes it: the guard does.
-    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
-    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory, 0));
 
     // Classification is what rejects it, so both entry points do.
-    EXPECT_THROW(SimulationConnector::role_for(directory.path()), std::exception);
+    EXPECT_THROW(SimulationConnector::role_for(directory), std::exception);
 
     SimulationConnectorOptions options;
-    options.simulator_directory = directory.path();
+    options.simulator_directory = directory;
     EXPECT_THROW(SimulationConnector::discover(options), std::exception);
 }
 
@@ -471,22 +468,20 @@ TEST(SimulationConnector, IgnoresAStaleSocketBesideALiveOne) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    // The stale socket below keeps the host's teardown from removing the directory (it only rmdir's
-    // an empty one), and the ASSERT_EQ can return before any cleanup line: the guard covers both.
-    const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
     host_options.serve_over_sockets = true;
-    host_options.server_directory = server_directory.path();
+    host_options.server_directory = server_directory;
     const SimulationConnector::Result host = SimulationConnector::discover(host_options);
     ASSERT_EQ(host.devices.size(), 1u);  // the live host serves chip 0
 
     // A second chip's socket, left behind by a host that is gone.
-    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(server_directory.path(), 1));
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(server_directory, 1));
 
     SimulationConnectorOptions client_options;
-    client_options.simulator_directory = server_directory.path();
+    client_options.simulator_directory = server_directory;
     const SimulationConnector::Result client = SimulationConnector::discover(client_options);
 
     EXPECT_EQ(client.connection.role, SimulationConnector::Role::Client);
@@ -501,9 +496,9 @@ TEST(SimulationConnector, IgnoresAStaleSocketBesideALiveOne) {
 // Nothing can attach to that directory, so it is not a server: listing must both leave it out and
 // clear it up, without anyone having to ask for a sweep. Needs no simulator.
 TEST(SimulationConnector, ListingLeavesOutAndClearsUpAServerWhoseHostIsGone) {
-    // Nothing ever hosts this directory, so no server teardown removes it if an assertion bails.
-    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+    test_utils::ServerDirectoryOfAnotherProcess directory;
     test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    directory.kill_owner();
 
     EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 0);
     EXPECT_FALSE(std::filesystem::exists(directory.path()));
@@ -512,8 +507,9 @@ TEST(SimulationConnector, ListingLeavesOutAndClearsUpAServerWhoseHostIsGone) {
 // The same sweep, reported rather than silent: a caller that wants to clear up without listing --
 // and to say what it cleared up -- gets the servers that were removed. Needs no simulator.
 TEST(SimulationConnector, PruneReportsTheServerItCleared) {
-    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+    test_utils::ServerDirectoryOfAnotherProcess directory;
     test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    directory.kill_owner();
 
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 1);
     EXPECT_FALSE(std::filesystem::exists(directory.path()));
@@ -521,30 +517,61 @@ TEST(SimulationConnector, PruneReportsTheServerItCleared) {
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
 }
 
+// A host that died after claiming its directory but before binding a socket left nothing to probe,
+// yet its claim says it is gone. Needs no simulator.
+TEST(SimulationConnector, PruneClearsUpAServerWhoseHostDiedBeforeServing) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 1);
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
+}
+
+// A directory made by a UMD that predates claims has none to test, so its sockets decide: one whose
+// every socket is stale is gone. Needs no simulator.
+TEST(SimulationConnector, PruneClearsUpAnUnclaimedServerWhoseSocketsAreStale) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    std::filesystem::remove(directory.path() / "server.lock");
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    directory.kill_owner();
+
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 1);
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
+}
+
 // Both halves come from one pass, so a caller acting on the live list and on what was swept sees
 // one consistent view rather than two scans that can disagree. Needs no simulator.
 TEST(SimulationConnector, ScanReportsBothHalvesFromOnePass) {
-    const test_utils::ScopedServerDirectory gone(SimulationServerSocket::allocate_server_directory());
-    const test_utils::ScopedServerDirectory coming_up(SimulationServerSocket::allocate_server_directory());
-    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(gone.path(), 0));
+    test_utils::ServerDirectoryOfAnotherProcess gone;
+    gone.kill_owner();
+    const std::filesystem::path coming_up = SimulationServerSocket::allocate_server_directory();
 
     const SimulationConnector::ServerScan scan = SimulationConnector::scan_servers();
 
     EXPECT_EQ(count_directory(scan.removed, gone.path()), 1);
     EXPECT_EQ(count_directory(scan.live, gone.path()), 0);
-    // The socket-less directory is on the other side of the same pass.
-    EXPECT_EQ(count_directory(scan.live, coming_up.path()), 1);
+    // The directory this process claimed is on the other side of the same pass.
+    EXPECT_EQ(count_directory(scan.live, coming_up), 1);
     EXPECT_FALSE(std::filesystem::exists(gone.path()));
-    EXPECT_TRUE(std::filesystem::is_directory(coming_up.path()));
+    EXPECT_TRUE(std::filesystem::is_directory(coming_up));
 }
 
-// A host that has claimed its directory and not bound its socket yet is indistinguishable from one
-// that died before it could. Neither the listing nor the sweep may act on that, or a server would
-// be swept out from under itself as it starts. Needs no simulator.
-TEST(SimulationConnector, KeepsAServerDirectoryWithNoSocketYet) {
-    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+// A host that has claimed its directory and not bound its socket yet is still coming up, so neither
+// the listing nor the sweep may act on it. Needs no simulator.
+TEST(SimulationConnector, KeepsAClaimedServerDirectoryWithNoSocketYet) {
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
 
-    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory), 0);
+    EXPECT_TRUE(std::filesystem::is_directory(directory));
+}
+
+// The claim, not the sockets, is what keeps a server: one whose owner lives is kept even when every
+// socket in it is stale. Needs no simulator.
+TEST(SimulationConnector, KeepsAServerWhoseOwnerIsAliveDespiteStaleSockets) {
+    const test_utils::ServerDirectoryOfAnotherProcess directory;
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
     EXPECT_TRUE(std::filesystem::is_directory(directory.path()));
 }
@@ -557,18 +584,18 @@ TEST(SimulationConnector, KeepsAServerWithALiveHost) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;
-    options.server_directory = server_directory.path();
+    options.server_directory = server_directory;
     const SimulationConnector::Result host = SimulationConnector::discover(options);
     ASSERT_EQ(host.devices.size(), 1u);
 
-    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), server_directory.path()), 1);
-    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), server_directory.path()), 0);
-    EXPECT_TRUE(std::filesystem::exists(SimulationServerSocket::default_socket_path(server_directory.path(), 0)));
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), server_directory), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), server_directory), 0);
+    EXPECT_TRUE(std::filesystem::exists(SimulationServerSocket::default_socket_path(server_directory, 0)));
 }
 
 // Opening devices is only half of what a caller needs: how they are wired together is the other
@@ -636,17 +663,17 @@ TEST(SimulationConnector, ClientTakesTheTopologyFromTheHost) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
     host_options.serve_over_sockets = true;
-    host_options.server_directory = server_directory.path();
+    host_options.server_directory = server_directory;
     const SimulationConnector::Result host = SimulationConnector::discover(host_options);
     ASSERT_NE(host.cluster_descriptor, nullptr);
 
     SimulationConnectorOptions client_options;
-    client_options.simulator_directory = server_directory.path();
+    client_options.simulator_directory = server_directory;
     const SimulationConnector::Result client = SimulationConnector::discover(client_options);
 
     ASSERT_NE(client.cluster_descriptor, nullptr);

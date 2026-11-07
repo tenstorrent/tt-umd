@@ -167,7 +167,7 @@ pointing at a specific server's directory. It has four subcommands:
   PID/signal because the socket is world-writable and cross-user, while a signal would be same-uid
   only.
 - `prune` — the same sweep `list` does, reported: removes the directories, and the logs, of
-  servers that no longer answer, and names each one.
+  servers whose host is gone, and names each one.
 
 `start` runs in the foreground by default, so a failure is visible and the exit code is real, and
 `Ctrl-C` or `SIGTERM` stops the host. `--detach` is what you want for anything long-running: the
@@ -179,8 +179,9 @@ A host removes its own server directory when it shuts down gracefully, so a host
 crashed leaves one behind. You do not have to clean up after it: enumerating the servers is also
 what clears up after the ones that are gone, so `list` neither reports such a server nor leaves its
 directory and log lying around. `sim_server prune` runs the same sweep and names what it removed.
-A directory whose host has not bound a socket yet shows as `empty`, and both leave it be: it cannot
-be told apart from a host that is still coming up.
+A server's process holds a lock on its directory for as long as it lives, and the sweep removes a
+directory only once that lock is free, so it never takes a host that is still coming up and does
+clear up after one that died before serving.
 
 You can run the following for more information:
 ```

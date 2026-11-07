@@ -116,7 +116,8 @@ void redirect_standard_streams(const std::filesystem::path& log) {
 int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     // Claim the directory up front rather than letting Cluster pick one: it names the log, it is
     // reported on stdout in a form a caller can parse (Cluster logs it too, but a log line is not an
-    // interface), and failing to claim one stays visible in the foreground.
+    // interface), and failing to claim one stays visible in the foreground. A detached host inherits
+    // the claim across the fork below and keeps it after this parent returns.
     const std::filesystem::path server_directory = SimulationConnector::allocate_server_directory();
 
     // Write end of the readiness pipe once detached; -1 while running in the foreground. The child

@@ -268,12 +268,14 @@ jobs:
           # is the *host* path, so use the working directory the sim paths were prepared in instead.
           simulator=$(pwd)/sim_bh/libttsim.so
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
-          ./sim_server start --detach "$simulator"
+          ./sim_server start --detach "$simulator" | tee /tmp/sim_server_start.txt
+          log=$(sed -n 's/^sim_server up: .*, log \(.*\)$/\1/p' /tmp/sim_server_start.txt)
           ./sim_server list | tee /tmp/sim_server_list.txt
           grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
           grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
+          test ! -e "$log"  # a host that shut down cleanly takes its log with it
 
           # prune clears up after a host that was killed rather than asked to stop, so it needs one
           # that died: start a second host and SIGKILL it.

@@ -1,6 +1,7 @@
 set(MICROBENCHMARK_SRC_FILES
     src/main.cpp
-    src/test.cpp
+    src/benchmark_tlb.cpp
+    src/benchmark_startup.cpp
 )
 add_executable(microbenchmarks ${MICROBENCHMARK_SRC_FILES})
 target_link_libraries(

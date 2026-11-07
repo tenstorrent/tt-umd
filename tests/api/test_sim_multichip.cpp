@@ -781,13 +781,13 @@ TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     ASSERT_NE(cluster_desc, nullptr);
 
-    // MAX_HOST_MEM_CHANNELS lives in a private header; the auto-detect caps at it.
-    constexpr size_t max_host_mem_channels = 4;
+    // The auto-detect caps at the per-device channel limit.
     size_t max_chips_per_mmio = 0;
     for (const auto& [_, chips] : cluster_desc->get_chips_grouped_by_closest_mmio()) {
         max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
     }
-    const size_t expected_channels = std::min(max_host_mem_channels, max_chips_per_mmio);
+    const size_t expected_channels =
+        std::min(static_cast<size_t>(SysmemManager::MAX_HOST_MEM_CHANNELS), max_chips_per_mmio);
     ASSERT_GT(expected_channels, 0u);
 
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {

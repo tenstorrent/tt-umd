@@ -146,9 +146,12 @@ SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_hos
     communication_id_ = tt_device->get_communication_device_id();
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
     UMD_ASSERT(
-        num_host_mem_channels <= 4,
+        num_host_mem_channels <= MAX_HOST_MEM_CHANNELS,
         error::RuntimeError,
-        fmt::format("Only 4 host memory channels are supported per device, but {} requested.", num_host_mem_channels));
+        fmt::format(
+            "Only {} host memory channels are supported per device, but {} requested.",
+            MAX_HOST_MEM_CHANNELS,
+            num_host_mem_channels));
 
     SiliconSysmemManager::init_sysmem(num_host_mem_channels);
 }

@@ -59,12 +59,13 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         return true;
     }
 
-    if (num_host_mem_channels > 4) {
+    if (num_host_mem_channels > MAX_HOST_MEM_CHANNELS) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "SimulationSysmemManager::init_hugepages: num_host_mem_channels {} exceeds max supported 4 channels.",
-                num_host_mem_channels));
+                "SimulationSysmemManager::init_hugepages: num_host_mem_channels {} exceeds max supported {} channels.",
+                num_host_mem_channels,
+                MAX_HOST_MEM_CHANNELS));
     }
 
     uint64_t total_size = num_host_mem_channels * (1ULL << 30);

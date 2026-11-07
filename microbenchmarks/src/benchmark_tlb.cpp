@@ -70,8 +70,7 @@ protected:
 
 TEST_F(TLB, IOSpeed) {
     const std::vector<Target> targets = {TENSIX, DRAM, ETH};
-    const std::vector<std::string> context_variables = {
-        "device", "api_level", "direction", "core", "coretype", "ordering"};
+    const std::vector<std::string> context_variables = {"api_level", "direction", "core", "coretype", "ordering"};
     const std::vector<IoOrdering> orderings = {IoOrdering::Relaxed, IoOrdering::Strict};
     std::vector<uint8_t> data(DRAM.batch_sizes.back());
 
@@ -91,12 +90,10 @@ TEST_F(TLB, IOSpeed) {
                     if (fit_window_only && batch_size > target.window_size) {
                         continue;
                     }
-                    const std::string device = std::to_string(DEVICE);
                     const std::string core = target.core.str();
                     const std::string core_type = to_str(target.core.core_type);
                     const std::string ordering_name = to_str(ordering);
-                    bench.context("device", device)
-                        .context("api_level", api_level)
+                    bench.context("api_level", api_level)
                         .context("direction", direction)
                         .context("core", core)
                         .context("coretype", core_type)
@@ -104,8 +101,7 @@ TEST_F(TLB, IOSpeed) {
                         .batch(batch_size);
 
                     const std::string name = fmt::format(
-                        "device: {}, api_level: {}, direction: {}, core: {}, coretype: {}, ordering: {}, batch: {}",
-                        device,
+                        "api_level: {}, direction: {}, core: {}, coretype: {}, ordering: {}, batch: {}",
                         api_level,
                         direction,
                         core,

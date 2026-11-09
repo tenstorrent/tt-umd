@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <tt-umd/types/cluster_descriptor_types.hpp>
 #include <vector>
 
@@ -41,20 +42,36 @@ inline std::string format_with_unit(double value, const std::string& unit) {
     return fmt::format("{:g} B", value);
 }
 
-// Builds nanobench's JSON template with a "context" object per result holding the given context variables, since the
-// stock template omits them. Every rendered result must have set each listed variable via Bench::context(), otherwise
-// rendering throws.
+inline constexpr std::string_view CONTEXT_PLACEHOLDER = "@CONTEXT@";
+
+// Variant of nanobench's stock JSON template with flat field names instead of parenthesised keys such as
+// "median(elapsed)", which are awkward database field names. The raw measurements are left out and the per-result
+// context is added. All values are nanobench's own, derived values are left to the consumer of the JSON.
+inline constexpr std::string_view JSON_TEMPLATE = R"DELIM({
+    "results": [
+{{#result}}        {
+            "context": @CONTEXT@,
+            "title": "{{title}}",
+            "name": "{{name}}",
+            "unit": "{{unit}}",
+            "batch": {{batch}},
+            "elapsed": {{median(elapsed)}},
+            "elapsed_error": {{medianAbsolutePercentError(elapsed)}}
+        }{{^-last}},{{/-last}}
+{{/result}}    ]
+})DELIM";
+
+// Fills the template's "context" object with the given context variables. Every rendered result must have set each
+// listed variable via Bench::context(), otherwise rendering throws.
 inline std::string make_json_template(const std::vector<std::string>& context_variables) {
-    std::string tmpl = ankerl::nanobench::templates::json();
-    if (context_variables.empty()) {
-        return tmpl;
-    }
-    std::string context = "\"context\": {";
+    std::string context = "{";
     for (const std::string& variable : context_variables) {
-        context += fmt::format(R"("{0}": "{{{{context({0})}}}}",)", variable);
+        const char* separator = context.size() > 1 ? ", " : "";
+        context += fmt::format(R"({}"{}": "{{{{context({})}}}}")", separator, variable, variable);
     }
-    context.back() = '}';  // Replaces the last variable's trailing comma.
-    tmpl.insert(tmpl.find("\"title\""), context + ",\n            ");
+    context += "}";
+    std::string tmpl(JSON_TEMPLATE);
+    tmpl.replace(tmpl.find(CONTEXT_PLACEHOLDER), CONTEXT_PLACEHOLDER.size(), context);
     return tmpl;
 }
 

@@ -22,6 +22,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
+#include <tt-umd/chip_helpers/host_cache.hpp>
 
 namespace tt::umd {
 
@@ -125,11 +126,13 @@ void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const siz
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
     memcpy(static_cast<uint8_t*>(get_va()) + offset, src, size);
+    host_cache::clean_range(static_cast<uint8_t*>(get_va()) + offset, size);
 }
 
 void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
+    host_cache::invalidate_range(static_cast<const uint8_t*>(get_va()) + offset, size);
     memcpy(dest, static_cast<const uint8_t*>(get_va()) + offset, size);
 }
 

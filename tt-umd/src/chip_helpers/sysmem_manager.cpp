@@ -14,6 +14,7 @@
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
+#include <tt-umd/chip_helpers/host_cache.hpp>
 
 namespace tt::umd {
 
@@ -47,6 +48,10 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
 
     memcpy(user_scratchspace, src, size);
+
+    // The device DMA-reads this back out of DRAM, so the host's stores have to be written back on a
+    // platform that does not snoop. No-op where it does.
+    host_cache::clean_range(user_scratchspace, size);
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
@@ -74,6 +79,8 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
             channel,
             user_scratchspace);
     }
+    // The device DMA-wrote this, so drop any cached lines first and let the copy refetch from DRAM.
+    host_cache::invalidate_range(user_scratchspace, size);
     memcpy(dest, user_scratchspace, size);
 }
 

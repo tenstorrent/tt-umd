@@ -33,7 +33,7 @@ TTDevice provides two levels of functionality:
 
 ```cpp
 // Create device
-std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
+std::unique_ptr<TTDevice> device = create_tt_device(device_id);
 
 // Basic operations work immediately
 tt::ARCH arch = device->get_arch();

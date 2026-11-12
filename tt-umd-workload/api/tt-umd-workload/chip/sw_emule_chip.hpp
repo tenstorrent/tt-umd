@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 
 namespace tt_emule {
@@ -24,6 +25,7 @@ class L1Pool;
 namespace tt::umd {
 
 class SimulationSysmemManager;
+class IoWindow;
 
 // TRANSLATED Tensix core -> worker-pool slot, in the SoC descriptor's deterministic order.
 //
@@ -102,6 +104,10 @@ public:
     int get_numa_node() override;
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+
+    // A host window onto one core's emulated memory: every access goes through write_to_device /
+    // read_from_device, so a store through it is a host write the core observes.
+    std::unique_ptr<IoWindow> create_io_window(const TargetIoWindowConfig& target, const HostIoWindowConfig& host);
 
     // Public accessors.
     uint32_t l1_size() const { return l1_size_; }

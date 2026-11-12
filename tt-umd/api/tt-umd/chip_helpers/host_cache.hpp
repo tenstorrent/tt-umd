@@ -136,23 +136,40 @@ inline bool platform_is_dma_coherent(const char* pci_bdf = nullptr) {
     return false;
 }
 
-inline bool maintenance_enabled() { return cbo_info().usable && !platform_is_dma_coherent(); }
+// Everything the call sites need, resolved from one evaluation.
+//
+// `enabled == false` means two very different things, and conflating them is how a non-coherent host
+// ends up silently corrupting sysmem: either the platform snoops and no maintenance is needed, or it
+// does not snoop and we cannot do anything about it. `required_but_unavailable` reports the second
+// case so callers can say so loudly instead of proceeding as though all were well.
+struct Decision {
+    bool enabled = false;
+    bool required_but_unavailable = false;
+    uint32_t block_bytes = 0;
+};
 
-inline bool available() {
-    static const bool enabled = maintenance_enabled();
-    return enabled;
+// Resolved on first use rather than at load time: the probe costs a syscall and a sysfs walk, and a
+// process that links UMD without ever touching sysmem should not pay for them. One function-local
+// static for all three answers, so the walk happens once and the hot path reads plain fields instead
+// of re-entering a guarded static per query.
+inline const Decision& decision() {
+    static const Decision resolved = [] {
+        const CboInfo& cbo = cbo_info();
+        const bool coherent = platform_is_dma_coherent();
+        return Decision{
+            .enabled = cbo.usable && !coherent,
+            .required_but_unavailable = !cbo.usable && !coherent,
+            .block_bytes = cbo.block_bytes,
+        };
+    }();
+    return resolved;
 }
 
-// `available() == false` means two very different things, and conflating them is how a non-coherent
-// host ends up silently corrupting sysmem: either the platform snoops and no maintenance is needed,
-// or it does not snoop and we cannot do anything about it. This reports the second case so callers
-// can say so loudly instead of proceeding as though all were well.
-inline bool maintenance_required_but_unavailable() {
-    static const bool unavailable = !cbo_info().usable && !platform_is_dma_coherent();
-    return unavailable;
-}
+inline bool available() { return decision().enabled; }
 
-inline uint32_t block_bytes() { return cbo_info().block_bytes; }
+inline bool maintenance_required_but_unavailable() { return decision().required_but_unavailable; }
+
+inline uint32_t block_bytes() { return decision().block_bytes; }
 
 // Emitted under a local `.option arch` so the rest of the build keeps its base -march; Zicbom need
 // not be in it.
@@ -194,13 +211,23 @@ inline void barrier_to_device() { __asm__ volatile("fence ow,ow" ::: "memory"); 
 
 #else
 
-inline bool available() { return false; }
+// Same shape as the riscv64 decision so the range functions below need no #if of their own, but
+// constexpr, so every caller folds to nothing. Off riscv64 we cannot tell whether the platform
+// snoops, and every host tt-umd currently runs on other than riscv64 does, so report no fault
+// rather than a false alarm.
+struct Decision {
+    bool enabled = false;
+    bool required_but_unavailable = false;
+    uint32_t block_bytes = 0;
+};
 
-// Off riscv64 we cannot tell, and every host tt-umd currently runs on other than riscv64 snoops
-// inbound DMA, so report no fault rather than a false alarm.
-inline bool maintenance_required_but_unavailable() { return false; }
+constexpr Decision decision() { return {}; }
 
-inline uint32_t block_bytes() { return 0; }
+constexpr bool available() { return false; }
+
+constexpr bool maintenance_required_but_unavailable() { return false; }
+
+constexpr uint32_t block_bytes() { return 0; }
 
 inline void clean_block(const void*) {}
 
@@ -215,11 +242,10 @@ inline void barrier_to_device() {}
 // Apply `op` to every cache block overlapping [start, start + bytes). Striding byte offsets from
 // start instead would leave the final block untouched whenever start is not block-aligned.
 template <typename Op>
-inline void for_each_block(const void* start, size_t bytes, Op op) {
-    if (bytes == 0 || !available()) {
+inline void for_each_block(const void* start, size_t bytes, uint32_t stride, Op op) {
+    if (bytes == 0) {
         return;
     }
-    const uint32_t stride = block_bytes();
     const auto addr = reinterpret_cast<uintptr_t>(start);
     const auto mask = ~static_cast<uintptr_t>(stride - 1);
     for (uintptr_t block = addr & mask; block <= ((addr + bytes - 1) & mask); block += stride) {
@@ -229,21 +255,23 @@ inline void for_each_block(const void* start, size_t bytes, Op op) {
 
 // Call after the host writes [start, start + bytes) that the device will DMA-read.
 inline void clean_range(const void* start, size_t bytes) {
-    if (!available()) {
+    const Decision d = decision();
+    if (!d.enabled) {
         return;
     }
     barrier();  // the stores being written back must be complete first
-    for_each_block(start, bytes, [](const void* block) { clean_block(block); });
+    for_each_block(start, bytes, d.block_bytes, [](const void* block) { clean_block(block); });
     barrier_to_device();  // ordered against the device-visible store that follows, not just memory
 }
 
 // Call before the host reads [start, start + bytes) that the device has DMA-written.
 inline void invalidate_range(const void* start, size_t bytes) {
-    if (!available()) {
+    const Decision d = decision();
+    if (!d.enabled) {
         return;
     }
     barrier();
-    for_each_block(start, bytes, [](const void* block) { invalidate_block(block); });
+    for_each_block(start, bytes, d.block_bytes, [](const void* block) { invalidate_block(block); });
     barrier();  // order the invalidates against the loads that follow
 }
 

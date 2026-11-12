@@ -23,7 +23,7 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/tlb.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -52,15 +52,15 @@ void print_usage() {
               << "                     [--ordering relaxed|posted|strict]" << std::endl;
 }
 
-uint64_t parse_ordering(const std::string& name) {
+IoOrdering parse_ordering(const std::string& name) {
     if (name == "relaxed") {
-        return tlb_data::Relaxed;
+        return IoOrdering::Relaxed;
     }
     if (name == "posted") {
-        return tlb_data::Posted;
+        return IoOrdering::Posted;
     }
     if (name == "strict") {
-        return tlb_data::Strict;
+        return IoOrdering::Strict;
     }
     throw std::runtime_error("--ordering must be relaxed, posted or strict, got '" + name + "'");
 }
@@ -107,7 +107,7 @@ int run(int argc, char** argv) {
         return 1;
     }
     const bool is_read = (args.op == "read");
-    const uint64_t ordering = parse_ordering(args.ordering);
+    const IoOrdering ordering = parse_ordering(args.ordering);
 
     // --- UMD side: export a TLB window as a dma-buf ------------------------------------------
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

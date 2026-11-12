@@ -234,6 +234,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/simulation_device_factory.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
+                api/tt-umd/tt_device/protocol/peer_dma_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp

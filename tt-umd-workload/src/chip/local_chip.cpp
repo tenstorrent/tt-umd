@@ -282,7 +282,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     tt_device_->dma_read(dst, addr, size, core, get_selected_noc_id());
 }
 
-int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering) {
     return tt_device_->export_dmabuf(core, addr, size, ordering, get_selected_noc_id());
 }
 

@@ -37,6 +37,7 @@
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/tt_device/protocol/remote_interface.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
@@ -680,11 +681,12 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
-int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
-    if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for remote device.");
+int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    PeerDmaInterface *peer_dma_interface = model_->get_peer_dma_interface();
+    if (!peer_dma_interface) {
+        UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for this device.");
     }
-    return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+    return peer_dma_interface->export_window(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {

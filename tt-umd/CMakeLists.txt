@@ -88,6 +88,7 @@ target_sources(
         src/tt_device/hang_detection/wormhole_hang_detector.cpp
         src/tt_device/hang_detection/blackhole_hang_detector.cpp
         src/tt_device/firmware/blackhole_arc_apb.cpp
+        src/tt_device/firmware/blackhole_arc_message_queue.cpp
         src/tt_device/firmware/blackhole_device_firmware.cpp
         src/tt_device/firmware/wormhole_arc_window.cpp
         src/tt_device/firmware/wormhole_device_firmware.cpp
@@ -110,7 +111,6 @@ target_sources(
         src/arc/wormhole_arc_telemetry_reader.cpp
         src/arc/blackhole_arc_telemetry_reader.cpp
         src/arc/smbus_arc_telemetry_reader.cpp
-        src/arc/blackhole_arc_message_queue.cpp
         src/noc_access.cpp
         src/warm_reset.cpp
         src/warm_reset_with_recovery.cpp
@@ -237,6 +237,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp
+                api/tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp
                 api/tt-umd/tt_device/firmware/device_firmware.hpp
                 api/tt-umd/tt_device/firmware/wormhole_arc_window.hpp
                 api/tt-umd/tt_device/remote_communication.hpp

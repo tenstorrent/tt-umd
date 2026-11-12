@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-class RtlSimCommunicator;
+class RtlSimProtocol;
 class SocDescriptor;
 class TlbHandle;
 struct tlb_data;
@@ -24,14 +24,14 @@ class EndpointResolver;
 
 /**
  * RTL simulation TlbWindow implementation that translates TLB-based memory access
- * into read/write calls on RtlSimCommunicator.
+ * into read/write calls on RtlSimProtocol.
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
  *
  * This is the one TlbWindow that can honor a WindowFlag: on a device that sends
  * coordinates, WindowFlags::Snoop requested through configure(TargetIoWindowConfig)
  * is translated into AXI awuser/aruser bit 8 (cce_cmd_snoop) and forwarded to the
- * communicator on every access.
+ * protocol on every access.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:
@@ -44,7 +44,7 @@ public:
      */
     RtlSimTlbWindow(
         std::unique_ptr<TlbHandle> handle,
-        RtlSimCommunicator* communicator,
+        RtlSimProtocol* protocol,
         const att::EndpointResolver* resolver,
         const SocDescriptor* soc_descriptor,
         const tlb_data config = {});
@@ -69,16 +69,16 @@ protected:
 
 private:
     /**
-     * Translate a TLB window offset to (core, address) and perform a write via the communicator.
+     * Translate a TLB window offset to (core, address) and perform a write via the protocol.
      */
     void translate_and_write(uint64_t offset, const void* data, size_t size);
 
     /**
-     * Translate a TLB window offset to (core, address) and perform a read via the communicator.
+     * Translate a TLB window offset to (core, address) and perform a read via the protocol.
      */
     void translate_and_read(uint64_t offset, void* data, size_t size);
 
-    RtlSimCommunicator* communicator_;
+    RtlSimProtocol* protocol_;
     const att::EndpointResolver* resolver_;
     const SocDescriptor* soc_descriptor_;
 };

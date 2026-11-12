@@ -9,8 +9,8 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/rtl_sim_protocol.hpp"
 
 namespace tt::umd {
 
@@ -58,15 +58,15 @@ const std::vector<RtlSimAttProgram::RegisterWrite>& RtlSimAttProgram::get_writes
     return it == writes_.end() ? none : it->second;
 }
 
-void RtlSimAttProgram::apply(IpDeviceId device, RtlSimCommunicator& communicator) const {
+void RtlSimAttProgram::apply(IpDeviceId device, RtlSimProtocol& protocol) const {
     const std::vector<RegisterWrite>& writes = get_writes(device);
     for (const RegisterWrite& write : writes) {
-        communicator.tile_write_bytes(write.core.x, write.core.y, write.address, &write.value, sizeof(write.value));
+        protocol.tile_write_bytes(write.core, write.address, &write.value, sizeof(write.value));
         // Read each register back: a write to a wrong or unreachable ATT register is dropped silently
         // and would otherwise surface much later, as a hang. The read also completes the write before
         // the next one, so the program lands in order, and all of it before any core starts.
         uint32_t readback = 0;
-        communicator.tile_read_bytes(write.core.x, write.core.y, write.address, &readback, sizeof(readback));
+        protocol.tile_read_bytes(write.core, write.address, &readback, sizeof(readback));
         UMD_ASSERT(
             readback == write.value,
             error::RuntimeError,

@@ -16,13 +16,13 @@ namespace tt::umd {
 /**
  * HangDetector checks whether the device hardware is hung.
  *
- * Depends only on DeviceProtocol for I/O. For BAR access it requires
+ * Depends only on DeviceProtocol for I/O. For bus access it requires
  * a PcieInterface — returns std::nullopt if unavailable.
  * For NOC access it requires a non-remote protocol (PCIe or JTAG) —
  * returns std::nullopt for remote protocols.
  *
  * Arch-specific variants (Wormhole, Blackhole) override the protected
- * read_hang_check_reg_via_bar() and read_hang_check_reg_via_noc(NocId noc) with the
+ * read_hang_check_reg_via_bus() and read_hang_check_reg_via_noc(NocId noc) with the
  * appropriate core type.
  */
 class HangDetector {
@@ -36,10 +36,10 @@ public:
 
 protected:
     // Arch-specific implementations.
-    virtual uint32_t read_hang_check_reg_via_bar() = 0;
+    virtual uint32_t read_hang_check_reg_via_bus() = 0;
     virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
-    virtual bool is_bus_available() = 0;
-    virtual bool is_noc_available() = 0;
+    virtual bool is_bus_available() const = 0;
+    virtual bool is_noc_available() const = 0;
 };
 
 }  // namespace tt::umd

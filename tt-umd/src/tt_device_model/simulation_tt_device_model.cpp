@@ -53,13 +53,13 @@ std::shared_ptr<SocArchDescriptor> resolve(
 // serving a PcieInterface is asked for one during startup.
 class SimulationHangDetector final : public HangDetector {
 protected:
-    uint32_t read_hang_check_reg_via_bar() override { return 0; }
+    uint32_t read_hang_check_reg_via_bus() override { return 0; }
 
     uint32_t read_hang_check_reg_via_noc(NocId /*noc*/) override { return 0; }
 
-    bool is_bus_available() override { return true; }
+    bool is_bus_available() const override { return true; }
 
-    bool is_noc_available() override { return true; }
+    bool is_noc_available() const override { return true; }
 };
 
 }  // namespace

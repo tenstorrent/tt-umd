@@ -896,10 +896,10 @@ int tt_lock_test(tt_device_t* dev, uint8_t index, uint32_t* out_state) {
 }
 
 /* Records are read straight into the caller's buffer, so the public record must match the ABI's. */
-#define ASSERT_SAME_EVENT_FIELD(field)                                                        \
-    _Static_assert(                                                                           \
-        offsetof(tt_event_t, field) == offsetof(struct tenstorrent_event, field) &&           \
-            sizeof(((tt_event_t*)0)->field) == sizeof(((struct tenstorrent_event*)0)->field), \
+#define ASSERT_SAME_EVENT_FIELD(field)                                                          \
+    _Static_assert(                                                                             \
+        (offsetof(tt_event_t, field) == offsetof(struct tenstorrent_event, field)) &&           \
+            (sizeof(((tt_event_t*)0)->field) == sizeof(((struct tenstorrent_event*)0)->field)), \
         "tt_event_t." #field " does not match struct tenstorrent_event")
 _Static_assert(sizeof(tt_event_t) == sizeof(struct tenstorrent_event), "tt_event_t size mismatch");
 ASSERT_SAME_EVENT_FIELD(seq);
@@ -915,7 +915,7 @@ static int read_events_ioctl(
     tt_device_t* dev, tt_event_t* events, uint32_t capacity, uint32_t flags, struct tenstorrent_read_events* read) {
     memset(read, 0, sizeof(*read));
     read->argsz = sizeof(*read);
-    read->flags = flags & TT_READ_EVENTS_FLAG_FROM_OLDEST ? TENSTORRENT_READ_EVENTS_FROM_OLDEST : 0;
+    read->flags = (flags & TT_READ_EVENTS_FLAG_FROM_OLDEST) ? TENSTORRENT_READ_EVENTS_FROM_OLDEST : 0;
     read->capacity = capacity;
     read->events_ptr = (uint64_t)(uintptr_t)events;
 
@@ -936,7 +936,7 @@ int tt_device_read_events(
     uint32_t* out_count,
     uint32_t* out_lost,
     int* out_fw_attached) {
-    if (dev == NULL || (events == NULL && capacity > 0) || out_count == NULL) {
+    if ((dev == NULL) || ((events == NULL) && (capacity > 0)) || (out_count == NULL)) {
         return -EINVAL;
     }
 
@@ -954,16 +954,16 @@ int tt_device_read_events(
 
     /* A read that found nothing skipped nothing either, so the second read's lost count is the whole
      * of it. */
-    if (read.count == 0 && capacity > 0 && timeout_ms != 0) {
+    if ((read.count == 0) && (capacity > 0) && (timeout_ms != 0)) {
         /* poll() ignores an entry with a negative fd, so no wake_fd needs no special case. */
         struct pollfd pfds[2] = {{.fd = dev->fd, .events = POLLIN}, {.fd = wake_fd, .events = POLLIN}};
-        int ready = poll(pfds, 2, timeout_ms < 0 ? -1 : timeout_ms);
+        int ready = poll(pfds, 2, (timeout_ms < 0) ? -1 : timeout_ms);
         if (ready < 0) {
             return -errno;
         }
 
         /* Any records that arrived meanwhile stay unread for the next call. */
-        if (pfds[1].revents & POLLIN) {
+        if ((pfds[1].revents & POLLIN) != 0) {
             return -ECANCELED;
         }
 
@@ -977,10 +977,10 @@ int tt_device_read_events(
     }
 
     *out_count = read.count;
-    if (out_lost) {
+    if (out_lost != NULL) {
         *out_lost = read.lost;
     }
-    if (out_fw_attached) {
+    if (out_fw_attached != NULL) {
         *out_fw_attached = (read.status & TENSTORRENT_READ_EVENTS_STATUS_FW_ATTACHED) != 0;
     }
 

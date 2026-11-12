@@ -76,7 +76,7 @@ protected:
         uint16_t source, uint16_t repeat, uint32_t cause, uint32_t data0, uint32_t data1, uint32_t data2) {
         DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
             TEST_EVENT_RECORD_MSG,
-            {static_cast<uint32_t>(source) | static_cast<uint32_t>(repeat) << 16, cause, data0, data1, data2},
+            {static_cast<uint32_t>(source) | (static_cast<uint32_t>(repeat) << 16), cause, data0, data1, data2},
             timeout::ARC_MESSAGE_TIMEOUT);
         ASSERT_EQ(result.exit_code, 0u);
     }

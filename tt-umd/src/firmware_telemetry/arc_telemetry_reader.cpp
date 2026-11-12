@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 
 #include <fmt/format.h>
 
@@ -13,12 +13,12 @@
 #include <thread>
 #include <vector>
 
-#include "arc/blackhole_arc_telemetry_reader.hpp"
-#include "arc/wormhole_arc_telemetry_reader.hpp"
+#include "firmware_telemetry/blackhole_arc_telemetry_reader.hpp"
+#include "firmware_telemetry/wormhole_arc_telemetry_reader.hpp"
 #include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/noc_id.hpp"

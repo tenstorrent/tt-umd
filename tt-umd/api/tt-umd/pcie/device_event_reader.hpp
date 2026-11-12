@@ -87,7 +87,7 @@ private:
 
     std::string device_path_;
     tt_device_t* device_ = nullptr;
-    bool reset_pending_ = false;
+    bool post_reset_recovery_pending_ = false;
     int wake_fd_ = -1;  // eventfd that cancel() makes readable to end a wait.
 };
 

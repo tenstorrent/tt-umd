@@ -24,6 +24,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -49,7 +50,7 @@ static bool jtag_library_loadable() {
 static std::vector<std::unique_ptr<TTDevice>> keep_pcie_devices_busy() {
     std::vector<std::unique_ptr<TTDevice>> pcie_devices;
     for (int pci_device_id : PCIDevice::enumerate_devices()) {
-        auto pcie_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        auto pcie_device = create_tt_device(pci_device_id, IODeviceType::PCIe);
         pcie_device->set_power_state(TTDevice::PowerState::BUSY);
         pcie_devices.push_back(std::move(pcie_device));
     }
@@ -85,7 +86,7 @@ protected:
         busy_pcie_devices_ = keep_pcie_devices_busy();
         for (uint32_t jlink_serial : jlink_serials) {
             DeviceData device_data;
-            device_data.tt_device_ = TTDevice::create(static_cast<int>(jlink_serial), IODeviceType::JTAG);
+            device_data.tt_device_ = create_tt_device(static_cast<int>(jlink_serial), IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
             device_data.tensix_core_ = device_data.tt_device_->get_soc_descriptor()
                                            .get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0]
@@ -188,7 +189,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
 
     // Test shouldn't last long since there's a limited number of PCIe devices on the system.
     for (const auto& pci_device_id : pci_device_ids) {
-        auto pci_tt_device = TTDevice::create(pci_device_id, IODeviceType::PCIe);
+        auto pci_tt_device = create_tt_device(pci_device_id, IODeviceType::PCIe);
         if (!pci_tt_device) {
             UMD_THROW(error::RuntimeError, "Failed to create PCI TT device.");
         }

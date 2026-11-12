@@ -64,6 +64,9 @@ private:
     // Maps the hugepage file with this index, or returns nullptr after logging why it could not.
     void* map_hugepage(const std::string& hugepage_dir, uint16_t index);
 
+    // Maps a free hugepage file; dropping the last handle unmaps the page and frees its file.
+    std::shared_ptr<void> acquire_hugepage(const std::string& hugepage_dir);
+
     bool init_hugepages(uint32_t num_host_mem_channels);
 
     bool init_iommu(uint32_t num_fake_mem_channels);
@@ -74,7 +77,7 @@ private:
     void print_file_contents(const std::string& filename, const std::string& hint = "");
 
     struct HugepageFiles;
-    std::shared_ptr<HugepageFiles> hugepage_files_;
+    std::unique_ptr<HugepageFiles> hugepage_files_;
 };
 
 }  // namespace tt::umd

@@ -23,6 +23,7 @@
 #include "common/utils.hpp"
 #include "firmware/erisc_firmware.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "topology/topology_discovery_base.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
 #include "topology/topology_utils.hpp"
@@ -97,7 +98,7 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
 
 }  // namespace
 
-std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
+std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_discovery(
     const TopologyDiscoveryOptions& options) {
     // A simulator's architecture is read from the image itself rather than from the supplied
     // descriptor, which is what gives the cross-check below two things to compare -- a supplied
@@ -145,11 +146,11 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
     }
 }
 
-TopologyDiscovery::TopologyDiscovery(
+TopologyDiscoveryBase::TopologyDiscoveryBase(
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options) :
     options(options), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
 
-std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting topology discovery.");
     get_connected_devices();
@@ -160,11 +161,11 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     return fill_cluster_descriptor_info();
 }
 
-std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscoveryBase::run(
     const TopologyDiscoveryOptions& options) {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(options);
+    std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options);
     if (td == nullptr) {
         // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
         // Callers and the Python bindings go through discover() even on an empty machine.
@@ -181,7 +182,12 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
-bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
+    const TopologyDiscoveryOptions& options) {
+    return TopologyDiscoveryBase::run(options);
+}
+
+bool TopologyDiscoveryBase::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
     try {
         tt_device->init_tt_device(timeout);
     } catch (error::UmdBaseException& err) {
@@ -197,7 +203,7 @@ bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const s
     return true;
 }
 
-void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, int device_id) {
+void TopologyDiscoveryBase::add_local_device(std::unique_ptr<TTDevice> tt_device, int device_id) {
     ChipId chip_id = get_next_chip_id();
 
     // When coming out of reset, devices can take on the order of minutes to become ready.
@@ -246,7 +252,7 @@ void TopologyDiscovery::add_local_device(std::unique_ptr<TTDevice> tt_device, in
         asic_id);
 }
 
-void TopologyDiscovery::get_connected_devices() {
+void TopologyDiscoveryBase::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
 
     // Checked before the io_device_type switch below, and deliberately so: a simulator reports PCIe
@@ -310,7 +316,7 @@ void TopologyDiscovery::get_connected_devices() {
     log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }
 
-void TopologyDiscovery::discover_remote_devices() {
+void TopologyDiscoveryBase::discover_remote_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::set<uint64_t> discovered_devices = {};
     for (const auto& [current_device_asic_id, tt_device] : devices_to_discover) {
@@ -483,7 +489,7 @@ void TopologyDiscovery::discover_remote_devices() {
     patch_eth_connections();
 }
 
-void TopologyDiscovery::tunnel_remote_devices_over_all_gateway_links() {
+void TopologyDiscoveryBase::tunnel_remote_devices_over_all_gateway_links() {
     std::unordered_map<TTDevice*, uint64_t> gateway_asic_ids;
     for (const auto& [asic_id, tt_device] : devices) {
         if (tt_device != nullptr && !tt_device->is_remote()) {
@@ -503,7 +509,7 @@ void TopologyDiscovery::tunnel_remote_devices_over_all_gateway_links() {
     }
 }
 
-std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
 
     // Workaround: a simulator reports PCIe with process-local ids, so skip host enumeration in simulation.
@@ -646,14 +652,14 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     return cluster_desc;
 }
 
-TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
+TTDevice* TopologyDiscoveryBase::get_tt_device(const uint64_t asic_id) {
     if (devices_to_discover.find(asic_id) != devices_to_discover.end()) {
         return devices_to_discover.at(asic_id).get();
     }
     return devices.at(asic_id).get();
 }
 
-uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
+uint64_t TopologyDiscoveryBase::get_asic_id(TTDevice* tt_device) {
     // This function should return a unique ID for the device. At the moment we are going to use mangled board ID
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first
     // one. If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
@@ -672,9 +678,9 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     return get_unconnected_device_id(tt_device);
 }
 
-void TopologyDiscovery::patch_eth_connections() {}
+void TopologyDiscoveryBase::patch_eth_connections() {}
 
-void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
+void TopologyDiscoveryBase::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
@@ -724,7 +730,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     }
 }
 
-void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
+void TopologyDiscoveryBase::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
     auto timeout_left = timeout_ms;
@@ -741,11 +747,11 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
         (timeout_ms - timeout_left).count());
 }
 
-bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+bool TopologyDiscoveryBase::is_board_id_included(uint64_t board_id) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 
-bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
+bool TopologyDiscoveryBase::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
 
     bool eth_fw_problem = false;
@@ -783,7 +789,7 @@ bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t
     return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
-bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
+bool TopologyDiscoveryBase::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     const auto start = std::chrono::steady_clock::now();
     uint32_t previous_reading = 0;
     // First loop: Wait until heartbeat changes from 0 (post reset).
@@ -849,7 +855,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic
     }
 }
 
-bool TopologyDiscovery::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
+bool TopologyDiscoveryBase::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
     return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 

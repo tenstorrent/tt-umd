@@ -82,15 +82,18 @@ void DeviceEventReader::reopen_after_reset() {
     post_reset_recovery_pending_ = true;
 }
 
-DeviceEventBatch DeviceEventReader::read(size_t max_events, std::chrono::milliseconds timeout) {
+DeviceEventBatch DeviceEventReader::read(size_t max_events) { return read_events(max_events, -1); }
+
+DeviceEventBatch DeviceEventReader::read_for(size_t max_events, std::chrono::milliseconds timeout) {
+    return read_events(max_events, static_cast<int>(std::clamp<int64_t>(timeout.count(), 0, INT_MAX)));
+}
+
+DeviceEventBatch DeviceEventReader::read_events(size_t max_events, int timeout_ms) {
     UMD_ASSERT(
         max_events > 0 && max_events <= UINT32_MAX,
         error::RuntimeError,
-        fmt::format("DeviceEventReader::read() max_events {} out of range [1, {}]", max_events, UINT32_MAX));
+        fmt::format("DeviceEventReader read max_events {} out of range [1, {}]", max_events, UINT32_MAX));
 
-    // tt-kmd-lib takes a negative timeout as no limit.
-    const int timeout_ms =
-        timeout == WAIT_FOREVER ? -1 : static_cast<int>(std::clamp<int64_t>(timeout.count(), 0, INT_MAX));
     std::vector<tt_event_t> events(max_events);
     uint32_t count = 0;
     uint32_t lost = 0;

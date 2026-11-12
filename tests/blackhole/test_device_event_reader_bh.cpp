@@ -90,7 +90,7 @@ protected:
 TEST_F(DeviceEventReaderBh, ReadReturnsPublishedRecord) {
     publish_test_event(0x0042, 7, 1, 2, 3);
 
-    DeviceEventBatch batch = reader->read(4, READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, READ_TIMEOUT);
 
     ASSERT_EQ(batch.events.size(), 1u);
     EXPECT_EQ(batch.events[0].type, EVENT_TYPE_TEST);
@@ -101,21 +101,38 @@ TEST_F(DeviceEventReaderBh, ReadReturnsPublishedRecord) {
     EXPECT_FALSE(batch.device_reset);
 }
 
-TEST_F(DeviceEventReaderBh, ReadTimesOutWithoutRecords) {
-    DeviceEventBatch batch = reader->read(4, std::chrono::milliseconds(100));
+TEST_F(DeviceEventReaderBh, ReadForTimesOutWithoutRecords) {
+    DeviceEventBatch batch = reader->read_for(4, std::chrono::milliseconds(100));
 
     EXPECT_TRUE(batch.events.empty());
     EXPECT_FALSE(batch.device_reset);
 }
 
-TEST_F(DeviceEventReaderBh, WaitForeverReturnsRecordPublishedDuringIt) {
+class DeviceEventReaderNoWaitBh : public DeviceEventReaderBh,
+                                  public ::testing::WithParamInterface<std::chrono::milliseconds> {};
+
+TEST_P(DeviceEventReaderNoWaitBh, ReadForDoesNotWaitWithoutRecords) {
+    const auto start = std::chrono::steady_clock::now();
+    DeviceEventBatch batch = reader->read_for(4, GetParam());
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_TRUE(batch.events.empty());
+    EXPECT_LT(elapsed, CANCELLED_READ_BOUND);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ZeroAndNegativeTimeouts,
+    DeviceEventReaderNoWaitBh,
+    ::testing::Values(std::chrono::milliseconds(0), std::chrono::milliseconds(-30000)));
+
+TEST_F(DeviceEventReaderBh, ReadWaitsForRecordPublishedDuringIt) {
     // Published only after the read has had time to start waiting.
     std::future<void> publisher = std::async(std::launch::async, [this] {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         publish_test_event(0, 0, 0, 0, 5);
     });
 
-    DeviceEventBatch batch = reader->read(4, DeviceEventReader::WAIT_FOREVER);
+    DeviceEventBatch batch = reader->read(4);
     publisher.get();
 
     ASSERT_EQ(batch.events.size(), 1u);
@@ -127,8 +144,8 @@ TEST_F(DeviceEventReaderBh, ReadersDoNotTakeRecordsFromEachOther) {
 
     publish_test_event(0, 0, 0, 0, 9);
 
-    DeviceEventBatch batch = reader->read(4, READ_TIMEOUT);
-    DeviceEventBatch other_batch = other_reader.read(4, READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, READ_TIMEOUT);
+    DeviceEventBatch other_batch = other_reader.read_for(4, READ_TIMEOUT);
     ASSERT_EQ(batch.events.size(), 1u);
     ASSERT_EQ(other_batch.events.size(), 1u);
     EXPECT_EQ(batch.events[0].data[2], 9u);
@@ -142,7 +159,7 @@ TEST_F(DeviceEventReaderBh, CancelEndsWaitInProgress) {
     });
 
     const auto start = std::chrono::steady_clock::now();
-    DeviceEventBatch batch = reader->read(4, CANCELLED_READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, CANCELLED_READ_TIMEOUT);
     const auto elapsed = std::chrono::steady_clock::now() - start;
     canceller.get();
 
@@ -154,7 +171,7 @@ TEST_F(DeviceEventReaderBh, CancelBeforeReadEndsTheNextWait) {
     reader->cancel();
 
     const auto start = std::chrono::steady_clock::now();
-    DeviceEventBatch batch = reader->read(4, CANCELLED_READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, CANCELLED_READ_TIMEOUT);
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_TRUE(batch.events.empty());
@@ -164,10 +181,10 @@ TEST_F(DeviceEventReaderBh, CancelBeforeReadEndsTheNextWait) {
 TEST_F(DeviceEventReaderBh, CancelEndsOnlyOneWait) {
     reader->cancel();
     reader->cancel();
-    reader->read(4, CANCELLED_READ_TIMEOUT);
+    reader->read_for(4, CANCELLED_READ_TIMEOUT);
 
     const auto start = std::chrono::steady_clock::now();
-    reader->read(4, std::chrono::milliseconds(200));
+    reader->read_for(4, std::chrono::milliseconds(200));
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_GE(elapsed, std::chrono::milliseconds(200));

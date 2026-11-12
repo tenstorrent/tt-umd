@@ -741,6 +741,74 @@ int tt_lock_release(tt_device_t* dev, uint8_t index, int* out_was_held);
  */
 int tt_lock_test(tt_device_t* dev, uint8_t index, uint32_t* out_state);
 
+/**
+ * @brief One device event record, raised by firmware or by the driver.
+ */
+typedef struct tt_event_t {
+    uint64_t seq;          /**< Driver sequence number; consecutive per device, starting at 0 when it is probed */
+    uint64_t host_time_ns; /**< CLOCK_MONOTONIC when the driver received the record */
+    uint64_t device_time;  /**< ARC reference clock since firmware boot, in 20 ns ticks; 0 for driver types */
+    uint16_t type;         /**< Firmware type (below 0x8000), or one of `enum tt_event_type` */
+    uint16_t source;       /**< For an event raised by a tile, its translated NOC coordinates x | y << 6 */
+    uint32_t cause;        /**< Type-specific subcode */
+    uint32_t data[4];      /**< Type-specific data; firmware records use data[0..2] */
+} tt_event_t;
+
+/**
+ * @brief Event types raised by the driver itself. Firmware types are passed through uninterpreted.
+ */
+enum tt_event_type {
+    TT_EVENT_TYPE_FW_EVENTS_LOST = 0x8000, /**< data[0]: number of firmware records lost */
+};
+
+/**
+ * @brief Flags for `tt_device_read_events()`.
+ */
+enum tt_read_events_flags {
+    /** Read from the oldest record the driver still keeps, rather than from where this handle left off. */
+    TT_READ_EVENTS_FLAG_FROM_OLDEST = (1U << 0),
+};
+
+/**
+ * @brief Reads the device event records this handle has not read yet, waiting up to a timeout for one.
+ *
+ * The driver keeps the most recent records of each device, and a device reset discards them all. Each
+ * device handle reads them independently: it starts with the records that arrive after it was opened,
+ * and each call continues where the previous one stopped.
+ *
+ * Returns immediately when records are available. Otherwise waits up to `timeout_ms` for one to arrive,
+ * and reports a count of 0 if none does.
+ *
+ * Requires a tt-kmd with TENSTORRENT_IOCTL_READ_EVENTS; older drivers fail with -EINVAL.
+ *
+ * @param dev Device handle
+ * @param events Buffer receiving up to `capacity` records, oldest first. May be NULL if `capacity` is 0.
+ * @param capacity Number of records `events` can hold. 0 reads nothing and does not wait, which queries
+ *                 `out_fw_attached` alone.
+ * @param flags Bitmask of `enum tt_read_events_flags`
+ * @param timeout_ms Longest time to wait for a record: 0 does not wait, a negative value waits indefinitely
+ * @param wake_fd A file descriptor, such as an eventfd, that ends the wait early once it is readable; -1 for
+ *                none. It is only polled, never read, so the caller decides when it stops being readable.
+ * @param out_count Number of records written to `events`
+ * @param out_lost Number of records the driver discarded before this handle read them, saturating at
+ *                 UINT32_MAX. May be NULL.
+ * @param out_fw_attached 1 if firmware publishes events, 0 if it does not, in which case only driver
+ *                        records will appear. May be NULL.
+ * @return 0 on success, including when the timeout expires; negative error code on failure. -EINTR if a
+ *         signal interrupted the wait. -ECANCELED if `wake_fd` ended it. -ENODEV if a device reset or
+ *         removal invalidated the handle.
+ */
+int tt_device_read_events(
+    tt_device_t* dev,
+    tt_event_t* events,
+    uint32_t capacity,
+    uint32_t flags,
+    int timeout_ms,
+    int wake_fd,
+    uint32_t* out_count,
+    uint32_t* out_lost,
+    int* out_fw_attached);
+
 #ifdef __cplusplus
 }
 #endif

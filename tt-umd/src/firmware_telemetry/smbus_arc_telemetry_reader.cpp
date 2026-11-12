@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 
 #include <fmt/format.h>
 

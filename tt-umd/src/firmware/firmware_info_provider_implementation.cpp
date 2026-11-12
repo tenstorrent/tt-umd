@@ -13,14 +13,14 @@
 #include <variant>
 #include <vector>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/firmware/firmware_telemetry_mapping.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"

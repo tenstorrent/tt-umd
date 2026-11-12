@@ -254,8 +254,8 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     }
 
     const auto busy_pcie_devices = keep_pcie_devices_busy();
-    std::unique_ptr<Cluster> umd_cluster =
-        test_utils::make_default_test_cluster(ClusterOptions{.io_device_type = IODeviceType::JTAG});
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(
+        ClusterOptions{.topology_discovery_options = {.io_device_type = IODeviceType::JTAG}});
 
     // Initialize random data.
     size_t data_size = 10;

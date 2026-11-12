@@ -44,7 +44,7 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
         ankerl::nanobench::doNotOptimizeAway(cluster);
     });
 
-    options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
+    options.topology_discovery_options.soc_descriptor_path = test_utils::get_soc_descriptor_path(arch);
     bench.name("from sdesc").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
         ankerl::nanobench::doNotOptimizeAway(cluster);

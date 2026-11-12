@@ -263,8 +263,9 @@ client — there is no separate "connect" call.
   sockets and its (now-empty) directory.
 - **Server logs.** Started with `--detach`, a host is detached from your terminal and its output
   goes to a per-server log in the temporary directory, named after the server directory:
-  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. Started without
-  it, the host runs in the foreground and logs to your terminal.
+  `sim_server-tt-umd-sim-server-<index>.log`. Check it if a server did not come up. A host that
+  shuts down cleanly removes its log; one that was killed or crashed leaves it, and it goes when its
+  directory is swept. Started without it, the host runs in the foreground and logs to your terminal.
 
 ## What happens under the hood
 

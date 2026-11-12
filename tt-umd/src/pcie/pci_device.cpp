@@ -1108,6 +1108,8 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
            PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
 }
 
+bool PCIDevice::is_device_events_supported() { return PCIDevice::read_kmd_version() >= KMD_READ_EVENTS; }
+
 // Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
 // EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
 int PCIDevice::export_tlb_dmabuf(

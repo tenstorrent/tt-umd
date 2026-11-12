@@ -66,7 +66,7 @@ public:
     static constexpr std::chrono::milliseconds WAIT_FOREVER = std::chrono::milliseconds::max();
 
     // Returns up to max_events records this reader has not read yet. When there are none, waits up to
-    // timeout for one to arrive, and returns an empty batch if none does. A zero timeout does not wait.
+    // timeout for one to arrive, and returns an empty batch if none does. A zero or negative timeout does not wait.
     // A reset is reported without waiting, and a signal ends the wait early with an empty batch.
     DeviceEventBatch read(size_t max_events, std::chrono::milliseconds timeout);
 

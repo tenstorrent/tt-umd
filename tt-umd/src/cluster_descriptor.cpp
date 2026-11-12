@@ -94,27 +94,190 @@ bool ClusterDescriptor::is_chip_mmio_capable(const ChipId chip_id) const {
 bool ClusterDescriptor::is_chip_remote(const ChipId chip_id) const { return !is_chip_mmio_capable(chip_id); }
 
 // Returns the closest mmio chip to the given chip.
-ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
+ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) const {
     log_trace(LogUMD, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
         return chip;
     }
 
-    if (closest_mmio_chip_cache.find(chip) != closest_mmio_chip_cache.end()) {
-        return closest_mmio_chip_cache[chip];
-    }
-
-    const auto chips_on_the_same_board = get_board_chips(get_board_id_for_chip(chip));
-
-    for (const ChipId &candidate_mmio_chip : chips_on_the_same_board) {
-        if (is_chip_mmio_capable(candidate_mmio_chip)) {
-            closest_mmio_chip_cache[chip] = candidate_mmio_chip;
-            return candidate_mmio_chip;
-        }
+    auto it = closest_mmio_chip_cache.find(chip);
+    if (it != closest_mmio_chip_cache.end()) {
+        return it->second;
     }
 
     UMD_THROW(error::RuntimeError, fmt::format("Closest MMIO capable chip not found for chip {}.", chip));
+}
+
+void ClusterDescriptor::fill_closest_mmio_chip_cache() {
+    for (const auto &[chip, board_id] : chip_to_board_id) {
+        if (is_chip_mmio_capable(chip) || closest_mmio_chip_cache.find(chip) != closest_mmio_chip_cache.end()) {
+            continue;
+        }
+        for (const ChipId &candidate_mmio_chip : board_to_chips.at(board_id)) {
+            if (is_chip_mmio_capable(candidate_mmio_chip)) {
+                closest_mmio_chip_cache[chip] = candidate_mmio_chip;
+                break;
+            }
+        }
+    }
+}
+
+namespace {
+
+bool all_chips_have_unique_ids(const ClusterDescription &description) {
+    return !description.chips.empty() &&
+           std::all_of(description.chips.begin(), description.chips.end(), [](const auto &chip) {
+               return chip.second.unique_id.has_value();
+           });
+}
+
+}  // namespace
+
+std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
+    ClusterDescription description, bool check_board_chip_count, bool check_harvesting_counts) {
+    return std::unique_ptr<ClusterDescriptor>(
+        new ClusterDescriptor(std::move(description), check_board_chip_count, check_harvesting_counts));
+}
+
+ClusterDescriptor::ClusterDescriptor(
+    ClusterDescription description, bool check_board_chip_count, bool check_harvesting_counts) :
+    authentic_chip_unique_ids(all_chips_have_unique_ids(description)),
+    unhealthy_devices(std::move(description.unhealthy_chips)),
+    health_errors(std::move(description.health_errors)),
+    cluster_id(std::move(description.cluster_id)),
+    io_device_type(description.io_device_type),
+    fw_bundle_version(description.fw_bundle_version),
+    eth_fw_version(description.eth_fw_version) {
+    for (auto &[chip_id, chip] : description.chips) {
+        add_chip(chip_id, std::move(chip));
+    }
+    for (const EthLink &link : description.eth_links) {
+        add_ethernet_link(link);
+    }
+    for (const RemoteEthLink &link : description.remote_eth_links) {
+        add_remote_ethernet_link(link);
+    }
+    log_topology();
+
+    merge_cluster_ids();
+    fill_closest_mmio_chip_cache();
+    fill_chips_grouped_by_closest_mmio();
+
+    verify_cluster_descriptor_info(check_board_chip_count, check_harvesting_counts);
+}
+
+void ClusterDescriptor::add_chip(ChipId chip_id, ChipDescription chip) {
+    all_chips.insert(chip_id);
+    chip_arch.emplace(chip_id, chip.arch);
+    chip_board_type.emplace(chip_id, chip.board_type);
+    if (chip.board_id.has_value()) {
+        add_chip_to_board(chip_id, *chip.board_id);
+    }
+    // Placeholder ids are stable within the process but don't name a physical chip.
+    chip_unique_ids.emplace(chip_id, chip.unique_id.value_or(static_cast<uint64_t>(chip_id) << 32));
+    if (chip.eth_coord.has_value()) {
+        const EthCoord &eth_coord = *chip.eth_coord;
+        chip_locations.emplace(chip_id, eth_coord);
+        coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+    }
+    harvesting_masks_map.emplace(chip_id, chip.harvesting_masks);
+    noc_translation_enabled.emplace(chip_id, chip.noc_translation_enabled);
+    // Every chip has an entry, linked or not, so lookups by chip never miss.
+    ethernet_connections.emplace(chip_id, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>{});
+    active_eth_channels.emplace(chip_id, std::move(chip.active_eth_channels));
+    idle_eth_channels.emplace(chip_id, std::move(chip.idle_eth_channels));
+    if (chip.asic_location.has_value()) {
+        asic_locations.emplace(chip_id, *chip.asic_location);
+    }
+    if (chip.pci_bus_id.has_value()) {
+        chip_to_bus_id.emplace(chip_id, *chip.pci_bus_id);
+    }
+    if (chip.closest_mmio_chip.has_value()) {
+        closest_mmio_chip_cache.emplace(chip_id, *chip.closest_mmio_chip);
+    }
+
+    if (!chip.mmio_device_id.has_value()) {
+        if (chip.pci_bdf.has_value()) {
+            UMD_THROW(
+                error::RuntimeError, fmt::format("Chip {} has PCI BDF specified but is not MMIO mapped.", chip_id));
+        }
+        if (chip.pcie_lane_count.has_value()) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Chip {} has PCIe lane count specified but is not MMIO mapped.", chip_id));
+        }
+        return;
+    }
+    chips_with_mmio.emplace(chip_id, *chip.mmio_device_id);
+    // Every MMIO chip has an entry, empty when the lane count is unknown.
+    chip_pcie_lane_counts.emplace(chip_id, chip.pcie_lane_count);
+    if (chip.pci_bdf.has_value()) {
+        chip_pci_bdfs.emplace(chip_id, std::move(*chip.pci_bdf));
+    }
+}
+
+bool ClusterDescriptor::is_known_chip(ChipId chip_id) const {
+    return all_chips.find(chip_id) != all_chips.end() ||
+           std::find(unhealthy_devices.begin(), unhealthy_devices.end(), chip_id) != unhealthy_devices.end();
+}
+
+void ClusterDescriptor::add_ethernet_link(const EthLink &link) {
+    auto add_direction = [this](
+                             ChipId chip, EthernetChannel channel, ChipId remote_chip, EthernetChannel remote_channel) {
+        if (!is_known_chip(chip)) {
+            UMD_THROW(error::RuntimeError, fmt::format("Ethernet link names unknown chip {}.", chip));
+        }
+        auto [it, inserted] = ethernet_connections[chip].emplace(channel, std::make_tuple(remote_chip, remote_channel));
+        if (!inserted && it->second != std::make_tuple(remote_chip, remote_channel)) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Chip {} channel {} is linked to two different endpoints.", chip, channel));
+        }
+    };
+    add_direction(link.chip_a, link.channel_a, link.chip_b, link.channel_b);
+    add_direction(link.chip_b, link.channel_b, link.chip_a, link.channel_a);
+}
+
+void ClusterDescriptor::add_remote_ethernet_link(const RemoteEthLink &link) {
+    if (!is_known_chip(link.chip)) {
+        UMD_THROW(error::RuntimeError, fmt::format("Remote Ethernet link names unknown chip {}.", link.chip));
+    }
+    ethernet_connections_to_remote_devices[link.chip][link.channel] = {link.remote_unique_id, link.remote_channel};
+}
+
+void ClusterDescriptor::log_topology() const {
+    log_debug(LogUMD, "Device IDs and Locations:");
+    for (const auto &[chip_id, chip_location] : chip_locations) {
+        log_debug(LogUMD, "\tchip: {}, coord: {}", chip_id, chip_location);
+    }
+
+    log_debug(LogUMD, "Ethernet Connectivity Descriptor:");
+    for (const auto &[chip, chan_to_chip_chan_map] : ethernet_connections) {
+        for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
+            log_debug(
+                LogUMD,
+                "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}",
+                chip,
+                chan,
+                std::get<0>(chip_and_chan),
+                std::get<1>(chip_and_chan));
+        }
+    }
+
+    log_debug(LogUMD, "Chip Coordinates:");
+    for (const auto &[rack_id, rack_chip_map] : coords_to_chip_ids) {
+        for (const auto &[shelf_id, shelf_chip_map] : rack_chip_map) {
+            log_debug(LogUMD, "\tRack:{} Shelf:{}", rack_id, shelf_id);
+            for (const auto &[row, row_chip_map] : shelf_chip_map) {
+                std::stringstream row_chips;
+                for (const auto &[col, chip_id] : row_chip_map) {
+                    row_chips << chip_id << "\t";
+                }
+                log_debug(LogUMD, "\t\t{}", row_chips.str());
+            }
+        }
+    }
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
@@ -129,31 +292,6 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
     buffer << fdesc.rdbuf();
     fdesc.close();
     return create_from_yaml_content(buffer.str());
-}
-
-std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
-    const std::string &cluster_descriptor_file_content) {
-    std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
-
-    YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
-
-    // Optional, and absent from every descriptor written before the field existed.
-    if (yaml["cluster_id"].IsDefined()) {
-        std::string cluster_id = yaml["cluster_id"].as<std::string>();
-        utils::validate_cluster_id(cluster_id, "the cluster descriptor YAML");
-        desc->cluster_id = std::move(cluster_id);
-    }
-
-    desc->load_chips_from_connectivity_descriptor(yaml);
-    desc->load_harvesting_information(yaml);
-    desc->load_ethernet_connections_from_connectivity_descriptor(yaml);
-    desc->merge_cluster_ids();
-
-    desc->fill_chips_grouped_by_closest_mmio();
-
-    desc->verify_cluster_descriptor_info();
-
-    return desc;
 }
 
 template <typename T>
@@ -520,11 +658,13 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
             remapped->all_chips.insert(new_id);
         }
         apply_chip_id_remapping(remapped.get(), desc.get(), old_to_new);
+        remapped->fill_closest_mmio_chip_cache();
 
         remapped->verify_cluster_descriptor_info();
         return remapped;
     }
 
+    desc->fill_closest_mmio_chip_cache();
     return desc;
 }
 
@@ -626,21 +766,19 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
     this->asic_locations.insert({logical_id, static_cast<uint8_t>(0)});
 }
 
-void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {
-    UMD_ASSERT(yaml["ethernet_connections"].IsSequence(), error::RuntimeError, "Invalid YAML");
+namespace {
 
-    // Preload idle eth channels.
-    for (const auto &chip : all_chips) {
-        int num_harvested_channels =
-            harvesting_masks_map.empty()
-                ? 0
-                : CoordinateManager::get_num_harvested(harvesting_masks_map.at(chip).eth_harvesting_mask);
-        int num_channels =
-            ArchitectureImplementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
-        for (int i = 0; i < num_channels; i++) {
-            idle_eth_channels[chip].insert(i);
-        }
+// Every per-chip YAML section refers to the chips listed under 'arch'.
+ChipDescription &described_chip(ClusterDescription &description, ChipId chip_id) {
+    auto it = description.chips.find(chip_id);
+    if (it == description.chips.end()) {
+        UMD_THROW(error::RuntimeError, fmt::format("Chip {} is not listed under 'arch' in the YAML.", chip_id));
     }
+    return it->second;
+}
+
+void load_ethernet_connections_from_connectivity_descriptor(const YAML::Node &yaml, ClusterDescription &description) {
+    UMD_ASSERT(yaml["ethernet_connections"].IsSequence(), error::RuntimeError, "Invalid YAML");
 
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         UMD_ASSERT(connected_endpoints.IsSequence(), error::RuntimeError, "Invalid YAML");
@@ -653,63 +791,11 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             "information on whether "
             "routing is enabled.");
 
-        int chip_0 = endpoints.at(0)["chip"].as<int>();
-        int channel_0 = endpoints.at(0)["chan"].as<int>();
-        int chip_1 = endpoints.at(1)["chip"].as<int>();
-        int channel_1 = endpoints.at(1)["chan"].as<int>();
-        auto &eth_conn_chip_0 = ethernet_connections.at(chip_0);
-        if (eth_conn_chip_0.find(channel_0) != eth_conn_chip_0.end()) {
-            UMD_ASSERT(
-                (std::get<0>(eth_conn_chip_0.at(channel_0)) == chip_1) &&
-                    (std::get<1>(eth_conn_chip_0.at(channel_0)) == channel_1),
-                error::RuntimeError,
-                "Duplicate eth connection found in cluster desc yaml");
-        } else {
-            eth_conn_chip_0.insert({channel_0, {chip_1, channel_1}});
-        }
-        auto &eth_conn_chip_1 = ethernet_connections.at(chip_1);
-        if (eth_conn_chip_1.find(channel_1) != eth_conn_chip_1.end()) {
-            UMD_ASSERT(
-                (std::get<0>(eth_conn_chip_1.at(channel_1)) == chip_0) &&
-                    (std::get<1>(eth_conn_chip_1.at(channel_1)) == channel_0),
-                error::RuntimeError,
-                "Duplicate eth connection found in cluster desc yaml");
-        } else {
-            eth_conn_chip_1.insert({channel_1, {chip_0, channel_0}});
-        }
-        active_eth_channels[chip_0].insert(channel_0);
-        idle_eth_channels[chip_0].erase(channel_0);
-        active_eth_channels[chip_1].insert(channel_1);
-        idle_eth_channels[chip_1].erase(channel_1);
-    }
-
-    // std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>> ethernet_connections;
-
-    log_debug(LogUMD, "Ethernet Connectivity Descriptor:");
-    for (const auto &[chip, chan_to_chip_chan_map] : ethernet_connections) {
-        for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
-            log_debug(
-                LogUMD,
-                "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}",
-                chip,
-                chan,
-                std::get<0>(chip_and_chan),
-                std::get<1>(chip_and_chan));
-        }
-    }
-
-    log_debug(LogUMD, "Chip Coordinates:");
-    for (const auto &[rack_id, rack_chip_map] : coords_to_chip_ids) {
-        for (const auto &[shelf_id, shelf_chip_map] : rack_chip_map) {
-            log_debug(LogUMD, "\tRack:{} Shelf:{}", rack_id, shelf_id);
-            for (const auto &[row, row_chip_map] : shelf_chip_map) {
-                std::stringstream row_chips;
-                for (const auto &[col, chip_id] : row_chip_map) {
-                    row_chips << chip_id << "\t";
-                }
-                log_debug(LogUMD, "\t\t{}", row_chips.str());
-            }
-        }
+        description.eth_links.push_back(EthLink{
+            endpoints.at(0)["chip"].as<int>(),
+            endpoints.at(0)["chan"].as<int>(),
+            endpoints.at(1)["chip"].as<int>(),
+            endpoints.at(1)["chan"].as<int>()});
     }
 
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
@@ -724,19 +810,16 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
                 "Remote ethernet connections in YAML should always contain information on connected endpoints and "
                 "channels");
 
-            ChipId chip_0 = endpoints.at(0)["chip"].as<ChipId>();
-            int channel_0 = endpoints.at(0)["chan"].as<int>();
-            uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
-            int channel_1 = endpoints.at(1)["chan"].as<int>();
-            ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
-
-            // Mark the local channel as active and remove from idle, to accurately represent used Ethernet channels in
-            // mock clusters (matching real hardware discovery)
-            active_eth_channels[chip_0].insert(channel_0);
-            idle_eth_channels[chip_0].erase(channel_0);
+            description.remote_eth_links.push_back(RemoteEthLink{
+                endpoints.at(0)["chip"].as<ChipId>(),
+                endpoints.at(0)["chan"].as<int>(),
+                endpoints.at(1)["remote_chip_id"].as<uint64_t>(),
+                endpoints.at(1)["chan"].as<int>()});
         }
     }
 }
+
+}  // namespace
 
 void ClusterDescriptor::merge_cluster_ids() {
     utils::DisjointSet<ChipId> chip_sets;
@@ -758,13 +841,11 @@ void ClusterDescriptor::merge_cluster_ids() {
     }
 }
 
-void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml) {
+namespace {
+
+void load_chips_from_connectivity_descriptor(const YAML::Node &yaml, ClusterDescription &description) {
     for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
-        ChipId chip_id = node->first.as<int>();
-        std::string arch_str = node->second.as<std::string>();
-        all_chips.insert(chip_id);
-        chip_arch.insert({chip_id, tt::arch_from_str(arch_str)});
-        ethernet_connections.insert({chip_id, {}});
+        description.chips[node->first.as<ChipId>()].arch = tt::arch_from_str(node->second.as<std::string>());
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
@@ -772,26 +853,19 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
         UMD_ASSERT(
             chip_rack_coords.size() == 4, error::RuntimeError, "Galaxy (x, y, rack, shelf) coords must be size 4");
-        EthCoord chip_location{
+        described_chip(description, chip_id).eth_coord = EthCoord{
             chip_id, chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
-
-        chip_locations.insert({chip_id, chip_location});
-        coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] = chip_id;
     }
 
     for (const auto &chip : yaml["chips_with_mmio"]) {
         if (chip.IsMap()) {
             const auto &chip_map = chip.as<std::map<ChipId, ChipId>>();
             const auto &chips = chip_map.begin();
-            chips_with_mmio.insert({chips->first, chips->second});
+            described_chip(description, chips->first).mmio_device_id = chips->second;
         } else {
             const auto &chip_val = chip.as<int>();
-            chips_with_mmio.insert({chip_val, chip_val});
+            described_chip(description, chip_val).mmio_device_id = chip_val;
         }
-    }
-    log_debug(LogUMD, "Device IDs and Locations:");
-    for (const auto &[chip_id, chip_location] : chip_locations) {
-        log_debug(LogUMD, "\tchip: {}, coord: {}", chip_id, chip_location);
     }
 
     if (yaml["boards"]) {
@@ -818,26 +892,24 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
                     board_id);
             }
 
-            for (const auto &chip : boardEntry[2]["chips"]) {
-                add_chip_to_board(chip.as<ChipId>(), board_id);
-                chip_board_type.insert({chip.as<ChipId>(), board_type});
+            for (const auto &chip_node : boardEntry[2]["chips"]) {
+                const ChipId chip_id = chip_node.as<ChipId>();
+                ChipDescription &chip = described_chip(description, chip_id);
+                if (chip.board_id.has_value() && *chip.board_id != board_id) {
+                    UMD_THROW(
+                        error::RuntimeError,
+                        fmt::format("Chip {} is already mapped to board {:#x}", chip_id, *chip.board_id));
+                }
+                chip.board_id = board_id;
+                chip.board_type = board_type;
             }
         }
     }
 
+    // Without this section the factory gives the chips placeholder ids.
     if (yaml["chip_unique_ids"]) {
-        authentic_chip_unique_ids = true;
-        for (const auto &chip_unique_id : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
-            auto &chip = chip_unique_id.first;
-            auto &unique_id = chip_unique_id.second;
-            chip_unique_ids.insert({chip, unique_id});
-        }
-    } else {
-        // Legacy format or mock descriptors may not have chip_unique_ids
-        // Generate synthetic IDs for backward compatibility.
-        for (const auto &chip : all_chips) {
-            // Use chip ID shifted left to create unique synthetic IDs.
-            chip_unique_ids.insert({chip, static_cast<uint64_t>(chip) << 32});
+        for (const auto &[chip, unique_id] : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
+            described_chip(description, chip).unique_id = unique_id;
         }
     }
 
@@ -854,62 +926,40 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
             }
             bus_str = bus_str.substr(2);
 
-            uint16_t bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
-            chip_to_bus_id.insert({chip, bus_id});
+            described_chip(description, chip).pci_bus_id = static_cast<uint16_t>(std::stoul(bus_str, nullptr, 16));
         }
     }
 
     if (yaml["asic_locations"]) {
-        for (const auto &chip_asic_locations : yaml["asic_locations"].as<std::map<int, uint64_t>>()) {
-            auto &chip = chip_asic_locations.first;
-            auto &asic_location = chip_asic_locations.second;
-            asic_locations.insert({chip, asic_location});
+        for (const auto &[chip, asic_location] : yaml["asic_locations"].as<std::map<int, uint64_t>>()) {
+            described_chip(description, chip).asic_location = static_cast<uint8_t>(asic_location);
         }
     }
 
     if (yaml["chip_pci_bdfs"]) {
-        for (const auto &chip_pci_bdf : yaml["chip_pci_bdfs"].as<std::map<int, std::string>>()) {
-            auto &chip = chip_pci_bdf.first;
-            const std::string &bdf_str = chip_pci_bdf.second;
-
-            // make sure chip is mmio mapped
-            if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
-                UMD_THROW(
-                    error::RuntimeError, fmt::format("Chip {} has PCI BDF specified but is not MMIO mapped.", chip));
-            }
-
-            chip_pci_bdfs.insert({chip, bdf_str});
+        for (const auto &[chip, bdf] : yaml["chip_pci_bdfs"].as<std::map<int, std::string>>()) {
+            described_chip(description, chip).pci_bdf = bdf;
         }
     }
 
+    // A null lane count, like a missing section, means the count is unknown.
     if (yaml["chip_pcie_lane_counts"]) {
         for (const auto &[chip, lane_count] : yaml["chip_pcie_lane_counts"].as<std::map<int, YAML::Node>>()) {
-            if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format("Chip {} has PCIe lane count specified but is not MMIO mapped.", chip));
+            if (!lane_count.IsNull()) {
+                described_chip(description, chip).pcie_lane_count = lane_count.as<uint32_t>();
             }
-
-            chip_pcie_lane_counts.insert(
-                {chip, lane_count.IsNull() ? std::nullopt : std::optional<uint32_t>(lane_count.as<uint32_t>())});
-        }
-    } else {
-        // Descriptors written before lane counts were recorded still get an entry per MMIO chip,
-        // so the map covers the same chips regardless of the descriptor's age.
-        for (const auto &[chip, _] : chips_with_mmio) {
-            chip_pcie_lane_counts.insert({chip, std::nullopt});
         }
     }
 }
 
-void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
+void load_harvesting_information(const YAML::Node &yaml, ClusterDescription &description) {
     if (yaml["harvesting"]) {
         for (const auto &chip_node : yaml["harvesting"].as<std::map<int, YAML::Node>>()) {
-            ChipId chip = chip_node.first;
+            ChipDescription &chip = described_chip(description, chip_node.first);
             auto harvesting_info = chip_node.second;
-            noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
+            chip.noc_translation_enabled = harvesting_info["noc_translation"].as<bool>();
 
-            HarvestingMasks harvesting{0, 0, 0, 0};
+            HarvestingMasks &harvesting = chip.harvesting_masks;
 
             harvesting.tensix_harvesting_mask = harvesting_info["harvest_mask"].as<std::uint32_t>();
 
@@ -928,10 +978,57 @@ void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
             if (harvesting_info["l2cpu_harvesting_mask"].IsDefined()) {
                 harvesting.l2cpu_harvesting_mask = harvesting_info["l2cpu_harvesting_mask"].as<std::uint32_t>();
             }
-
-            harvesting_masks_map.insert({chip, harvesting});
         }
     }
+}
+
+// The YAML doesn't list channel states, so every unharvested channel is idle unless a link uses it.
+void fill_eth_channel_states(ClusterDescription &description) {
+    for (auto &[chip_id, chip] : description.chips) {
+        const int num_harvested_channels =
+            CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask);
+        const int num_channels =
+            ArchitectureImplementation::create(chip.arch)->get_num_eth_channels() - num_harvested_channels;
+        for (int i = 0; i < num_channels; i++) {
+            chip.idle_eth_channels.insert(i);
+        }
+    }
+
+    auto mark_active = [&description](ChipId chip_id, EthernetChannel channel) {
+        ChipDescription &chip = described_chip(description, chip_id);
+        chip.active_eth_channels.insert(channel);
+        chip.idle_eth_channels.erase(channel);
+    };
+    for (const EthLink &link : description.eth_links) {
+        mark_active(link.chip_a, link.channel_a);
+        mark_active(link.chip_b, link.channel_b);
+    }
+    for (const RemoteEthLink &link : description.remote_eth_links) {
+        mark_active(link.chip, link.channel);
+    }
+}
+
+}  // namespace
+
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
+    const std::string &cluster_descriptor_file_content) {
+    ClusterDescription description;
+
+    YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
+
+    // Optional, and absent from every descriptor written before the field existed.
+    if (yaml["cluster_id"].IsDefined()) {
+        std::string cluster_id = yaml["cluster_id"].as<std::string>();
+        utils::validate_cluster_id(cluster_id, "the cluster descriptor YAML");
+        description.cluster_id = std::move(cluster_id);
+    }
+
+    load_chips_from_connectivity_descriptor(yaml, description);
+    load_harvesting_information(yaml, description);
+    load_ethernet_connections_from_connectivity_descriptor(yaml, description);
+    fill_eth_channel_states(description);
+
+    return create_cluster_descriptor(std::move(description));
 }
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
@@ -1226,7 +1323,7 @@ std::filesystem::path ClusterDescriptor::get_default_cluster_descriptor_file_pat
     return cluster_path;
 }
 
-std::set<uint32_t> ClusterDescriptor::get_active_eth_channels(ChipId chip_id) {
+std::set<uint32_t> ClusterDescriptor::get_active_eth_channels(ChipId chip_id) const {
     auto it = active_eth_channels.find(chip_id);
     if (it == active_eth_channels.end()) {
         return {};
@@ -1235,7 +1332,7 @@ std::set<uint32_t> ClusterDescriptor::get_active_eth_channels(ChipId chip_id) {
     return it->second;
 }
 
-std::set<uint32_t> ClusterDescriptor::get_idle_eth_channels(ChipId chip_id) {
+std::set<uint32_t> ClusterDescriptor::get_idle_eth_channels(ChipId chip_id) const {
     auto it = idle_eth_channels.find(chip_id);
     if (it == idle_eth_channels.end()) {
         return {};

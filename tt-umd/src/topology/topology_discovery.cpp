@@ -29,6 +29,7 @@
 #include "topology/topology_utils.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/cluster_description.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
@@ -169,9 +170,9 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     if (td == nullptr) {
         // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
         // Callers and the Python bindings go through discover() even on an empty machine.
-        auto cluster_desc = std::make_unique<ClusterDescriptor>();
-        cluster_desc->cluster_id = utils::resolve_cluster_id(options.cluster_id);
-        return std::make_pair(std::move(cluster_desc), std::move(devices));
+        ClusterDescription description;
+        description.cluster_id = utils::resolve_cluster_id(options.cluster_id);
+        return std::make_pair(create_cluster_descriptor(std::move(description)), std::move(devices));
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     // Resort devices by ChipID instead of internal unique identifiers.
@@ -510,7 +511,7 @@ void TopologyDiscoveryBase::tunnel_remote_devices_over_all_gateway_links() {
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descriptor_info() {
-    std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
+    ClusterDescription description;
 
     // Workaround: a simulator reports PCIe with process-local ids, so skip host enumeration in simulation.
     const bool has_host_pci_devices = options.io_device_type == IODeviceType::PCIe && !options.simulation.has_value();
@@ -528,95 +529,74 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
     };
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
-        ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
+        ChipId chip_id = asic_id_to_chip_id.at(current_device_asic_id);
 
+        description.health_errors.insert({chip_id, std::move(health_errors[current_device_asic_id])});
+
+        // Cluster descriptor is not designed to contain partial information about devices,
+        // so we cannot add information about unhealthy devices.
         if (is_marked_unhealthy(current_device_asic_id)) {
-            cluster_desc->unhealthy_devices.push_back(chip_id);
+            description.unhealthy_chips.push_back(chip_id);
             continue;
         }
 
-        cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
-        cluster_desc->authentic_chip_unique_ids = true;
+        ChipDescription& chip = description.chips[chip_id];
+        chip.arch = tt_device->get_arch();
+        chip.unique_id = current_device_asic_id;
+        chip.board_type = tt_device->get_chip_info().board_type;
+        chip.board_id = tt_device->get_chip_info().board_id;
+        chip.noc_translation_enabled = tt_device->get_chip_info().noc_translation_enabled;
+        chip.harvesting_masks = tt_device->get_chip_info().harvesting_masks;
+        chip.asic_location = tt_device->get_chip_info().asic_location;
+
+        if (!tt_device->is_remote()) {
+            chip.mmio_device_id = tt_device->get_communication_device_id();
+        }
+
+        if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
+            chip.pci_bus_id = pci_info->pci_bus;
+        } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
+            // Whatever bus the simulator placed the endpoint on, so tray and ASIC positions derive
+            // from it as they do from a real bus id.
+            chip.pci_bus_id = static_cast<uint16_t>((*bdf >> 8) & 0xFF);
+        }
 
         // A simulated device reports PCIe but has no PCIDevice behind it, so its BDF is the one its
         // simulator image enumerated, spelled the way PCIDevice spells a real one.
         if (options.io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
-                cluster_desc->chip_pci_bdfs.emplace(chip_id, pci_info->pci_bdf);
-                cluster_desc->chip_pcie_lane_counts.emplace(chip_id, tt_device->get_pcie_interface()->get_lane_count());
+                chip.pci_bdf = pci_info->pci_bdf;
+                chip.pcie_lane_count = tt_device->get_pcie_interface()->get_lane_count();
             } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
-                cluster_desc->chip_pci_bdfs.emplace(
-                    chip_id,
-                    fmt::format("{:04x}:{:02x}:{:02x}.{:x}", 0, (*bdf >> 8) & 0xFF, (*bdf >> 3) & 0x1F, *bdf & 0x7));
                 // A simulated link has no trained lane count.
-                cluster_desc->chip_pcie_lane_counts.emplace(chip_id, std::nullopt);
+                chip.pci_bdf =
+                    fmt::format("{:04x}:{:02x}:{:02x}.{:x}", 0, (*bdf >> 8) & 0xFF, (*bdf >> 3) & 0x1F, *bdf & 0x7);
             }
         }
 
         if (eth_coords.empty()) {
-            cluster_desc->closest_mmio_chip_cache[chip_id] =
-                asic_id_to_chip_id.at(remote_asic_id_to_mmio_device_id.at(current_device_asic_id));
-        }
-    }
-
-    for (const auto& [current_device_asic_id, tt_device] : devices) {
-        ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
-
-        cluster_desc->health_errors.insert({current_chip_id, std::move(health_errors[current_device_asic_id])});
-
-        // Cluster descriptor is not designed to contain partial information about devices,
-        // so we cannot add information about unhealthy devices.
-        if (is_marked_unhealthy(current_device_asic_id)) {
-            continue;
+            chip.closest_mmio_chip = asic_id_to_chip_id.at(remote_asic_id_to_mmio_device_id.at(current_device_asic_id));
         }
 
-        cluster_desc->all_chips.insert(current_chip_id);
-        cluster_desc->chip_arch.insert({current_chip_id, tt_device->get_arch()});
-
-        if (!tt_device->is_remote()) {
-            cluster_desc->chips_with_mmio.insert({current_chip_id, tt_device->get_communication_device_id()});
+        if (is_using_eth_coords() && !eth_coords.empty()) {
+            chip.eth_coord = eth_coords.at(current_device_asic_id);
         }
-
-        cluster_desc->chip_board_type.insert({current_chip_id, tt_device->get_chip_info().board_type});
-
-        cluster_desc->noc_translation_enabled.insert(
-            {current_chip_id, tt_device->get_chip_info().noc_translation_enabled});
-        cluster_desc->harvesting_masks_map.insert({current_chip_id, tt_device->get_chip_info().harvesting_masks});
-        cluster_desc->asic_locations.insert({current_chip_id, tt_device->get_chip_info().asic_location});
-
-        if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
-            cluster_desc->chip_to_bus_id.insert({current_chip_id, pci_info->pci_bus});
-        } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
-            // Whatever bus the simulator placed the endpoint on, so tray and ASIC positions derive
-            // from it as they do from a real bus id.
-            cluster_desc->chip_to_bus_id.insert({current_chip_id, static_cast<uint16_t>((*bdf >> 8) & 0xFF)});
-        }
-
-        if (is_using_eth_coords()) {
-            if (!eth_coords.empty()) {
-                EthCoord eth_coord = eth_coords.at(current_device_asic_id);
-                cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
-                cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
-                    current_chip_id;
-            }
-        }
-
-        cluster_desc->add_chip_to_board(current_chip_id, tt_device->get_chip_info().board_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
-        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
-        ChipId remote_chip_id = asic_id_to_chip_id.at(ethernet_connection_remote.first);
-        cluster_desc->ethernet_connections[local_chip_id][ethernet_connection_logical.second] = {
-            remote_chip_id, ethernet_connection_remote.second};
-        cluster_desc->ethernet_connections[remote_chip_id][ethernet_connection_remote.second] = {
-            local_chip_id, ethernet_connection_logical.second};
+        description.eth_links.push_back(EthLink{
+            asic_id_to_chip_id.at(ethernet_connection_logical.first),
+            static_cast<EthernetChannel>(ethernet_connection_logical.second),
+            asic_id_to_chip_id.at(ethernet_connection_remote.first),
+            static_cast<EthernetChannel>(ethernet_connection_remote.second)});
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections_to_remote_devices) {
-        ChipId local_chip_id = asic_id_to_chip_id.at(ethernet_connection_logical.first);
-        cluster_desc->ethernet_connections_to_remote_devices[local_chip_id][ethernet_connection_logical.second] = {
-            ethernet_connection_remote.first, ethernet_connection_remote.second};
+        description.remote_eth_links.push_back(RemoteEthLink{
+            asic_id_to_chip_id.at(ethernet_connection_logical.first),
+            static_cast<EthernetChannel>(ethernet_connection_logical.second),
+            ethernet_connection_remote.first,
+            static_cast<EthernetChannel>(ethernet_connection_remote.second)});
     }
 
     for (const auto& [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
@@ -625,31 +605,27 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         }
         const uint32_t num_eth_channels =
             devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
-        ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
+        ChipDescription& chip = description.chips.at(asic_id_to_chip_id.at(current_chip_asic_id));
         for (int i = 0; i < num_eth_channels; i++) {
-            cluster_desc->idle_eth_channels[current_chip_id].insert(i);
+            chip.idle_eth_channels.insert(i);
         }
 
         for (const auto& active_channel : active_eth_channels) {
-            cluster_desc->active_eth_channels[current_chip_id].insert(active_channel);
-            cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
+            chip.active_eth_channels.insert(active_channel);
+            chip.idle_eth_channels.erase(active_channel);
         }
     }
     // The caller-supplied cluster id, else the OS hostname. Stays unset if neither is usable.
-    cluster_desc->cluster_id = utils::resolve_cluster_id(options.cluster_id);
-    cluster_desc->io_device_type = options.io_device_type;
-    cluster_desc->eth_fw_version = expected_eth_fw_version;
-    cluster_desc->fw_bundle_version = first_fw_bundle_version;
-    cluster_desc->merge_cluster_ids();
-
-    cluster_desc->fill_chips_grouped_by_closest_mmio();
+    description.cluster_id = utils::resolve_cluster_id(options.cluster_id);
+    description.io_device_type = options.io_device_type;
+    description.eth_fw_version = expected_eth_fw_version;
+    description.fw_bundle_version = first_fw_bundle_version;
 
     // A simulator's harvesting is whatever its image chose to model and need not match its board
     // type -- TTSim's single-chip Wormhole image reports an n150 with nothing harvested. The masks
     // still come from the device; only the board-level expectation is dropped.
     const bool check_harvesting_counts = !options.simulation.has_value();
-    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices, check_harvesting_counts);
-    return cluster_desc;
+    return create_cluster_descriptor(std::move(description), options.discover_remote_devices, check_harvesting_counts);
 }
 
 TTDevice* TopologyDiscoveryBase::get_tt_device(const uint64_t asic_id) {

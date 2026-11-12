@@ -79,7 +79,7 @@ void DeviceEventReader::reopen_after_reset() {
     log_debug(tt::LogUMD, "Device {} was reset; reopening its event reader handle", device_path_);
     close_device();
     open_device();
-    reset_pending_ = true;
+    post_reset_recovery_pending_ = true;
 }
 
 DeviceEventBatch DeviceEventReader::read(size_t max_events, std::chrono::milliseconds timeout) {
@@ -116,8 +116,8 @@ DeviceEventBatch DeviceEventReader::read(size_t max_events, std::chrono::millise
     batch.events.reserve(count);
     std::transform(events.begin(), events.begin() + count, std::back_inserter(batch.events), to_device_event);
     batch.lost = lost;
-    batch.device_reset = reset_pending_;
-    reset_pending_ = false;
+    batch.device_reset = post_reset_recovery_pending_;
+    post_reset_recovery_pending_ = false;
     return batch;
 }
 

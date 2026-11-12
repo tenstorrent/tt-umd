@@ -18,8 +18,17 @@
 namespace tt::umd {
 
 TTSimTlbWindow::TTSimTlbWindow(
-    std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
-    TlbWindow(std::move(handle), config), sim_communicator_(communicator) {}
+    std::unique_ptr<TTSimTlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
+    TTSimTlbWindow(handle.get(), std::move(handle), communicator, config) {}
+
+// handle is taken by rvalue reference so it is only moved from once the base is built, after
+// sim_tlb_handle was read from it.
+TTSimTlbWindow::TTSimTlbWindow(
+    TTSimTlbHandle* sim_tlb_handle,
+    std::unique_ptr<TTSimTlbHandle>&& handle,
+    TTSimCommunicator* communicator,
+    const tlb_data config) :
+    TlbWindow(std::move(handle), config), sim_communicator_(communicator), sim_tlb_handle_(sim_tlb_handle) {}
 
 void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) { write_block(offset, &value, sizeof(value)); }
 
@@ -86,9 +95,7 @@ void TTSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) {
         static_cast<uint32_t>(size));
 }
 
-bool TTSimTlbWindow::is_mapped_through_bar() const {
-    return static_cast<const TTSimTlbHandle&>(*tlb_handle).is_mapped_through_bar();
-}
+bool TTSimTlbWindow::is_mapped_through_bar() const { return sim_tlb_handle_->is_mapped_through_bar(); }
 
 uint64_t TTSimTlbWindow::get_physical_address(uint64_t offset) const {
     // Get the base address from the TLB handle and add the offset

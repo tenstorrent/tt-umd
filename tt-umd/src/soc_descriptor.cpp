@@ -326,6 +326,10 @@ std::pair<int, int> SocDescriptor::get_dram_channel_for_core(
     return std::make_pair(logical_core.x, logical_core.y);
 }
 
+uint32_t SocDescriptor::get_dram_core_index(uint32_t channel, uint32_t subchannel) const {
+    return channel * static_cast<uint32_t>(get_grid_size(CoreType::DRAM).y) + subchannel;
+}
+
 CoreCoord SocDescriptor::get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
     return translate_coord_to(logical_eth_coord, coord_system);

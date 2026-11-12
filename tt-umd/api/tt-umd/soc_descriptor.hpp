@@ -107,6 +107,10 @@ public:
     // First element is the channel, second element is the subchannel.
     std::pair<int, int> get_dram_channel_for_core(
         const CoreCoord& core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    // Index of the DRAM core at LOGICAL (channel, subchannel) across this device, in channel-major order:
+    // channel * DRAM cores per channel + subchannel. Per-core address windows (e.g. Grendel CCE SRAM) are laid out in
+    // this order.
+    uint32_t get_dram_core_index(uint32_t channel, uint32_t subchannel) const;
 
     // Public data members kept for backward compatibility (Phase 1).
     // These are copied from the SocArchDescriptor at construction time.

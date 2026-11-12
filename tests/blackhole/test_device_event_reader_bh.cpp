@@ -4,20 +4,18 @@
 
 #include <gtest/gtest.h>
 
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <future>
 #include <memory>
-#include <string>
 #include <thread>
 #include <vector>
 
-#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "tt-umd/pcie/device_event_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
@@ -42,16 +40,9 @@ protected:
         }
         pci_device_id = pci_device_ids.front();
 
-        // TODO: Replace this probe with a KMD version check against a constant in kmd_versions.hpp once a tt-kmd
-        // release ships TENSTORRENT_IOCTL_READ_EVENTS.
-        tt_device_t* dev = nullptr;
-        const std::string chardev_path = "/dev/tenstorrent/" + std::to_string(pci_device_id);
-        ASSERT_EQ(tt_device_open(chardev_path.c_str(), &dev, 0), 0);
-        uint32_t count = 0;
-        const int probe = tt_device_read_events(dev, nullptr, 0, 0, 0, -1, &count, nullptr, nullptr);
-        tt_device_close(dev);
-        if (probe == -EINVAL) {
-            GTEST_SKIP() << "KMD does not support TENSTORRENT_IOCTL_READ_EVENTS.";
+        if (!PCIDevice::is_device_events_supported()) {
+            GTEST_SKIP() << "KMD " << PCIDevice::read_kmd_version().str() << " is below required "
+                         << KMD_READ_EVENTS.str();
         }
 
         // Constructed before anything is published, since a reader sees only records that arrive after it.

@@ -17,6 +17,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
@@ -38,21 +39,18 @@ protected:
             GTEST_SKIP() << "No Tenstorrent devices found.";
         }
         const int pci_device_id = pci_device_ids.front();
+        if (!PCIDevice::is_device_events_supported()) {
+            GTEST_SKIP() << "KMD " << PCIDevice::read_kmd_version().str() << " is below required "
+                         << KMD_READ_EVENTS.str();
+        }
 
         // Opened before anything is published, since a handle sees only records that arrive after it was opened.
         const std::string chardev_path = "/dev/tenstorrent/" + std::to_string(pci_device_id);
         ASSERT_EQ(tt_device_open(chardev_path.c_str(), &dev, 0), 0);
 
-        // TODO: Replace this probe with a KMD version check against a constant in kmd_versions.hpp once a tt-kmd
-        // release ships TENSTORRENT_IOCTL_READ_EVENTS. Probing skips silently if a driver that should have the ioctl
-        // lost it.
         uint32_t count = 0;
         int fw_attached = 0;
-        const int probe = tt_device_read_events(dev, nullptr, 0, 0, 0, -1, &count, nullptr, &fw_attached);
-        if (probe == -EINVAL) {
-            GTEST_SKIP() << "KMD does not support TENSTORRENT_IOCTL_READ_EVENTS.";
-        }
-        ASSERT_EQ(probe, 0);
+        ASSERT_EQ(tt_device_read_events(dev, nullptr, 0, 0, 0, -1, &count, nullptr, &fw_attached), 0);
         if (!fw_attached) {
             GTEST_SKIP() << "Firmware does not publish device events.";
         }

@@ -157,7 +157,6 @@ enum class FirmwareFeature {
     PCIE_1_MODE,
 
     // Board input and GDDR IO power.
-    INPUT_CURRENT,
     INPUT_POWER,
     GDDR_WEST_IO_POWER,
     GDDR_EAST_IO_POWER,

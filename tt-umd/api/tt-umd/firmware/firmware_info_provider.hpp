@@ -426,14 +426,6 @@ public:
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Retrieves the board's input current.
-     * Not published by any firmware version this API currently decodes, so this returns std::nullopt.
-     * @param noc_id NOC to route through.
-     * @return std::optional<double> Current in amperes, or std::nullopt if unavailable.
-     */
-    virtual std::optional<double> get_input_current([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
      * @brief Retrieves the board's total input power, as measured at the board's power input.
      * Includes everything on the board, not just the ASIC (compare get_tdp()).
      * @param noc_id NOC to route through.

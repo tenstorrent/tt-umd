@@ -187,8 +187,6 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         {FirmwareFeature::PCIE_0_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{0, 0x3}}},
         {FirmwareFeature::PCIE_1_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{2, 0x3}}},
         {FirmwareFeature::INPUT_POWER,        {TelemetryTag::INPUT_POWER, LinearTransform{}}},
-        // The tag is defined, but no firmware this map covers publishes it with a known encoding.
-        {FirmwareFeature::INPUT_CURRENT,      {FixedValue{0}, NotAvailable{}}},
     };
 }
 
@@ -971,10 +969,6 @@ std::vector<std::optional<PcieMode>> FirmwareInfoProviderImplementation::get_pci
         to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_0_MODE)),
         to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_1_MODE)),
     };
-}
-
-std::optional<double> FirmwareInfoProviderImplementation::get_input_current(NocId noc_id) const {
-    return read_scalar<double>(FirmwareFeature::INPUT_CURRENT);
 }
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_input_power(NocId noc_id) const {

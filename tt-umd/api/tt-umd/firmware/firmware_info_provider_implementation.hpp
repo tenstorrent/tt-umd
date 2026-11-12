@@ -174,8 +174,6 @@ public:
     virtual std::vector<std::optional<PcieMode>> get_pcie_modes(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::optional<double> get_input_current([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
     virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<uint32_t> get_tdc_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;

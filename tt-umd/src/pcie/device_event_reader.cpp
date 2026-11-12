@@ -16,7 +16,9 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 
 namespace tt::umd {
 
@@ -42,6 +44,10 @@ DeviceEventReader::DeviceEventReader(int pci_device_num) :
 
     // The destructor does not run when a constructor throws.
     try {
+        UMD_ASSERT(
+            PCIDevice::is_device_events_supported(),
+            error::RuntimeError,
+            fmt::format("Reading device events requires KMD {} or newer.", KMD_READ_EVENTS.str()));
         open_device();
     } catch (...) {
         close(wake_fd_);

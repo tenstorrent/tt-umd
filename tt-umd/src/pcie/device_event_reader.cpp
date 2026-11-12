@@ -107,7 +107,7 @@ DeviceEventBatch DeviceEventReader::read_events(size_t max_events, int timeout_m
     } else if (result == -ECANCELED) {
         // Draining the eventfd consumes every cancel made so far, so they end this wait alone.
         uint64_t cancels = 0;
-        (void)::read(wake_fd_, &cancels, sizeof(cancels));
+        [[maybe_unused]] const ssize_t bytes_read = ::read(wake_fd_, &cancels, sizeof(cancels));
     } else if (result != -EINTR) {
         UMD_ASSERT(
             result == 0,
@@ -145,7 +145,7 @@ bool DeviceEventReader::is_firmware_attached() {
 void DeviceEventReader::cancel() noexcept {
     // Can fail only if the eventfd counter would overflow, which leaves it readable anyway.
     const uint64_t one = 1;
-    (void)write(wake_fd_, &one, sizeof(one));
+    [[maybe_unused]] const ssize_t bytes_written = write(wake_fd_, &one, sizeof(one));
 }
 
 }  // namespace tt::umd

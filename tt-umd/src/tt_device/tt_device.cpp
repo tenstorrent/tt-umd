@@ -374,7 +374,7 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return create_io_window(target, host, IoOrdering::Strict);
+    return create_io_window(target, host, IoOrdering::STRICT);
 }
 
 // Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the

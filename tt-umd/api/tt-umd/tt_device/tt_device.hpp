@@ -529,7 +529,7 @@ public:
 
     /**
      * Same as the overload above, with the transaction ordering mode applied to the mapping made
-     * explicit instead of defaulting to @ref IoOrdering::Strict.
+     * explicit instead of defaulting to @ref IoOrdering::STRICT.
      *
      * @param ordering Transaction ordering mode to apply to the mapping.
      */

@@ -28,11 +28,11 @@ namespace {
 
 const char* ordering_name(IoOrdering ordering) {
     switch (ordering) {
-        case IoOrdering::Relaxed:
+        case IoOrdering::RELAXED:
             return "Relaxed";
-        case IoOrdering::Strict:
+        case IoOrdering::STRICT:
             return "Strict";
-        case IoOrdering::Posted:
+        case IoOrdering::POSTED:
             return "Posted";
     }
     return "Unknown";
@@ -118,10 +118,10 @@ TEST(MicrobenchmarkTLB, DRAM) {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB, 2 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
-    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
-    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Relaxed, WINDOW_BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::Strict, WINDOW_BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::RELAXED, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, dram_core, ADDRESS, IoOrdering::STRICT, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::RELAXED, WINDOW_BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, dram_core, ADDRESS, IoOrdering::STRICT, WINDOW_BATCH_SIZES);
     test::utils::export_results(bench);
 }
 
@@ -133,10 +133,10 @@ TEST(MicrobenchmarkTLB, Tensix) {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX)[0];
-    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
-    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::RELAXED, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, tensix_core, ADDRESS, IoOrdering::STRICT, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::RELAXED, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, tensix_core, ADDRESS, IoOrdering::STRICT, BATCH_SIZES);
     test::utils::export_results(bench);
 }
 
@@ -151,10 +151,10 @@ TEST(MicrobenchmarkTLB, Ethernet) {
         GTEST_SKIP() << "No ETH cores found on system.";
     }
     const CoreCoord eth_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::ETH).at(0);
-    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
-    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Relaxed, BATCH_SIZES);
-    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::Strict, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::RELAXED, BATCH_SIZES);
+    benchmark_cluster(bench, *cluster, eth_core, ADDRESS, IoOrdering::STRICT, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::RELAXED, BATCH_SIZES);
+    benchmark_io_window(bench, *cluster, eth_core, ADDRESS, IoOrdering::STRICT, BATCH_SIZES);
     test::utils::export_results(bench);
 }
 

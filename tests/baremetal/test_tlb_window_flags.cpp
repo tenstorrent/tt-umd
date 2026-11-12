@@ -161,10 +161,10 @@ TEST(TlbWindowFlags, FlagsAndOrderingAreIndependent) {
 
     TargetIoWindowConfig target = make_target();
     target.flags = WindowFlags::Snoop;
-    window.configure(target, IoOrdering::Posted);
+    window.configure(target, IoOrdering::POSTED);
 
     EXPECT_EQ(window.get_target_config().flags, WindowFlags::Snoop);
-    EXPECT_EQ(window.get_io_ordering(), IoOrdering::Posted);
+    EXPECT_EQ(window.get_io_ordering(), IoOrdering::POSTED);
 }
 
 }  // namespace tlb_window_flags_test

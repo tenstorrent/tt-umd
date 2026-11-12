@@ -272,7 +272,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
-        IoOrdering ordering = IoOrdering::Strict,
+        IoOrdering ordering = IoOrdering::STRICT,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -414,7 +414,7 @@ public:
         ChipId chip,
         CoreCoord core,
         uint64_t addr,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -438,7 +438,7 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).

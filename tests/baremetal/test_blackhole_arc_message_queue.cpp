@@ -11,9 +11,9 @@
 #include <vector>
 
 #include "tests/test_utils/protocol_mocks.hpp"
-#include "tt-umd/arc/blackhole_arc_message_queue.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/tt_device/firmware/blackhole_arc_apb.hpp"
+#include "tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 
 using namespace tt::umd;

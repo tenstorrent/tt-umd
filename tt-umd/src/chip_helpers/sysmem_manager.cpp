@@ -14,10 +14,35 @@
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
+#include <tt-umd/chip_helpers/host_cache.hpp>
 
 namespace tt::umd {
 
+namespace {
+
+// A platform that does not snoop inbound DMA and cannot issue cache-maintenance instructions has no
+// correct way to share sysmem with the device. Nothing here can fix that, so say so once and loudly
+// rather than let it look like it worked.
+void warn_once_if_maintenance_unavailable() {
+    static const bool reported = [] {
+        if (host_cache::maintenance_required_but_unavailable()) {
+            log_error(
+                LogUMD,
+                "Host cache maintenance is required on this platform but unavailable: the interconnect "
+                "does not report snooping this device's inbound DMA, and no usable cache-maintenance "
+                "instruction was found. Sysmem shared with the device may return stale data in either "
+                "direction.");
+        }
+        return true;
+    }();
+    (void)reported;
+}
+
+}  // namespace
+
+
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     UMD_ASSERT(
@@ -47,9 +72,14 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
 
     memcpy(user_scratchspace, src, size);
+
+    // The device DMA-reads this back out of DRAM, so the host's stores have to be written back on a
+    // platform that does not snoop. No-op where it does.
+    host_cache::clean_range(user_scratchspace, size);
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     UMD_ASSERT(
@@ -74,6 +104,8 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
             channel,
             user_scratchspace);
     }
+    // The device DMA-wrote this, so drop any cached lines first and let the copy refetch from DRAM.
+    host_cache::invalidate_range(user_scratchspace, size);
     memcpy(dest, user_scratchspace, size);
 }
 

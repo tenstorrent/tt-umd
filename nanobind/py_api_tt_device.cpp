@@ -138,6 +138,7 @@ void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType")
         .value("PCIe", IODeviceType::PCIe)
         .value("JTAG", IODeviceType::JTAG)
+        .value("AXI", IODeviceType::AXI)
         .value("Undefined", IODeviceType::UNDEFINED);
 
     nb::exception<error::SigbusError>(m, "SigbusError");

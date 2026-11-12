@@ -1019,10 +1019,15 @@ static std::vector<Enum> enum_list_from_mask(uint32_t mask, Enum last_known) {
     return enabled;
 }
 
-std::vector<std::optional<PcieMode>> FirmwareInfoProviderImplementation::get_pcie_modes(NocId noc_id) const {
+std::vector<PcieMode> FirmwareInfoProviderImplementation::get_pcie_modes(NocId noc_id) const {
+    // Both instances are packed into one telemetry word, so read it once to keep them consistent.
+    const std::optional<uint32_t> raw = read_raw(FirmwareFeature::PCIE_0_MODE);
+    if (!raw.has_value()) {
+        return {};
+    }
     return {
-        to_enum(read_scalar<uint32_t>(FirmwareFeature::PCIE_0_MODE), PcieMode::ROOT_PORT),
-        to_enum(read_scalar<uint32_t>(FirmwareFeature::PCIE_1_MODE), PcieMode::ROOT_PORT),
+        enum_from_raw(convert_raw<uint32_t>(FirmwareFeature::PCIE_0_MODE, raw.value()).value(), PcieMode::ROOT_PORT),
+        enum_from_raw(convert_raw<uint32_t>(FirmwareFeature::PCIE_1_MODE, raw.value()).value(), PcieMode::ROOT_PORT),
     };
 }
 

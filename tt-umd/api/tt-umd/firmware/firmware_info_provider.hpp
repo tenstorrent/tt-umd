@@ -417,13 +417,12 @@ public:
 
     /**
      * @brief Retrieves the configured mode of each PCIe instance.
-     * The vector always has one entry per PCIe instance (2). An entry is std::nullopt when the mode is unavailable
-     * or the firmware reports a mode this API does not know.
+     * Blackhole only. The vector has one entry per PCIe instance (2), and is empty when the firmware does not publish
+     * PCIe usage. A mode this version of UMD does not recognize is reported as PcieMode::UNKNOWN.
      * @param noc_id NOC to route through.
-     * @return std::vector<std::optional<PcieMode>> Mode per PCIe instance, indexed by instance.
+     * @return std::vector<PcieMode> Mode per PCIe instance, indexed by instance.
      */
-    virtual std::vector<std::optional<PcieMode>> get_pcie_modes(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::vector<PcieMode> get_pcie_modes([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
      * @brief Retrieves the board's total input power, as measured at the board's power input.

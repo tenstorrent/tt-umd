@@ -171,8 +171,7 @@ public:
 
     virtual std::optional<uint32_t> get_enabled_l2cpus([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::vector<std::optional<PcieMode>> get_pcie_modes(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::vector<PcieMode> get_pcie_modes([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 

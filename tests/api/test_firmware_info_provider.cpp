@@ -944,7 +944,7 @@ TEST_F(TestFirmwareInfoProvider, BlackholePcieModes) {
         if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
             continue;
         }
-        std::vector<std::optional<PcieMode>> modes = tt_device->get_firmware_info_provider()->get_pcie_modes();
+        std::vector<PcieMode> modes = tt_device->get_firmware_info_provider()->get_pcie_modes();
 
         ASSERT_EQ(modes.size(), 2u);
         // The host reaches this chip over PCIe, so at least one instance must be an endpoint.
@@ -1041,6 +1041,7 @@ TEST_F(TestFirmwareInfoProvider, WormholeHasNoBlackholeOnlyTelemetry) {
             EXPECT_FALSE(fw_info->is_capability_enabled(capability).has_value());
         }
         EXPECT_FALSE(fw_info->get_enabled_l2cpus().has_value());
+        EXPECT_TRUE(fw_info->get_pcie_modes().empty());
         EXPECT_FALSE(fw_info->get_aiclk_arbitration().has_value());
         EXPECT_FALSE(fw_info->get_nop_start_count().has_value());
     }

@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "tests/test_utils/process_utils.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/system_memory_allocator.hpp"
@@ -115,7 +114,7 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
 
     const HugepageMapping channel_3 = sysmem->get_hugepage_mapping(3);
 
-    EXPECT_EQ(channel_3.mapping_size, HUGEPAGE_CHANNEL_3_SIZE_LIMIT);
+    EXPECT_EQ(channel_3.mapping_size, 0x30000000u);  // 768 MB
 
     void* channel_3_mapping = channel_3.mapping;
 

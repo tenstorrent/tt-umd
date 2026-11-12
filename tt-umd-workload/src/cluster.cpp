@@ -50,7 +50,7 @@
 #include "io_window/io_window_target.hpp"
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -206,14 +206,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 namespace {
 
-// A sysmem manager with no host memory channels can't back remote transfers, so remote communication treats it as
-// absent.
-SysmemManager* usable_sysmem_manager(Chip* chip) {
-    SysmemManager* sysmem_manager = chip->get_sysmem_manager();
-    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+// No host memory channels can't back remote transfers, so remote communication treats them as absent.
+HostMemChannels* usable_host_mem_channels(Chip* chip) {
+    HostMemChannels* host_mem_channels = chip->get_host_mem_channels();
+    if (host_mem_channels != nullptr && host_mem_channels->get_num_channels() == 0) {
         return nullptr;
     }
-    return sysmem_manager;
+    return host_mem_channels;
 }
 
 }  // namespace
@@ -324,7 +323,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             remote_communications_[chip_id] = RemoteCommunication::create_remote_communication(
-                chip->get_tt_device(), {0, 0, 0, 0}, usable_sysmem_manager(chip.get()));
+                chip->get_tt_device(), {0, 0, 0, 0}, usable_host_mem_channels(chip.get()));
             remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
                 chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                     cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
@@ -348,7 +347,7 @@ void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remot
     for (const ChipId gateway_id : local_chip_ids_) {
         Chip* gateway_chip = get_chip(gateway_id);
         if (gateway_chip->get_tt_device() == remote_communication->get_local_device()) {
-            remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
+            remote_communication->set_host_mem_channels(usable_host_mem_channels(gateway_chip));
             return;
         }
     }
@@ -1242,9 +1241,10 @@ Cluster::~Cluster() {
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
-    HugepageMapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-    if (hugepage_map.mapping != nullptr) {
-        return static_cast<std::byte*>(hugepage_map.mapping) + offset;
+    HostMemChannels* host_mem_channels = get_chip(src_device_id)->get_host_mem_channels();
+    void* channel_address = host_mem_channels ? host_mem_channels->get_channel_address(channel) : nullptr;
+    if (channel_address != nullptr) {
+        return static_cast<std::byte*>(channel_address) + offset;
     } else {
         return nullptr;
     }

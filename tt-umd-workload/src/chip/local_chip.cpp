@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "hugepage.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
@@ -26,8 +27,10 @@
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -42,23 +45,78 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
+namespace {
+
+// Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
+// 1. There are PCIE PHY registers at the top
+// 2. Provision for platform software to have NOC-accessible host memory
+constexpr size_t WORMHOLE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
+
+size_t get_host_mem_channel_size(tt::ARCH arch, size_t channel) {
+    return (arch == tt::ARCH::WORMHOLE_B0 && channel == 3) ? WORMHOLE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
+}
+
+uint32_t count_host_mem_channels(PCIDevice* pci_device, uint32_t requested_channels) {
+    UMD_ASSERT(
+        requested_channels <= MAX_HOST_MEM_CHANNELS,
+        error::RuntimeError,
+        fmt::format(
+            "Only {} host memory channels are supported per device, but {} requested.",
+            MAX_HOST_MEM_CHANNELS,
+            requested_channels));
+    // With an IOMMU the channels are ordinary memory, so any count fits.
+    if (requested_channels == 0 || pci_device->is_iommu_enabled()) {
+        return requested_channels;
+    }
+    // Without one each channel is a 1 GB hugepage, so the count is clamped to the hugepages the host has.
+    // TODO: get rid of this when the following Metal CI issue is resolved.
+    // https://github.com/tenstorrent/tt-metal/issues/15675
+    // The notion that we should clamp the number of host mem channels to
+    // what we have available and emit a warning is wrong, since the
+    // application might try to use the channels it asked for.  We should
+    // just fail early since the error message will be actionable instead of
+    // a segfault or memory corruption.
+    const uint32_t available_channels = get_available_num_host_mem_channels(
+        requested_channels, pci_device->get_pci_device_id(), pci_device->get_pci_revision());
+    log_debug(
+        LogUMD,
+        "Using {} Hugepages/NumHostMemChannels for PCIDevice {}",
+        available_channels,
+        pci_device->get_device_num());
+    // Without a hugepage mount no channel can be allocated, so the chip reports none rather than channels that
+    // would all stay unmapped.
+    if (find_hugepage_dir(HUGEPAGE_REGION_SIZE).empty()) {
+        log_warning(LogUMD, "No huge page mount found for hugepage_size: {}.", HUGEPAGE_REGION_SIZE);
+        return 0;
+    }
+    return available_channels;
+}
+
+}  // namespace
+
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    uint32_t num_channels = 0;
 
     if (tt_device == nullptr) {
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
     }
 
     if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get());
+        num_channels = count_host_mem_channels(tt_device->get_pci_device(), num_host_mem_channels);
     }
 
-    return std::unique_ptr<LocalChip>(new LocalChip(std::move(tt_device), std::move(sysmem_manager)));
+    return std::unique_ptr<LocalChip>(new LocalChip(std::move(tt_device), std::move(sysmem_manager), num_channels));
 }
 
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager) :
+LocalChip::LocalChip(
+    std::unique_ptr<TTDevice> tt_device,
+    std::unique_ptr<SysmemManager> sysmem_manager,
+    uint32_t num_host_mem_channels) :
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
     sysmem_manager_(std::move(sysmem_manager)),
+    host_mem_channels_(num_host_mem_channels),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
@@ -74,6 +132,7 @@ LocalChip::~LocalChip() {
     tt_device_->set_power_state(TTDevice::PowerState::IDLE);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
+    unmap_host_mem_channels();
     sysmem_manager_.reset();
     tt_device_.reset();
 }
@@ -123,6 +182,8 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
+HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }
+
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device(uint32_t dram_membar_subchannel) {
@@ -141,7 +202,7 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
         tt_device_->get_communication_device_id(),
         tt_device_->get_communication_device_type()));
 
-    sysmem_manager_->pin_or_map_sysmem_to_device();
+    map_host_mem_channels();
     initialize_membars(dram_membar_subchannel);
 }
 
@@ -153,12 +214,100 @@ void LocalChip::close_device() {
         set_clock_state(DevicePowerState::LONG_IDLE);
         assert_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
-        if (sysmem_manager_) {
-            sysmem_manager_->unpin_or_unmap_sysmem();
-        }
+        unmap_host_mem_channels();
     }
     chip_started_lock_.reset();
 };
+
+void LocalChip::map_host_mem_channels() {
+    const size_t num_channels = host_mem_channels_.get_num_channels();
+    if (num_channels == 0) {
+        return;
+    }
+    const tt::ARCH arch = tt_device_->get_arch();
+    const uint64_t pcie_base = SysmemManager::get_pcie_base_for_arch(arch);
+
+    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+        // One buffer bound to the NOC places channel N at its expected NOC address, as long as the buffer itself
+        // lands at pcie_base.
+        const size_t size =
+            (num_channels - 1) * HUGEPAGE_REGION_SIZE + get_host_mem_channel_size(arch, num_channels - 1);
+        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager_->allocate_buffer(size, /*bind_to_noc=*/true);
+        const std::optional<uint64_t> noc_address = buffer->get_noc_address();
+        if (!noc_address.has_value()) {
+            UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
+        }
+        if (*noc_address != pcie_base) {
+            // If this happens, it means that something else is using the address
+            // space that UMD typically uses.  Historically, this would have crashed
+            // or done something inscrutable.  Now it is just an error.
+            //
+            // The usual cause is a stale process (a leftover/crashed run) that still
+            // holds a sysmem mapping at the NOC base address, so this process gets
+            // bumped to a different address. The fix is to find and kill those
+            // processes, then retry.
+            log_error(
+                LogUMD,
+                "Expected sysmem to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This usually means "
+                "another process is already holding the sysmem NOC address space UMD requires (often a stale or "
+                "crashed process from a previous run). To fix this, find and kill the other processes using the "
+                "Tenstorrent device(s), then retry.",
+                pcie_base,
+                *noc_address);
+            UMD_THROW(
+                error::RuntimeError,
+                "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
+                "lead to undefined behavior");
+        }
+        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", buffer->get_iova(), *noc_address);
+
+        auto* base = static_cast<uint8_t*>(buffer->get_va());
+        for (size_t channel = 0; channel < num_channels; channel++) {
+            host_mem_channels_.map_channel(
+                channel, base + channel * HUGEPAGE_REGION_SIZE, get_host_mem_channel_size(arch, channel));
+        }
+        host_mem_channel_buffers_.push_back(std::move(buffer));
+        return;
+    }
+
+    // Without an IOMMU each channel is its own hugepage. A channel that cannot be allocated stays unmapped, so
+    // copies through it throw.
+    for (size_t channel = 0; channel < num_channels; channel++) {
+        const size_t channel_size = get_host_mem_channel_size(arch, channel);
+        std::unique_ptr<SysmemBuffer> buffer;
+        try {
+            buffer = sysmem_manager_->allocate_buffer(channel_size, /*bind_to_noc=*/true);
+        } catch (const std::exception& e) {
+            log_warning(
+                LogUMD,
+                "Failed to allocate host memory channel {} for device {}: {}",
+                channel,
+                tt_device_->get_communication_device_id(),
+                e.what());
+            continue;
+        }
+
+        const std::optional<uint64_t> noc_address = buffer->get_noc_address();
+        log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", buffer->get_iova(), noc_address.value_or(0));
+        // The truncated channel is the final one, so the channels before it all sit on the 1 GB grid.
+        if (noc_address != pcie_base + channel * HUGEPAGE_REGION_SIZE) {
+            log_warning(
+                LogUMD,
+                "NOC address of a hugepage does not match the expected address. This usually means another "
+                "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
+                "process from a previous run). To fix this, find and kill the other processes using the "
+                "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
+        }
+
+        host_mem_channels_.map_channel(channel, buffer->get_va(), channel_size);
+        host_mem_channel_buffers_.push_back(std::move(buffer));
+    }
+}
+
+void LocalChip::unmap_host_mem_channels() {
+    host_mem_channels_.unmap_channels();
+    host_mem_channel_buffers_.clear();
+}
 
 int LocalChip::get_num_host_channels() {
     // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
@@ -172,7 +321,7 @@ int LocalChip::get_num_host_channels() {
         return 0;
     }
 
-    return sysmem_manager_->get_num_host_mem_channels();
+    return host_mem_channels_.get_num_channels();
 }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
@@ -191,12 +340,10 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
         channel < get_num_host_channels(),
         error::RuntimeError,
         "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    const size_t channel_size = host_mem_channels_.get_channel_size(channel);
     UMD_ASSERT(
-        hugepage_map.mapping_size,
-        error::RuntimeError,
-        "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
+        channel_size, error::RuntimeError, "Host channel size can only be queried after the device has been started.");
+    return channel_size;
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
@@ -210,7 +357,7 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }
-    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
+    host_mem_channels_.write_to_channel(channel, src, sysmem_dest, size);
 }
 
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
@@ -224,7 +371,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }
-    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
+    host_mem_channels_.read_from_channel(channel, dest, sysmem_src, size);
 }
 
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {

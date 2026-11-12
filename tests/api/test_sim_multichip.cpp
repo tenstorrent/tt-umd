@@ -47,7 +47,6 @@
 #include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
@@ -693,8 +692,8 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsAreBuiltAsRemoteChips) {
         RemoteCommunication* remote_communication = cluster.get_chip(chip)->get_tt_device()->get_remote_communication();
         ASSERT_NE(remote_communication, nullptr)
             << "remote chip " << chip << " has no RemoteCommunication to flush through";
-        EXPECT_TRUE(remote_communication->has_sysmem_manager())
-            << "remote chip " << chip << " is not wired to its gateway's sysmem manager";
+        EXPECT_TRUE(remote_communication->has_host_mem_channels())
+            << "remote chip " << chip << " is not wired to its gateway's host memory channels";
     }
 }
 
@@ -791,9 +790,7 @@ TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
     ASSERT_GT(expected_channels, 0u);
 
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
-        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
-        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
-        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected_channels)
+        EXPECT_EQ(cluster.get_num_host_channels(chip), expected_channels)
             << "MMIO chip " << chip << " kept the provisional channel count discovery built it with";
     }
 }
@@ -812,9 +809,7 @@ TEST_F(TTSimDiscoveryTest, ExplicitHostMemChannelsAreHonoured) {
     ASSERT_FALSE(cluster_desc->get_chips_with_mmio().empty());
 
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
-        SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
-        ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
-        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), 1u)
+        EXPECT_EQ(cluster.get_num_host_channels(chip), 1u)
             << "MMIO chip " << chip << " did not keep the explicitly requested channel count";
     }
 }

@@ -15,19 +15,11 @@
 namespace tt::umd {
 class TTDevice;
 
-// Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
-// 1. There are PCIE PHY registers at the top
-// 2. Provision for platform software to have NOC-accessible host memory
-static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
-
 class SiliconSysmemManager : public SysmemManager {
 public:
-    SiliconSysmemManager(TTDevice* tt_device, uint32_t num_host_mem_channels);
+    explicit SiliconSysmemManager(TTDevice* tt_device);
+
     ~SiliconSysmemManager() override;
-
-    bool pin_or_map_sysmem_to_device() override;
-
-    void unpin_or_unmap_sysmem() override;
 
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
@@ -37,9 +29,6 @@ public:
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
-
-protected:
-    bool init_sysmem(uint32_t num_host_mem_channels) override;
 
 private:
     /**
@@ -66,13 +55,6 @@ private:
 
     // Maps a free hugepage file; dropping the last handle unmaps the page and frees its file.
     std::shared_ptr<void> acquire_hugepage(const std::string& hugepage_dir);
-
-    bool init_hugepages(uint32_t num_host_mem_channels);
-
-    bool init_iommu(uint32_t num_fake_mem_channels);
-
-    bool pin_or_map_hugepages();
-    bool pin_or_map_iommu();
 
     void print_file_contents(const std::string& filename, const std::string& hint = "");
 

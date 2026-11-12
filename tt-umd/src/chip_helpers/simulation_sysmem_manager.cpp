@@ -53,10 +53,10 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
-bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+void SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     ZoneScopedC(tracy::Color::Yellow);
     if (num_host_mem_channels == 0) {
-        return true;
+        return;
     }
 
     if (num_host_mem_channels > 4) {
@@ -95,8 +95,6 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         hugepage_mapping_per_channel.push_back(
             {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
     }
-
-    return true;
 }
 
 uint64_t SimulationSysmemManager::get_mapped_arena_size() const {
@@ -127,17 +125,73 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
     return true;
 }
 
-bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
-
-SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
-
-void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+SimulationSysmemManager::~SimulationSysmemManager() {
     ZoneScopedC(tracy::Color::Yellow);
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
     unmap_system_memory();
+}
+
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    UMD_ASSERT(
+        hugepage_map.mapping,
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
+
+    UMD_ASSERT(
+        size <= hugepage_map.mapping_size,
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer data has larger size {} than destination buffer {}", size, hugepage_map.mapping_size));
+    log_debug(
+        LogUMD,
+        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
+        hugepage_map.mapping,
+        (sysmem_dest % hugepage_map.mapping_size),
+        channel,
+        size);
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
+
+    memcpy(user_scratchspace, src, size);
+}
+
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    UMD_ASSERT(
+        hugepage_map.mapping,
+        error::RuntimeError,
+        fmt::format(
+            "read_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
+
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
+
+    memcpy(dest, user_scratchspace, size);
+}
+
+HugepageMapping SimulationSysmemManager::get_hugepage_mapping(size_t channel) const {
+    if (hugepage_mapping_per_channel.size() <= channel) {
+        return {nullptr, 0, 0};
+    } else {
+        return hugepage_mapping_per_channel[channel];
+    }
 }
 
 void SimulationSysmemManager::unmap_system_memory() {

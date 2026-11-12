@@ -26,6 +26,7 @@ enum class ARCH;
 
 namespace tt::umd {
 
+class HostMemChannels;
 class TTDevice;
 class SysmemManager;
 struct CoreCoord;
@@ -52,6 +53,12 @@ public:
 
     virtual TTDevice* get_tt_device() = 0;
     virtual SysmemManager* get_sysmem_manager() = 0;
+
+    /**
+     * Returns this chip's host memory channels, or nullptr for a chip that has none. The pointer stays valid for
+     * the chip's lifetime, but a channel may be unmapped while the chip is not started.
+     */
+    virtual HostMemChannels* get_host_mem_channels() { return nullptr; }
 
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;

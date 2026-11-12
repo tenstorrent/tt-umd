@@ -196,13 +196,16 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     }
 
     log_info(tt::LogUMD, "Shutting down; closing client connections.");
-    cluster.reset();  // Tears the host down gracefully, which removes its server directory.
-    // With the directory gone no scan will ever sweep this log, and a clean exit leaves nothing in it
-    // worth keeping. A host that dies never gets here, so its log stays until its directory is swept.
+    // Teardown removes the server directory, after which no scan will ever sweep this log, and a clean
+    // exit leaves nothing in it worth keeping. The log is removed before teardown because the directory
+    // still reserves its index until then: afterwards a newly started host can claim the index and open
+    // the same log path. The rest of the shutdown output goes to the already open, unlinked file. A host
+    // that dies never gets here, so its log stays until its directory is swept.
     if (detach) {
         std::error_code ec;
         std::filesystem::remove(log_path_for(server_directory), ec);
     }
+    cluster.reset();  // Tears the host down gracefully, which removes its server directory.
     return 0;
 }
 

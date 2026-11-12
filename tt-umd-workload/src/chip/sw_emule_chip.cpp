@@ -292,8 +292,10 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
-    std::memcpy(target_core->l1_ptr(l1_dest), src, size);
-    notify_host_write(*target_core, l1_dest, size, 0);
+    target_core->access(l1_dest, const_cast<void*>(src), size, /*is_write=*/true);
+    if (l1_dest < target_core->l1_size()) {
+        notify_host_write(*target_core, l1_dest, size, 0);
+    }
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
@@ -302,11 +304,10 @@ void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, 
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
-    std::memcpy(dest, target_core->l1_ptr(l1_src), size);
+    target_core->access(l1_src, dest, size, /*is_write=*/false);
 }
 
-// Register I/O forwards to the same memory path — emulated cores have no distinct
-// register address space, so all offsets map into the same L1-backed storage.
+// Register I/O takes the same path: an address past the core's memory reaches tt-emule's register model.
 void SWEmuleChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }

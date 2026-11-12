@@ -109,7 +109,7 @@ void ChippyMemoryMap::add_mimir_regions(
             windows.dram_stride,
             chiplet_transport));
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
-            const uint32_t l1_index = channel * locations_per_channel + location;
+            const uint32_t l1_index = soc_descriptor.get_dram_core_index(channel, location);
             memory_regions_.push_back(make_region(
                 windows.dram_l1_base + static_cast<uint64_t>(l1_index) * windows.dram_l1_stride,
                 kMimirCceSramLocalBase + location * kMimirCceSramStride,

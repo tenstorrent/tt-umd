@@ -1202,7 +1202,13 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
     std::optional<NocId> noc) {
     TTDevice* tt_device = get_chip(chip)->get_tt_device();
     if (tt_device == nullptr) {
-        // Mock and emulated chips have no device to map.
+#ifdef TT_UMD_BUILD_EMULE
+        if (auto* emule_chip = dynamic_cast<SWEmuleChip*>(get_chip(chip))) {
+            return emule_chip->create_io_window(
+                make_io_window_target(emule_chip->get_soc_descriptor(), core_start, addr, noc, core_end, flags), host);
+        }
+#endif
+        // Mock chips have no device to map.
         return nullptr;
     }
     return tt_device->create_io_window(

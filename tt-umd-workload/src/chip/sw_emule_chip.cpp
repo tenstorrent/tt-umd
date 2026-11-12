@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -322,6 +323,71 @@ void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord co
 
 void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
+}
+
+namespace {
+
+// IoWindow over an emulated core. A store is one write_to_device, so a 32-bit store lands whole and
+// the core sees it as a host write; there is no mapping to size, so the window spans the request.
+class SWEmuleIoWindow final : public IoWindow {
+public:
+    SWEmuleIoWindow(SWEmuleChip& chip, const TargetIoWindowConfig& target, const HostIoWindowConfig& host) :
+        chip_(chip), host_(host) {
+        configure(target);
+    }
+
+    void write_block(uint64_t offset, const void* data, size_t size) override { write(offset, data, size); }
+    void read_block(uint64_t offset, void* data, size_t size) override { read(offset, data, size); }
+    void write16(uint64_t offset, uint16_t value) override { write(offset, &value, sizeof(value)); }
+    uint16_t read16(uint64_t offset) override { return load<uint16_t>(offset); }
+    void write32(uint64_t offset, uint32_t value) override { write(offset, &value, sizeof(value)); }
+    uint32_t read32(uint64_t offset) override { return load<uint32_t>(offset); }
+    void write64(uint64_t offset, uint64_t value) override { write(offset, &value, sizeof(value)); }
+    uint64_t read64(uint64_t offset) override { return load<uint64_t>(offset); }
+    void write_aligned(uint64_t offset, const void* data, size_t size) override { write(offset, data, size); }
+    void read_aligned(uint64_t offset, void* data, size_t size) override { read(offset, data, size); }
+
+    void configure(const TargetIoWindowConfig& config) override { configure(config, IoOrdering::Strict); }
+
+    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override {
+        UMD_ASSERT(
+            !config.core_end.has_value(), error::RuntimeError, "SWEmuleChip: multicast IoWindows are not supported");
+        target_ = config;
+        ordering_ = ordering;
+        core_ = chip_.get_soc_descriptor().get_coord_at(config.core_start, CoordSystem::TRANSLATED);
+    }
+
+    TargetIoWindowConfig get_target_config() const override { return target_; }
+    IoOrdering get_io_ordering() const override { return ordering_; }
+    size_t get_size() const override { return host_.size; }
+    HostMemoryCaching get_memory_caching_type() const override { return host_.mapping; }
+
+private:
+    void write(uint64_t offset, const void* data, size_t size) {
+        chip_.write_to_device(core_, data, target_.addr + offset, size);
+    }
+    void read(uint64_t offset, void* data, size_t size) {
+        chip_.read_from_device(core_, data, target_.addr + offset, size);
+    }
+    template <typename T>
+    T load(uint64_t offset) {
+        T value{};
+        read(offset, &value, sizeof(value));
+        return value;
+    }
+
+    SWEmuleChip& chip_;
+    HostIoWindowConfig host_;
+    TargetIoWindowConfig target_{};
+    IoOrdering ordering_ = IoOrdering::Strict;
+    CoreCoord core_;
+};
+
+}  // namespace
+
+std::unique_ptr<IoWindow> SWEmuleChip::create_io_window(
+    const TargetIoWindowConfig& target, const HostIoWindowConfig& host) {
+    return std::make_unique<SWEmuleIoWindow>(*this, target, host);
 }
 
 // --- Chip lifecycle / hardware accessors (no-ops) ---

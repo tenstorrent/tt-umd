@@ -27,12 +27,11 @@
 //
 // Gating is on the platform's actual DMA coherency, not on the ISA and not on Zicbom merely being
 // available: coherency is a property of the SoC interconnect, so a coherent RISC-V host must pay
-// nothing. A device tree that declares `dma-coherent` means the platform snoops. Set
-// TT_UMD_HOST_CACHE_MAINTENANCE=0/1 to force the decision either way.
+// nothing. A device tree that declares `dma-coherent` means the platform snoops; anything unknown is
+// treated as non-coherent, so being wrong costs redundant maintenance rather than stale data.
 
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -137,21 +136,20 @@ inline bool platform_is_dma_coherent(const char* pci_bdf = nullptr) {
     return false;
 }
 
-inline bool maintenance_enabled() {
-    if (const char* force = std::getenv("TT_UMD_HOST_CACHE_MAINTENANCE")) {
-        if (force[0] == '0') {
-            return false;
-        }
-        if (force[0] == '1') {
-            return cbo_info().usable;
-        }
-    }
-    return cbo_info().usable && !platform_is_dma_coherent();
-}
+inline bool maintenance_enabled() { return cbo_info().usable && !platform_is_dma_coherent(); }
 
 inline bool available() {
     static const bool enabled = maintenance_enabled();
     return enabled;
+}
+
+// `available() == false` means two very different things, and conflating them is how a non-coherent
+// host ends up silently corrupting sysmem: either the platform snoops and no maintenance is needed,
+// or it does not snoop and we cannot do anything about it. This reports the second case so callers
+// can say so loudly instead of proceeding as though all were well.
+inline bool maintenance_required_but_unavailable() {
+    static const bool unavailable = !cbo_info().usable && !platform_is_dma_coherent();
+    return unavailable;
 }
 
 inline uint32_t block_bytes() { return cbo_info().block_bytes; }
@@ -187,9 +185,20 @@ inline void invalidate_block(const void* addr) {
 
 inline void barrier() { __asm__ volatile("fence rw,rw" ::: "memory"); }
 
+// Ordering for the write side specifically. `fence rw,rw` orders memory against memory and says
+// nothing about device I/O, but the store that tells the device to fetch cleaned bytes is an MMIO
+// write. `cbo.clean` is ordered as a store to its block, so predecessor `w` covers it and successor
+// `o` covers the doorbell. Callers already issue their own barrier before ringing a doorbell; this
+// makes the primitive correct on its own rather than dependent on one.
+inline void barrier_to_device() { __asm__ volatile("fence ow,ow" ::: "memory"); }
+
 #else
 
 inline bool available() { return false; }
+
+// Off riscv64 we cannot tell, and every host tt-umd currently runs on other than riscv64 snoops
+// inbound DMA, so report no fault rather than a false alarm.
+inline bool maintenance_required_but_unavailable() { return false; }
 
 inline uint32_t block_bytes() { return 0; }
 
@@ -198,6 +207,8 @@ inline void clean_block(const void*) {}
 inline void invalidate_block(const void*) {}
 
 inline void barrier() {}
+
+inline void barrier_to_device() {}
 
 #endif
 
@@ -223,7 +234,7 @@ inline void clean_range(const void* start, size_t bytes) {
     }
     barrier();  // the stores being written back must be complete first
     for_each_block(start, bytes, [](const void* block) { clean_block(block); });
-    barrier();
+    barrier_to_device();  // ordered against the device-visible store that follows, not just memory
 }
 
 // Call before the host reads [start, start + bytes) that the device has DMA-written.

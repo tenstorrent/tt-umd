@@ -18,7 +18,31 @@
 
 namespace tt::umd {
 
+namespace {
+
+// A platform that does not snoop inbound DMA and cannot issue cache-maintenance instructions has no
+// correct way to share sysmem with the device. Nothing here can fix that, so say so once and loudly
+// rather than let it look like it worked.
+void warn_once_if_maintenance_unavailable() {
+    static const bool reported = [] {
+        if (host_cache::maintenance_required_but_unavailable()) {
+            log_error(
+                LogUMD,
+                "Host cache maintenance is required on this platform but unavailable: the interconnect "
+                "does not report snooping this device's inbound DMA, and no usable cache-maintenance "
+                "instruction was found. Sysmem shared with the device may return stale data in either "
+                "direction.");
+        }
+        return true;
+    }();
+    (void)reported;
+}
+
+}  // namespace
+
+
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     UMD_ASSERT(
@@ -55,6 +79,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     UMD_ASSERT(

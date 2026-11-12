@@ -75,7 +75,8 @@ static void set_barrier_params(Cluster& cluster) {
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
-        .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_one_dram_one_tensix_no_eth.yaml"),
+        .topology_discovery_options =
+            {.soc_descriptor_path = test_utils::GetSocDescAbsPath("wormhole_b0_one_dram_one_tensix_no_eth.yaml")},
     });
 }
 
@@ -83,7 +84,8 @@ TEST(ClusterWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         auto cluster = test_utils::make_default_test_cluster(ClusterOptions{
-            .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
+            .topology_discovery_options =
+                {.soc_descriptor_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml")},
         });
     }
 }
@@ -91,7 +93,7 @@ TEST(ClusterWH, CreateDestroy) {
 TEST(ClusterWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{
-        .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
+        .topology_discovery_options = {.soc_descriptor_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml")},
     });
     Cluster& cluster = *cluster_ptr;
     for (const auto& chip : cluster.get_target_device_ids()) {

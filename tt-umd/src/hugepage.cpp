@@ -47,8 +47,7 @@ uint32_t get_num_hugepages() {
     return num_hugepages;
 }
 
-uint32_t get_available_num_host_mem_channels(
-    const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
+uint32_t get_num_hugepages_per_device(const uint16_t device_id, const uint16_t revision_id) {
     // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.
     uint32_t total_num_tt_mmio_devices = tt::cpuset::cpuset_allocator::get_num_tt_pci_devices();
     uint32_t num_tt_mmio_devices_for_arch =
@@ -67,8 +66,7 @@ uint32_t get_available_num_host_mem_channels(
 
     // GS will use P2P + 1 channel, others may support 4 host channels. Apply min of 1 to not completely break setups
     // that were incomplete ie fewer hugepages than devices, which would partially work previously for some devices.
-    uint32_t num_channels_per_device_available =
-        std::min(num_channels_per_device_target, std::max((uint32_t)1, total_hugepages / num_tt_mmio_devices_for_arch));
+    const uint32_t hugepages_per_device = std::max((uint32_t)1, total_hugepages / num_tt_mmio_devices_for_arch);
 
     // Perform some helpful assertion checks to guard against common pitfalls that would show up as runtime issues later
     // on.
@@ -90,25 +88,7 @@ uint32_t get_available_num_host_mem_channels(
             revision_id);
     }
 
-    if (num_channels_per_device_available < num_channels_per_device_target) {
-        log_warning(
-            LogUMD,
-            "NumHostMemChannels: {} used for device_id: 0x{:x} less than target: {}. Workload will fail if it exceeds "
-            "NumHostMemChannels. Increase Number of Hugepages.",
-            num_channels_per_device_available,
-            device_id,
-            num_channels_per_device_target);
-    }
-
-    UMD_ASSERT(
-        num_channels_per_device_available <= MAX_HOST_MEM_CHANNELS,
-        error::RuntimeError,
-        fmt::format(
-            "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
-            num_channels_per_device_available,
-            MAX_HOST_MEM_CHANNELS));
-
-    return num_channels_per_device_available;
+    return hugepages_per_device;
 }
 
 std::string find_hugepage_dir(std::size_t pagesize) {

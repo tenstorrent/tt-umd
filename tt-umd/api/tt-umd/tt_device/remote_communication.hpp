@@ -23,16 +23,16 @@ struct EthCoord;
 
 namespace tt::umd {
 
-class SysmemManager;
+class HostMemChannels;
 class TTDevice;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(TTDevice* local_tt_device, HostMemChannels* host_mem_channels = nullptr);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels = nullptr);
 
     // Target core should be in translated coords.
     virtual void read_non_mmio(
@@ -68,11 +68,11 @@ public:
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
 
-    // Sets the sysmem manager used for host-DRAM-backed transfers (required for broadcasts and used to speed up
-    // large transfers).
-    void set_sysmem_manager(SysmemManager* sysmem_manager);
+    // Sets the local chip's host memory channels, used for host-DRAM-backed transfers (required for broadcasts and
+    // used to speed up large transfers).
+    void set_host_mem_channels(HostMemChannels* host_mem_channels);
 
-    bool has_sysmem_manager() const;
+    bool has_host_mem_channels() const;
 
 protected:
     void update_active_eth_core_idx();
@@ -83,7 +83,7 @@ protected:
 
     TTDevice* local_tt_device_;
 
-    SysmemManager* sysmem_manager_;
+    HostMemChannels* host_mem_channels_;
 };
 
 }  // namespace tt::umd

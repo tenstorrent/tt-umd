@@ -16,7 +16,7 @@
 #include "topology/topology_utils.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -47,8 +47,8 @@ struct routing_cmd_t {
 };
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
-    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) :
-    RemoteCommunication(local_tt_device, sysmem_manager),
+    TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels) :
+    RemoteCommunication(local_tt_device, host_mem_channels),
     target_chip(target_chip),
     // The ETH routing firmware this class talks to only ever ran on Wormhole.
     host_address_params_(wormhole::get_host_address_params()),
@@ -61,6 +61,10 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
 }
 
 std::optional<EthCoord> RemoteCommunicationLegacyFirmware::get_target_eth_coord() { return target_chip; }
+
+bool RemoteCommunicationLegacyFirmware::is_host_dram_mapped() const {
+    return host_mem_channels_ != nullptr && host_mem_channels_->get_channel_address(0) != nullptr;
+}
 
 /*
  *
@@ -167,7 +171,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    bool system_mem_available = is_host_dram_mapped();
     bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
     // Print a warning in case of missing perf for larger transfers (once per instance).
     if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
@@ -175,7 +179,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         large_transfer_warning_printed_ = true;
     }
 
-    // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
+    // When host memory channels are not available, we chunk the transfer using smaller blocks.
     uint32_t max_block_size =
         use_host_dram ? host_address_params_.eth_routing_block_size : eth_interface_params_.max_block_size;
 
@@ -329,7 +333,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 // Read 4 byte aligned block from device/sysmem.
                 if (use_host_dram) {
                     size_buffer_to_capacity(data_block, block_size);
-                    sysmem_manager_->read_from_sysmem(
+                    host_mem_channels_->read_from_channel(
                         host_dram_channel, data_block.data(), host_dram_block_addr, block_size);
                 } else {
                     uint32_t buf_address =
@@ -407,8 +411,8 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     uint32_t timestamp = 0;  // CMD_TIMESTAMP;
 
     // Broadcast requires block writes to host dram
-    // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
-    bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
+    // When host memory channels are not available, we chunk the transfer using smaller blocks.
+    bool system_mem_available = is_host_dram_mapped();
     bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
     // Print a warning in case of missing perf for larger transfers (once per instance).
     if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
@@ -498,14 +502,14 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                 memcpy(data_block.data(), static_cast<const uint8_t*>(src) + offset, transfer_size);
                 if (broadcast) {
                     // Write broadcast header to sysmem.
-                    sysmem_manager_->write_to_sysmem(
+                    host_mem_channels_->write_to_channel(
                         host_dram_channel,
                         broadcast_header.data(),
                         host_dram_block_addr,
                         broadcast_header.size() * sizeof(uint32_t));
                 }
                 // Write payload to sysmem.
-                sysmem_manager_->write_to_sysmem(
+                host_mem_channels_->write_to_channel(
                     host_dram_channel,
                     data_block.data(),
                     host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast,

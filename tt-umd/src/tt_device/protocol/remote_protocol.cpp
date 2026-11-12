@@ -47,7 +47,7 @@ bool RemoteProtocol::write_to_core_range(
     size_t size_in_bytes,
     NocId noc_id) {
     // Construct EthernetBroadcast lazily on the first use. During the constructor the sysmem might not be set yet.
-    if (ethernet_broadcast_ == nullptr && remote_communication_->has_sysmem_manager() &&
+    if (ethernet_broadcast_ == nullptr && remote_communication_->has_host_mem_channels() &&
         remote_communication_->get_local_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(remote_communication_.get());
     }

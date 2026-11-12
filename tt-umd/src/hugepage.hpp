@@ -16,14 +16,12 @@ namespace tt::umd {
 // It's important that this is 64 bits, so that it doesn't overflow when multiplied to 4.
 const uint64_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
-const uint32_t MAX_HOST_MEM_CHANNELS = 4;
-
 // Get number of 1GB host hugepages installed.
 uint32_t get_num_hugepages();
 
 // Dynamically figure out how many host memory channels (based on hugepages installed) for each device, based on arch.
-uint32_t get_available_num_host_mem_channels(
-    const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id);
+// The host's 1 GB hugepages shared fairly between its devices with this PCI device and revision id, at least 1.
+uint32_t get_num_hugepages_per_device(const uint16_t device_id, const uint16_t revision_id);
 
 // Looks for hugetlbfs inside /proc/mounts matching desired pagesize (typically 1G).
 std::string find_hugepage_dir(std::size_t pagesize);

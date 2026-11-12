@@ -51,4 +51,10 @@ inline constexpr SemVer MIN_KERNEL_TLB_DMABUF_EXPORT = SemVer(5, 8, 0);
  * access raises SIGBUS instead of silently reading back stale data.
  */
 inline constexpr SemVer KMD_RESET_MAPPING_INVALIDATION = SemVer(2, 6, 0);
+
+/**
+ * KMD version 2.12.1 introduced the TENSTORRENT_IOCTL_READ_EVENTS IOCTL, which delivers device event records raised
+ * by firmware and by KMD.
+ */
+inline constexpr SemVer KMD_READ_EVENTS = SemVer(2, 12, 1);
 }  // namespace tt::umd

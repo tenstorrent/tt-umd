@@ -375,6 +375,11 @@ public:
     static bool is_tlb_dmabuf_export_supported();
 
     /**
+     * Checks if reading device events is supported by checking the KMD version which enables this feature.
+     */
+    static bool is_device_events_supported();
+
+    /**
      * Allocate a dedicated TLB window, configure it per @p config, and export a range of it as a
      * dma-buf file descriptor for peer-to-peer PCIe DMA (e.g. import into an RDMA NIC via
      * ibv_reg_dmabuf_mr()). Traffic routes onto the NOC according to @p config.

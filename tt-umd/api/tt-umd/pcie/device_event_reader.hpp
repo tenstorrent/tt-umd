@@ -49,7 +49,8 @@ struct DeviceEventBatch {
 // be used by one thread at a time, and the reader must not be destroyed while a read() is in progress:
 // cancel() is the way to make that read() return.
 //
-// Requires a KMD with TENSTORRENT_IOCTL_READ_EVENTS; otherwise every call throws.
+// Requires a KMD with TENSTORRENT_IOCTL_READ_EVENTS (see PCIDevice::is_device_events_supported()); otherwise the
+// constructor throws.
 class DeviceEventReader {
 public:
     // @param pci_device_num  N in /dev/tenstorrent/N.

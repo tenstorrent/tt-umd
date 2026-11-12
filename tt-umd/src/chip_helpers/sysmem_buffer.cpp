@@ -5,7 +5,6 @@
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 
 #include <fmt/format.h>
-#include <unistd.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -32,32 +31,21 @@ namespace {
 // on a non-null pointer, and an exception escaping the deleter would propagate out of ~SysmemBuffer and
 // terminate the process. Cleanup failures are logged instead.
 SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
-    return [deleter = std::move(deleter)](void* aligned_va) noexcept {
+    return [deleter = std::move(deleter)](void* buffer_va) noexcept {
         if (!deleter) {
             return;
         }
         try {
-            deleter(aligned_va);
+            deleter(buffer_va);
         } catch (const std::exception& e) {
-            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}: {}.", aligned_va, e.what());
+            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}: {}.", buffer_va, e.what());
         } catch (...) {
-            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}.", aligned_va);
+            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}.", buffer_va);
         }
     };
 }
 
 }  // namespace
-
-SysmemBuffer::AlignedRange SysmemBuffer::page_align(void* buffer_va, size_t buffer_size) {
-    static const auto page_size = sysconf(_SC_PAGESIZE);
-    const uint64_t va = reinterpret_cast<uint64_t>(buffer_va);
-    const uint64_t base = va & ~(page_size - 1);
-    AlignedRange range{};
-    range.base = reinterpret_cast<void*>(base);
-    range.offset_from_base = va - base;
-    range.mapped_size = (buffer_size + range.offset_from_base + page_size - 1) & ~(page_size - 1);
-    return range;
-}
 
 SysmemBuffer::SysmemBuffer(
     TTDevice* tt_device,
@@ -70,19 +58,15 @@ SysmemBuffer::SysmemBuffer(
     DeviceBufferAccess device_access,
     NocBinder noc_binder) :
     tt_device_(tt_device),
+    buffer_va_(buffer_va),
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
     noc_binder_(std::move(noc_binder)),
     device_access_(device_access),
     communication_id_(communication_id) {
-    const AlignedRange range = page_align(buffer_va, buffer_size);
-    buffer_va_ = range.base;
-    mapped_buffer_size_ = range.mapped_size;
-    offset_from_aligned_addr_ = range.offset_from_base;
-
     system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
-    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
+    TracyAllocN(buffer_va_, buffer_size_, "SysmemBuffer");
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -146,13 +130,13 @@ void SysmemBuffer::bind_noc_address() {
     noc_addr_ = noc_binder_();
 }
 
-void* SysmemBuffer::get_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
+void* SysmemBuffer::get_va() const { return buffer_va_; }
 
 size_t SysmemBuffer::get_size() const { return buffer_size_; }
 
 uint64_t SysmemBuffer::get_iova(const size_t offset) const {
     validate(offset);
-    return device_io_addr_ + offset + offset_from_aligned_addr_;
+    return device_io_addr_ + offset;
 }
 
 void SysmemBuffer::validate(const size_t offset, const size_t size) const {

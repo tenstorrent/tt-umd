@@ -203,16 +203,16 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
-    // This mapping belongs to the buffer, so it is released along with the registry entry. mmap returns
-    // a page-aligned address, so the pointer the deleter receives is the one to munmap.
+    // This mapping belongs to the buffer, so it is released along with the registry entry. The buffer
+    // starts at the mapping, so the pointer the deleter receives is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
-    const auto release_mapping = [mapping_size](void* aligned_va) {
-        if (munmap(aligned_va, mapping_size) != 0) {
+    const auto release_mapping = [mapping_size](void* buffer_va) {
+        if (munmap(buffer_va, mapping_size) != 0) {
             log_warning(
                 LogUMD,
                 "Failed to munmap simulation sysmem buffer of size {:#x} at {:p}: {}.",
                 mapping_size,
-                aligned_va,
+                buffer_va,
                 strerror(errno));
         }
     };
@@ -252,21 +252,20 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
     check_arena_capacity(extent);
 
+    // The arena hands out whole pages, so the buffer's address keeps its offset into the first one.
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t host_offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
-    const uint64_t page_io_addr = pcie_base_ + registry_->next_arena_offset;
-    const uint64_t device_io_addr = page_io_addr + host_offset;
+    const uint64_t device_io_addr = pcie_base_ + registry_->next_arena_offset + host_offset;
     const std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
     registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});
-    // SysmemBuffer adds the host page offset to its device IO base, but returns noc_addr unchanged.
     // The registry covers only the requested bytes, not the padding on either side of the mapping.
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     try {
         // Drop the registry entry before releasing backing memory. Only allocated
         // buffers carry a release callable; external mappings remain caller-owned.
         SysmemBuffer::Deleter deleter =
-            [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* aligned_va) {
+            [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* buffer_va) {
                 if (auto reg = weak_reg.lock()) {
                     std::lock_guard<std::mutex> lock(reg->mutex);
                     reg->buffers.erase(
@@ -279,14 +278,14 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
                         reg->buffers.end());
                 }
                 if (release) {
-                    release(aligned_va);
+                    release(buffer_va);
                 }
             };
         auto result = create_buffer(
             /*tt_device=*/nullptr,
             buffer,
             sysmem_buffer_size,
-            page_io_addr,
+            device_io_addr,
             communication_id_,
             std::move(deleter),
             noc_addr,

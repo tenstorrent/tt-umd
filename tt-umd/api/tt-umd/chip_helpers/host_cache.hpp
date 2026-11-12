@@ -212,9 +212,9 @@ inline void barrier_to_device() { __asm__ volatile("fence ow,ow" ::: "memory"); 
 #else
 
 // Same shape as the riscv64 decision so the range functions below need no #if of their own, but
-// constexpr, so every caller folds to nothing. Off riscv64 we cannot tell whether the platform
-// snoops, and every host tt-umd currently runs on other than riscv64 does, so report no fault
-// rather than a false alarm.
+// constexpr, so every caller folds to nothing. On architectures other than riscv64 we have no way to
+// tell whether the platform snoops, and every such host tt-umd currently runs on does, so report no
+// fault rather than a false alarm.
 struct Decision {
     bool enabled = false;
     bool required_but_unavailable = false;

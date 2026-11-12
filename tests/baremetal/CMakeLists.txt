@@ -21,6 +21,7 @@ set(BAREMETAL_TESTS_SRCS
     test_risc_reset.cpp
     test_tsc_risc_reset.cpp
     test_wormhole_arc_window.cpp
+    test_refclk_counter.cpp
     test_blackhole_arc_message_queue.cpp
     test_register_access.cpp
     # SimulationServerSocket and SimulationClient have no simulation deps (always compiled), so

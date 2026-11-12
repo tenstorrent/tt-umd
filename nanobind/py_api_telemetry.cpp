@@ -10,12 +10,12 @@
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/gddr_telemetry.hpp"
 #include "tt-umd/types/noc_id.hpp"

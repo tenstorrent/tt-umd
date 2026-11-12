@@ -22,8 +22,8 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "common.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 

@@ -107,10 +107,10 @@ target_sources(
         src/coordinates/blackhole_coordinate_manager.cpp
         src/coordinates/quasar_coordinate_manager.cpp
         src/coordinates/att/att_resolver.cpp
-        src/arc/arc_telemetry_reader.cpp
-        src/arc/wormhole_arc_telemetry_reader.cpp
-        src/arc/blackhole_arc_telemetry_reader.cpp
-        src/arc/smbus_arc_telemetry_reader.cpp
+        src/firmware_telemetry/arc_telemetry_reader.cpp
+        src/firmware_telemetry/wormhole_arc_telemetry_reader.cpp
+        src/firmware_telemetry/blackhole_arc_telemetry_reader.cpp
+        src/firmware_telemetry/smbus_arc_telemetry_reader.cpp
         src/noc_access.cpp
         src/warm_reset.cpp
         src/warm_reset_with_recovery.cpp
@@ -185,9 +185,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_tlbs.hpp
                 api/tt-umd/arch/configs/keraunos_address_map.hpp
                 api/tt-umd/arc/arc_telemetry_reader.hpp
-                api/tt-umd/arc/firmware_telemetry_reader.hpp
                 api/tt-umd/arc/blackhole_arc_message_queue.hpp
+                api/tt-umd/arc/firmware_telemetry_reader.hpp
                 api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/arc_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp
                 api/tt-umd/coordinates/att/att_map.hpp
                 api/tt-umd/coordinates/att/att_window.hpp
                 api/tt-umd/coordinates/att/att_resolver.hpp

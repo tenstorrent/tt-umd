@@ -17,11 +17,11 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"

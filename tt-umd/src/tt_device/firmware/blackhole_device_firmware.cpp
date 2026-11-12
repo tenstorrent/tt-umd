@@ -12,12 +12,12 @@
 #include <utility>
 
 #include "tt-umd-utils/internal/polling.hpp"
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"

@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp" 1
 
 namespace tt::umd {
 

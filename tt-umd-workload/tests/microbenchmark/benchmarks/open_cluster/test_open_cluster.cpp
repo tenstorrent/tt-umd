@@ -16,7 +16,6 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
-#include "tt-umd/types/communication_protocol.hpp"
 
 namespace tt {
 enum class ARCH;
@@ -71,12 +70,12 @@ TEST(MicrobenchmarkOpenCluster, TopologyDiscovery) {
     std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
 
     bench.name("default with sdesc_path").run([&] {
-        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({}, IODeviceType::PCIe, sdesc_path);
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({.soc_descriptor_path = sdesc_path});
         ankerl::nanobench::doNotOptimizeAway(devices);
     });
     bench.name("local only with sdesc_path").run([&] {
         auto [cluster_descriptor, devices] =
-            TopologyDiscovery::discover({.discover_remote_devices = false}, IODeviceType::PCIe, sdesc_path);
+            TopologyDiscovery::discover({.discover_remote_devices = false, .soc_descriptor_path = sdesc_path});
         ankerl::nanobench::doNotOptimizeAway(devices);
     });
 

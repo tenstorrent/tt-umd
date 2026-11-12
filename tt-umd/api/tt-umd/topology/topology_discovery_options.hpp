@@ -7,6 +7,8 @@
 #include <optional>
 #include <string>
 
+#include "tt-umd/types/communication_protocol.hpp"
+
 namespace tt::umd {
 /**
  * @brief Settings for discovering the chips a simulator models, rather than the host's own.
@@ -116,6 +118,18 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief Transport type used to reach local devices during discovery.
+     * Defaults to PCIe.
+     */
+    IODeviceType io_device_type = IODeviceType::PCIe;
+
+    /**
+     * @brief Path to a custom SoC descriptor YAML file. If empty, the descriptor
+     * is auto-detected from the hardware.
+     */
+    std::string soc_descriptor_path;
 
     /**
      * @brief Cluster id to stamp on the discovered cluster descriptor: a unique string identifying

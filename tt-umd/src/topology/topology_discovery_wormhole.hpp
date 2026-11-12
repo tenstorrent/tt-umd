@@ -13,16 +13,13 @@
 #include "tt-umd/types/core_coordinates.hpp"
 
 namespace tt::umd {
-enum class IODeviceType;
 struct TopologyDiscoveryOptions;
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
     TopologyDiscoveryWormhole(
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
-        const TopologyDiscoveryOptions& options,
-        IODeviceType io_device_type) :
-        TopologyDiscovery(std::move(soc_arch_descriptor), options, io_device_type) {}
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options) :
+        TopologyDiscovery(std::move(soc_arch_descriptor), options) {}
 
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }

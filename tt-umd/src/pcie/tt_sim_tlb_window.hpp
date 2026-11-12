@@ -15,7 +15,7 @@ namespace tt::umd {
 
 // Forward declaration.
 class TTSimCommunicator;
-class TlbHandle;
+class TTSimTlbHandle;
 struct tlb_data;
 
 /**
@@ -26,7 +26,7 @@ struct tlb_data;
  */
 class TTSimTlbWindow : public TlbWindow {
 public:
-    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
+    TTSimTlbWindow(std::unique_ptr<TTSimTlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
 
     // Implementation of memory access methods using TTSimCommunicator.
     void write16(uint64_t offset, uint16_t value) override;
@@ -41,6 +41,12 @@ public:
     void read_block(uint64_t offset, void* data, size_t size) override;
 
 private:
+    TTSimTlbWindow(
+        TTSimTlbHandle* sim_tlb_handle,
+        std::unique_ptr<TTSimTlbHandle>&& handle,
+        TTSimCommunicator* communicator,
+        const tlb_data config);
+
     bool is_mapped_through_bar() const;
 
     /**
@@ -50,6 +56,8 @@ private:
     uint64_t get_physical_address(uint64_t offset) const;
 
     TTSimCommunicator* sim_communicator_;
+    // The handle the base owns, as its concrete type.
+    TTSimTlbHandle* sim_tlb_handle_;
 };
 
 }  // namespace tt::umd

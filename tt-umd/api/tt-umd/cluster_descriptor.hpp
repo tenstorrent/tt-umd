@@ -16,13 +16,11 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
-#include <variant>
 #include <vector>
 
-#include "tt-umd/soc_descriptor.hpp"  // IWYU pragma: export
-#include "tt-umd/topology/topology_discovery_error.hpp"
+#include "tt-umd/cluster_description.hpp"  // IWYU pragma: export
+#include "tt-umd/soc_descriptor.hpp"       // IWYU pragma: export
 #include "tt-umd/tt_device/tt_device.hpp"  // IWYU pragma: export
-#include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"  // IWYU pragma: export
@@ -34,15 +32,25 @@
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"  // IWYU pragma: export
 
-namespace YAML {
-class Node;
-}
-
 namespace tt::umd {
 class Cluster;
+class ClusterDescriptor;
+
+/**
+ * Builds a cluster descriptor from a plain description of the cluster and derives its lookup tables.
+ * Throws if the description is inconsistent, e.g. chips of different architectures, a link naming an unknown chip,
+ * a channel linked to two different endpoints, or PCIe details on a chip that is not MMIO capable.
+ * @param check_board_chip_count Warn when a board holds a different number of chips than its type has. Turn off
+ * when the description leaves chips out on purpose, e.g. when remote chips were not discovered.
+ * @param check_harvesting_counts Warn when a chip's harvesting masks don't match what its board type harvests on
+ * silicon. Turn off for simulated chips, which harvest whatever their image models.
+ */
+std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
+    ClusterDescription description, bool check_board_chip_count = true, bool check_harvesting_counts = true);
 
 class ClusterDescriptor {
-    friend class TopologyDiscoveryBase;
+    friend std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
+        ClusterDescription description, bool check_board_chip_count, bool check_harvesting_counts);
 
 public:
     /* Construction related functions. */
@@ -218,7 +226,7 @@ public:
      * Returns the closest PCIe connected chip. If passed chip is a PCIe chip, it will return itself.
      * @param chip Logical chip id to check, can be a PCIe or remote chip.
      */
-    ChipId get_closest_mmio_capable_chip(const ChipId chip);
+    ChipId get_closest_mmio_capable_chip(const ChipId chip) const;
 
     /*
      * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
@@ -260,14 +268,14 @@ public:
      * Returns the set of active ethernet channels for a given chip.
      * @param chip_id Logical chip ID to check for active ethernet channels.
      */
-    std::set<uint32_t> get_active_eth_channels(ChipId chip_id);
+    std::set<uint32_t> get_active_eth_channels(ChipId chip_id) const;
 
     /**
      * Returns the set of idle ethernet channels for a given chip.
      * Idle channels are those that are not currently used by any active ethernet link.
      * @param chip_id Logical chip ID to check for idle ethernet channels.
      */
-    std::set<uint32_t> get_idle_eth_channels(ChipId chip_id);
+    std::set<uint32_t> get_idle_eth_channels(ChipId chip_id) const;
 
     uint8_t get_asic_location(ChipId chip_id) const;
 
@@ -295,29 +303,28 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
-    using DeviceHealthError = std::variant<
-        error::FirmwareStartupError,
-        error::NocHangError,
-        error::PcieHangError,
-        error::UnsupportedCMFWError,
-        error::CMFWMismatchError,
-        error::UnexpectedRoutingFirmwareConfigError,
-        error::EthFirmwareMismatchError,
-        error::EthFirmwareHeartbeatError>;
+    using DeviceHealthError = tt::umd::DeviceHealthError;
 
     const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
 
 private:
+    ClusterDescriptor(ClusterDescription description, bool check_board_chip_count, bool check_harvesting_counts);
+
+    void add_chip(ChipId chip_id, ChipDescription chip);
+    void add_ethernet_link(const EthLink &link);
+    void add_remote_ethernet_link(const RemoteEthLink &link);
+    // Links may name chips that were found but are unhealthy.
+    bool is_known_chip(ChipId chip_id) const;
+    void log_topology() const;
+
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 
     // Helpers during construction of cluster descriptor.
     void add_chip_to_board(ChipId chip_id, uint64_t board_id);
 
-    // Helper functions for filling up the cluster descriptor.
-    void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml);
-    void load_chips_from_connectivity_descriptor(YAML::Node &yaml);
     void merge_cluster_ids();
-    void load_harvesting_information(YAML::Node &yaml);
+    // Resolves each remote chip's closest MMIO chip once, so lookups stay const.
+    void fill_closest_mmio_chip_cache();
     void fill_chips_grouped_by_closest_mmio();
 
     // Centralize mock/simulator-only default values that are not coming from YAML.

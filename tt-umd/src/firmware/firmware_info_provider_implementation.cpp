@@ -419,15 +419,19 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
         it->second.key);
 }
 
-template <typename T>
-std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature feature) const {
+std::optional<uint32_t> FirmwareInfoProviderImplementation::read_raw(FirmwareFeature feature) const {
     if (!is_feature_available(feature)) {
         return std::nullopt;
     }
+    return read_raw_telemetry(firmware_feature_map.find(feature)->second.key);
+}
 
+template <typename T>
+std::optional<T> FirmwareInfoProviderImplementation::convert_raw(FirmwareFeature feature, uint32_t raw) const {
     auto it = firmware_feature_map.find(feature);
-
-    uint32_t raw = read_raw_telemetry(it->second.key);
+    if (it == firmware_feature_map.end()) {
+        return std::nullopt;
+    }
 
     // Apply the converter.
     return std::visit(
@@ -447,6 +451,15 @@ std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature
             return std::nullopt;
         },
         it->second.converter);
+}
+
+template <typename T>
+std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature feature) const {
+    std::optional<uint32_t> raw = read_raw(feature);
+    if (!raw.has_value()) {
+        return std::nullopt;
+    }
+    return convert_raw<T>(feature, raw.value());
 }
 
 // Explicit instantiations.
@@ -957,17 +970,51 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_l2cpus(N
     return read_scalar<uint32_t>(FirmwareFeature::ENABLED_L2CPU);
 }
 
-static std::optional<PcieMode> to_pcie_mode(std::optional<uint8_t> raw) {
-    if (!raw.has_value() || raw.value() > static_cast<uint8_t>(PcieMode::ROOT_PORT)) {
+// Converts a raw value to an enum. Values past the last enumerator that UMD knows about, which newer firmware may add,
+// become Enum::UNKNOWN, so that switches and string conversions over the enum still handle them. std::nullopt is
+// reserved for "the firmware does not publish this value".
+template <typename Enum>
+static Enum enum_from_raw(uint32_t raw, Enum last_known) {
+    using Underlying = std::underlying_type_t<Enum>;
+    return raw <= static_cast<uint32_t>(static_cast<Underlying>(last_known)) ? static_cast<Enum>(raw) : Enum::UNKNOWN;
+}
+
+template <typename Enum>
+static std::optional<Enum> to_enum(std::optional<uint32_t> raw, Enum last_known) {
+    if (!raw.has_value()) {
         return std::nullopt;
     }
-    return static_cast<PcieMode>(raw.value());
+    return enum_from_raw(raw.value(), last_known);
+}
+
+// Converts a bitmask, in which bit i is set when the enumerator with value i is enabled, to a list of enumerators.
+// Set bits past the last known enumerator are reported as a single Enum::UNKNOWN.
+template <typename Enum>
+static std::vector<Enum> enum_list_from_mask(uint32_t mask, Enum last_known) {
+    using Underlying = std::underlying_type_t<Enum>;
+    const uint32_t last_known_bit = static_cast<uint32_t>(static_cast<Underlying>(last_known));
+    std::vector<Enum> enabled;
+    bool has_unknown = false;
+    for (uint32_t bit = 0; bit < 32; ++bit) {
+        if (((mask >> bit) & 1u) == 0) {
+            continue;
+        }
+        if (bit <= last_known_bit) {
+            enabled.push_back(static_cast<Enum>(bit));
+        } else {
+            has_unknown = true;
+        }
+    }
+    if (has_unknown) {
+        enabled.push_back(Enum::UNKNOWN);
+    }
+    return enabled;
 }
 
 std::vector<std::optional<PcieMode>> FirmwareInfoProviderImplementation::get_pcie_modes(NocId noc_id) const {
     return {
-        to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_0_MODE)),
-        to_pcie_mode(read_scalar<uint8_t>(FirmwareFeature::PCIE_1_MODE)),
+        to_enum(read_scalar<uint32_t>(FirmwareFeature::PCIE_0_MODE), PcieMode::ROOT_PORT),
+        to_enum(read_scalar<uint32_t>(FirmwareFeature::PCIE_1_MODE), PcieMode::ROOT_PORT),
     };
 }
 
@@ -987,46 +1034,64 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_gddr_east_io_pow
     return read_scalar<uint32_t>(FirmwareFeature::GDDR_EAST_IO_POWER);
 }
 
-// Firmware may append arbiters and reasons in newer releases, so values past the last enumerator are passed through
-// rather than rejected.
-template <typename Enum>
-static std::optional<Enum> to_enum(std::optional<uint16_t> raw) {
-    if (!raw.has_value()) {
+std::optional<AiclkArbitration> FirmwareInfoProviderImplementation::get_aiclk_arbitration(NocId noc_id) const {
+    // Read each telemetry word exactly once and decode every field packed into it from that read. ARB_MIN and ARB_MAX
+    // each pack a frequency with the arbiter that set it, and PPM_INFO packs the target reason with the target arbiter,
+    // so reading them through separate getters could pair a value with one from a different telemetry update. The
+    // features sharing a word share its telemetry tag in the feature map.
+    const std::optional<uint32_t> min_raw = read_raw(FirmwareFeature::AICLK_ARB_MIN_FREQ);
+    const std::optional<uint32_t> max_raw = read_raw(FirmwareFeature::AICLK_ARB_MAX_FREQ);
+    const std::optional<uint32_t> enabled_min_raw = read_raw(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS);
+    const std::optional<uint32_t> enabled_max_raw = read_raw(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS);
+    if (!min_raw.has_value() || !max_raw.has_value() || !enabled_min_raw.has_value() || !enabled_max_raw.has_value()) {
         return std::nullopt;
     }
-    return static_cast<Enum>(raw.value());
-}
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_aiclk_arb_min_freq(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_FREQ);
-}
+    AiclkArbitration arbitration;
+    arbitration.min_freq_mhz = convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_FREQ, min_raw.value()).value();
+    arbitration.max_freq_mhz = convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_FREQ, max_raw.value()).value();
+    arbitration.enabled_min_arbiters = enum_list_from_mask(
+        convert_raw<uint32_t>(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS, enabled_min_raw.value()).value(),
+        AiclkMinArbiter::BUSY);
+    arbitration.enabled_max_arbiters = enum_list_from_mask(
+        convert_raw<uint32_t>(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS, enabled_max_raw.value()).value(),
+        AiclkMaxArbiter::HOST_FMAX);
 
-std::optional<AiclkMinArbiter> FirmwareInfoProviderImplementation::get_aiclk_arb_min_arbiter(NocId noc_id) const {
-    return to_enum<AiclkMinArbiter>(read_scalar<uint16_t>(FirmwareFeature::AICLK_ARB_MIN_ARBITER));
-}
+    // The winning arbiters and the target are published from firmware 19.7.
+    if (is_feature_available(FirmwareFeature::AICLK_ARB_MIN_ARBITER)) {
+        arbitration.min_arbiter = to_enum(
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_ARBITER, min_raw.value()), AiclkMinArbiter::BUSY);
+    }
+    if (is_feature_available(FirmwareFeature::AICLK_ARB_MAX_ARBITER)) {
+        arbitration.max_arbiter = to_enum(
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_ARBITER, max_raw.value()), AiclkMaxArbiter::HOST_FMAX);
+    }
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_aiclk_arb_max_freq(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_FREQ);
-}
+    const std::optional<uint32_t> target_raw = read_raw(FirmwareFeature::AICLK_TARGET_REASON);
+    if (target_raw.has_value()) {
+        const uint32_t reason_raw =
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_TARGET_REASON, target_raw.value()).value();
+        const AiclkTargetReason reason = enum_from_raw(reason_raw, AiclkTargetReason::FORCED);
+        arbitration.target_reason = reason;
 
-std::optional<AiclkMaxArbiter> FirmwareInfoProviderImplementation::get_aiclk_arb_max_arbiter(NocId noc_id) const {
-    return to_enum<AiclkMaxArbiter>(read_scalar<uint16_t>(FirmwareFeature::AICLK_ARB_MAX_ARBITER));
-}
+        // Only the minimum and maximum arbiter reasons are caused by an arbiter. For the others, and for a reason UMD
+        // does not recognize, the arbiter field carries no meaning.
+        const std::optional<uint32_t> target_arbiter_raw =
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_TARGET_ARBITER, target_raw.value());
+        if (target_arbiter_raw.has_value()) {
+            if (reason == AiclkTargetReason::MIN_ARBITER) {
+                arbitration.target_arbiter.emplace(
+                    std::in_place_type<AiclkMinArbiter>,
+                    enum_from_raw(target_arbiter_raw.value(), AiclkMinArbiter::BUSY));
+            } else if (reason == AiclkTargetReason::MAX_ARBITER) {
+                arbitration.target_arbiter.emplace(
+                    std::in_place_type<AiclkMaxArbiter>,
+                    enum_from_raw(target_arbiter_raw.value(), AiclkMaxArbiter::HOST_FMAX));
+            }
+        }
+    }
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_aiclk_min_arbiters(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS);
-}
-
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_aiclk_max_arbiters(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS);
-}
-
-std::optional<AiclkTargetReason> FirmwareInfoProviderImplementation::get_aiclk_target_reason(NocId noc_id) const {
-    return to_enum<AiclkTargetReason>(read_scalar<uint16_t>(FirmwareFeature::AICLK_TARGET_REASON));
-}
-
-std::optional<uint16_t> FirmwareInfoProviderImplementation::get_aiclk_target_arbiter(NocId noc_id) const {
-    return read_scalar<uint16_t>(FirmwareFeature::AICLK_TARGET_ARBITER);
+    return arbitration;
 }
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_host_aiclk_limit(NocId noc_id) const {

@@ -16,6 +16,7 @@
 #include <tt-umd/tt_device/firmware/device_firmware.hpp>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
@@ -962,15 +963,28 @@ TEST_F(TestFirmwareInfoProvider, BlackholeAiclkArbitration) {
         bool has_arbiters = fw_version >= FirmwareBundleVersion(19, 7, 0);
         bool has_host_limit = fw_version >= FirmwareBundleVersion(19, 8, 0);
 
-        EXPECT_EQ(fw_info->get_aiclk_arb_min_freq().has_value(), has_arb_freqs);
-        EXPECT_EQ(fw_info->get_aiclk_arb_max_freq().has_value(), has_arb_freqs);
-        EXPECT_EQ(fw_info->get_enabled_aiclk_min_arbiters().has_value(), has_arb_freqs);
-        EXPECT_EQ(fw_info->get_enabled_aiclk_max_arbiters().has_value(), has_arb_freqs);
-        EXPECT_EQ(fw_info->get_aiclk_arb_min_arbiter().has_value(), has_arbiters);
-        EXPECT_EQ(fw_info->get_aiclk_arb_max_arbiter().has_value(), has_arbiters);
-        EXPECT_EQ(fw_info->get_aiclk_target_reason().has_value(), has_arbiters);
-        EXPECT_EQ(fw_info->get_aiclk_target_arbiter().has_value(), has_arbiters);
         EXPECT_EQ(fw_info->get_host_aiclk_limit().has_value(), has_host_limit);
+
+        std::optional<AiclkArbitration> arbitration = fw_info->get_aiclk_arbitration();
+        ASSERT_EQ(arbitration.has_value(), has_arb_freqs);
+        if (!arbitration.has_value()) {
+            continue;
+        }
+        EXPECT_EQ(arbitration->min_arbiter.has_value(), has_arbiters);
+        EXPECT_EQ(arbitration->max_arbiter.has_value(), has_arbiters);
+        EXPECT_EQ(arbitration->target_reason.has_value(), has_arbiters);
+
+        // The target arbiter is only set when the reason says an arbiter chose the target, and then holds the matching
+        // arbiter type.
+        if (arbitration->target_reason == AiclkTargetReason::MIN_ARBITER) {
+            ASSERT_TRUE(arbitration->target_arbiter.has_value());
+            EXPECT_TRUE(std::holds_alternative<AiclkMinArbiter>(arbitration->target_arbiter.value()));
+        } else if (arbitration->target_reason == AiclkTargetReason::MAX_ARBITER) {
+            ASSERT_TRUE(arbitration->target_arbiter.has_value());
+            EXPECT_TRUE(std::holds_alternative<AiclkMaxArbiter>(arbitration->target_arbiter.value()));
+        } else {
+            EXPECT_FALSE(arbitration->target_arbiter.has_value());
+        }
     }
 }
 
@@ -1015,7 +1029,7 @@ TEST_F(TestFirmwareInfoProvider, WormholeHasNoBlackholeOnlyTelemetry) {
         EXPECT_FALSE(fw_info->get_fw_active_config().has_value());
         EXPECT_FALSE(fw_info->is_kernel_nop_throttler_supported().has_value());
         EXPECT_FALSE(fw_info->get_enabled_l2cpus().has_value());
-        EXPECT_FALSE(fw_info->get_aiclk_arb_max_freq().has_value());
+        EXPECT_FALSE(fw_info->get_aiclk_arbitration().has_value());
         EXPECT_FALSE(fw_info->get_nop_start_count().has_value());
     }
 }

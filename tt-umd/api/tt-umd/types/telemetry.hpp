@@ -5,6 +5,9 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
+#include <variant>
+#include <vector>
 
 namespace tt::umd {
 
@@ -92,14 +95,19 @@ enum TelemetryTag : uint8_t {
 };
 
 // Operating mode of a PCIe instance, as configured in the board's firmware table.
+// UNKNOWN is reported for a mode value this version of UMD does not recognize. It is the maximum value of the
+// underlying type so it can never collide with a mode that firmware defines.
 enum class PcieMode : uint8_t {
     DISABLED = 0,
     ENDPOINT = 1,
     ROOT_PORT = 2,
+    UNKNOWN = 0xFF,
 };
 
 // AICLK maximum-frequency arbiters. Each enabled arbiter imposes a ceiling on AICLK and the lowest ceiling wins.
-// Firmware keeps these values stable across releases; newer firmware may append arbiters past the last one listed.
+// Firmware keeps these values stable across releases; newer firmware may append arbiters past the last one listed,
+// which UMD reports as UNKNOWN. UNKNOWN is the maximum value of the underlying type so it never collides with a real
+// arbiter.
 enum class AiclkMaxArbiter : uint16_t {
     FMAX = 0,              // Chip's configured maximum AICLK.
     TDP = 1,               // Thermal design power limit.
@@ -112,6 +120,7 @@ enum class AiclkMaxArbiter : uint16_t {
     DOPPLER_SLOW = 8,      // Slow-response di/dt (Doppler) throttle.
     DOPPLER_CRITICAL = 9,  // Critical di/dt (Doppler) throttle.
     HOST_FMAX = 10,        // Ceiling set by the host, see FirmwareInfoProvider::get_host_aiclk_limit().
+    UNKNOWN = 0xFFFF,      // An arbiter this version of UMD does not recognize.
 };
 
 // AICLK minimum-frequency arbiters. Each enabled arbiter imposes a floor on AICLK and the highest floor wins.
@@ -119,6 +128,7 @@ enum class AiclkMaxArbiter : uint16_t {
 enum class AiclkMinArbiter : uint16_t {
     FMIN = 0,  // Chip's configured minimum AICLK.
     BUSY = 1,  // Floor requested while the host has the chip in the busy power state.
+    UNKNOWN = 0xFFFF,  // An arbiter this version of UMD does not recognize.
 };
 
 // Why the firmware chose the current AICLK target.
@@ -128,6 +138,28 @@ enum class AiclkTargetReason : uint16_t {
     FMIN = 2,         // Arbitration landed below the chip's minimum AICLK, so the minimum was used.
     SWEEP = 3,        // A characterization sweep is choosing random frequencies.
     FORCED = 4,       // AICLK is forced to a fixed value.
+    UNKNOWN = 0xFFFF,  // A reason this version of UMD does not recognize.
+};
+
+// A consistent view of the Blackhole AICLK arbitration state, see FirmwareInfoProvider::get_aiclk_arbitration().
+struct AiclkArbitration {
+    // Effective floor: the highest frequency requested by any enabled minimum arbiter.
+    uint32_t min_freq_mhz;
+    // Effective ceiling: the lowest limit imposed by any enabled maximum arbiter. The ceiling takes precedence over
+    // the floor when the two conflict.
+    uint32_t max_freq_mhz;
+    // Arbiters the firmware has enabled. Enabled arbiters this version of UMD does not recognize are reported as a
+    // single UNKNOWN entry.
+    std::vector<AiclkMinArbiter> enabled_min_arbiters;
+    std::vector<AiclkMaxArbiter> enabled_max_arbiters;
+    // The arbiters that set min_freq_mhz and max_freq_mhz, i.e. what is limiting AICLK. Published from firmware 19.7.
+    std::optional<AiclkMinArbiter> min_arbiter;
+    std::optional<AiclkMaxArbiter> max_arbiter;
+    // Why the firmware chose the current AICLK target. Published from firmware 19.7.
+    std::optional<AiclkTargetReason> target_reason;
+    // The arbiter that set the current AICLK target. Only set when target_reason is MIN_ARBITER (holds an
+    // AiclkMinArbiter) or MAX_ARBITER (holds an AiclkMaxArbiter); the other reasons are not set by an arbiter.
+    std::optional<std::variant<AiclkMinArbiter, AiclkMaxArbiter>> target_arbiter;
 };
 
 }  // namespace tt::umd

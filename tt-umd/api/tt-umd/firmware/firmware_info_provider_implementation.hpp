@@ -182,26 +182,8 @@ public:
 
     virtual std::optional<uint32_t> get_gddr_east_io_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::optional<uint32_t> get_aiclk_arb_min_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<AiclkMinArbiter> get_aiclk_arb_min_arbiter(
+    virtual std::optional<AiclkArbitration> get_aiclk_arbitration(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint32_t> get_aiclk_arb_max_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<AiclkMaxArbiter> get_aiclk_arb_max_arbiter(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint32_t> get_enabled_aiclk_min_arbiters(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint32_t> get_enabled_aiclk_max_arbiters(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<AiclkTargetReason> get_aiclk_target_reason(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint16_t> get_aiclk_target_arbiter([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<uint32_t> get_host_aiclk_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
@@ -264,6 +246,15 @@ private:
     uint32_t read_raw_telemetry(const FeatureKey& key) const;
 
     bool is_feature_available(FirmwareFeature feature) const;
+
+    // Reads the raw telemetry word behind a feature once, or std::nullopt if the feature is not available.
+    std::optional<uint32_t> read_raw(FirmwareFeature feature) const;
+
+    // Decodes a raw telemetry word with a feature's converter. Several features can be packed into one telemetry word;
+    // reading the word once with read_raw() and decoding each of them with convert_raw() guarantees that all of them
+    // come from the same read.
+    template <typename T>
+    std::optional<T> convert_raw(FirmwareFeature feature, uint32_t raw) const;
 
     template <typename T>
     std::optional<T> read_scalar(FirmwareFeature feature) const;

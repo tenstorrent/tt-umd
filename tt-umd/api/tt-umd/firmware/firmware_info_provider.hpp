@@ -459,77 +459,19 @@ public:
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Retrieves the effective AICLK floor: the highest frequency requested by any enabled minimum arbiter.
-     * Blackhole only.
+     * @brief Retrieves the AICLK arbitration state: the effective floor and ceiling, which arbiters are enabled and
+     * which ones set the floor, the ceiling and the current target. Blackhole only.
+     * Each firmware telemetry word is read once and every field packed into it is decoded from that read, so a
+     * frequency is never paired with an arbiter from a different telemetry update. The words themselves are still read
+     * one after another, so the fields taken from different words are not an atomic snapshot.
+     * Availability follows the firmware release: the frequencies and enabled arbiters are published from 19.5, while
+     * the winning arbiters and target reason (AiclkArbitration::min_arbiter, max_arbiter, target_reason and
+     * target_arbiter) are only set from 19.7.
      * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     * @return std::optional<AiclkArbitration> The arbitration state, or std::nullopt if the firmware does not publish
+     * it.
      */
-    virtual std::optional<uint32_t> get_aiclk_arb_min_freq(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves which minimum arbiter sets the floor reported by get_aiclk_arb_min_freq().
-     * Blackhole only.
-     * @param noc_id NOC to route through.
-     * @return std::optional<AiclkMinArbiter> The winning arbiter, or std::nullopt if unavailable.
-     */
-    virtual std::optional<AiclkMinArbiter> get_aiclk_arb_min_arbiter(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves the effective AICLK ceiling: the lowest limit imposed by any enabled maximum arbiter.
-     * Blackhole only. The ceiling takes precedence over the floor when the two conflict, so if this is below
-     * get_max_clock_freq() the chip is being throttled.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint32_t> get_aiclk_arb_max_freq(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves which maximum arbiter sets the ceiling reported by get_aiclk_arb_max_freq(), i.e. what
-     * is currently limiting AICLK. Blackhole only.
-     * @param noc_id NOC to route through.
-     * @return std::optional<AiclkMaxArbiter> The winning arbiter, or std::nullopt if unavailable.
-     */
-    virtual std::optional<AiclkMaxArbiter> get_aiclk_arb_max_arbiter(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves which AICLK minimum arbiters are enabled.
-     * Blackhole only. Bit i is set when the arbiter with AiclkMinArbiter value i is enabled.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Bitmask of enabled arbiters, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint32_t> get_enabled_aiclk_min_arbiters(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves which AICLK maximum arbiters are enabled.
-     * Blackhole only. Bit i is set when the arbiter with AiclkMaxArbiter value i is enabled.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Bitmask of enabled arbiters, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint32_t> get_enabled_aiclk_max_arbiters(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves why the firmware chose the current AICLK target.
-     * Blackhole only.
-     * @param noc_id NOC to route through.
-     * @return std::optional<AiclkTargetReason> The reason, or std::nullopt if unavailable.
-     */
-    virtual std::optional<AiclkTargetReason> get_aiclk_target_reason(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves the arbiter that set the current AICLK target.
-     * Blackhole only. Only meaningful when get_aiclk_target_reason() is MIN_ARBITER, in which case the value is an
-     * AiclkMinArbiter, or MAX_ARBITER, in which case it is an AiclkMaxArbiter.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint16_t> Arbiter number, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint16_t> get_aiclk_target_arbiter(
+    virtual std::optional<AiclkArbitration> get_aiclk_arbitration(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**

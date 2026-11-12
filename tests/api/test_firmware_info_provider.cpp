@@ -16,6 +16,7 @@
 #include <tt-umd/tt_device/firmware/device_firmware.hpp>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
@@ -28,6 +29,7 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/gddr_telemetry.hpp"
+#include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 using namespace tt;
@@ -868,5 +870,179 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
             }
         }
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, VddLimits) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        std::optional<uint32_t> vdd_min = fw_info->get_vdd_min();
+        std::optional<uint32_t> vdd_max = fw_info->get_vdd_max();
+        log_info(tt::LogUMD, "vdd_min={} mV, vdd_max={} mV", opt_str(vdd_min), opt_str(vdd_max));
+
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            continue;
+        }
+        ASSERT_TRUE(vdd_min.has_value());
+        ASSERT_TRUE(vdd_max.has_value());
+        EXPECT_LT(vdd_min.value(), vdd_max.value());
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, L2cpuClocks) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        std::vector<std::optional<uint32_t>> clocks = fw_info->get_l2cpu_clocks();
+        log_info(tt::LogUMD, "l2cpu_clocks=[{}] MHz", opt_str(clocks));
+
+        // Only Blackhole has L2CPU clusters.
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            EXPECT_TRUE(clocks.empty());
+            continue;
+        }
+        ASSERT_EQ(clocks.size(), 4u);
+        for (const std::optional<uint32_t>& clock : clocks) {
+            EXPECT_TRUE(clock.has_value());
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, BlackholeEnabledUnits) {
+    for (const auto& tt_device : get_tt_devices()) {
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            continue;
+        }
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        // Masks only cover the units Blackhole has: 14 Tensix columns, 14 ETH, 8 GDDR, 4 L2CPU.
+        std::optional<uint32_t> tensix_columns = fw_info->get_enabled_tensix_columns();
+        ASSERT_TRUE(tensix_columns.has_value());
+        EXPECT_NE(tensix_columns.value(), 0u);
+        EXPECT_EQ(tensix_columns.value() & ~0x3FFFu, 0u);
+
+        std::optional<uint32_t> eth_cores = fw_info->get_enabled_eth_cores();
+        ASSERT_TRUE(eth_cores.has_value());
+        EXPECT_EQ(eth_cores.value() & ~0x3FFFu, 0u);
+
+        std::optional<uint32_t> gddr = fw_info->get_enabled_gddr();
+        ASSERT_TRUE(gddr.has_value());
+        EXPECT_EQ(gddr.value() & ~0xFFu, 0u);
+
+        std::optional<uint32_t> l2cpus = fw_info->get_enabled_l2cpus();
+        ASSERT_TRUE(l2cpus.has_value());
+        EXPECT_EQ(l2cpus.value() & ~0xFu, 0u);
+
+        // Blackhole harvests Tensix by column.
+        EXPECT_FALSE(fw_info->get_enabled_tensix_rows().has_value());
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, BlackholePcieModes) {
+    for (const auto& tt_device : get_tt_devices()) {
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            continue;
+        }
+        std::vector<PcieMode> modes = tt_device->get_firmware_info_provider()->get_pcie_modes();
+
+        ASSERT_EQ(modes.size(), 2u);
+        // The host reaches this chip over PCIe, so at least one instance must be an endpoint.
+        EXPECT_TRUE(modes[0] == PcieMode::ENDPOINT || modes[1] == PcieMode::ENDPOINT);
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, BlackholeAiclkArbitration) {
+    for (const auto& tt_device : get_tt_devices()) {
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            continue;
+        }
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+
+        // Effective frequencies and enabled masks are published from 19.5, the winning arbiters and target reason
+        // from 19.7, and the host limit from 19.8.
+        bool has_arb_freqs = fw_version >= FirmwareBundleVersion(19, 5, 0);
+        bool has_arbiters = fw_version >= FirmwareBundleVersion(19, 7, 0);
+        bool has_host_limit = fw_version >= FirmwareBundleVersion(19, 8, 0);
+
+        EXPECT_EQ(fw_info->get_host_aiclk_limit().has_value(), has_host_limit);
+
+        std::optional<AiclkArbitration> arbitration = fw_info->get_aiclk_arbitration();
+        ASSERT_EQ(arbitration.has_value(), has_arb_freqs);
+        if (!arbitration.has_value()) {
+            continue;
+        }
+        EXPECT_EQ(arbitration->min_arbiter.has_value(), has_arbiters);
+        EXPECT_EQ(arbitration->max_arbiter.has_value(), has_arbiters);
+        EXPECT_EQ(arbitration->target_reason.has_value(), has_arbiters);
+
+        // The target arbiter is only set when the reason says an arbiter chose the target, and then holds the matching
+        // arbiter type.
+        if (arbitration->target_reason == AiclkTargetReason::MIN_ARBITER) {
+            ASSERT_TRUE(arbitration->target_arbiter.has_value());
+            EXPECT_TRUE(std::holds_alternative<AiclkMinArbiter>(arbitration->target_arbiter.value()));
+        } else if (arbitration->target_reason == AiclkTargetReason::MAX_ARBITER) {
+            ASSERT_TRUE(arbitration->target_arbiter.has_value());
+            EXPECT_TRUE(std::holds_alternative<AiclkMaxArbiter>(arbitration->target_arbiter.value()));
+        } else {
+            EXPECT_FALSE(arbitration->target_arbiter.has_value());
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, BlackholeKernelNopThrottler) {
+    for (const auto& tt_device : get_tt_devices()) {
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            continue;
+        }
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+
+        // The throttler and its counters are published from 19.12, the capability and active-config flags from 19.13.
+        bool has_throttler = fw_version >= FirmwareBundleVersion(19, 12, 0);
+        bool has_feature_flags = fw_version >= FirmwareBundleVersion(19, 13, 0);
+
+        EXPECT_EQ(fw_info->get_nop_start_count().has_value(), has_throttler);
+        EXPECT_EQ(fw_info->get_nop_on_duration().has_value(), has_throttler);
+
+        // Only firmware that publishes the capability flags says whether the GDDR thermal-trip action is supported. The
+        // kernel NOP throttler is also known to be supported on 19.12, before the flags exist.
+        std::optional<bool> trip_action_supported =
+            fw_info->is_capability_supported(FirmwareCapability::GDDR_THERMAL_TRIP_ACTION);
+        EXPECT_EQ(trip_action_supported.has_value(), has_feature_flags);
+        EXPECT_EQ(
+            fw_info->is_capability_enabled(FirmwareCapability::GDDR_THERMAL_TRIP_ACTION).has_value(),
+            trip_action_supported.value_or(false));
+
+        std::optional<bool> supported = fw_info->is_capability_supported(FirmwareCapability::KERNEL_NOP_THROTTLER);
+        EXPECT_EQ(supported.has_value(), has_throttler);
+        if (!supported.value_or(false)) {
+            EXPECT_FALSE(fw_info->is_capability_enabled(FirmwareCapability::KERNEL_NOP_THROTTLER).has_value());
+            EXPECT_FALSE(fw_info->get_kernel_nop_throttler_stop_freq().has_value());
+            continue;
+        }
+        EXPECT_TRUE(fw_info->is_capability_enabled(FirmwareCapability::KERNEL_NOP_THROTTLER).has_value());
+        EXPECT_TRUE(fw_info->get_kernel_nop_throttler_stop_freq().has_value());
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, WormholeHasNoBlackholeOnlyTelemetry) {
+    for (const auto& tt_device : get_tt_devices()) {
+        if (tt_device->get_arch() != tt::ARCH::WORMHOLE_B0) {
+            continue;
+        }
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        // Wormhole reuses tags 78 and 79 for fan telemetry, so the capability queries must not decode them.
+        for (FirmwareCapability capability :
+             {FirmwareCapability::KERNEL_NOP_THROTTLER, FirmwareCapability::GDDR_THERMAL_TRIP_ACTION}) {
+            EXPECT_FALSE(fw_info->is_capability_supported(capability).has_value());
+            EXPECT_FALSE(fw_info->is_capability_enabled(capability).has_value());
+        }
+        EXPECT_FALSE(fw_info->get_enabled_l2cpus().has_value());
+        EXPECT_TRUE(fw_info->get_pcie_modes().empty());
+        EXPECT_FALSE(fw_info->get_aiclk_arbitration().has_value());
+        EXPECT_FALSE(fw_info->get_nop_start_count().has_value());
     }
 }

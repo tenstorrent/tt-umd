@@ -113,12 +113,20 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
-            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 5, 0)) {
                 return create_blackhole_18_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 7, 0)) {
+                return create_blackhole_19_5_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
+                return create_blackhole_19_7_base();
             } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
                 return create_blackhole_19_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 12, 0)) {
+                return create_blackhole_19_9_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 13, 0)) {
+                return create_blackhole_19_12_base();
             }
-            return create_blackhole_19_9_base();
+            return create_blackhole_19_13_base();
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for telemetry feature map.");
     }
@@ -170,6 +178,15 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         {FirmwareFeature::GDDR_2_3_CORR_ERRS, {TelemetryTag::GDDR_2_3_CORR_ERRS, LinearTransform{}}},
         {FirmwareFeature::GDDR_4_5_CORR_ERRS, {TelemetryTag::GDDR_4_5_CORR_ERRS, LinearTransform{}}},
         {FirmwareFeature::GDDR_6_7_CORR_ERRS, {TelemetryTag::GDDR_6_7_CORR_ERRS, LinearTransform{}}},
+        {FirmwareFeature::VDD_MAX,            {TelemetryTag::VDD_LIMITS, LinearTransform{16, 0xFFFF}}},
+        {FirmwareFeature::VDD_MIN,            {TelemetryTag::VDD_LIMITS, LinearTransform{0, 0xFFFF}}},
+        {FirmwareFeature::ENABLED_TENSIX_COL, {TelemetryTag::ENABLED_TENSIX_COL, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_TENSIX_ROW, {TelemetryTag::ENABLED_TENSIX_ROW, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_ETH,        {TelemetryTag::ENABLED_ETH, LinearTransform{}}},
+        {FirmwareFeature::ENABLED_GDDR,       {TelemetryTag::ENABLED_GDDR, LinearTransform{}}},
+        {FirmwareFeature::PCIE_0_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{0, 0x3}}},
+        {FirmwareFeature::PCIE_1_MODE,        {TelemetryTag::PCIE_USAGE, LinearTransform{2, 0x3}}},
+        {FirmwareFeature::INPUT_POWER,        {TelemetryTag::INPUT_POWER, LinearTransform{}}},
     };
 }
 
@@ -259,20 +276,50 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
     map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    // Blackhole harvests Tensix by column, so there is no row mask.
+    map[FirmwareFeature::ENABLED_TENSIX_ROW] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ENABLED_L2CPU] = {TelemetryTag::ENABLED_L2CPU, LinearTransform{}};
+    // The upper 16 bits of the L2CPU clock tags are reserved for a maximum frequency.
+    map[FirmwareFeature::L2CPUCLK0] = {TelemetryTag::L2CPUCLK0, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK1] = {TelemetryTag::L2CPUCLK1, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK2] = {TelemetryTag::L2CPUCLK2, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::L2CPUCLK3] = {TelemetryTag::L2CPUCLK3, LinearTransform{0, 0xFFFF}};
     return map;
 }
 
-// Blackhole 18.8-19.7: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
+// Blackhole 18.8-19.4: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_18_8_base() {
     FirmwareFeatures map = create_blackhole_18_5_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
     return map;
 }
 
-// Blackhole >= 19.8: firmware gains the adjustable TDP limit and publishes it.
-/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_8_base() {
+// Blackhole 19.5-19.6: AICLK arbitration tags appear. The ARB_MIN/ARB_MAX tags hold only the frequency.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_5_base() {
     FirmwareFeatures map = create_blackhole_18_8_base();
+    map[FirmwareFeature::AICLK_ARB_MIN_FREQ] = {TelemetryTag::AICLK_ARB_MIN, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::AICLK_ARB_MAX_FREQ] = {TelemetryTag::AICLK_ARB_MAX, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS] = {TelemetryTag::ENABLED_MIN_ARB, LinearTransform{}};
+    map[FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS] = {TelemetryTag::ENABLED_MAX_ARB, LinearTransform{}};
+    return map;
+}
+
+// Blackhole 19.7: the winning arbiter is packed above the frequency, and AICLK_PPM_INFO appears.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_7_base() {
+    FirmwareFeatures map = create_blackhole_19_5_base();
+    map[FirmwareFeature::AICLK_ARB_MIN_ARBITER] = {TelemetryTag::AICLK_ARB_MIN, LinearTransform{16, 0xFFFF}};
+    map[FirmwareFeature::AICLK_ARB_MAX_ARBITER] = {TelemetryTag::AICLK_ARB_MAX, LinearTransform{16, 0xFFFF}};
+    // AICLK_PPM_INFO packs the fields the other way round from ARB_MIN/ARB_MAX: arbiter low, reason high.
+    map[FirmwareFeature::AICLK_TARGET_ARBITER] = {TelemetryTag::AICLK_PPM_INFO, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::AICLK_TARGET_REASON] = {TelemetryTag::AICLK_PPM_INFO, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole 19.8: firmware gains the adjustable TDP limit and the host AICLK ceiling, and publishes both.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_8_base() {
+    FirmwareFeatures map = create_blackhole_19_7_base();
     map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
+    map[FirmwareFeature::HOST_AICLK_LIMIT] = {TelemetryTag::HOST_AICLK_LIMIT, LinearTransform{}};
     return map;
 }
 
@@ -281,6 +328,42 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     FirmwareFeatures map = create_blackhole_19_8_base();
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}};
     map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole 19.12: SMBus error count, GDDR IO rail power and the kernel NOP throttler appear.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_12_base() {
+    FirmwareFeatures map = create_blackhole_19_9_base();
+    map[FirmwareFeature::SMBUS_ERRORS] = {TelemetryTag::SMBUS_ERRORS, LinearTransform{}};
+    map[FirmwareFeature::GDDR_WEST_IO_POWER] = {TelemetryTag::GDDR_WEST_IO_POWER, LinearTransform{}};
+    map[FirmwareFeature::GDDR_EAST_IO_POWER] = {TelemetryTag::GDDR_EAST_IO_POWER, LinearTransform{}};
+    map[FirmwareFeature::NOP_START_COUNT] = {TelemetryTag::NOP_START_COUNT, LinearTransform{}};
+    map[FirmwareFeature::NOP_ON_DURATION] = {TelemetryTag::NOP_ON_DURATION, LinearTransform{}};
+    // There is no capability flag yet; every 19.12 firmware ships the throttler.
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {FixedValue{1}, LinearTransform{}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {TelemetryTag::KERNEL_THROTTLER, LinearTransform{0, 0x1}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
+        TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
+// Blackhole >= 19.13: firmware publishes feature capability and active-config flags, and the kernel NOP throttler's
+// settings are only meaningful while the firmware reports the throttler as supported. The NOP counters are not gated:
+// they also count NOPs from critical di/dt throttling, which runs regardless of the throttler.
+/* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_13_base() {
+    FirmwareFeatures map = create_blackhole_19_12_base();
+    // A capability's bit is set in the capability word when it is supported and in the active-config word when it is
+    // enabled; both words use the same layout: bit 0 is the kernel NOP throttler and bit 1 the GDDR thermal-trip
+    // action. An enabled flag only means something while the capability is supported.
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{0, 0x1}};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {
+        TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{0, 0x1}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
+    map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED] = {
+        TelemetryTag::FW_CAPABILITIES_0, LinearTransform{1, 0x1}};
+    map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_ENABLED] = {
+        TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{1, 0x1}, FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED};
+    map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
+        TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
     return map;
 }
 
@@ -318,6 +401,10 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
         return false;
     }
 
+    if (it->second.gated_by.has_value() && read_scalar<uint32_t>(it->second.gated_by.value()).value_or(0) == 0) {
+        return false;
+    }
+
     // Check if key is available in telemetry.
     return std::visit(
         [this](auto&& arg) -> bool {
@@ -337,15 +424,19 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
         it->second.key);
 }
 
-template <typename T>
-std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature feature) const {
+std::optional<uint32_t> FirmwareInfoProviderImplementation::read_raw(FirmwareFeature feature) const {
     if (!is_feature_available(feature)) {
         return std::nullopt;
     }
+    return read_raw_telemetry(firmware_feature_map.find(feature)->second.key);
+}
 
+template <typename T>
+std::optional<T> FirmwareInfoProviderImplementation::convert_raw(FirmwareFeature feature, uint32_t raw) const {
     auto it = firmware_feature_map.find(feature);
-
-    uint32_t raw = read_raw_telemetry(it->second.key);
+    if (it == firmware_feature_map.end()) {
+        return std::nullopt;
+    }
 
     // Apply the converter.
     return std::visit(
@@ -367,6 +458,15 @@ std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature
         it->second.converter);
 }
 
+template <typename T>
+std::optional<T> FirmwareInfoProviderImplementation::read_scalar(FirmwareFeature feature) const {
+    std::optional<uint32_t> raw = read_raw(feature);
+    if (!raw.has_value()) {
+        return std::nullopt;
+    }
+    return convert_raw<T>(feature, raw.value());
+}
+
 // Explicit instantiations.
 template std::optional<uint32_t> FirmwareInfoProviderImplementation::read_scalar<uint32_t>(
     FirmwareFeature feature) const;
@@ -374,6 +474,7 @@ template std::optional<double> FirmwareInfoProviderImplementation::read_scalar<d
 template std::optional<uint8_t> FirmwareInfoProviderImplementation::read_scalar<uint8_t>(FirmwareFeature feature) const;
 template std::optional<uint16_t> FirmwareInfoProviderImplementation::read_scalar<uint16_t>(
     FirmwareFeature feature) const;
+template std::optional<bool> FirmwareInfoProviderImplementation::read_scalar<bool>(FirmwareFeature feature) const;
 
 FirmwareBundleVersion FirmwareInfoProviderImplementation::get_firmware_version(NocId noc_id) const {
     return firmware_version;
@@ -835,6 +936,229 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
         return std::nullopt;
     }
     return parse_eth_status_bitmask(data.value());
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_vdd_max(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::VDD_MAX);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_vdd_min(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::VDD_MIN);
+}
+
+std::vector<std::optional<uint32_t>> FirmwareInfoProviderImplementation::get_l2cpu_clocks(NocId noc_id) const {
+    if (arch_ != ARCH::BLACKHOLE) {
+        return {};
+    }
+    return {
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK0),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK1),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK2),
+        read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK3),
+    };
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_tensix_columns(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_TENSIX_COL);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_tensix_rows(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_TENSIX_ROW);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_eth_cores(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_ETH);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_gddr(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_GDDR);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_enabled_l2cpus(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::ENABLED_L2CPU);
+}
+
+// Converts a raw value to an enum. Values past the last enumerator that UMD knows about, which newer firmware may add,
+// become Enum::UNKNOWN, so that switches and string conversions over the enum still handle them. std::nullopt is
+// reserved for "the firmware does not publish this value".
+template <typename Enum>
+static Enum enum_from_raw(uint32_t raw, Enum last_known) {
+    using Underlying = std::underlying_type_t<Enum>;
+    return raw <= static_cast<uint32_t>(static_cast<Underlying>(last_known)) ? static_cast<Enum>(raw) : Enum::UNKNOWN;
+}
+
+template <typename Enum>
+static std::optional<Enum> to_enum(std::optional<uint32_t> raw, Enum last_known) {
+    if (!raw.has_value()) {
+        return std::nullopt;
+    }
+    return enum_from_raw(raw.value(), last_known);
+}
+
+// Converts a bitmask, in which bit i is set when the enumerator with value i is enabled, to a list of enumerators.
+// Set bits past the last known enumerator are reported as a single Enum::UNKNOWN.
+template <typename Enum>
+static std::vector<Enum> enum_list_from_mask(uint32_t mask, Enum last_known) {
+    using Underlying = std::underlying_type_t<Enum>;
+    const uint32_t last_known_bit = static_cast<uint32_t>(static_cast<Underlying>(last_known));
+    std::vector<Enum> enabled;
+    bool has_unknown = false;
+    for (uint32_t bit = 0; bit < 32; ++bit) {
+        if (((mask >> bit) & 1u) == 0) {
+            continue;
+        }
+        if (bit <= last_known_bit) {
+            enabled.push_back(static_cast<Enum>(bit));
+        } else {
+            has_unknown = true;
+        }
+    }
+    if (has_unknown) {
+        enabled.push_back(Enum::UNKNOWN);
+    }
+    return enabled;
+}
+
+std::vector<PcieMode> FirmwareInfoProviderImplementation::get_pcie_modes(NocId noc_id) const {
+    // Both instances are packed into one telemetry word, so read it once to keep them consistent.
+    const std::optional<uint32_t> raw = read_raw(FirmwareFeature::PCIE_0_MODE);
+    if (!raw.has_value()) {
+        return {};
+    }
+    return {
+        enum_from_raw(convert_raw<uint32_t>(FirmwareFeature::PCIE_0_MODE, raw.value()).value(), PcieMode::ROOT_PORT),
+        enum_from_raw(convert_raw<uint32_t>(FirmwareFeature::PCIE_1_MODE, raw.value()).value(), PcieMode::ROOT_PORT),
+    };
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_input_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::INPUT_POWER);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_tdc_limit(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDC_LIMIT_MAX);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_gddr_west_io_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::GDDR_WEST_IO_POWER);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_gddr_east_io_power(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::GDDR_EAST_IO_POWER);
+}
+
+std::optional<AiclkArbitration> FirmwareInfoProviderImplementation::get_aiclk_arbitration(NocId noc_id) const {
+    // Read each telemetry word exactly once and decode every field packed into it from that read. ARB_MIN and ARB_MAX
+    // each pack a frequency with the arbiter that set it, and PPM_INFO packs the target reason with the target arbiter,
+    // so reading them through separate getters could pair a value with one from a different telemetry update. The
+    // features sharing a word share its telemetry tag in the feature map.
+    const std::optional<uint32_t> min_raw = read_raw(FirmwareFeature::AICLK_ARB_MIN_FREQ);
+    const std::optional<uint32_t> max_raw = read_raw(FirmwareFeature::AICLK_ARB_MAX_FREQ);
+    const std::optional<uint32_t> enabled_min_raw = read_raw(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS);
+    const std::optional<uint32_t> enabled_max_raw = read_raw(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS);
+    if (!min_raw.has_value() || !max_raw.has_value() || !enabled_min_raw.has_value() || !enabled_max_raw.has_value()) {
+        return std::nullopt;
+    }
+
+    AiclkArbitration arbitration;
+    arbitration.min_freq_mhz = convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_FREQ, min_raw.value()).value();
+    arbitration.max_freq_mhz = convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_FREQ, max_raw.value()).value();
+    arbitration.enabled_min_arbiters = enum_list_from_mask(
+        convert_raw<uint32_t>(FirmwareFeature::ENABLED_AICLK_MIN_ARBITERS, enabled_min_raw.value()).value(),
+        AiclkMinArbiter::BUSY);
+    arbitration.enabled_max_arbiters = enum_list_from_mask(
+        convert_raw<uint32_t>(FirmwareFeature::ENABLED_AICLK_MAX_ARBITERS, enabled_max_raw.value()).value(),
+        AiclkMaxArbiter::HOST_FMAX);
+
+    // The winning arbiters and the target are published from firmware 19.7.
+    if (is_feature_available(FirmwareFeature::AICLK_ARB_MIN_ARBITER)) {
+        arbitration.min_arbiter = to_enum(
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MIN_ARBITER, min_raw.value()), AiclkMinArbiter::BUSY);
+    }
+    if (is_feature_available(FirmwareFeature::AICLK_ARB_MAX_ARBITER)) {
+        arbitration.max_arbiter = to_enum(
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_ARB_MAX_ARBITER, max_raw.value()), AiclkMaxArbiter::HOST_FMAX);
+    }
+
+    const std::optional<uint32_t> target_raw = read_raw(FirmwareFeature::AICLK_TARGET_REASON);
+    if (target_raw.has_value()) {
+        const uint32_t reason_raw =
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_TARGET_REASON, target_raw.value()).value();
+        const AiclkTargetReason reason = enum_from_raw(reason_raw, AiclkTargetReason::FORCED);
+        arbitration.target_reason = reason;
+
+        // Only the minimum and maximum arbiter reasons are caused by an arbiter. For the others, and for a reason UMD
+        // does not recognize, the arbiter field carries no meaning.
+        const std::optional<uint32_t> target_arbiter_raw =
+            convert_raw<uint32_t>(FirmwareFeature::AICLK_TARGET_ARBITER, target_raw.value());
+        if (target_arbiter_raw.has_value()) {
+            if (reason == AiclkTargetReason::MIN_ARBITER) {
+                arbitration.target_arbiter.emplace(
+                    std::in_place_type<AiclkMinArbiter>,
+                    enum_from_raw(target_arbiter_raw.value(), AiclkMinArbiter::BUSY));
+            } else if (reason == AiclkTargetReason::MAX_ARBITER) {
+                arbitration.target_arbiter.emplace(
+                    std::in_place_type<AiclkMaxArbiter>,
+                    enum_from_raw(target_arbiter_raw.value(), AiclkMaxArbiter::HOST_FMAX));
+            }
+        }
+    }
+
+    return arbitration;
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_host_aiclk_limit(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::HOST_AICLK_LIMIT);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_smbus_error_count(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::SMBUS_ERRORS);
+}
+
+// The firmware's bit layout of the capability and active-config words stays in the feature maps; the public API only
+// deals in FirmwareCapability values.
+static std::optional<FirmwareFeature> capability_supported_feature(FirmwareCapability capability) {
+    switch (capability) {
+        case FirmwareCapability::KERNEL_NOP_THROTTLER:
+            return FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED;
+        case FirmwareCapability::GDDR_THERMAL_TRIP_ACTION:
+            return FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED;
+    }
+    return std::nullopt;
+}
+
+static std::optional<FirmwareFeature> capability_enabled_feature(FirmwareCapability capability) {
+    switch (capability) {
+        case FirmwareCapability::KERNEL_NOP_THROTTLER:
+            return FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED;
+        case FirmwareCapability::GDDR_THERMAL_TRIP_ACTION:
+            return FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_ENABLED;
+    }
+    return std::nullopt;
+}
+
+std::optional<bool> FirmwareInfoProviderImplementation::is_capability_supported(
+    FirmwareCapability capability, NocId noc_id) const {
+    const std::optional<FirmwareFeature> feature = capability_supported_feature(capability);
+    return feature.has_value() ? read_scalar<bool>(feature.value()) : std::nullopt;
+}
+
+std::optional<bool> FirmwareInfoProviderImplementation::is_capability_enabled(
+    FirmwareCapability capability, NocId noc_id) const {
+    const std::optional<FirmwareFeature> feature = capability_enabled_feature(capability);
+    return feature.has_value() ? read_scalar<bool>(feature.value()) : std::nullopt;
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_kernel_nop_throttler_stop_freq(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_nop_start_count(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::NOP_START_COUNT);
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_nop_on_duration(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::NOP_ON_DURATION);
 }
 
 }  // namespace tt::umd

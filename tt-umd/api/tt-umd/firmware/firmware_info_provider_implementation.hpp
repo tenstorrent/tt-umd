@@ -16,6 +16,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/gddr_telemetry.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/semver.hpp"
 
 namespace tt {
@@ -152,6 +153,54 @@ public:
     virtual std::optional<double> get_current_max_dram_temperature(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
+    virtual std::optional<uint32_t> get_vdd_max([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_vdd_min([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::vector<std::optional<uint32_t>> get_l2cpu_clocks(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_enabled_tensix_columns(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_enabled_tensix_rows([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_enabled_eth_cores([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_enabled_gddr([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_enabled_l2cpus([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::vector<PcieMode> get_pcie_modes([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_tdc_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_gddr_west_io_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_gddr_east_io_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<AiclkArbitration> get_aiclk_arbitration(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_host_aiclk_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<bool> is_capability_supported(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<bool> is_capability_enabled(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_kernel_nop_throttler_stop_freq(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_nop_start_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_nop_on_duration([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
 private:
     /**
      * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.
@@ -181,13 +230,26 @@ private:
     static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_5_base();
+    static FirmwareFeatures create_blackhole_19_7_base();
     static FirmwareFeatures create_blackhole_19_8_base();
     static FirmwareFeatures create_blackhole_19_9_base();
+    static FirmwareFeatures create_blackhole_19_12_base();
+    static FirmwareFeatures create_blackhole_19_13_base();
 
     // Engine methods for reading and transforming telemetry data.
     uint32_t read_raw_telemetry(const FeatureKey& key) const;
 
     bool is_feature_available(FirmwareFeature feature) const;
+
+    // Reads the raw telemetry word behind a feature once, or std::nullopt if the feature is not available.
+    std::optional<uint32_t> read_raw(FirmwareFeature feature) const;
+
+    // Decodes a raw telemetry word with a feature's converter. Several features can be packed into one telemetry word;
+    // reading the word once with read_raw() and decoding each of them with convert_raw() guarantees that all of them
+    // come from the same read.
+    template <typename T>
+    std::optional<T> convert_raw(FirmwareFeature feature, uint32_t raw) const;
 
     template <typename T>
     std::optional<T> read_scalar(FirmwareFeature feature) const;

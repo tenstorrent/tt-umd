@@ -20,8 +20,7 @@ enum class NocId : uint8_t;
 
 /**
  * Reads a 32-bit NOC register at (core, addr) over the given NOC and returns its value.
- * Injection point for the HangDetector NOC liveness read; defaults to a DeviceProtocol-based
- * reader and can be overridden via set_noc_reg_reader().
+ * Injection point for the HangDetector NOC liveness read.
  */
 using NocRegReader = std::function<uint32_t(xy_pair core, uint64_t addr, NocId noc)>;
 
@@ -38,13 +37,9 @@ using NocRegReader = std::function<uint32_t(xy_pair core, uint64_t addr, NocId n
  * appropriate core type.
  */
 class HangDetectorImplementation : public HangDetector {
-public:
-    // Overrides the NOC liveness register reader (see NocRegReader). An empty function is ignored,
-    // so the default protocol-based reader stays in place.
-    void set_noc_reg_reader(NocRegReader reader);
-
 protected:
-    HangDetectorImplementation(DeviceProtocol* protocol);
+    // An empty noc_reg_reader reads the NOC register through protocol.
+    HangDetectorImplementation(DeviceProtocol* protocol, NocRegReader noc_reg_reader);
 
     DeviceProtocol* get_protocol() const { return protocol_; }
 

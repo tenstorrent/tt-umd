@@ -12,6 +12,7 @@
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "tt_device/protocol/jtag_protocol.hpp"
@@ -29,11 +30,17 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
     architecture_impl_(std::make_unique<WormholeImplementation>()),
     pci_device_(pci_device.get()) {
-    auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
+    // The detector probes through a reader the protocol builds, so it comes after the protocol, and the
+    // protocol's timeout check looks it up only when an op overruns. Until it exists, an overrun is not
+    // judged a hang, as when no check is wired.
+    auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api, [this](NocId noc) -> bool {
+        return hang_detector_ != nullptr && hang_detector_->is_noc_hung(noc).value_or(false);
+    });
+    hang_detector_ =
+        std::make_unique<WormholeHangDetector>(pcie_protocol.get(), pcie_protocol->make_noc_probe_reader());
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
-    hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -64,8 +71,10 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_interface_ = remote_protocol.get();
     protocol_ = std::move(remote_protocol);
+    // Reads through the local protocol: nothing consults this detector from inside a timed-out op.
     hang_detector_ = std::make_unique<WormholeHangDetector>(
-        remote_interface_->get_remote_communication()->get_local_device()->get_device_protocol());
+        remote_interface_->get_remote_communication()->get_local_device()->get_device_protocol(),
+        /*noc_reg_reader=*/NocRegReader{});
 
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(

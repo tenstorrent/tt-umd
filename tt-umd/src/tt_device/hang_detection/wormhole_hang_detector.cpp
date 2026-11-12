@@ -6,6 +6,7 @@
 
 #include "tt_device/hang_detection/wormhole_hang_detector.hpp"
 
+#include <utility>
 #include <vector>
 
 #include "tt-umd/arch/architecture_registers.hpp"
@@ -16,8 +17,9 @@
 
 namespace tt::umd {
 
-WormholeHangDetector::WormholeHangDetector(DeviceProtocol* protocol) :
-    HangDetectorImplementation(protocol), registers_(get_architecture_registers(tt::ARCH::WORMHOLE_B0)) {}
+WormholeHangDetector::WormholeHangDetector(DeviceProtocol* protocol, NocRegReader noc_reg_reader) :
+    HangDetectorImplementation(protocol, std::move(noc_reg_reader)),
+    registers_(get_architecture_registers(tt::ARCH::WORMHOLE_B0)) {}
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_bar() {
     return get_pcie_interface()->bar_read32(registers_.noc_node_id_bar_offset);

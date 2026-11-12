@@ -352,11 +352,18 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
 // they also count NOPs from critical di/dt throttling, which runs regardless of the throttler.
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_13_base() {
     FirmwareFeatures map = create_blackhole_19_12_base();
-    map[FirmwareFeature::FW_CAPABILITIES_0] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{}};
-    map[FirmwareFeature::FW_ACTIVE_CONFIG_0] = {TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{}};
+    // A capability's bit is set in the capability word when it is supported and in the active-config word when it is
+    // enabled; both words use the same layout: bit 0 is the kernel NOP throttler and bit 1 the GDDR thermal-trip action.
+    // An enabled flag only means something while the capability is supported.
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{0, 0x1}};
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {
         TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{0, 0x1}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
+    map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED] = {
+        TelemetryTag::FW_CAPABILITIES_0, LinearTransform{1, 0x1}};
+    map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_ENABLED] = {
+        TelemetryTag::FW_ACTIVE_CONFIG_0,
+        LinearTransform{1, 0x1},
+        FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED};
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
         TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
     return map;
@@ -1102,20 +1109,38 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_smbus_error_coun
     return read_scalar<uint32_t>(FirmwareFeature::SMBUS_ERRORS);
 }
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_fw_capabilities(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::FW_CAPABILITIES_0);
+// The firmware's bit layout of the capability and active-config words stays in the feature maps; the public API only
+// deals in FirmwareCapability values.
+static std::optional<FirmwareFeature> capability_supported_feature(FirmwareCapability capability) {
+    switch (capability) {
+        case FirmwareCapability::KERNEL_NOP_THROTTLER:
+            return FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED;
+        case FirmwareCapability::GDDR_THERMAL_TRIP_ACTION:
+            return FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED;
+    }
+    return std::nullopt;
 }
 
-std::optional<uint32_t> FirmwareInfoProviderImplementation::get_fw_active_config(NocId noc_id) const {
-    return read_scalar<uint32_t>(FirmwareFeature::FW_ACTIVE_CONFIG_0);
+static std::optional<FirmwareFeature> capability_enabled_feature(FirmwareCapability capability) {
+    switch (capability) {
+        case FirmwareCapability::KERNEL_NOP_THROTTLER:
+            return FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED;
+        case FirmwareCapability::GDDR_THERMAL_TRIP_ACTION:
+            return FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_ENABLED;
+    }
+    return std::nullopt;
 }
 
-std::optional<bool> FirmwareInfoProviderImplementation::is_kernel_nop_throttler_supported(NocId noc_id) const {
-    return read_scalar<bool>(FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED);
+std::optional<bool> FirmwareInfoProviderImplementation::is_capability_supported(
+    FirmwareCapability capability, NocId noc_id) const {
+    const std::optional<FirmwareFeature> feature = capability_supported_feature(capability);
+    return feature.has_value() ? read_scalar<bool>(feature.value()) : std::nullopt;
 }
 
-std::optional<bool> FirmwareInfoProviderImplementation::is_kernel_nop_throttler_enabled(NocId noc_id) const {
-    return read_scalar<bool>(FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED);
+std::optional<bool> FirmwareInfoProviderImplementation::is_capability_enabled(
+    FirmwareCapability capability, NocId noc_id) const {
+    const std::optional<FirmwareFeature> feature = capability_enabled_feature(capability);
+    return feature.has_value() ? read_scalar<bool>(feature.value()) : std::nullopt;
 }
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_kernel_nop_throttler_stop_freq(NocId noc_id) const {

@@ -1000,19 +1000,26 @@ TEST_F(TestFirmwareInfoProvider, BlackholeKernelNopThrottler) {
         bool has_throttler = fw_version >= FirmwareBundleVersion(19, 12, 0);
         bool has_feature_flags = fw_version >= FirmwareBundleVersion(19, 13, 0);
 
-        EXPECT_EQ(fw_info->get_fw_capabilities().has_value(), has_feature_flags);
-        EXPECT_EQ(fw_info->get_fw_active_config().has_value(), has_feature_flags);
         EXPECT_EQ(fw_info->get_nop_start_count().has_value(), has_throttler);
         EXPECT_EQ(fw_info->get_nop_on_duration().has_value(), has_throttler);
 
-        std::optional<bool> supported = fw_info->is_kernel_nop_throttler_supported();
+        // Only firmware that publishes the capability flags says whether the GDDR thermal-trip action is supported. The
+        // kernel NOP throttler is also known to be supported on 19.12, before the flags exist.
+        std::optional<bool> trip_action_supported =
+            fw_info->is_capability_supported(FirmwareCapability::GDDR_THERMAL_TRIP_ACTION);
+        EXPECT_EQ(trip_action_supported.has_value(), has_feature_flags);
+        EXPECT_EQ(
+            fw_info->is_capability_enabled(FirmwareCapability::GDDR_THERMAL_TRIP_ACTION).has_value(),
+            trip_action_supported.value_or(false));
+
+        std::optional<bool> supported = fw_info->is_capability_supported(FirmwareCapability::KERNEL_NOP_THROTTLER);
         EXPECT_EQ(supported.has_value(), has_throttler);
         if (!supported.value_or(false)) {
-            EXPECT_FALSE(fw_info->is_kernel_nop_throttler_enabled().has_value());
+            EXPECT_FALSE(fw_info->is_capability_enabled(FirmwareCapability::KERNEL_NOP_THROTTLER).has_value());
             EXPECT_FALSE(fw_info->get_kernel_nop_throttler_stop_freq().has_value());
             continue;
         }
-        EXPECT_TRUE(fw_info->is_kernel_nop_throttler_enabled().has_value());
+        EXPECT_TRUE(fw_info->is_capability_enabled(FirmwareCapability::KERNEL_NOP_THROTTLER).has_value());
         EXPECT_TRUE(fw_info->get_kernel_nop_throttler_stop_freq().has_value());
     }
 }
@@ -1024,10 +1031,12 @@ TEST_F(TestFirmwareInfoProvider, WormholeHasNoBlackholeOnlyTelemetry) {
         }
         auto* fw_info = tt_device->get_firmware_info_provider();
 
-        // Wormhole reuses tags 78 and 79 for fan telemetry, so the feature-flag getters must not decode them.
-        EXPECT_FALSE(fw_info->get_fw_capabilities().has_value());
-        EXPECT_FALSE(fw_info->get_fw_active_config().has_value());
-        EXPECT_FALSE(fw_info->is_kernel_nop_throttler_supported().has_value());
+        // Wormhole reuses tags 78 and 79 for fan telemetry, so the capability queries must not decode them.
+        for (FirmwareCapability capability :
+             {FirmwareCapability::KERNEL_NOP_THROTTLER, FirmwareCapability::GDDR_THERMAL_TRIP_ACTION}) {
+            EXPECT_FALSE(fw_info->is_capability_supported(capability).has_value());
+            EXPECT_FALSE(fw_info->is_capability_enabled(capability).has_value());
+        }
         EXPECT_FALSE(fw_info->get_enabled_l2cpus().has_value());
         EXPECT_FALSE(fw_info->get_aiclk_arbitration().has_value());
         EXPECT_FALSE(fw_info->get_nop_start_count().has_value());

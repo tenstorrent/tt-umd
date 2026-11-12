@@ -491,49 +491,30 @@ public:
     virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Retrieves the bitfield of features the firmware supports.
-     * Blackhole only. Bit 0: kernel NOP throttler. Bit 1: GDDR thermal-trip action. Bit 2: extended board ID.
-     * Higher bits are reserved for features added by newer firmware.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Capability bits, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint32_t> get_fw_capabilities([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Retrieves the bitfield of features currently switched on.
-     * Blackhole only. Uses the same bit layout as get_fw_capabilities(); a set bit means the feature is enabled.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Active-config bits, or std::nullopt if unavailable.
-     */
-    virtual std::optional<uint32_t> get_fw_active_config([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /**
-     * @brief Reports whether the firmware supports the kernel NOP throttler.
-     *
-     * The kernel NOP throttler cuts power when lowering AICLK is not enough: once AICLK is at its minimum and core
-     * power is still above the TDP limit, the firmware tells the Tensix cores to execute NOPs between kernel
-     * instructions. It stops once AICLK has recovered to the stop frequency (see
-     * get_kernel_nop_throttler_stop_freq()) and power is back under the limit. Blackhole only.
-     *
+     * @brief Reports whether the firmware supports an optional capability. Blackhole only.
+     * Firmware publishes capability flags from 19.13. The kernel NOP throttler is also reported as supported on
+     * 19.12, which has the throttler but no flags yet.
+     * @param capability The capability to query.
      * @param noc_id NOC to route through.
      * @return std::optional<bool> true if supported, or std::nullopt if the firmware does not say.
      */
-    virtual std::optional<bool> is_kernel_nop_throttler_supported(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<bool> is_capability_supported(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Reports whether the kernel NOP throttler is switched on. The host can toggle it at runtime.
-     * Blackhole only. std::nullopt when the firmware does not support the throttler.
+     * @brief Reports whether a capability is currently switched on. Blackhole only.
+     * @param capability The capability to query.
      * @param noc_id NOC to route through.
-     * @return std::optional<bool> true if enabled, or std::nullopt if unavailable.
+     * @return std::optional<bool> true if enabled, or std::nullopt if the capability is not supported or the firmware
+     * does not say.
      */
-    virtual std::optional<bool> is_kernel_nop_throttler_enabled(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<bool> is_capability_enabled(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
      * @brief Retrieves the AICLK at which the kernel NOP throttler stops inserting NOPs.
-     * Blackhole only. 0 means the firmware uses the effective AICLK floor (see get_aiclk_arb_min_freq()) as the
-     * stop frequency. std::nullopt when the firmware does not support the throttler.
+     * Blackhole only. 0 means the firmware uses the effective AICLK floor (see AiclkArbitration::min_freq_mhz) as the
+     * stop frequency. std::nullopt when the firmware does not support FirmwareCapability::KERNEL_NOP_THROTTLER.
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */

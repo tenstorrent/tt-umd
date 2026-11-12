@@ -175,13 +175,13 @@ enum class FirmwareFeature {
     // SMBus.
     SMBUS_ERRORS,
 
-    // Firmware feature flags.
-    FW_CAPABILITIES_0,
-    FW_ACTIVE_CONFIG_0,
+    // Firmware capabilities, each as a supported and an enabled flag.
     KERNEL_NOP_THROTTLER_SUPPORTED,
+    KERNEL_NOP_THROTTLER_ENABLED,
+    GDDR_THERMAL_TRIP_ACTION_SUPPORTED,
+    GDDR_THERMAL_TRIP_ACTION_ENABLED,
 
     // Kernel NOP throttler.
-    KERNEL_NOP_THROTTLER_ENABLED,
     KERNEL_NOP_THROTTLER_STOP_FREQ,
     NOP_START_COUNT,
     NOP_ON_DURATION,

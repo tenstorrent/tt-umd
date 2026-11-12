@@ -162,4 +162,16 @@ struct AiclkArbitration {
     std::optional<std::variant<AiclkMinArbiter, AiclkMaxArbiter>> target_arbiter;
 };
 
+// Optional firmware features that the firmware reports as supported and, separately, as enabled. Blackhole only. See
+// FirmwareInfoProvider::is_capability_supported() and is_capability_enabled().
+enum class FirmwareCapability {
+    // Cuts power when lowering AICLK is not enough: once AICLK is at its minimum and core power is still above the TDP
+    // limit, the firmware tells the Tensix cores to execute NOPs between kernel instructions. It stops once AICLK has
+    // recovered to the stop frequency (see FirmwareInfoProvider::get_kernel_nop_throttler_stop_freq()) and power is
+    // back under the limit. The host can toggle it at runtime.
+    KERNEL_NOP_THROTTLER,
+    // The firmware's action when a GDDR thermal trip occurs.
+    GDDR_THERMAL_TRIP_ACTION,
+};
+
 }  // namespace tt::umd

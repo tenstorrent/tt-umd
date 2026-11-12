@@ -189,15 +189,11 @@ public:
 
     virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::optional<uint32_t> get_fw_capabilities([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<bool> is_capability_supported(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    virtual std::optional<uint32_t> get_fw_active_config([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<bool> is_kernel_nop_throttler_supported(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<bool> is_kernel_nop_throttler_enabled(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<bool> is_capability_enabled(
+        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<uint32_t> get_kernel_nop_throttler_stop_freq(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;

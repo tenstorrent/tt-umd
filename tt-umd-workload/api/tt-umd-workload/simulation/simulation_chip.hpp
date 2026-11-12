@@ -16,6 +16,7 @@
 
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -66,6 +67,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
+    HostMemChannels* get_host_mem_channels() override;
 
     bool is_mmio_capable() const override { return false; }
 
@@ -127,5 +129,8 @@ protected:
     std::filesystem::path simulator_directory_;
 
     std::unique_ptr<TTDevice> tt_device_;
+
+    // A view of the channels the simulated device keeps, since its simulator reaches them by address.
+    HostMemChannels host_mem_channels_;
 };
 }  // namespace tt::umd

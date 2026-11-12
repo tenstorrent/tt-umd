@@ -185,7 +185,7 @@ struct SiliconSysmemManager::HugepageFiles {
 };
 
 SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) :
-    hugepage_files_(std::make_shared<HugepageFiles>()) {
+    hugepage_files_(std::make_unique<HugepageFiles>()) {
     tt_device_ = tt_device;
     pci_device_ = tt_device->get_pci_device();
     UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
@@ -638,39 +638,34 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_hugepage_buffer(siz
         error::RuntimeError,
         "Without an IOMMU sysmem buffers need 1 GB hugepages, but no hugepage mount was found.");
 
+    // A shared_ptr, as a deleter is a std::function and needs a copyable callable (std::move_only_function is
+    // C++23). This copy keeps the page mapped until a failed pin_and_wrap() has unpinned it.
+    std::shared_ptr<void> hugepage = acquire_hugepage(hugepage_dir);
+    // The KMD binds a hugepage to the NOC as it pins it.
+    return pin_and_wrap(
+        hugepage.get(),
+        sysmem_buffer_size,
+        /*map_to_noc=*/true,
+        DeviceBufferAccess::READ_WRITE,
+        [hugepage](void *) mutable { hugepage.reset(); },
+        /*hugepage=*/true);
+}
+
+std::shared_ptr<void> SiliconSysmemManager::acquire_hugepage(const std::string &hugepage_dir) {
     const uint16_t index = hugepage_files_->acquire();
     void *mapping = map_hugepage(hugepage_dir, index);
     if (mapping == nullptr) {
         hugepage_files_->release(index);
         UMD_THROW(error::RuntimeError, "Failed to map a hugepage for a sysmem buffer. See the warnings above.");
     }
-    // The hugepage and its file belong to the buffer, so both are released along with the pinning. The weak
-    // pointer lets a buffer outlive this manager.
-    const SysmemBuffer::Deleter release_hugepage = [weak_files = std::weak_ptr<HugepageFiles>(hugepage_files_),
-                                                    index](void *hugepage) {
+    // Assumes buffers do not outlive this manager, as their pinning already does for its PCI device.
+    return std::shared_ptr<void>(mapping, [files = hugepage_files_.get(), index](void *hugepage) {
         TracyFreeN(hugepage, "Hugepage");
         if (munmap(hugepage, HUGEPAGE_REGION_SIZE) != 0) {
             log_warning(LogUMD, "Failed to munmap hugepage at {:p}: {}.", hugepage, strerror(errno));
         }
-        if (auto files = weak_files.lock()) {
-            files->release(index);
-        }
-    };
-
-    try {
-        // The KMD binds a hugepage to the NOC as it pins it.
-        return pin_and_wrap(
-            mapping,
-            sysmem_buffer_size,
-            /*map_to_noc=*/true,
-            DeviceBufferAccess::READ_WRITE,
-            release_hugepage,
-            /*hugepage=*/true);
-    } catch (...) {
-        // Nothing owns the hugepage yet, so free it here rather than leaking it.
-        release_hugepage(mapping);
-        throw;
-    }
+        files->release(index);
+    });
 }
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(

@@ -20,6 +20,7 @@
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
+#include "simulation/rtl_sim_att_program.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "simulation/word_access.hpp"
@@ -354,6 +355,14 @@ std::optional<uint64_t> RtlSimulationTTDevice::get_flat_address(
         return std::nullopt;
     }
     return att::resolve_io_window(resolver->second, get_soc_descriptor(), core, flags, ordering, offset);
+}
+
+void RtlSimulationTTDevice::apply_att_program(const RtlSimAttProgram& program) {
+    UMD_ASSERT(
+        layout_device_.has_value(),
+        error::RuntimeError,
+        "An ATT program lists the devices of an ip_layout.yaml; this device isn't one.");
+    program.apply(layout_device_->device, *communicator_);
 }
 
 void RtlSimulationTTDevice::check_att_matches_map() {

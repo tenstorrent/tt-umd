@@ -344,7 +344,11 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
                 "files:",
                 physical_device_id,
                 ch);
+            // Clear the channel along with the page, so teardown doesn't unmap it a second time and copies through
+            // the channel fail as unallocated instead of touching unmapped memory.
+            TracyFreeN(mapping, "Hugepage");
             munmap(mapping, hugepage_size);
+            hugepage_mapping_per_channel.at(ch) = {};
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
             print_file_contents("/proc/buddyinfo");

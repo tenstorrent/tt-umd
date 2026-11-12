@@ -361,9 +361,9 @@ public:
 
     /**
      * @brief Retrieves the current clock of each L2CPU (RISC-V) cluster.
-     * Blackhole only. The vector always has one entry per cluster (4), and an entry is std::nullopt when that
+     * Blackhole only. On Blackhole the vector has one entry per cluster (4), and an entry is std::nullopt when that
      * cluster's clock is unavailable. Harvested clusters still report a clock; use get_enabled_l2cpus() to tell
-     * which clusters are usable.
+     * which clusters are usable. The vector is empty on architectures without L2CPU clusters.
      * @param noc_id NOC to route through.
      * @return std::vector<std::optional<uint32_t>> Frequency in MHz per cluster, indexed by cluster.
      */

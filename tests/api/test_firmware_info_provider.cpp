@@ -897,11 +897,14 @@ TEST_F(TestFirmwareInfoProvider, L2cpuClocks) {
         std::vector<std::optional<uint32_t>> clocks = fw_info->get_l2cpu_clocks();
         log_info(tt::LogUMD, "l2cpu_clocks=[{}] MHz", opt_str(clocks));
 
-        ASSERT_EQ(clocks.size(), 4u);
         // Only Blackhole has L2CPU clusters.
-        bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE;
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE) {
+            EXPECT_TRUE(clocks.empty());
+            continue;
+        }
+        ASSERT_EQ(clocks.size(), 4u);
         for (const std::optional<uint32_t>& clock : clocks) {
-            EXPECT_EQ(clock.has_value(), expect_available);
+            EXPECT_TRUE(clock.has_value());
         }
     }
 }

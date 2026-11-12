@@ -353,17 +353,15 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_blackhole_19_13_base() {
     FirmwareFeatures map = create_blackhole_19_12_base();
     // A capability's bit is set in the capability word when it is supported and in the active-config word when it is
-    // enabled; both words use the same layout: bit 0 is the kernel NOP throttler and bit 1 the GDDR thermal-trip action.
-    // An enabled flag only means something while the capability is supported.
+    // enabled; both words use the same layout: bit 0 is the kernel NOP throttler and bit 1 the GDDR thermal-trip
+    // action. An enabled flag only means something while the capability is supported.
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED] = {TelemetryTag::FW_CAPABILITIES_0, LinearTransform{0, 0x1}};
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_ENABLED] = {
         TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{0, 0x1}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
     map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED] = {
         TelemetryTag::FW_CAPABILITIES_0, LinearTransform{1, 0x1}};
     map[FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_ENABLED] = {
-        TelemetryTag::FW_ACTIVE_CONFIG_0,
-        LinearTransform{1, 0x1},
-        FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED};
+        TelemetryTag::FW_ACTIVE_CONFIG_0, LinearTransform{1, 0x1}, FirmwareFeature::GDDR_THERMAL_TRIP_ACTION_SUPPORTED};
     map[FirmwareFeature::KERNEL_NOP_THROTTLER_STOP_FREQ] = {
         TelemetryTag::KERNEL_THROTTLER, LinearTransform{16, 0xFFFF}, FirmwareFeature::KERNEL_NOP_THROTTLER_SUPPORTED};
     return map;
@@ -949,6 +947,9 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_vdd_min(NocId no
 }
 
 std::vector<std::optional<uint32_t>> FirmwareInfoProviderImplementation::get_l2cpu_clocks(NocId noc_id) const {
+    if (arch_ != ARCH::BLACKHOLE) {
+        return {};
+    }
     return {
         read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK0),
         read_scalar<uint32_t>(FirmwareFeature::L2CPUCLK1),

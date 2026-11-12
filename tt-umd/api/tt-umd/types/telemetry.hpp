@@ -126,18 +126,18 @@ enum class AiclkMaxArbiter : uint16_t {
 // AICLK minimum-frequency arbiters. Each enabled arbiter imposes a floor on AICLK and the highest floor wins.
 // Firmware keeps these values stable across releases; newer firmware may append arbiters past the last one listed.
 enum class AiclkMinArbiter : uint16_t {
-    FMIN = 0,  // Chip's configured minimum AICLK.
-    BUSY = 1,  // Floor requested while the host has the chip in the busy power state.
+    FMIN = 0,          // Chip's configured minimum AICLK.
+    BUSY = 1,          // Floor requested while the host has the chip in the busy power state.
     UNKNOWN = 0xFFFF,  // An arbiter this version of UMD does not recognize.
 };
 
 // Why the firmware chose the current AICLK target.
 enum class AiclkTargetReason : uint16_t {
-    MIN_ARBITER = 0,  // A minimum arbiter set the target; the arbiter is an AiclkMinArbiter.
-    MAX_ARBITER = 1,  // A maximum arbiter set the target; the arbiter is an AiclkMaxArbiter.
-    FMIN = 2,         // Arbitration landed below the chip's minimum AICLK, so the minimum was used.
-    SWEEP = 3,        // A characterization sweep is choosing random frequencies.
-    FORCED = 4,       // AICLK is forced to a fixed value.
+    MIN_ARBITER = 0,   // A minimum arbiter set the target; the arbiter is an AiclkMinArbiter.
+    MAX_ARBITER = 1,   // A maximum arbiter set the target; the arbiter is an AiclkMaxArbiter.
+    FMIN = 2,          // Arbitration landed below the chip's minimum AICLK, so the minimum was used.
+    SWEEP = 3,         // A characterization sweep is choosing random frequencies.
+    FORCED = 4,        // AICLK is forced to a fixed value.
     UNKNOWN = 0xFFFF,  // A reason this version of UMD does not recognize.
 };
 

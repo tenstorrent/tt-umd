@@ -149,6 +149,8 @@ public:
 
     uint64_t get_noc_base() const override { return 0; }
 
+    bool is_read_only_page_pinning_supported() const override { return false; }
+
     using SystemMemoryAllocator::create_buffer;
 };
 

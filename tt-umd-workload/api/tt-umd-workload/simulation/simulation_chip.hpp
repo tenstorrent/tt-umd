@@ -66,7 +66,7 @@ public:
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
     TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
+    SystemMemoryAllocator* get_system_memory_allocator() override;
     HostMemChannels* get_host_mem_channels() override;
 
     bool is_mmio_capable() const override { return false; }

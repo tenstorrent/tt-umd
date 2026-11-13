@@ -125,9 +125,7 @@ CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FI
 ###################################################################################################################
 # nanobench (for microbenchmarks)
 ###################################################################################################################
-if(TT_UMD_BUILD_MICROBENCHMARKS)
-    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.6.0 SYSTEM YES)
-endif()
+CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.6.0 SYSTEM YES)
 
 ###################################################################################################################
 # nlohmann/json (for microbenchmarks)

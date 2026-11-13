@@ -51,7 +51,7 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
-SystemMemoryAllocator* Chip::get_system_memory_allocator() { return get_sysmem_manager(); }
+SysmemManager* Chip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(get_system_memory_allocator()); }
 
 void Chip::wait_chip_to_be_ready() {
     ZoneScopedC(tracy::Color::DarkGreen);

@@ -91,10 +91,10 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->allocate_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
     const xy_pair tensix_core_xy =
@@ -151,7 +151,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const uint32_t one_mb = 1 << 20;
     void* mapping =
@@ -160,7 +160,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     const size_t unaligned_offset = 100;
     void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->map_user_buffer(mapping_buffer, one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
     const xy_pair tensix_core_xy =
@@ -213,7 +213,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const size_t mmap_size = 20;
     const size_t buf_size = 10;
@@ -223,13 +223,13 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_size;  // Offset by 10 bytes
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->map_user_buffer(mapped_buffer, buf_size);
 
     EXPECT_EQ(sysmem_buffer->get_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_va(), mapped_buffer);
 }
 
-// allocate_sysmem_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
+// allocate_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
 // Before the buffer owned its memory, every allocation leaked the whole mapping.
 TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -243,14 +243,14 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const size_t buf_size = 64ULL << 20;
     const size_t buf_size_kib = buf_size >> 10;
     const int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
-    { std::unique_ptr<SysmemBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
+    { std::unique_ptr<SysmemBuffer> warmup = allocator->allocate_buffer(buf_size); }
 
     const size_t rss_before = test_utils::read_rss_kib();
     if (rss_before == 0) {
@@ -259,7 +259,7 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
 
     const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
     for (int i = 0; i < iterations; i++) {
-        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> buffer = allocator->allocate_buffer(buf_size);
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
@@ -292,13 +292,13 @@ TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
 
     for (const ChipId mmio_chip : cluster->get_target_mmio_device_ids()) {
         Chip* chip = cluster->get_chip(mmio_chip);
-        SysmemManager* sysmem_manager = chip->get_sysmem_manager();
+        SystemMemoryAllocator* allocator = chip->get_system_memory_allocator();
         const int expected_id = chip->get_tt_device()->get_communication_device_id();
 
-        EXPECT_EQ(sysmem_manager->get_communication_id(), expected_id);
+        EXPECT_EQ(allocator->get_communication_id(), expected_id);
 
         const size_t buf_size = 1 << 20;
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->allocate_buffer(buf_size);
         ASSERT_NE(sysmem_buffer, nullptr);
         EXPECT_EQ(sysmem_buffer->get_communication_id(), expected_id);
     }
@@ -319,7 +319,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const size_t mmap_size = 2 * sysconf(_SC_PAGESIZE);
     const size_t buf_offset = 10;  // Deliberately not page aligned.
@@ -330,7 +330,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
 
     void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_offset;
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->map_user_buffer(mapped_buffer, buf_size);
 
     const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
 
@@ -366,10 +366,10 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
 
     const uint32_t one_mb = 1 << 20;
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->allocate_buffer(one_mb, true);
 
     EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());
 
@@ -406,7 +406,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     }
 
     // If we map another buffer it is expected to have a higher NOC address.
-    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = allocator->allocate_buffer(one_mb, true);
     EXPECT_TRUE(sysmem_buffer2->get_noc_address().has_value());
     EXPECT_GT(sysmem_buffer2->get_noc_address().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
 }
@@ -420,8 +420,8 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
 
     // Probe the capability on the manager the mapping will actually be made through, so a device other than the one
     // map_sysmem_buffer ends up on cannot clear the gate and turn a skip into a throw.
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    if (!sysmem_manager->is_read_only_page_pinning_supported()) {
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_read_only_page_pinning_supported()) {
         GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU and KMD "
                      << KMD_READ_ONLY_PAGE_PINNING.str() << " or newer.";
     }
@@ -464,7 +464,7 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     void* mapping = mmap(nullptr, mapping_size, PROT_READ, MAP_SHARED, read_only_fd, 0);
     ASSERT_NE(mapping, MAP_FAILED);
 
-    auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::READ_ONLY);
+    auto sysmem_buffer = allocator->map_user_buffer(mapping, mapping_size, true, DeviceBufferAccess::READ_ONLY);
 
     ASSERT_NE(sysmem_buffer, nullptr);
     EXPECT_EQ(sysmem_buffer->get_va(), mapping);

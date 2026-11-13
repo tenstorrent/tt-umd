@@ -173,9 +173,6 @@ void LocalChip::initialize_membars(uint32_t dram_subchannel) {
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
-// The legacy SysmemManager type is still handed out to existing callers until they move to the allocator.
-SysmemManager* LocalChip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(system_memory_allocator_); }
-
 SystemMemoryAllocator* LocalChip::get_system_memory_allocator() { return system_memory_allocator_; }
 
 HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }

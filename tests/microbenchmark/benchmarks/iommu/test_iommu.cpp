@@ -406,7 +406,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-    SysmemManager* sysmem_manager = cluster->get_chip(CHIP_ID)->get_sysmem_manager();
+    SystemMemoryAllocator* allocator = cluster->get_chip(CHIP_ID)->get_system_memory_allocator();
 
     std::array<void*, NUM_PAGES> mappings{};
     for (size_t page = 0; page < NUM_PAGES; page++) {
@@ -436,7 +436,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     for (int i = 0; i < NUM_EPOCHS; i++) {
         for (size_t page = 0; page < NUM_PAGES; page++) {
             auto now = std::chrono::high_resolution_clock::now();
-            sysmem_buffers[page] = sysmem_manager->map_user_buffer(mappings[page], MAPPING_SIZE, /*bind_to_noc=*/true);
+            sysmem_buffers[page] = allocator->map_user_buffer(mappings[page], MAPPING_SIZE, /*bind_to_noc=*/true);
             auto end = std::chrono::high_resolution_clock::now();
             map_result.add(end - now, 1, pc);
         }

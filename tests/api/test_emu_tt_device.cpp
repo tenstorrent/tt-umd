@@ -154,7 +154,7 @@ TEST(EmuTTDevice, ConsecutiveOffsetsAddressDistinctWords) {
     EXPECT_EQ(read_second, second);
 }
 
-TEST(EmuTTDevice, CceSramChannelsDoNotAlias) {
+TEST(EmuTTDevice, MimirCceSramChannelsDoNotAlias) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
@@ -167,20 +167,20 @@ TEST(EmuTTDevice, CceSramChannelsDoNotAlias) {
     const uint32_t locations_per_channel = static_cast<uint32_t>(soc_descriptor.get_grid_size(CoreType::DRAM).y);
     for (uint32_t channel = 0; channel < channel_count; ++channel) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
-            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
+            const CoreCoord mimir_cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
             const uint32_t value = 0xC0FFEE10 + channel * locations_per_channel + location;
-            device->write_to_device(&value, cce, address, sizeof(value));
+            device->write_to_device(&value, mimir_cce, address, sizeof(value));
         }
     }
 
     for (uint32_t channel = 0; channel < channel_count; ++channel) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
-            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
+            const CoreCoord mimir_cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::NOC0);
             const uint32_t expected = 0xC0FFEE10 + channel * locations_per_channel + location;
             uint32_t read_back = 0;
-            device->read_from_device(&read_back, cce, address, sizeof(read_back));
+            device->read_from_device(&read_back, mimir_cce, address, sizeof(read_back));
             EXPECT_EQ(read_back, expected);
-            const uint64_t flat = resolver_for(soc_descriptor).to_flat_address(cce, address, NocId::NOC0);
+            const uint64_t flat = resolver_for(soc_descriptor).to_flat_address(mimir_cce, address, NocId::NOC0);
             EXPECT_EQ(static_cast<uint32_t>(read_flat(*device, flat)), expected);
         }
     }
@@ -220,7 +220,7 @@ TEST(EmuTTDevice, CceHartMaskHoldsOnlyTheSelectedHart) {
     EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL_NEO_DMS) >> 1, 0xFFULL);
 }
 
-TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
+TEST(EmuTTDevice, MimirCceResetVectorAndAllHartResetUseTheDevice) {
     SKIP_WITHOUT_SERVER(server);
 
     const SocDescriptor soc_descriptor = mimir_descriptor();
@@ -234,24 +234,24 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
     const auto& channels = soc_descriptor.get_arch_descriptor().get_mimir_channels();
     for (uint32_t channel = 0; channel < soc_descriptor.get_num_dram_channels(); ++channel) {
         for (uint32_t location = 0; location < locations_per_channel; ++location) {
-            const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::TRANSLATED);
+            const CoreCoord mimir_cce = soc_descriptor.get_dram_core_for_channel(channel, location, CoordSystem::TRANSLATED);
             const uint32_t expected_vector = kResetVector + (channel * locations_per_channel + location) * 0x100;
             // The vector is a register write. Leave the harts held: releasing them fetches this
             // address, and on a SiVal model that fetch never completes. The host AXI master then
             // reports WR_STALL for every later client, including a Metal SRAM write at 0x40000800.
             device->write_to_device_reg(
-                &expected_vector, cce, grendel::CCE_RESET_VECTOR_BASE, sizeof(expected_vector), NocId::NOC0);
+                &expected_vector, mimir_cce, grendel::CCE_RESET_VECTOR_BASE, sizeof(expected_vector), NocId::NOC0);
 
             // Hart 0 is broadcast to every hart.
             for (uint32_t hart = 0; hart < grendel::CCE_NUM_HARTS; ++hart) {
                 const uint64_t offset = grendel::CCE_RESET_VECTOR_BASE + hart * grendel::CCE_HART_RESET_VECTOR_STRIDE;
-                EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, offset)), expected_vector);
+                EXPECT_EQ(read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, offset)), expected_vector);
             }
 
             // Bring-up left every hart held and the uncore released. Holding one hart must not
             // clear the uncore or the other harts.
-            device->assert_risc_reset(cce, RiscType::DM0);
-            uint64_t reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            device->assert_risc_reset(mimir_cce, RiscType::DM0);
+            uint64_t reset = read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, grendel::CCE_PF_CTRL_RESET_BASE));
             EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
             EXPECT_EQ(hart_mask(reset), 0u);
 
@@ -261,8 +261,8 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
             if (!send_init_on_connect()) {
                 continue;
             }
-            device->deassert_risc_reset(cce, RiscType::ALL, false);
-            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            device->deassert_risc_reset(mimir_cce, RiscType::ALL, false);
+            reset = read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, grendel::CCE_PF_CTRL_RESET_BASE));
             EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
             EXPECT_EQ(hart_mask(reset), 0xFFu);
             // Full release reprograms DMRISC while the harts are still held. Entry 2 is this
@@ -274,25 +274,25 @@ TEST(EmuTTDevice, CceResetVectorAndAllHartResetUseTheDevice) {
                     break;
                 }
             }
-            const CceDmriscRemapEntry gddr = cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance)[2];
+            const MimirCceDmriscRemapEntry gddr = mimir_cce_dmrisc_remap_entries(GrendelAddressWindows{}, instance)[2];
             const uint64_t entry = grendel::CCE_DMRISC_REMAP_BASE + 2 * grendel::CCE_DMRISC_REMAP_ENTRY_STRIDE;
-            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x00)), gddr.region_start);
-            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x08)), gddr.region_end);
-            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x10)), gddr.local_base);
-            EXPECT_EQ(read_flat(*device, resolver.cce_control_address(cce, entry + 0x18)), 1u);
+            EXPECT_EQ(read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, entry + 0x00)), gddr.region_start);
+            EXPECT_EQ(read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, entry + 0x08)), gddr.region_end);
+            EXPECT_EQ(read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, entry + 0x10)), gddr.local_base);
+            EXPECT_EQ(read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, entry + 0x18)), 1u);
 
             // A single hart follows the worker rule: the uncore bit stays as it is.
-            device->assert_risc_reset(cce, RiscType::DM0);
-            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            device->assert_risc_reset(mimir_cce, RiscType::DM0);
+            reset = read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, grendel::CCE_PF_CTRL_RESET_BASE));
             EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, grendel::CCE_UNCORE_RELEASED);
             EXPECT_EQ(hart_mask(reset), 0xFEu);
 
-            device->assert_risc_reset(cce, RiscType::ALL);
-            reset = read_flat(*device, resolver.cce_control_address(cce, grendel::CCE_PF_CTRL_RESET_BASE));
+            device->assert_risc_reset(mimir_cce, RiscType::ALL);
+            reset = read_flat(*device, resolver.mimir_cce_control_address(mimir_cce, grendel::CCE_PF_CTRL_RESET_BASE));
             EXPECT_EQ(reset & grendel::CCE_UNCORE_RELEASED, 0u);
             EXPECT_EQ(hart_mask(reset), 0u);
             // Holding the uncore closes the host path to this CCE. Put it back for the mock.
-            device->release_mimir_uncore_for_firmware_load(cce);
+            device->release_mimir_uncore_for_firmware_load(mimir_cce);
         }
     }
 }

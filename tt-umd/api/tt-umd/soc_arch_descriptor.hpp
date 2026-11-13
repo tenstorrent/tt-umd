@@ -54,24 +54,28 @@ struct MimirChannel {
 };
 
 // One ethernet core on Keraunos. coord is a package-local UMD handle, the same kind a Mimir core
-// uses. hsio is the HSIO tile, and cce is which CCE region on that tile. The handle is not a
+// uses. hsio is the HSIO tile, and eth_cce is which CCE region on that tile. The handle is not a
 // package NOC coordinate, and neither index is a package SPA address.
 struct KeraunosCore {
     tt_xy_pair coord = tt_xy_pair(0, 0);
     uint32_t hsio = 0;
-    uint32_t cce = 0;
+    uint32_t eth_cce = 0;
 };
 
 // Keraunos on an MMK package. An empty chiplet means the descriptor has no Keraunos.
 // tap is the JTAG chain index from the chippy package config, not the digits of the chiplet id.
-// A core's chiplet-local SRAM is local_window + hsio * tile_stride + cce * eth_l1_size.
+// A core's chiplet-local SRAM is local_window + hsio * tile_stride + eth_cce * eth_l1_size.
 // tap, local_window, tile_stride, and cores are recorded together, and cores is the eth list
 // in the same order.
+// eth_cces_per_core is how many physical CCEs one ethernet core spans. With 2, a core is a whole HSIO
+// tile: its eth_l1_size covers both CCE SRAMs, harts 0-7 are CCE0 and harts 8-15 are CCE1, and
+// every core's eth_cce is 0.
 struct KeraunosChiplet {
     std::string chiplet;
     std::optional<uint32_t> tap;
     std::optional<uint64_t> local_window;
     std::optional<uint64_t> tile_stride;
+    uint32_t eth_cces_per_core = 1;
     std::vector<KeraunosCore> cores;
 };
 

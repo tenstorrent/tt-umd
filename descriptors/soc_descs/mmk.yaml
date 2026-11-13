@@ -15,7 +15,7 @@
 #
 # HSIO tile 0 TL1 SRAM is chiplet-local 0x22800000. Tiles are 0x4000000 apart,
 # and each tile holds two 4 MiB CCE regions. This file lists CCE0 only. A core's
-# SRAM is local_window + hsio * tile_stride + cce * eth_l1_size. The package SPA
+# SRAM is local_window + hsio * tile_stride + eth_cce * eth_l1_size. The package SPA
 # table is a different address space. bringup_mmk.py releases HSIO tiles 0-3
 # (CCE0, cores held). D2D staging stays on tile 2, the link to M1.
 #
@@ -97,9 +97,9 @@ worker_l1_size:
 dram_bank_size:
   8589934592
 
-# One Keraunos CCE region. Chippy _KER_CCE_REGION_SIZE.
+# One HSIO tile: CCE0 SRAM, then CCE1 SRAM (keraunos.eth_cces_per_core). Chippy _KER_CCE_REGION_SIZE is one CCE.
 eth_l1_size:
-  4194304
+  8388608
 
 arch_name: QUASAR
 
@@ -122,22 +122,23 @@ mimir_channels:
       - peer: 0
         d2d: 0
 
-# 0x22800000, tile stride 0x4000000. x = 4 + cce, y = hsio, tiles 0-3.
+# 0x22800000, tile stride 0x4000000. y = hsio, tiles 0-3. Each core is a whole tile, both CCEs.
 keraunos:
   chiplet: k0
   tap: 0
   local_window: 578813952
   tile_stride: 67108864
+  eth_cces_per_core: 2
   cores:
     - core: 4-0
       hsio: 0
-      cce: 0
+      eth_cce: 0
     - core: 4-1
       hsio: 1
-      cce: 0
+      eth_cce: 0
     - core: 4-2
       hsio: 2
-      cce: 0
+      eth_cce: 0
     - core: 4-3
       hsio: 3
-      cce: 0
+      eth_cce: 0

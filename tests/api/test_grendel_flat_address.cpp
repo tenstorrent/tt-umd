@@ -75,15 +75,26 @@ TEST(GrendelFlatAddress, KeraunosSramAndControlUseTheK0Transport) {
     EXPECT_EQ(mimir0->mem.count(control), 0u);
     EXPECT_EQ(mimir1->mem.count(control), 0u);
 
+    // The core spans both CCEs: CCE1's SRAM and control slot are on the same socket.
+    const uint64_t eth_cce1_sram = resolver.to_flat_address(eth, 0x400000 + kOffset, NocId::NOC0);
+    ASSERT_EQ(eth_cce1_sram, 0x22C00800ULL);
+    transport->write(eth_cce1_sram, &sram_value, sizeof(sram_value));
+    EXPECT_EQ(keraunos->mem[eth_cce1_sram], sram_value);
+    const uint64_t eth_cce1_control =
+        resolver.keraunos_control_address(eth, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET, /*eth_cce_in_core=*/1);
+    ASSERT_EQ(eth_cce1_control, 0x21200000ULL);
+    transport->write(eth_cce1_control, &control_value, sizeof(control_value));
+    EXPECT_EQ(keraunos->mem[eth_cce1_control], control_value);
+
     // A Mimir CCE address still belongs to that Mimir's socket.
-    const CoreCoord cce = soc_descriptor.get_dram_core_for_channel(1, 0, CoordSystem::NOC0);
-    const uint64_t cce_sram =
-        resolver.to_flat_address(cce, resolver.get_windows().dram_l1_noc_offset + kOffset, NocId::NOC0);
-    const uint32_t cce_value = 0x11223344;
-    transport->write(cce_sram, &cce_value, sizeof(cce_value));
-    EXPECT_EQ(mimir1->mem[chippy::grendel::kMimirCce0SramLocalAddr + kOffset], cce_value);
-    EXPECT_EQ(keraunos->mem.count(cce_sram), 0u);
-    EXPECT_EQ(mimir0->mem.count(cce_sram), 0u);
+    const CoreCoord mimir_cce = soc_descriptor.get_dram_core_for_channel(1, 0, CoordSystem::NOC0);
+    const uint64_t mimir_cce_sram =
+        resolver.to_flat_address(mimir_cce, resolver.get_windows().dram_l1_noc_offset + kOffset, NocId::NOC0);
+    const uint32_t mimir_cce_value = 0x11223344;
+    transport->write(mimir_cce_sram, &mimir_cce_value, sizeof(mimir_cce_value));
+    EXPECT_EQ(mimir1->mem[chippy::grendel::kMimirCce0SramLocalAddr + kOffset], mimir_cce_value);
+    EXPECT_EQ(keraunos->mem.count(mimir_cce_sram), 0u);
+    EXPECT_EQ(mimir0->mem.count(mimir_cce_sram), 0u);
 
     EXPECT_THROW(
         make_grendel_flat_address_transport(soc_descriptor, {mimir0, mimir1}, "GrendelFlatAddress"), std::exception);

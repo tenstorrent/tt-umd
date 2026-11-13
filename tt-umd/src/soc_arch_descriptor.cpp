@@ -143,6 +143,13 @@ KeraunosChiplet parse_keraunos(
     parsed.tap = node["tap"].as<uint32_t>();
     parsed.local_window = node["local_window"].as<uint64_t>();
     parsed.tile_stride = node["tile_stride"].as<uint64_t>();
+    if (node["eth_cces_per_core"].IsDefined()) {
+        parsed.eth_cces_per_core = node["eth_cces_per_core"].as<uint32_t>();
+    }
+    UMD_ASSERT(
+        parsed.eth_cces_per_core == 1 || parsed.eth_cces_per_core == 2,
+        error::RuntimeError,
+        fmt::format("keraunos eth_cces_per_core must be 1 or 2, got {}.", parsed.eth_cces_per_core));
     UMD_ASSERT(
         *parsed.tile_stride >= eth_l1_size,
         error::RuntimeError,
@@ -151,31 +158,39 @@ KeraunosChiplet parse_keraunos(
     std::unordered_set<uint64_t> seen_regions;
     for (const auto& entry : node["cores"]) {
         UMD_ASSERT(
-            entry["core"] && entry["hsio"] && entry["cce"],
+            entry["core"] && entry["hsio"] && entry["eth_cce"],
             error::RuntimeError,
-            "Each keraunos core needs core, hsio, and cce.");
+            "Each keraunos core needs core, hsio, and eth_cce.");
         KeraunosCore core;
         core.coord = format_node(entry["core"].as<std::string>());
         core.hsio = entry["hsio"].as<uint32_t>();
-        core.cce = entry["cce"].as<uint32_t>();
-        const uint64_t region = static_cast<uint64_t>(core.cce) * eth_l1_size;
+        core.eth_cce = entry["eth_cce"].as<uint32_t>();
+        UMD_ASSERT(
+            parsed.eth_cces_per_core == 1 || core.eth_cce == 0,
+            error::RuntimeError,
+            fmt::format(
+                "keraunos core {}-{} spans {} CCEs, so its eth_cce must be 0.",
+                core.coord.x,
+                core.coord.y,
+                parsed.eth_cces_per_core));
+        const uint64_t region = static_cast<uint64_t>(core.eth_cce) * eth_l1_size;
         UMD_ASSERT(
             region + eth_l1_size <= *parsed.tile_stride,
             error::RuntimeError,
             fmt::format(
-                "keraunos cce {} does not fit in a tile of 0x{:x} with eth_l1_size 0x{:x}.",
-                core.cce,
+                "keraunos eth_cce {} does not fit in a tile of 0x{:x} with eth_l1_size 0x{:x}.",
+                core.eth_cce,
                 *parsed.tile_stride,
                 eth_l1_size));
         UMD_ASSERT(
             seen_coords.insert(core.coord).second,
             error::RuntimeError,
             fmt::format("keraunos core {}-{} is listed more than once.", core.coord.x, core.coord.y));
-        const uint64_t region_key = (static_cast<uint64_t>(core.hsio) << 32) | core.cce;
+        const uint64_t region_key = (static_cast<uint64_t>(core.hsio) << 32) | core.eth_cce;
         UMD_ASSERT(
             seen_regions.insert(region_key).second,
             error::RuntimeError,
-            fmt::format("keraunos HSIO {} CCE {} is listed more than once.", core.hsio, core.cce));
+            fmt::format("keraunos HSIO {} CCE {} is listed more than once.", core.hsio, core.eth_cce));
         UMD_ASSERT(
             occupied.count(core.coord) == 0,
             error::RuntimeError,

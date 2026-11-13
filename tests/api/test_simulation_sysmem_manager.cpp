@@ -181,7 +181,6 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceAtDestruction) {
 
     {
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
             buffer_va,
             128,
             /*device_io_addr=*/0x1040,
@@ -198,7 +197,6 @@ TEST(ApiSimulationSysmemManager, UnalignedBufferReportsIovaOfItsOwnStart) {
     void* user_va = address_64_bytes_into_a_page(backing);
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         user_va,
         128,
         /*device_io_addr=*/0x1040,
@@ -217,7 +215,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
     std::vector<uint8_t> backing(4096, 0);
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -244,7 +241,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
     EXPECT_CALL(binder, Call()).WillOnce(Return(0xDEADBEEF));
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -274,7 +270,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
     EXPECT_CALL(binder, Call()).Times(0);
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -293,7 +288,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
 TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
     std::vector<uint8_t> backing(4096, 0);
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -311,7 +305,6 @@ TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
             backing.data(),
             backing.size(),
             /*device_io_addr=*/0x2000,
@@ -326,7 +319,6 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
             backing.data(),
             backing.size(),
             /*device_io_addr=*/0x3000,

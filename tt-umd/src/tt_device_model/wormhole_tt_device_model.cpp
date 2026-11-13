@@ -7,14 +7,12 @@
 #include <utility>
 
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "tt_device/hang_detection/wormhole_hang_detector.hpp"
-#include "tt_device/protocol/jtag_protocol.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
 #include "tt_device/reset/classic_tile_risc_reset.hpp"
@@ -37,19 +35,6 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
-
-    risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
-    device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
-        protocol_.get(), pcie_interface_, jtag_interface_, remote_interface_, architecture_impl_.get());
-}
-
-WormholeTTDeviceModel::WormholeTTDeviceModel(
-    std::unique_ptr<JtagDevice> jtag_device, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
-    architecture_impl_(std::make_unique<WormholeImplementation>()) {
-    auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device));
-    jtag_interface_ = jtag_protocol.get();
-    protocol_ = std::move(jtag_protocol);
 
     risc_reset_ = std::make_unique<ClassicTileRiscReset>(protocol_.get(), architecture_impl_.get());
     device_firmware_ = std::make_unique<WormholeDeviceFirmware>(

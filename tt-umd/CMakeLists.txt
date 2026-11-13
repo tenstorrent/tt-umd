@@ -117,6 +117,7 @@ target_sources(
         src/types/xy_pair.cpp
         src/utils/lock_manager.cpp
         src/utils/kmd_mutex.cpp
+        src/utils/noc_cleanup_write.cpp
         src/topology/topology_discovery.cpp
         src/topology/topology_discovery_blackhole.cpp
         src/topology/topology_discovery_wormhole.cpp
@@ -217,6 +218,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/warm_reset_with_recovery.hpp
                 api/tt-umd/utils/semver.hpp
                 api/tt-umd/utils/kmd_mutex.hpp
+                api/tt-umd/utils/noc_cleanup_write.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp

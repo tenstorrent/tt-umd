@@ -1093,6 +1093,25 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
 
 // Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
 // EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
+uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
+    uint64_t dma_address = 0;
+    const int ret =
+        tt_device_map_peer_bar(tt_device_handle, peer.tt_device_handle, bar, offset, length, &dma_address);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to map {} bytes at {:#x} of BAR{} of device {} for device {}: {}",
+                length,
+                offset,
+                bar,
+                peer.get_device_num(),
+                get_device_num(),
+                strerror(-ret)));
+    }
+    return dma_address;
+}
+
 int PCIDevice::export_tlb_dmabuf(
     const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
     UMD_ASSERT(

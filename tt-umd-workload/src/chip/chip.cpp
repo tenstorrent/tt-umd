@@ -50,6 +50,15 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
+// Only a chip whose host memory is pinned for its own DMA engine can serve these.
+void Chip::dma_write_zero_copy(const SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+    UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
+}
+
+void Chip::dma_read_zero_copy(SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+    UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
+}
+
 void Chip::wait_chip_to_be_ready() {
     ZoneScopedC(tracy::Color::DarkGreen);
     wait_eth_cores_training();

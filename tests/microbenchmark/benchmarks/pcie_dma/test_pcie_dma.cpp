@@ -228,11 +228,13 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
         cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(dram_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
+        cluster->get_tt_device(mmio_chip)->dma_write_zero_copy(
+            sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, dram_core_xy);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
+            cluster->get_tt_device(mmio_chip)->dma_read_zero_copy(
+                sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, dram_core_xy);
         });
     }
     test::utils::export_results(bench);
@@ -265,11 +267,13 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
         cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+        cluster->get_tt_device(mmio_chip)->dma_write_zero_copy(
+            sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, tensix_core_xy);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+            cluster->get_tt_device(mmio_chip)->dma_read_zero_copy(
+                sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, tensix_core_xy);
         });
     }
     test::utils::export_results(bench);
@@ -303,12 +307,14 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+        cluster->get_tt_device(mmio_chip)->dma_write_zero_copy(
+            sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, tensix_core_xy);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
             std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+            cluster->get_tt_device(mmio_chip)->dma_read_zero_copy(
+                sysmem_buffer->get_iova(0), ADDRESS, BUFFER_SIZE, tensix_core_xy);
         });
     }
     munmap(mapping, BUFFER_SIZE);

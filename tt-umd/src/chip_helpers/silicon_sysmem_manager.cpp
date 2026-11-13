@@ -31,7 +31,6 @@
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -189,11 +188,11 @@ struct SiliconSysmemManager::HugepageFiles {
     std::vector<bool> in_use;
 };
 
-SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device) : hugepage_files_(std::make_unique<HugepageFiles>()) {
-    tt_device_ = tt_device;
-    pci_device_ = tt_device->get_pci_device();
-    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
-    communication_id_ = tt_device->get_communication_device_id();
+SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, int communication_id) :
+    hugepage_files_(std::make_unique<HugepageFiles>()) {
+    UMD_ASSERT(pci_device != nullptr, error::RuntimeError, "Silicon sysmem manager needs a PCI device.");
+    pci_device_ = pci_device;
+    communication_id_ = communication_id;
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
 }
 
@@ -321,7 +320,6 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
 
     // The KMD assigns the NOC address at pin time, so this manager supplies no binder.
     std::unique_ptr<SysmemBuffer> buffer = create_buffer(
-        tt_device_,
         buffer_va,
         buffer_size,
         aligned_iova + range.offset_from_base,

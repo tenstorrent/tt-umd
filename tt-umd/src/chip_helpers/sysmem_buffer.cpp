@@ -19,7 +19,6 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -48,7 +47,6 @@ SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
 }  // namespace
 
 SysmemBuffer::SysmemBuffer(
-    TTDevice* tt_device,
     void* buffer_va,
     size_t buffer_size,
     uint64_t device_io_addr,
@@ -57,7 +55,6 @@ SysmemBuffer::SysmemBuffer(
     std::optional<uint64_t> noc_addr,
     DeviceBufferAccess device_access,
     NocBinder noc_binder) :
-    tt_device_(tt_device),
     buffer_va_(buffer_va),
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
@@ -67,36 +64,6 @@ SysmemBuffer::SysmemBuffer(
     communication_id_(communication_id) {
     system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
     TracyAllocN(buffer_va_, buffer_size_, "SysmemBuffer");
-}
-
-void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::Yellow);
-
-    validate(offset, size);
-
-    // TODO: these are chip functions, figure out how to have these
-    // inside sysmem buffer, or we keep API as it is and make application send
-    // proper coordinates.
-    // core = translate_chip_coord_virtual_to_translated(core);
-
-    tt_device_->dma_write_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
-}
-
-void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::Yellow);
-
-    if (device_access_ == DeviceBufferAccess::READ_ONLY) {
-        UMD_THROW(error::RuntimeError, "Cannot DMA from the device into a device-read-only host mapping.");
-    }
-
-    validate(offset, size);
-
-    // TODO: these are chip functions, figure out how to have these
-    // inside sysmem buffer, or we keep API as it is and make application send
-    // proper coordinates.
-    // core = translate_chip_coord_virtual_to_translated(core);
-
-    tt_device_->dma_read_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
 SysmemBuffer::~SysmemBuffer() {

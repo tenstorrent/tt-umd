@@ -13,11 +13,15 @@
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 
 namespace tt::umd {
-class TTDevice;
+class PCIDevice;
 
 class SiliconSysmemManager : public SysmemManager {
 public:
-    explicit SiliconSysmemManager(TTDevice* tt_device);
+    /**
+     * @param pci_device Device the buffers are pinned for. Must outlive this manager and its buffers.
+     * @param communication_id Identifier of that device, stamped into every buffer.
+     */
+    SiliconSysmemManager(PCIDevice* pci_device, int communication_id);
 
     ~SiliconSysmemManager() override;
 

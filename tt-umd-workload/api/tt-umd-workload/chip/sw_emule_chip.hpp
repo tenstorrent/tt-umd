@@ -162,6 +162,10 @@ private:
     // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
     // has no hugepage concept), so 0.
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    // The device surface a simulated chip has: a simulation device model (no management firmware), with its
+    // memory accesses served by this chip.
+    std::unique_ptr<TTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

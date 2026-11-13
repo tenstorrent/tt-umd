@@ -25,7 +25,6 @@
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
@@ -120,31 +119,25 @@ void check_zero_copy_buffer(const SysmemBuffer& buffer, int device_id, size_t of
 }  // namespace
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
-    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
     HostMemChannelPlan channel_plan;
 
     if (tt_device == nullptr) {
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
     }
 
-    if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(
-            tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    if (SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator()) {
         channel_plan =
-            plan_host_mem_channels(*sysmem_manager, num_host_mem_channels, tt_device->get_communication_device_id());
+            plan_host_mem_channels(*allocator, num_host_mem_channels, tt_device->get_communication_device_id());
     }
 
-    return std::unique_ptr<LocalChip>(new LocalChip(
-        std::move(tt_device), std::move(sysmem_manager), channel_plan.num_channels, channel_plan.single_buffer));
+    return std::unique_ptr<LocalChip>(
+        new LocalChip(std::move(tt_device), channel_plan.num_channels, channel_plan.single_buffer));
 }
 
 LocalChip::LocalChip(
-    std::unique_ptr<TTDevice> tt_device,
-    std::unique_ptr<SysmemManager> sysmem_manager,
-    uint32_t num_host_mem_channels,
-    bool host_mem_in_single_buffer) :
+    std::unique_ptr<TTDevice> tt_device, uint32_t num_host_mem_channels, bool host_mem_in_single_buffer) :
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
-    sysmem_manager_(std::move(sysmem_manager)),
+    system_memory_allocator_(tt_device->get_system_memory_allocator()),
     host_mem_channels_(num_host_mem_channels),
     host_mem_in_single_buffer_(host_mem_in_single_buffer),
     tt_device_(std::move(tt_device)) {
@@ -163,7 +156,6 @@ LocalChip::~LocalChip() {
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     unmap_host_mem_channels();
-    sysmem_manager_.reset();
     tt_device_.reset();
 }
 
@@ -210,7 +202,10 @@ void LocalChip::initialize_membars(uint32_t dram_subchannel) {
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+// The legacy SysmemManager type is still handed out to existing callers until they move to the allocator.
+SysmemManager* LocalChip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(system_memory_allocator_); }
+
+SystemMemoryAllocator* LocalChip::get_system_memory_allocator() { return system_memory_allocator_; }
 
 HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }
 
@@ -221,7 +216,7 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
     // A transport that reports no host memory channels has no sysmem to pin, and the barriers
     // initialize_membars() resets live in core memory this path cannot reach yet. JTAG is in the
     // same position, so both leave the device started with neither.
-    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG || sysmem_manager_ == nullptr) {
+    if (tt_device_->get_communication_device_type() == IODeviceType::JTAG || system_memory_allocator_ == nullptr) {
         return;
     }
 
@@ -255,14 +250,14 @@ void LocalChip::map_host_mem_channels() {
         return;
     }
     const tt::ARCH arch = tt_device_->get_arch();
-    const uint64_t noc_base = sysmem_manager_->get_noc_base();
+    const uint64_t noc_base = system_memory_allocator_->get_noc_base();
 
     if (host_mem_in_single_buffer_) {
         // One buffer bound to the NOC places channel N at its expected NOC address, as long as the buffer itself
         // lands at noc_base.
         const size_t size =
             (num_channels - 1) * HostMemChannels::CHANNEL_STRIDE + get_host_mem_channel_size(arch, num_channels - 1);
-        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager_->allocate_buffer(size, /*bind_to_noc=*/true);
+        std::unique_ptr<SysmemBuffer> buffer = system_memory_allocator_->allocate_buffer(size, /*bind_to_noc=*/true);
         const std::optional<uint64_t> noc_address = buffer->get_noc_address();
         if (!noc_address.has_value()) {
             UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
@@ -305,7 +300,7 @@ void LocalChip::map_host_mem_channels() {
         const size_t channel_size = get_host_mem_channel_size(arch, channel);
         std::unique_ptr<SysmemBuffer> buffer;
         try {
-            buffer = sysmem_manager_->allocate_buffer(channel_size, /*bind_to_noc=*/true);
+            buffer = system_memory_allocator_->allocate_buffer(channel_size, /*bind_to_noc=*/true);
         } catch (const std::exception& e) {
             log_warning(
                 LogUMD,
@@ -344,13 +339,13 @@ void LocalChip::unmap_host_mem_channels() {
 }
 
 int LocalChip::get_num_host_channels() {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // log_warning instead of throw because even though system_memory_allocator_ may not be set in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (system_memory_allocator_ == nullptr) {
         log_warning(
             LogUMD,
-            "sysmem_manager was not initialized for {} communication protocol",
+            "No system memory allocator for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return 0;
     }
@@ -359,13 +354,13 @@ int LocalChip::get_num_host_channels() {
 }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // log_warning instead of throw because even though system_memory_allocator_ may not be set in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (system_memory_allocator_ == nullptr) {
         log_warning(
             LogUMD,
-            "sysmem_manager was not initialized for {} communication protocol",
+            "No system memory allocator for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return 0;
     }
@@ -381,13 +376,13 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // log_warning instead of throw because even though system_memory_allocator_ may not be set in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (system_memory_allocator_ == nullptr) {
         log_warning(
             LogUMD,
-            "sysmem_manager was not initialized for {} communication protocol",
+            "No system memory allocator for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }
@@ -395,13 +390,13 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
 }
 
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    // log_warning instead of throw because even though system_memory_allocator_ may not be set in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (system_memory_allocator_ == nullptr) {
         log_warning(
             LogUMD,
-            "sysmem_manager was not initialized for {} communication protocol",
+            "No system memory allocator for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }

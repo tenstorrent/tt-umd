@@ -393,6 +393,15 @@ public:
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
+    /**
+     * Map @p length bytes at @p offset of BAR @p bar of @p peer into this device's IOMMU domain, for
+     * peer-to-peer PCIe writes from this device. The mapping lasts until this device is closed.
+     *
+     * @return The address this device uses to reach the range.
+     * @throws error::RuntimeError if KMD refuses the mapping.
+     */
+    uint64_t map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length);
+
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
 

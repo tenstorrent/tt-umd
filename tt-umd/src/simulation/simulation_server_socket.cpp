@@ -5,11 +5,15 @@
 #include "simulation/simulation_server_socket.hpp"
 
 #include <fmt/format.h>
+#include <sys/stat.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
+#include <unistd.h>
 
 #include <asio.hpp>
 #include <atomic>
+#include <cerrno>
 #include <charconv>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -41,6 +45,21 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
                 path.string()));
     }
     return stream_protocol::endpoint(path.string());
+}
+
+// Creates `directory` owner-only (mode 0700) in a single mkdir, so another user can never reach it,
+// not even briefly. Returns false if the name is already taken, by anyone; throws on any other error.
+bool create_private_directory(const std::filesystem::path& directory) {
+    if (::mkdir(directory.c_str(), S_IRWXU) == 0) {
+        return true;
+    }
+    const int mkdir_errno = errno;
+    UMD_ASSERT(
+        mkdir_errno == EEXIST,
+        error::RuntimeError,
+        fmt::format(
+            "Failed to create simulation server directory {}: {}", directory.string(), std::strerror(mkdir_errno)));
+    return false;
 }
 
 }  // namespace
@@ -188,19 +207,13 @@ bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
 
 bool SimulationServerSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
-        // A socket is only reachable cross-user if the directory holding it is too, so a
-        // directory we create for it gets /tmp's semantics: 0777 + sticky bit. World rwx lets
-        // any user host (bind creates the file) or attach (traverse to connect); the sticky
-        // bit still stops users from deleting each other's sockets. We only adjust a directory
-        // we created here -- a pre-existing dir (e.g. the system temp dir) is left untouched.
-        if (std::filesystem::create_directories(socket_path_.parent_path())) {
-            std::error_code dir_perm_ec;
-            std::filesystem::permissions(
-                socket_path_.parent_path(),
-                std::filesystem::perms::all | std::filesystem::perms::sticky_bit,
-                std::filesystem::perm_options::replace,
-                dir_perm_ec);
+        // Only the directory holding the socket is made private: that alone keeps other users from
+        // reaching the socket. A pre-existing directory (e.g. the system temp dir) is left untouched.
+        const std::filesystem::path socket_directory = socket_path_.parent_path();
+        if (socket_directory.has_parent_path()) {
+            std::filesystem::create_directories(socket_directory.parent_path());
         }
+        create_private_directory(socket_directory);
     }
 
     const stream_protocol::endpoint endpoint = make_endpoint(socket_path_);
@@ -266,15 +279,13 @@ bool SimulationServerSocket::bind_and_listen() {
             fmt::format("Failed to bind simulation server socket at {}: {}", socket_path_.string(), ec.message()));
     }
 
-    // The socket must be connectable by any user (cross-user attach): bind() created it with
-    // only umask-dependent permissions, and connect() to a UNIX socket requires write
-    // permission on the file. Make it world-readable/writable so any local user can attach.
+    // bind() created the socket with umask-dependent permissions, and connect() to a UNIX socket
+    // requires write permission on the file. Restrict it to the owner, so the socket stays private
+    // even when it is bound in a directory other users can traverse.
     std::error_code perm_ec;
     std::filesystem::permissions(
         socket_path_,
-        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::group_read |
-            std::filesystem::perms::group_write | std::filesystem::perms::others_read |
-            std::filesystem::perms::others_write,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
         std::filesystem::perm_options::replace,
         perm_ec);
     if (perm_ec) {
@@ -364,19 +375,12 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
     const std::filesystem::path base = std::filesystem::temp_directory_path();
     for (int index = 0; index < kMaxServerIndex; ++index) {
         const std::filesystem::path dir = base / fmt::format("{}{}", kServerDirPrefix, index);
-        // create_directory returns true only when it actually creates the directory (mkdir is
-        // atomic), so the winner of a race claims the index and everyone else moves on. It returns
-        // false without setting ec when the directory already exists (taken) -- move to the next
-        // index; ec is set only on a real error (e.g. permissions, read-only fs), which we surface
-        // immediately rather than spin kMaxServerIndex times hiding it behind a generic message.
-        std::error_code ec;
-        if (std::filesystem::create_directory(dir, ec)) {
+        // mkdir is atomic, so the winner of a race claims the index and everyone else moves on to
+        // the next one. A real error (e.g. permissions, read-only fs) throws immediately rather than
+        // spinning kMaxServerIndex times and hiding it behind a generic message.
+        if (create_private_directory(dir)) {
             return dir;
         }
-        UMD_ASSERT(
-            !ec,
-            error::RuntimeError,
-            fmt::format("Failed to create simulation server directory {}: {}", dir.string(), ec.message()));
     }
     UMD_THROW(
         error::RuntimeError, fmt::format("Could not allocate a simulation server directory under {}", base.string()));
@@ -389,15 +393,14 @@ std::map<int, std::filesystem::path> SimulationServerSocket::list_server_directo
     if (ec) {
         return servers;
     }
+    const uid_t uid = ::geteuid();
     for (const auto& entry : it) {
-        // Skip symlinks: the temp dir is world-writable, so a symlink named tt-umd-sim-server-<index>
-        // could otherwise make an arbitrary target enumerate as a server (is_directory() follows links).
-        std::error_code sym_ec;
-        if (entry.is_symlink(sym_ec)) {
-            continue;
-        }
-        std::error_code dir_ec;
-        if (!entry.is_directory(dir_ec)) {
+        // lstat, not stat: the temp dir is world-writable, so a symlink named tt-umd-sim-server-<index>
+        // could otherwise make an arbitrary target enumerate as a server. Only the caller's own
+        // directories count: another user's server can be neither attached to nor removed.
+        struct stat entry_stat;
+        if (::lstat(entry.path().c_str(), &entry_stat) != 0 || !S_ISDIR(entry_stat.st_mode) ||
+            entry_stat.st_uid != uid) {
             continue;
         }
         if (const std::optional<int> index = server_index_from_directory_path(entry.path())) {
@@ -428,10 +431,10 @@ std::optional<int> SimulationServerSocket::server_index_from_directory_path(cons
 
 std::filesystem::path SimulationServerSocket::default_socket_path(
     const std::filesystem::path& server_directory, ChipId chip_id) {
-    // One shared socket per chip inside the server's directory: the name carries no uid, so every
-    // process (any user) resolves the same path and attaches to the host. The directory is assumed
-    // trusted: the path is predictable and the socket is world-writable (see bind_and_listen), so
-    // any local user can connect to or squat it.
+    // One socket per chip inside the server's directory: the name carries no uid, so every process
+    // pointed at the directory resolves the same path and attaches to the host. The directory is
+    // assumed trusted: allocate_server_directory() makes it owner-only, so no other user can connect
+    // to or squat the socket; a caller-chosen directory must give the same guarantee.
     return server_directory / fmt::format("tt-umd-sim-{}.sock", chip_id);
 }
 

@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -42,6 +43,19 @@ bool can_connect(const std::filesystem::path& path) {
     bool ok = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
     ::close(fd);
     return ok;
+}
+
+// The permission bits of path (no file type, no setuid/sticky bits).
+std::filesystem::perms permissions_of(const std::filesystem::path& path) {
+    return std::filesystem::symlink_status(path).permissions() & std::filesystem::perms::all;
+}
+
+// The uid that owns path.
+uid_t owner_of(const std::filesystem::path& path) {
+    struct stat info {};
+
+    EXPECT_EQ(::lstat(path.c_str(), &info), 0) << path;
+    return info.st_uid;
 }
 
 // Connects an asio UNIX socket (blocking) to the server at path, for framed transport I/O. Shares
@@ -217,6 +231,36 @@ TEST_F(SimulationServerSocketTest, ServesAfterDeferredServe) {
     stream_protocol::socket client = connect_client(io, path_);
     send_framed(client, {0x07, 0x08});
     EXPECT_EQ(recv_framed(client), (std::vector<uint8_t>{0x07, 0x08}));
+}
+
+// connect() needs write permission on the socket file, so owner-only bits keep other users from
+// attaching to a server even if they could reach its directory.
+TEST_F(SimulationServerSocketTest, SocketIsConnectableOnlyByItsOwner) {
+    auto server = SimulationServerSocket::create(path_);
+
+    EXPECT_EQ(permissions_of(path_), std::filesystem::perms::owner_read | std::filesystem::perms::owner_write);
+    EXPECT_EQ(owner_of(path_), ::geteuid());
+}
+
+// A socket served in a directory that does not exist yet gets a directory only its owner can enter.
+TEST(SimulationServerSocket, CreatesAMissingParentDirectoryOwnerOnly) {
+    const test_utils::ScopedServerDirectory parent(
+        std::filesystem::temp_directory_path() / ("tt-umd-sim-parent-test-" + std::to_string(::getpid())));
+    std::filesystem::remove_all(parent.path());
+
+    auto server = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(parent.path(), 0));
+
+    EXPECT_EQ(permissions_of(parent.path()), std::filesystem::perms::owner_all);
+    EXPECT_EQ(owner_of(parent.path()), ::geteuid());
+}
+
+// A freshly allocated server directory belongs to the caller and only the caller can enter it, so
+// no other user can reach the sockets later served there.
+TEST(SimulationServerSocket, AllocatedServerDirectoryIsOwnerOnly) {
+    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+
+    EXPECT_EQ(permissions_of(directory.path()), std::filesystem::perms::owner_all);
+    EXPECT_EQ(owner_of(directory.path()), ::geteuid());
 }
 
 TEST(SimulationServerSocket, DefaultSocketPathIsPerChip) {

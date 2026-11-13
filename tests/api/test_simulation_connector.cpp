@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -548,6 +549,34 @@ TEST(SimulationConnector, KeepsAServerDirectoryWithNoSocketYet) {
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
     EXPECT_TRUE(std::filesystem::is_directory(directory.path()));
 }
+
+// Servers are private to the user that started them: another user's server is neither reported nor
+// removed, whatever state it is in -- still coming up (which its owner's listing reports) or with its
+// host gone (which its owner's sweep would clear up). Handing a directory to another uid needs root
+// (CI runs as root), so the test skips elsewhere. Needs no simulator.
+class AnotherUsersServer : public ::testing::TestWithParam<bool> {};
+
+TEST_P(AnotherUsersServer, IsLeftAlone) {
+    const bool host_gone = GetParam();
+    const test_utils::ScopedServerDirectory directory(SimulationConnector::allocate_server_directory());
+    if (host_gone) {
+        test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    }
+    // 65534 is the conventional "nobody" uid; no account has to exist for it to own a directory.
+    if (::chown(directory.path().c_str(), 65534, static_cast<gid_t>(-1)) != 0) {
+        GTEST_SKIP() << "Cannot hand " << directory.path() << " to another user: " << std::strerror(errno);
+    }
+
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 0);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
+    EXPECT_TRUE(std::filesystem::exists(directory.path()));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SimulationConnector,
+    AnotherUsersServer,
+    ::testing::Values(false, true),
+    [](const ::testing::TestParamInfo<bool>& info) { return info.param ? "HostGone" : "StillComingUp"; });
 
 // The sweep is machine-wide, so the thing it must never do is take a working server with it.
 // Requires TT_UMD_SIMULATOR.

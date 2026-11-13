@@ -283,7 +283,8 @@ do. Each process is started and stopped on its own.
   it wants (from `sim_server list`).
 - **Clients fail cleanly.** If the server goes away, a client's next operation raises a clear error
   rather than hanging.
-- **Shared on the machine.** The sockets are world-writable (`srw-rw-rw-`), so any user can attach —
-  which is also why `kill` goes over the socket rather than by signal.
+- **Private to your user.** A server's directory is owner-only (`drwx------`) and its sockets are
+  `srw-------`, so only the user that started a server can attach to it, and `sim_server list`,
+  `kill` and `prune` see only that user's servers.
 - **Sysmem is not carried over the socket.** Device memory and registers work from a client; sysmem
   access crashes (`TestDeviceIOFixture.SysmemReadWrite` segfaults in client mode).

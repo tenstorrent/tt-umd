@@ -111,7 +111,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -129,7 +129,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Read data back from Tensix L1 to sysmem_data_readback.
-    sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, one_mb, one_mb, tensix_core_xy, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], sysmem_data_readback[i]);
@@ -180,7 +180,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -196,7 +196,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Read data back from Tensix L1 to sysmem_data.
-    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], readback[i]);
@@ -479,7 +479,7 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
         cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
     std::vector<uint8_t> zeros(mapping_size, 0);
     cluster->write_to_device(zeros.data(), mapping_size, mmio_chip, tensix_core, 0);
-    sysmem_buffer->dma_write_to_device(0, mapping_size, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core_xy, 0);
 
     // Read back over MMIO rather than DMA: D2H DMA is unsupported on Blackhole, and the direction under test here
     // is the device-side read of the pinned mapping, not how the host retrieves the result.
@@ -488,7 +488,9 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     EXPECT_EQ(readback, expected);
 
     // The opposite direction writes host memory, so it must be refused on a device-read-only mapping.
-    EXPECT_THROW(sysmem_buffer->dma_read_from_device(0, mapping_size, tensix_core_xy, 0), std::exception);
+    EXPECT_THROW(
+        cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core_xy, 0),
+        std::exception);
 
     sysmem_buffer.reset();
     EXPECT_EQ(munmap(mapping, mapping_size), 0);

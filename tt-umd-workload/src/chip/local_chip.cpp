@@ -36,6 +36,7 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/host_memory.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -92,6 +93,24 @@ uint32_t count_host_mem_channels(PCIDevice* pci_device, uint32_t requested_chann
     return available_channels;
 }
 
+// The buffer's IOVA is valid only for the device it was pinned for, and the DMA engine trusts whatever range it is
+// given, so both are checked before a transfer starts.
+void check_zero_copy_buffer(const SysmemBuffer& buffer, int device_id, size_t offset, size_t size) {
+    UMD_ASSERT(
+        buffer.get_communication_id() == device_id,
+        error::RuntimeError,
+        fmt::format(
+            "Sysmem buffer was pinned for device {}, not for device {}.", buffer.get_communication_id(), device_id));
+    UMD_ASSERT(
+        offset < buffer.get_size() && size <= buffer.get_size() - offset,
+        error::RuntimeError,
+        fmt::format(
+            "Range starting at {:#x} with size {:#x} is out of bounds for sysmem buffer of size {:#x}.",
+            offset,
+            size,
+            buffer.get_size()));
+}
+
 }  // namespace
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
@@ -103,7 +122,8 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
     }
 
     if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get());
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(
+            tt_device->get_pci_device(), tt_device->get_communication_device_id());
         num_channels = count_host_mem_channels(tt_device->get_pci_device(), num_host_mem_channels);
     }
 
@@ -427,6 +447,21 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     tt_device_->dma_read(dst, addr, size, core, get_selected_noc_id());
+}
+
+void LocalChip::dma_write_zero_copy(
+    const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
+    check_zero_copy_buffer(buffer, tt_device_->get_communication_device_id(), offset, size);
+    tt_device_->dma_write_zero_copy(buffer.get_iova(offset), addr, size, core, get_selected_noc_id());
+}
+
+void LocalChip::dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
+    UMD_ASSERT(
+        buffer.get_device_access() != DeviceBufferAccess::READ_ONLY,
+        error::RuntimeError,
+        "Cannot DMA from the device into a device-read-only host mapping.");
+    check_zero_copy_buffer(buffer, tt_device_->get_communication_device_id(), offset, size);
+    tt_device_->dma_read_zero_copy(buffer.get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
 int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {

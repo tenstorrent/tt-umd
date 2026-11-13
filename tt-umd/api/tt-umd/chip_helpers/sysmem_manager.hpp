@@ -50,7 +50,7 @@ public:
      * @return whether this manager can pin host pages such that the device may read them but not write them,
      * i.e. whether DeviceBufferAccess::READ_ONLY is enforceable for map_sysmem_buffer().
      */
-    virtual bool is_read_only_page_pinning_supported() const;
+    bool is_read_only_page_pinning_supported() const override;
 
     uint64_t get_pcie_base() const { return pcie_base_; }
 

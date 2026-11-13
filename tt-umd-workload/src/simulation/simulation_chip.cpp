@@ -203,7 +203,7 @@ int SimulationChip::get_numa_node() {
 
 TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
+SystemMemoryAllocator* SimulationChip::get_system_memory_allocator() { return tt_device_->get_sysmem_manager(); }
 
 HostMemChannels* SimulationChip::get_host_mem_channels() { return &host_mem_channels_; }
 

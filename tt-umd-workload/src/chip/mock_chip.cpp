@@ -24,7 +24,7 @@ void MockChip::close_device() {}
 
 TTDevice* MockChip::get_tt_device() { return nullptr; }
 
-SysmemManager* MockChip::get_sysmem_manager() { return nullptr; }
+SystemMemoryAllocator* MockChip::get_system_memory_allocator() { return nullptr; }
 
 int MockChip::get_num_host_channels() { return 0; }
 

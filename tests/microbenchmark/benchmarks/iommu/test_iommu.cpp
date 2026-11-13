@@ -25,7 +25,6 @@
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
@@ -58,10 +57,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t MAPPING_SIZE_LIMIT = ONE_GIB;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
     for (uint64_t size = page_size; size <= MAPPING_SIZE_LIMIT; size *= 2) {
         bench.name(fmt::format("Map {} bytes", size)).batch(size);
         ankerl::nanobench::Result map_result(bench.config());
@@ -71,12 +67,12 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
             void* mapping =
                 mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
             auto now = std::chrono::high_resolution_clock::now();
-            pci_device->map_for_dma(mapping, size);
+            pci_device.map_for_dma(mapping, size);
             auto end = std::chrono::high_resolution_clock::now();
             map_result.add(end - now, 1, pc);
 
             now = std::chrono::high_resolution_clock::now();
-            pci_device->unmap_for_dma(mapping, size);
+            pci_device.unmap_for_dma(mapping, size);
             end = std::chrono::high_resolution_clock::now();
             unmap_result.add(end - now, 1, pc);
             munmap(mapping, size);
@@ -106,10 +102,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
 
     const uint64_t HUGEPAGE_SHIFT = 21;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 2 MiB
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
 
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_HugePage2M").epochIterations(1).epochs(NUM_EPOCHS).name("Map 2M");
@@ -130,12 +123,12 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
             GTEST_SKIP() << "Mapping 2MiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
-        pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        pci_device.map_for_dma(mapping, MAPPING_SIZE);
         auto end = std::chrono::high_resolution_clock::now();
         map_result.add(end - now, 1, pc);
 
         now = std::chrono::high_resolution_clock::now();
-        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        pci_device.unmap_for_dma(mapping, MAPPING_SIZE);
         end = std::chrono::high_resolution_clock::now();
         unmap_result.add(end - now, 1, pc);
 
@@ -164,10 +157,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages512M) {
 
     const uint64_t HUGEPAGE_SHIFT = 29;
     const uint64_t MAPPING_SIZE = 512ULL << 20;  // 512 MiB
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
 
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_HugePage512M").epochIterations(1).epochs(NUM_EPOCHS).name("Map 512M");
@@ -188,12 +178,12 @@ TEST(MicrobenchmarkIOMMU, MapHugepages512M) {
             GTEST_SKIP() << "Mapping 512MiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
-        pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        pci_device.map_for_dma(mapping, MAPPING_SIZE);
         auto end = std::chrono::high_resolution_clock::now();
         map_result.add(end - now, 1, pc);
 
         now = std::chrono::high_resolution_clock::now();
-        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        pci_device.unmap_for_dma(mapping, MAPPING_SIZE);
         end = std::chrono::high_resolution_clock::now();
         unmap_result.add(end - now, 1, pc);
 
@@ -221,10 +211,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
 
     const uint64_t HUGEPAGE_SHIFT = 30;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 1 GiB
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
 
     auto bench =
         ankerl::nanobench::Bench().title("IOMMU_HugePage1G").epochIterations(1).epochs(NUM_EPOCHS).name("Map 1G");
@@ -245,12 +232,12 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
             GTEST_SKIP() << "Mapping 1GiB hugepage failed. Skipping test.";
         }
         auto now = std::chrono::high_resolution_clock::now();
-        pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        pci_device.map_for_dma(mapping, MAPPING_SIZE);
         auto end = std::chrono::high_resolution_clock::now();
         map_result.add(end - now, 1, pc);
 
         now = std::chrono::high_resolution_clock::now();
-        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        pci_device.unmap_for_dma(mapping, MAPPING_SIZE);
         end = std::chrono::high_resolution_clock::now();
         unmap_result.add(end - now, 1, pc);
 
@@ -285,10 +272,7 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
 
     static const long page_size = sysconf(_SC_PAGESIZE);
     const uint64_t MAPPING_SIZE_LIMIT = ONE_GIB;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
     for (uint64_t size = page_size; size <= MAPPING_SIZE_LIMIT; size *= 2) {
         bench.name(fmt::format("Map {} bytes", size)).batch(size);
         ankerl::nanobench::Result map_result(bench.config());
@@ -301,12 +285,12 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
                 GTEST_SKIP() << "Mapping " << size << " byte buffer failed. Skipping test.";
             }
             auto now = std::chrono::high_resolution_clock::now();
-            pci_device->map_buffer_to_noc(mapping, size);
+            pci_device.map_buffer_to_noc(mapping, size);
             auto end = std::chrono::high_resolution_clock::now();
             map_result.add(end - now, 1, pc);
 
             now = std::chrono::high_resolution_clock::now();
-            pci_device->unmap_for_dma(mapping, size);
+            pci_device.unmap_for_dma(mapping, size);
             end = std::chrono::high_resolution_clock::now();
             unmap_result.add(end - now, 1, pc);
             munmap(mapping, size);
@@ -338,10 +322,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
 
     constexpr size_t NUM_PAGES = 3;
     const uint64_t MAPPING_SIZE = ONE_GIB;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    PCIDevice pci_device(pci_device_ids.at(0));
 
     std::array<void*, NUM_PAGES> mappings{};
     for (size_t page = 0; page < NUM_PAGES; page++) {
@@ -367,13 +348,13 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
         // Map all pages first (keeping them mapped simultaneously), timing each individually.
         for (auto* mapping : mappings) {
             auto now = std::chrono::high_resolution_clock::now();
-            pci_device->map_buffer_to_noc(mapping, MAPPING_SIZE);
+            pci_device.map_buffer_to_noc(mapping, MAPPING_SIZE);
             auto end = std::chrono::high_resolution_clock::now();
             map_result.add(end - now, 1, pc);
         }
         for (auto* mapping : mappings) {
             auto now = std::chrono::high_resolution_clock::now();
-            pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+            pci_device.unmap_for_dma(mapping, MAPPING_SIZE);
             auto end = std::chrono::high_resolution_clock::now();
             unmap_result.add(end - now, 1, pc);
         }

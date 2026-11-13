@@ -156,17 +156,17 @@ uint64_t GrendelAddressWindows::dram_address(uint32_t channel, uint64_t offset) 
     return dram_base + static_cast<uint64_t>(channel) * dram_stride + offset;
 }
 
-uint64_t GrendelAddressWindows::cce_control_address(
-    uint32_t channel, uint32_t location, uint64_t cce_local_offset) const {
+uint64_t GrendelAddressWindows::mimir_cce_control_address(
+    uint32_t channel, uint32_t location, uint64_t mimir_cce_local_offset) const {
     // CCE1 is one 16 MiB tile above CCE0 inside the Mimir config aperture. On a Mimir-local package
     // that aperture is chiplet-local 0. On the package ATT it is 0x1300000000 per Mimir.
-    const uint64_t local = static_cast<uint64_t>(location) * grendel::CCE_WITHIN_TILE_STRIDE + cce_local_offset;
+    const uint64_t local = static_cast<uint64_t>(location) * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE + mimir_cce_local_offset;
     UMD_ASSERT(
         mimir_config_stride != 0 && local < mimir_config_stride,
         error::RuntimeError,
         fmt::format(
             "CCE control offset 0x{:x} at location {} does not fit the Mimir config window of 0x{:x}.",
-            cce_local_offset,
+            mimir_cce_local_offset,
             location,
             mimir_config_stride));
     return mimir_config_base + static_cast<uint64_t>(channel) * mimir_config_stride + local;
@@ -258,31 +258,42 @@ uint64_t GrendelNocAddressResolver::keraunos_sram_address(const CoreCoord& core,
             core.y,
             region_size));
     return *keraunos.local_window + static_cast<uint64_t>(found.hsio) * *keraunos.tile_stride +
-           static_cast<uint64_t>(found.cce) * region_size + offset;
+           static_cast<uint64_t>(found.eth_cce) * region_size + offset;
 }
 
-uint64_t GrendelNocAddressResolver::keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const {
+uint64_t GrendelNocAddressResolver::keraunos_control_address(
+    const CoreCoord& core, uint64_t register_offset, uint32_t eth_cce_in_core) const {
     const KeraunosChiplet& keraunos = soc_descriptor_->get_arch_descriptor().get_keraunos();
     const KeraunosCore& found = require_keraunos_core(*soc_descriptor_, core);
     UMD_ASSERT(
-        keraunos.tile_stride.has_value() && register_offset < grendel::CCE_WITHIN_TILE_STRIDE,
+        keraunos.tile_stride.has_value() && register_offset < grendel::MIMIR_CCE_WITHIN_TILE_STRIDE,
         error::RuntimeError,
         fmt::format(
             "Keraunos control offset 0x{:x} on core ({}, {}) does not fit one CCE control slot.",
             register_offset,
             core.x,
             core.y));
+    UMD_ASSERT(
+        eth_cce_in_core < keraunos.eth_cces_per_core,
+        error::RuntimeError,
+        fmt::format(
+            "Keraunos core ({}, {}) spans {} CCE(s); CCE {} does not exist.",
+            core.x,
+            core.y,
+            keraunos.eth_cces_per_core,
+            eth_cce_in_core));
+    const uint64_t physical_eth_cce = static_cast<uint64_t>(found.eth_cce) * keraunos.eth_cces_per_core + eth_cce_in_core;
     return grendel::KERAUNOS_HSIO0_LOCAL_BASE + static_cast<uint64_t>(found.hsio) * *keraunos.tile_stride +
-           static_cast<uint64_t>(found.cce) * grendel::CCE_WITHIN_TILE_STRIDE + register_offset;
+           physical_eth_cce * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE + register_offset;
 }
 
-uint64_t GrendelNocAddressResolver::cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const {
+uint64_t GrendelNocAddressResolver::mimir_cce_control_address(const CoreCoord& core, uint64_t mimir_cce_local_offset) const {
     // Chips flatten a CoreCoord to an xy_pair before the control plane sees it, so the coordinate
     // arrives TRANSLATED even when its coord_system field says otherwise.
     const CoreCoord logical =
         soc_descriptor_->translate_coord_to(tt_xy_pair(core.x, core.y), CoordSystem::TRANSLATED, CoordSystem::LOGICAL);
-    return windows_.cce_control_address(
-        static_cast<uint32_t>(logical.x), static_cast<uint32_t>(logical.y), cce_local_offset);
+    return windows_.mimir_cce_control_address(
+        static_cast<uint32_t>(logical.x), static_cast<uint32_t>(logical.y), mimir_cce_local_offset);
 }
 
 GrendelNocAddressResolver::GrendelNocAddressResolver(

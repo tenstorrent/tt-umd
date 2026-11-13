@@ -74,25 +74,25 @@ TEST(GrendelNocAddressResolver, DramWindowIsIndexedByChannel) {
 
 // CCE register offsets are relative to one CCE. The channel selects the Mimir and the location
 // selects the CCE. The same number as a GDDR offset stays in the DRAM window.
-TEST(GrendelNocAddressResolver, CceControlOffsetIsRelativeToOneCce) {
+TEST(GrendelNocAddressResolver, MimirCceControlOffsetIsRelativeToOneCce) {
     GrendelAddressWindows windows = qsr_s1_windows();
     windows.mimir_config_base = 0;
     windows.mimir_config_stride = 0x8000000ULL;
 
-    EXPECT_EQ(windows.cce_control_address(0, 0, 0x02000000), 0x02000000ULL);
-    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02000000), 0x03000000ULL);
-    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02200000), 0x03200000ULL);
-    EXPECT_EQ(windows.cce_control_address(1, 0, 0x02200000), 0x0A200000ULL);
-    EXPECT_EQ(windows.cce_control_address(1, 1, 0x02000000), 0x0B000000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(0, 0, 0x02000000), 0x02000000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(0, 1, 0x02000000), 0x03000000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(0, 1, 0x02200000), 0x03200000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(1, 0, 0x02200000), 0x0A200000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(1, 1, 0x02000000), 0x0B000000ULL);
 
     EXPECT_EQ(windows.dram_address(0, 0x02000000), windows.dram_base + 0x02000000ULL);
-    EXPECT_NE(windows.dram_address(0, 0x02000000), windows.cce_control_address(0, 0, 0x02000000));
+    EXPECT_NE(windows.dram_address(0, 0x02000000), windows.mimir_cce_control_address(0, 0, 0x02000000));
 
-    EXPECT_THROW(windows.cce_control_address(0, 8, 0x02000000), std::exception);
+    EXPECT_THROW(windows.mimir_cce_control_address(0, 8, 0x02000000), std::exception);
 }
 
 // address_map.csv, space=CCE. The host offset is the ATT base of CCE0; the CCE index selects the slot.
-TEST(GrendelNocAddressResolver, PackageCceSramMatchesGoldenAddressMap) {
+TEST(GrendelNocAddressResolver, PackageMimirCceSramMatchesGoldenAddressMap) {
     const GrendelAddressWindows windows = qsr_s1_windows();
 
     EXPECT_EQ(windows.dram_l1_noc_offset, 0x1280000000ULL);
@@ -109,9 +109,9 @@ TEST(GrendelNocAddressResolver, PackageCceSramMatchesGoldenAddressMap) {
 TEST(GrendelNocAddressResolver, PackageMimirConfigCarriesCceControl) {
     const GrendelAddressWindows windows = qsr_s1_windows();
 
-    EXPECT_EQ(windows.cce_control_address(0, 0, 0x02000000), 0x1302000000ULL);
-    EXPECT_EQ(windows.cce_control_address(0, 1, 0x02000000), 0x1303000000ULL);
-    EXPECT_EQ(windows.cce_control_address(1, 0, 0x02200000), 0x130A200000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(0, 0, 0x02000000), 0x1302000000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(0, 1, 0x02000000), 0x1303000000ULL);
+    EXPECT_EQ(windows.mimir_cce_control_address(1, 0, 0x02200000), 0x130A200000ULL);
 }
 
 TEST(GrendelNocAddressResolver, DramCoreL1TagSelectsPerChannelSram) {
@@ -225,8 +225,8 @@ TEST(GrendelNocAddressResolver, MeshAndDramIngressRowsDoNotCollideInPackageFrame
     EXPECT_FALSE(windows.is_in_mesh(7, 0));
 }
 
-TEST(GrendelNocAddressResolver, CceDmriscRemapUsesPackageWindows) {
-    const auto first = cce_dmrisc_remap_entries(GrendelAddressWindows{}, 0);
+TEST(GrendelNocAddressResolver, MimirCceDmriscRemapUsesPackageWindows) {
+    const auto first = mimir_cce_dmrisc_remap_entries(GrendelAddressWindows{}, 0);
     EXPECT_EQ(first[0].region_start, 0x1300000000ULL);
     EXPECT_EQ(first[0].region_end, 0x1300000000ULL + 0x8000000ULL);
     EXPECT_EQ(first[0].local_base, 0u);
@@ -237,42 +237,48 @@ TEST(GrendelNocAddressResolver, CceDmriscRemapUsesPackageWindows) {
     EXPECT_EQ(first[2].region_end, 0x1000000000000ULL + 0x200000000ULL);
     EXPECT_EQ(first[2].local_base, 0x800000000ULL);
 
-    const auto second = cce_dmrisc_remap_entries(GrendelAddressWindows{}, 1);
+    const auto second = mimir_cce_dmrisc_remap_entries(GrendelAddressWindows{}, 1);
     EXPECT_EQ(second[0].region_start, 0x1308000000ULL);
     EXPECT_EQ(second[1].region_start, 0x1280800000ULL);
     EXPECT_EQ(second[2].region_start, 0x1000200000000ULL);
 }
 
-// mmk.yaml records CCE0 on HSIO tiles 0-3. Tile 0 TL1 is 0x22800000, tiles are
-// 0x4000000 apart, and each CCE region is 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
-// Control is the HSIO tile base 0x20000000, not that SRAM window.
+// mmk.yaml records one core per HSIO tile 0-3, each spanning both CCEs. Tile 0 TL1 is 0x22800000,
+// tiles are 0x4000000 apart, and CCE1 SRAM follows CCE0's 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
+// Control is the HSIO tile base 0x20000000, not that SRAM window, and CCE1's is 16 MiB above it.
 TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
     const SocDescriptor mmk(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
     const GrendelNocAddressResolver resolver(mmk, mimir_local_address_windows(mmk));
     const std::vector<CoreCoord> eth = mmk.get_cores(CoreType::ETH);
     ASSERT_EQ(eth.size(), 4u);
-    const CoreCoord& hsio0_cce0 = eth[0];
-    const CoreCoord& hsio2_cce0 = eth[2];
-    const CoreCoord& hsio3_cce0 = eth[3];
+    const CoreCoord& hsio0_eth_cce0 = eth[0];
+    const CoreCoord& hsio2_eth_cce0 = eth[2];
+    const CoreCoord& hsio3_eth_cce0 = eth[3];
 
     constexpr uint64_t kOffset = 0x800;
-    EXPECT_EQ(resolver.keraunos_sram_address(hsio0_cce0, kOffset), 0x22800000ULL + kOffset);
-    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_cce0, kOffset), 0x2A800000ULL + kOffset);
-    EXPECT_EQ(resolver.keraunos_sram_address(hsio3_cce0, kOffset), 0x2E800000ULL + kOffset);
-    EXPECT_EQ(resolver.to_flat_address(hsio2_cce0, kOffset, NocId::NOC0), 0x2A800000ULL + kOffset);
-    EXPECT_EQ(resolver.keraunos_control_address(hsio0_cce0, 0), 0x20000000ULL);
-    EXPECT_EQ(resolver.keraunos_control_address(hsio2_cce0, 0), 0x28000000ULL);
-    EXPECT_EQ(resolver.keraunos_control_address(hsio2_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x28200000ULL);
-    EXPECT_EQ(resolver.keraunos_control_address(hsio3_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x2C200000ULL);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio0_eth_cce0, kOffset), 0x22800000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_eth_cce0, kOffset), 0x2A800000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio3_eth_cce0, kOffset), 0x2E800000ULL + kOffset);
+    EXPECT_EQ(resolver.to_flat_address(hsio2_eth_cce0, kOffset, NocId::NOC0), 0x2A800000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio0_eth_cce0, 0), 0x20000000ULL);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, 0), 0x28000000ULL);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x28200000ULL);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio3_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x2C200000ULL);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_eth_cce0, 0x400000 + kOffset), 0x2AC00000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, 0, /*eth_cce_in_core=*/1), 0x29000000ULL);
+    EXPECT_EQ(
+        resolver.keraunos_control_address(hsio2_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET, /*eth_cce_in_core=*/1),
+        0x29200000ULL);
+    EXPECT_THROW(resolver.keraunos_control_address(hsio2_eth_cce0, 0, /*eth_cce_in_core=*/2), std::exception);
 
     // Column 4 is outside the Mimir mesh. It must not pick up a config slot.
-    EXPECT_THROW(resolver.get_windows().config_address(hsio0_cce0.x, hsio0_cce0.y, 0), std::exception);
+    EXPECT_THROW(resolver.get_windows().config_address(hsio0_eth_cce0.x, hsio0_eth_cce0.y, 0), std::exception);
 
     // Mimir CCE0 on channel 0 is still the chiplet-local SRAM base.
-    const CoreCoord cce = mmk.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
-    const uint64_t cce_sram = resolver.to_flat_address(cce, resolver.get_windows().dram_l1_noc_offset, NocId::NOC0);
-    EXPECT_EQ(cce_sram, 0x40000000ULL);
-    EXPECT_THROW(resolver.keraunos_sram_address(cce, 0), std::exception);
+    const CoreCoord mmk_mimir_cce = mmk.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
+    const uint64_t mmk_mimir_cce_sram = resolver.to_flat_address(mmk_mimir_cce, resolver.get_windows().dram_l1_noc_offset, NocId::NOC0);
+    EXPECT_EQ(mmk_mimir_cce_sram, 0x40000000ULL);
+    EXPECT_THROW(resolver.keraunos_sram_address(mmk_mimir_cce, 0), std::exception);
 
     const SocDescriptor mimir(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));

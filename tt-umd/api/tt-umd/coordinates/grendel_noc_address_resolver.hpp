@@ -123,12 +123,12 @@ struct GrendelAddressWindows {
     /**
      * Flat address of one CCE's register-plane offset.
      *
-     * cce_local_offset is relative to that CCE (reset vector 0x02000000, PF_CTRL 0x02200000,
+     * mimir_cce_local_offset is relative to that CCE (reset vector 0x02000000, PF_CTRL 0x02200000,
      * DMRISC remap 0x02202000). channel selects the Mimir and location the CCE on it. The address
      * lands in the Mimir config window: chiplet-local on a Mimir-local package, and the package
      * ATT window (0x1300000000) otherwise.
      */
-    uint64_t cce_control_address(uint32_t channel, uint32_t location, uint64_t cce_local_offset) const;
+    uint64_t mimir_cce_control_address(uint32_t channel, uint32_t location, uint64_t mimir_cce_local_offset) const;
 
     /** Whether an address on a DRAM coordinate selects its local RISC SRAM rather than GDDR. */
     bool is_dram_l1_address(uint64_t address) const;
@@ -141,7 +141,7 @@ struct GrendelAddressWindows {
 };
 
 // One DMRISC remap entry. Addresses are bytes; the register stores them >> 6.
-struct CceDmriscRemapEntry {
+struct MimirCceDmriscRemapEntry {
     uint64_t region_start = 0;
     uint64_t region_end = 0;
     uint64_t local_base = 0;
@@ -151,7 +151,7 @@ struct CceDmriscRemapEntry {
  * Remap entries for one Mimir SPA instance: config, both CCE SRAMs, then that Mimir's GDDR.
  * SPA bounds come from the package windows. Local bases are the chiplet AXI targets.
  */
-inline std::array<CceDmriscRemapEntry, 3> cce_dmrisc_remap_entries(
+inline std::array<MimirCceDmriscRemapEntry, 3> mimir_cce_dmrisc_remap_entries(
     const GrendelAddressWindows& windows, uint32_t instance) {
     const uint64_t config = windows.mimir_config_base + static_cast<uint64_t>(instance) * windows.mimir_config_stride;
     // Both CCEs on the Mimir share one remap window. Each CCE SRAM slot is dram_l1_stride.
@@ -200,7 +200,7 @@ public:
      * Flat address of a CCE register offset on the DRAM core that selects that CCE.
      * The core is the same TRANSLATED DRAM coordinate the CCE control plane already accepts.
      */
-    uint64_t cce_control_address(const CoreCoord& core, uint64_t cce_local_offset) const;
+    uint64_t mimir_cce_control_address(const CoreCoord& core, uint64_t mimir_cce_local_offset) const;
 
     /**
      * Chiplet-local SRAM of one Keraunos ethernet core. offset is a byte offset inside that core's
@@ -210,9 +210,10 @@ public:
 
     /**
      * Chiplet-local register offset on one Keraunos ethernet core. register_offset is relative to
-     * that core's tt_cluster_ctrl (reset vector 0, PF_CTRL reset 0x200000).
+     * the tt_cluster_ctrl (reset vector 0, PF_CTRL reset 0x200000) of CCE eth_cce_in_core of that core,
+     * which must be below the descriptor's eth_cces_per_core.
      */
-    uint64_t keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const;
+    uint64_t keraunos_control_address(const CoreCoord& core, uint64_t register_offset, uint32_t eth_cce_in_core = 0) const;
 
     const GrendelAddressWindows& get_windows() const { return windows_; }
 

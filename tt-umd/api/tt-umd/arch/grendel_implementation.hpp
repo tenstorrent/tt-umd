@@ -332,7 +332,7 @@ inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
 inline constexpr uint64_t CCE_DMRISC_REMAP_BASE = 0x02202000;
 inline constexpr uint64_t CCE_DMRISC_REMAP_ENTRY_STRIDE = 0x20;
 inline constexpr uint64_t CCE_DMRISC_REMAP_ADDR_SHIFT = 6;
-inline constexpr uint64_t CCE_WITHIN_TILE_STRIDE = 0x01000000;
+inline constexpr uint64_t MIMIR_CCE_WITHIN_TILE_STRIDE = 0x01000000;
 inline constexpr uint32_t CCE_NUM_HARTS = 8;
 inline constexpr uint64_t CCE_UNCORE_RELEASED = 0x1;
 inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
@@ -343,8 +343,11 @@ inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
 // CCE. The tile stride comes from the descriptor. Bring-up owns the uncore.
 inline constexpr uint64_t KERAUNOS_HSIO0_LOCAL_BASE = 0x20000000;
 inline constexpr uint64_t KERAUNOS_CCE_PF_CTRL_RESET_OFFSET = 0x00200000;
+// One CCE's SRAM. A core spanning both CCEs of a tile holds CCE1's SRAM at this offset, and a
+// register-width write at the start of either CCE's SRAM programs that CCE's reset vectors.
+inline constexpr uint64_t KERAUNOS_CCE_SRAM_SIZE = 0x00400000;
 
-inline constexpr bool is_cce_reset_vector_addr(uint64_t addr) {
+inline constexpr bool is_mimir_cce_reset_vector_addr(uint64_t addr) {
     return addr >= CCE_RESET_VECTOR_BASE && addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
 }
 

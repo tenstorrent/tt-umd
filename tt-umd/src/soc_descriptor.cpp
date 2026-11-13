@@ -427,13 +427,16 @@ std::string SocDescriptor::serialize() const {
         if (keraunos.tile_stride.has_value()) {
             out << YAML::Key << "tile_stride" << YAML::Value << *keraunos.tile_stride;
         }
+        if (keraunos.eth_cces_per_core != 1) {
+            out << YAML::Key << "eth_cces_per_core" << YAML::Value << keraunos.eth_cces_per_core;
+        }
         if (!keraunos.cores.empty()) {
             out << YAML::Key << "cores" << YAML::Value << YAML::BeginSeq;
             for (const auto &core : keraunos.cores) {
                 out << YAML::BeginMap;
                 out << YAML::Key << "core" << YAML::Value << fmt::format("{}-{}", core.coord.x, core.coord.y);
                 out << YAML::Key << "hsio" << YAML::Value << core.hsio;
-                out << YAML::Key << "cce" << YAML::Value << core.cce;
+                out << YAML::Key << "eth_cce" << YAML::Value << core.eth_cce;
                 out << YAML::EndMap;
             }
             out << YAML::EndSeq;

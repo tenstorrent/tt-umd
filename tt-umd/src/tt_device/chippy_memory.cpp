@@ -147,13 +147,13 @@ void ChippyMemoryMap::add_keraunos_regions(
         "A Keraunos chiplet needs local_window, tile_stride, and eth_l1_size.");
     for (const KeraunosCore& core : keraunos.cores) {
         const uint64_t sram = *keraunos.local_window + static_cast<uint64_t>(core.hsio) * *keraunos.tile_stride +
-                              static_cast<uint64_t>(core.cce) * sram_size;
+                              static_cast<uint64_t>(core.eth_cce) * sram_size;
         memory_regions_.push_back(make_region(sram, sram, static_cast<std::size_t>(sram_size), keraunos_transport));
         const uint64_t control = grendel::KERAUNOS_HSIO0_LOCAL_BASE +
                                  static_cast<uint64_t>(core.hsio) * *keraunos.tile_stride +
-                                 static_cast<uint64_t>(core.cce) * grendel::CCE_WITHIN_TILE_STRIDE;
-        memory_regions_.push_back(make_region(
-            control, control, static_cast<std::size_t>(grendel::CCE_WITHIN_TILE_STRIDE), keraunos_transport));
+                                 static_cast<uint64_t>(core.eth_cce) * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE;
+        const auto control_size = static_cast<std::size_t>(grendel::MIMIR_CCE_WITHIN_TILE_STRIDE * keraunos.eth_cces_per_core);
+        memory_regions_.push_back(make_region(control, control, control_size, keraunos_transport));
     }
 }
 

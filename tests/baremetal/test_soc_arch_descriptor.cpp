@@ -522,7 +522,7 @@ TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
     for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {
         EXPECT_EQ(keraunos.cores[i].coord, tt_xy_pair(4, i));
         EXPECT_EQ(keraunos.cores[i].hsio, i);
-        EXPECT_EQ(keraunos.cores[i].cce, 0u);
+        EXPECT_EQ(keraunos.cores[i].eth_cce, 0u);
     }
     ASSERT_EQ(desc.get_eth_cores().size(), keraunos.cores.size());
     for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {
@@ -543,7 +543,7 @@ static std::filesystem::path write_keraunos_descriptor(const std::string& keraun
 TEST(SocArchDescriptor, KeraunosCoresFollowTheEthList) {
     const std::filesystem::path path = write_keraunos_descriptor(
         "keraunos:\n  chiplet: k0\n  tap: 3\n  local_window: 1073741824\n  tile_stride: 8192\n"
-        "  cores:\n    - core: 1-0\n      hsio: 2\n      cce: 1\n",
+        "  cores:\n    - core: 1-0\n      hsio: 2\n      eth_cce: 1\n",
         "1-0");
     const SocArchDescriptor desc(path.string());
     const KeraunosChiplet& keraunos = desc.get_keraunos();
@@ -557,9 +557,28 @@ TEST(SocArchDescriptor, KeraunosCoresFollowTheEthList) {
     ASSERT_EQ(keraunos.cores.size(), 1u);
     EXPECT_EQ(keraunos.cores[0].coord, tt_xy_pair(1, 0));
     EXPECT_EQ(keraunos.cores[0].hsio, 2u);
-    EXPECT_EQ(keraunos.cores[0].cce, 1u);
+    EXPECT_EQ(keraunos.cores[0].eth_cce, 1u);
     ASSERT_EQ(desc.get_eth_cores().size(), 1u);
     EXPECT_EQ(desc.get_eth_cores()[0], tt_xy_pair(1, 0));
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, KeraunosCoreSpansBothCces) {
+    const std::filesystem::path path = write_keraunos_descriptor(
+        "keraunos:\n  chiplet: k0\n  tap: 3\n  local_window: 1073741824\n  tile_stride: 8192\n"
+        "  eth_cces_per_core: 2\n  cores:\n    - core: 1-0\n      hsio: 2\n      eth_cce: 0\n",
+        "1-0");
+    const SocArchDescriptor desc(path.string());
+    EXPECT_EQ(desc.get_keraunos().eth_cces_per_core, 2u);
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, KeraunosRejectsCce1InATwoCceCore) {
+    const std::filesystem::path path = write_keraunos_descriptor(
+        "keraunos:\n  chiplet: k0\n  tap: 3\n  local_window: 1073741824\n  tile_stride: 8192\n"
+        "  eth_cces_per_core: 2\n  cores:\n    - core: 1-0\n      hsio: 2\n      eth_cce: 1\n",
+        "1-0");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
     std::filesystem::remove(path);
 }
 

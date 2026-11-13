@@ -336,14 +336,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
                 }
             };
         auto result = create_buffer(
-            /*tt_device=*/nullptr,
-            buffer,
-            sysmem_buffer_size,
-            device_io_addr,
-            communication_id_,
-            std::move(deleter),
-            noc_addr,
-            device_access);
+            buffer, sysmem_buffer_size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
         registry_->next_arena_offset += extent;
         return result;
     } catch (...) {

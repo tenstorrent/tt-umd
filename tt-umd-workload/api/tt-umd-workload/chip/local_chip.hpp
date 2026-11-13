@@ -68,6 +68,9 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void dma_write_zero_copy(
+        const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
 
     int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering);
 

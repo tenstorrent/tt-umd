@@ -73,7 +73,7 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     uint32_t value_check = 0;
 
@@ -91,7 +91,7 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -158,7 +158,7 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     uint32_t value_check = 0;
 
@@ -166,7 +166,7 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
     // do the reconfigure of the TLB window.
     tlb_data config{};
     std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+        std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -207,7 +207,7 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(0)->get_communication_device_id());
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -225,7 +225,7 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
 
@@ -250,7 +250,7 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config_write;
@@ -266,14 +266,14 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
         config_write.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
         std::unique_ptr<TlbWindow> tlb_window_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
         uint32_t expect0 = tlb_window_read->read32(4);
@@ -294,7 +294,7 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -310,9 +310,9 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         // Test basic write16/read16.
         tlb_write->write16(0, 0xABCD);
@@ -363,7 +363,7 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -379,9 +379,9 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
         tlb_write->write32(0, 0xAAAABBBB);
@@ -417,7 +417,7 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     std::vector<uint8_t> write_pattern(0x100, 0);
     for (size_t i = 0; i < write_pattern.size(); ++i) {
@@ -440,11 +440,11 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());
@@ -477,10 +477,10 @@ TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
     const uint64_t boundary_addr = 0x30000000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const CoreCoord dram_core =
         cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
-    SiliconTlbWindow window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+    SiliconTlbWindow window(pci_device.allocate_tlb(window_size, TlbMapping::WC));
 
     // Covers both reads below, [boundary_addr - 4, boundary_addr + 32).
     std::vector<uint8_t> pattern(36);
@@ -514,7 +514,7 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -530,11 +530,11 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());
@@ -570,11 +570,11 @@ TEST_F(TestTlb, IoWindowInterface) {
     const uint64_t l1_addr = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const CoreCoord tensix_core =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-    SiliconTlbWindow tlb_window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+    SiliconTlbWindow tlb_window(pci_device.allocate_tlb(window_size, TlbMapping::WC));
     IoWindow& window = tlb_window;
 
     TargetIoWindowConfig target;
@@ -799,7 +799,7 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     const uint64_t l1_start = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const auto& tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
     const size_t num_words = ((1 << 20) + (1 << 17)) / sizeof(uint32_t);
@@ -813,7 +813,7 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     for (auto it = tensix_cores.begin(); it != cores_end; ++it) {
         tt_xy_pair xy{it->x, it->y};
 
-        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
+        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(tlb_size, TlbMapping::UC));
 
         write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0, GetParam());
 

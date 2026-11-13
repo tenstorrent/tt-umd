@@ -19,7 +19,6 @@
 #include "common.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
 
@@ -42,11 +41,9 @@ int main(int argc, char* argv[]) {
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
-            auto tt_device = TTDevice::create(pci_device_id);
+            PCIDevice pci_device(pci_device_id);
             std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
-            tt_device->init_tt_device();
-            tt::ARCH arch = tt_device->get_arch();
-            auto pci_device = tt_device->get_pci_device();
+            tt::ARCH arch = pci_device.get_arch();
             const std::vector<TlbSizeClass>& tlb_size_classes = get_architecture_tlbs(arch).size_classes;
 
             log_info(
@@ -67,7 +64,7 @@ int main(int argc, char* argv[]) {
 
                 while (true) {
                     try {
-                        auto tlb_handle = pci_device->allocate_tlb(tlb_size, TlbMapping::WC);
+                        auto tlb_handle = pci_device.allocate_tlb(tlb_size, TlbMapping::WC);
                         // One line per allocated TLB, and the loop deliberately allocates until it
                         // fails; the per-size summary below reports the counts that matter.
                         log_debug(

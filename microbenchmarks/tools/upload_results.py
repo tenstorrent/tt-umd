@@ -27,9 +27,6 @@ from run_context import collect_run_context
 
 DATABASE_NAME = "umd_perf"
 
-# nanobench renders unset floating-point fields as bare `nan`/`-nan`, which Python's json parser rejects.
-_NAN_PATTERN = re.compile(r"-?\bnan\b")
-
 
 def format_with_unit(value: float, unit: str):
     if unit and unit != "byte":
@@ -48,7 +45,9 @@ def format_with_unit(value: float, unit: str):
 
 
 def load_json(path: Path) -> dict:
-    return json.loads(_NAN_PATTERN.sub("NaN", path.read_text()))
+    # nanobench renders unset floating-point fields as bare `nan`/`-nan`, which Python's json parser rejects.
+    nan_pattern = re.compile(r"-?\bnan\b")
+    return json.loads(nan_pattern.sub("NaN", path.read_text()))
 
 
 def load_cases(results_dir: Path) -> list:
@@ -102,10 +101,13 @@ def ensure_indexes(database: Database) -> None:
     database.results.create_index([("run_id", ASCENDING), ("title", ASCENDING)])
 
 
-def upload(results_dir: Path, pipeline_id: int, database: Database) -> None:
+def upload(
+    results_dir: Path, pipeline_id: int, device_type: str, database: Database
+) -> None:
     run = {
         **collect_run_context(),
         "pipeline_id": pipeline_id,
+        "device_type": device_type,
         "created_at": datetime.now(timezone.utc),
     }
 
@@ -145,7 +147,24 @@ def main() -> int:
         "--pipeline-id",
         type=int,
         required=True,
-        help="Id of the CI pipeline that produced the run.",
+        help="ID of the CI pipeline that produced the run.",
+    )
+    parser.add_argument(
+        "--device-type",
+        type=str,
+        required=True,
+        choices=[
+            "n150",
+            "n300",
+            "p150",
+            "p100",
+            "p300",
+            "wh_glx_6u_x8",
+            "wh_glx_6u_x1",
+            "bh_glx_6u_x8",
+            "bh_glx_6u_x1",
+        ],
+        help="Tenstorrent device type.",
     )
     args = parser.parse_args()
 
@@ -153,7 +172,12 @@ def main() -> int:
     if not uri:
         print("MONGODB_URI is not set.", file=sys.stderr)
         return 1
-    upload(args.results_dir, args.pipeline_id, MongoClient(uri)[DATABASE_NAME])
+    upload(
+        args.results_dir,
+        args.pipeline_id,
+        args.device_type,
+        MongoClient(uri)[DATABASE_NAME],
+    )
     return 0
 
 

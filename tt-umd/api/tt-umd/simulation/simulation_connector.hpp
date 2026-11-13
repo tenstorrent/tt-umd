@@ -22,10 +22,10 @@ struct SimulationConnectorOptions {
     // The simulator build to host: a TTSim .so (when the path ends in .so) or an RTL simulator
     // directory. The backend is selected from the path, mirroring the simulation device factory.
     std::filesystem::path simulator_directory;
-    // Host path only: publish each simulated chip over a per-chip socket so other processes can
-    // attach as clients. Disabled by default so a direct discover() call yields private in-process
-    // devices (the hot path) -- opt in only for a shared-simulation/server workflow. Ignored on the
-    // client path (attaching to a live host is always over sockets).
+    // Host path only: publish each simulated chip over a per-chip socket so other processes of the
+    // same user can attach as clients. Disabled by default so a direct discover() call yields
+    // private in-process devices (the hot path) -- opt in only for a shared-simulation/server
+    // workflow. Ignored on the client path (attaching to a live host is always over sockets).
     bool serve_over_sockets = false;
     // Host path only: the directory this server serves its per-chip sockets in (when
     // serve_over_sockets is set). Empty means allocate a fresh one (allocate_server_directory), so
@@ -39,8 +39,9 @@ struct SimulationConnectorOptions {
     int num_host_mem_channels = 0;
 };
 
-// One simulation server open on this machine, as seen by list_servers(): its index, the directory
-// it serves in, and the per-chip sockets present there ({chip_id -> socket path}).
+// One of the calling user's simulation servers open on this machine, as seen by list_servers(): its
+// index, the directory it serves in, and the per-chip sockets present there ({chip_id -> socket
+// path}).
 struct SimulationServerInfo {
     int index = 0;
     std::filesystem::path directory;
@@ -101,13 +102,16 @@ public:
     // Claims a fresh directory for one simulation server (the lowest free index) and returns it, so
     // a caller can report the location before it starts serving there (pass it back as
     // SimulationConnectorOptions::server_directory or ClusterOptions::simulator_server_directory).
-    // The claim is atomic, so racing starts get distinct directories.
+    // The claim is atomic, so racing starts get distinct directories. The directory is private to
+    // the calling user (the process's effective uid) from the moment it exists: only that user can
+    // serve in it or attach to the sockets served there.
     static std::filesystem::path allocate_server_directory();
 
-    // One pass over every server directory: the servers still open, and the ones whose host was
-    // gone, which this removed. Both come from a single scan, so a caller acting on both sees one
-    // consistent view. A directory with no socket yet is never removed -- it cannot be told apart
-    // from a host still coming up.
+    // One pass over every server directory the calling user owns (other users' servers are never
+    // reported or removed): the servers still open, and the ones whose host was gone, which this
+    // removed. Both come from a single scan, so a caller acting on both sees one consistent view.
+    // A directory with no socket yet is never removed -- it cannot be told apart from a host still
+    // coming up.
     struct ServerScan {
         std::vector<SimulationServerInfo> live;
         std::vector<SimulationServerInfo> removed;
@@ -115,11 +119,11 @@ public:
 
     static ServerScan scan_servers();
 
-    // The servers currently open on this machine, ordered by index. Opens no devices. Exposed for
-    // management tooling (list / kill).
+    // The calling user's servers currently open on this machine, ordered by index. Opens no
+    // devices. Exposed for management tooling (list / kill).
     static std::vector<SimulationServerInfo> list_servers();
 
-    // Removes what hosts that are gone left on disk, and returns those servers.
+    // Removes what the calling user's hosts that are gone left on disk, and returns those servers.
     static std::vector<SimulationServerInfo> prune_dead_servers();
 };
 

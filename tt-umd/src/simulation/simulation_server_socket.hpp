@@ -18,7 +18,9 @@ namespace tt::umd {
 
 // Manages a per-chip UNIX domain socket that represents a simulated device on disk
 // ("the card"). One socket per simulated chip, kept in a per-server directory
-// (allocate_server_directory) so distinct hosts on the same machine never collide.
+// (allocate_server_directory) so distinct hosts on the same machine never collide. Servers are
+// private to the user that started them: the directory and the sockets in it are reachable only
+// by that user.
 //
 // The socket acts as a presence indicator: if a process can bind the path it becomes the host,
 // and create() throws if a live host already holds it. Which role a process takes is decided
@@ -59,7 +61,9 @@ public:
 
     // Binds and listens, reclaiming a socket left behind by a crashed owner, and throws when a
     // *live* owner already holds the path. Throws on real socket errors too. The socket is
-    // presence-only (bound + connectable) until serve() installs a handler.
+    // presence-only (bound + connectable) until serve() installs a handler. The socket file is
+    // connectable only by its owner (mode 0600), and a missing parent directory is created
+    // owner-only (mode 0700).
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
@@ -81,14 +85,18 @@ public:
     // Claims a fresh directory for one simulation server: <temp_dir>/tt-umd-sim-server-<index>,
     // for the lowest index not already taken. Each server owns its own directory so two hosts
     // never collide -- even when they serve overlapping chip ids, the sockets live in different
-    // directories. The claim is atomic (create_directory fails if the name exists), so racing
-    // hosts get distinct indices. Throws if no index is free. A client is then pointed at the
-    // returned directory.
+    // directories. The claim is atomic (the directory is created only if the name is free), so
+    // racing hosts get distinct indices; indices are shared by all users on the machine, so one
+    // taken by another user is skipped. The directory is created owner-only (mode 0700) in the same
+    // step, so it is never reachable by another user. Throws if no index is free. A client is then
+    // pointed at the returned directory.
     static std::filesystem::path allocate_server_directory();
 
-    // The simulation server directories present under the system temp dir: {index -> directory},
-    // keyed and ordered by index. This is what a caller enumerating the machine's servers scans;
-    // sockets_in_directory() then lists the chips each one serves.
+    // The simulation server directories under the system temp dir owned by the calling process's
+    // effective uid: {index -> directory}, keyed and ordered by index. Other users' directories are
+    // left out, since their servers cannot be reached or removed by this user. This is what a
+    // caller enumerating its servers scans; sockets_in_directory() then lists the chips each one
+    // serves.
     static std::map<int, std::filesystem::path> list_server_directories();
 
     // Inverse of allocate_server_directory()'s naming: pulls the index out of a directory *name*
@@ -96,8 +104,8 @@ public:
     static std::optional<int> server_index_from_directory_path(const std::filesystem::path& directory);
 
     // Deterministic per-chip socket path inside a server directory (the naming contract a client
-    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: one shared
-    // socket per chip that any user may attach to.
+    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: the server
+    // directory already scopes the socket to its owner.
     static std::filesystem::path default_socket_path(const std::filesystem::path& server_directory, ChipId chip_id = 0);
 
     // Inverse of default_socket_path()'s naming: pulls the chip id out of a socket file *name*

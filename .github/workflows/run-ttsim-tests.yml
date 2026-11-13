@@ -289,7 +289,7 @@ jobs:
         timeout-minutes: 2
         run: |
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector*"
 
       # Python mirror of the C++ SimulationConnector coverage above: nanobind/tests only runs in the
       # pytest lane (no simulator) elsewhere, so its host/client test against a real simulator has
@@ -682,7 +682,7 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+          build/test/umd/api/api_tests --gtest_filter="SimulationConnector*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1

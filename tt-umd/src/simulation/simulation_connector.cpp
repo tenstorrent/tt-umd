@@ -111,9 +111,8 @@ bool is_server_gone(const SimulationServerInfo& server) {
            });
 }
 
-// Clears up after a server that is gone. Best-effort and quiet when it fails: simulation sockets
-// are cross-user by design, and another user's directory cannot be removed from the temp
-// directory, which every scan would otherwise report.
+// Clears up after a server that is gone. Best-effort and quiet when it fails: a directory that
+// cannot be removed stays behind, and every later scan would report it again.
 bool remove_server_directory(const SimulationServerInfo& server) {
     std::error_code ec;
     std::filesystem::remove_all(server.directory, ec);
@@ -182,7 +181,7 @@ std::filesystem::path SimulationConnector::allocate_server_directory() {
 }
 
 SimulationConnector::ServerScan SimulationConnector::scan_servers() {
-    // The one enumeration of every server, so clearing up after hosts that are gone happens
+    // The one enumeration of every server of the calling user, so clearing up after hosts that are gone happens
     // wherever all servers are looked at rather than each caller remembering to ask. An operation
     // aimed at a directory the caller named must not be built on this: that directory is theirs to
     // be told the truth about, not to have swept out from under them (see classify()).
@@ -201,7 +200,7 @@ SimulationConnector::ServerScan SimulationConnector::scan_servers() {
             scan.removed.push_back(std::move(server));
         }
         // A server that is gone and could not be removed is in neither half: not a server anything
-        // can attach to, and not ours to clear up.
+        // can attach to, and not one this scan cleared up.
     }
     return scan;
 }

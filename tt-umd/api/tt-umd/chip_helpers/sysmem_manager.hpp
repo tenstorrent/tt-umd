@@ -76,6 +76,11 @@ public:
      */
     virtual bool is_read_only_page_pinning_supported() const;
 
+    /**
+     * @return whether an IOMMU sits between this manager's device and host memory.
+     */
+    bool is_iommu_enabled() const;
+
     uint64_t get_pcie_base() const { return pcie_base_; }
 
     /**

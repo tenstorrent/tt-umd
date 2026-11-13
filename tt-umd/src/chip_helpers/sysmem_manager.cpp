@@ -104,6 +104,8 @@ bool SysmemManager::is_read_only_page_pinning_supported() const {
     return pci_device_ != nullptr && pci_device_->is_read_only_page_pinning_supported();
 }
 
+bool SysmemManager::is_iommu_enabled() const { return pci_device_ != nullptr && pci_device_->is_iommu_enabled(); }
+
 HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {
         return {nullptr, 0, 0};

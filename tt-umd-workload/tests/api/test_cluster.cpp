@@ -394,7 +394,7 @@ TEST(ApiClusterHostMemChannelSetup, ChannelMapsItsHugepageFileAfterAnUnrelatedBu
     const ChipId chip = *device_0_chip;
 
     std::unique_ptr<SysmemBuffer> unrelated_buffer =
-        cluster->get_chip(chip)->get_sysmem_manager()->allocate_buffer(4096);
+        cluster->get_chip(chip)->get_system_memory_allocator()->allocate_buffer(4096);
     test_utils::safe_test_cluster_start(cluster.get());
 
     const std::vector<uint8_t> channel_pattern = {0xA5, 0x5A, 0xC3, 0x3C};

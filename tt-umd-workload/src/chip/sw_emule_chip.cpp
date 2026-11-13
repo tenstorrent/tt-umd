@@ -85,6 +85,14 @@ auto notify_host_write(Core& core, uint64_t addr, size_t size, int) -> decltype(
 template <typename Core>
 void notify_host_write(Core&, uint64_t, size_t, long) {}
 
+template <typename Core>
+auto notify_host_read(Core& core, uint64_t addr, size_t size, int) -> decltype(core.notify_host_read(addr, size)) {
+    return core.notify_host_read(addr, size);
+}
+
+template <typename Core>
+void notify_host_read(Core&, uint64_t, size_t, long) {}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -305,6 +313,8 @@ void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, 
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
+    // The read first lets work the device is still running reach the state silicon would have by now.
+    notify_host_read(*target_core, l1_src, size, 0);
     target_core->access(l1_src, dest, size, /*is_write=*/false);
 }
 

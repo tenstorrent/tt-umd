@@ -12,6 +12,7 @@
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 
 namespace tt::umd {
+class PCIDevice;
 class TTDevice;
 
 // Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
@@ -36,6 +37,10 @@ public:
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
+
+    bool is_read_only_page_pinning_supported() const override;
+
+    bool is_iommu_enabled() const override;
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
@@ -62,6 +67,8 @@ private:
     bool pin_or_map_iommu();
 
     void print_file_contents(const std::string& filename, const std::string& hint = "");
+
+    PCIDevice* pci_device_ = nullptr;
 };
 
 }  // namespace tt::umd

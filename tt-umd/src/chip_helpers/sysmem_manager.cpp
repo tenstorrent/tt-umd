@@ -10,7 +10,6 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd-utils/internal/tracy.hpp"
-#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -98,13 +97,6 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
 }
 
 size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
-
-bool SysmemManager::is_read_only_page_pinning_supported() const {
-    // Managers without a PCI device behind them (simulation) cannot pin host pages at all.
-    return pci_device_ != nullptr && pci_device_->is_read_only_page_pinning_supported();
-}
-
-bool SysmemManager::is_iommu_enabled() const { return pci_device_ != nullptr && pci_device_->is_iommu_enabled(); }
 
 HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {

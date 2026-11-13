@@ -20,7 +20,6 @@ enum class ARCH;
 }  // namespace tt
 
 namespace tt::umd {
-class PCIDevice;
 class TTDevice;
 
 class SysmemManager : public SystemMemoryAllocator {
@@ -74,12 +73,12 @@ public:
      * @return whether this manager can pin host pages such that the device may read them but not write them,
      * i.e. whether DeviceBufferAccess::READ_ONLY is enforceable for map_sysmem_buffer().
      */
-    virtual bool is_read_only_page_pinning_supported() const;
+    virtual bool is_read_only_page_pinning_supported() const { return false; }
 
     /**
      * @return whether an IOMMU sits between this manager's device and host memory.
      */
-    bool is_iommu_enabled() const;
+    virtual bool is_iommu_enabled() const { return false; }
 
     uint64_t get_pcie_base() const { return pcie_base_; }
 
@@ -94,7 +93,6 @@ public:
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
-    PCIDevice* pci_device_ = nullptr;
     TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;

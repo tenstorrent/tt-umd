@@ -164,6 +164,12 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
 
 SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
+bool SiliconSysmemManager::is_read_only_page_pinning_supported() const {
+    return pci_device_->is_read_only_page_pinning_supported();
+}
+
+bool SiliconSysmemManager::is_iommu_enabled() const { return pci_device_->is_iommu_enabled(); }
+
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     ZoneScopedC(tracy::Color::Yellow);
     if (pci_device_->is_iommu_enabled()) {

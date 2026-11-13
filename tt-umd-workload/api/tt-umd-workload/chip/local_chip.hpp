@@ -16,7 +16,6 @@
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/chip_helpers/host_mem_channels.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/io_window/io_window.hpp"
@@ -29,6 +28,7 @@
 namespace tt::umd {
 class SocDescriptor;
 class SysmemManager;
+class SystemMemoryAllocator;
 
 class LocalChip : public Chip {
 public:
@@ -43,6 +43,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
+    SystemMemoryAllocator* get_system_memory_allocator() override;
     const HostMemChannels* get_host_mem_channels() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
@@ -86,17 +87,14 @@ public:
     int get_numa_node() override;
 
 private:
-    LocalChip(
-        std::unique_ptr<TTDevice> tt_device,
-        std::unique_ptr<SiliconSysmemManager> sysmem_manager,
-        uint32_t num_host_mem_channels,
-        bool host_mem_in_single_buffer);
+    LocalChip(std::unique_ptr<TTDevice> tt_device, uint32_t num_host_mem_channels, bool host_mem_in_single_buffer);
 
     // Allocates the channels' memory and binds channel N to NOC address noc_base + N * CHANNEL_STRIDE.
     void map_host_mem_channels();
     void unmap_host_mem_channels();
 
-    std::unique_ptr<SiliconSysmemManager> sysmem_manager_;
+    // Owned by the device model; null when the device has no host memory access.
+    SystemMemoryAllocator* system_memory_allocator_ = nullptr;
 
     HostMemChannels host_mem_channels_;
 

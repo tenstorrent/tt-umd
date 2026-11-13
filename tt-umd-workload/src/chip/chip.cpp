@@ -17,6 +17,7 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -49,6 +50,8 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
+
+SystemMemoryAllocator* Chip::get_system_memory_allocator() { return get_sysmem_manager(); }
 
 void Chip::wait_chip_to_be_ready() {
     ZoneScopedC(tracy::Color::DarkGreen);

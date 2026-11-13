@@ -16,6 +16,7 @@ class ArchitectureImplementation;
 class HangDetector;
 class JtagDevice;
 class SocArchDescriptor;
+class SystemMemoryAllocator;
 class RemoteCommunication;
 
 // Model for a Wormhole device, over any transport that reaches one. Each constructor builds the
@@ -65,6 +66,8 @@ public:
 
     PCIDevice *get_pci_device() override;
 
+    SystemMemoryAllocator *get_system_memory_allocator() override;
+
 private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
@@ -86,6 +89,9 @@ private:
 
     // Borrows the protocol and the architecture implementation, so it is declared after them.
     std::unique_ptr<ClassicTileRiscReset> risc_reset_;
+
+    // Pins through the protocol's PCIDevice, so it is declared after the protocol and destroyed first.
+    std::unique_ptr<SystemMemoryAllocator> system_memory_allocator_;
 };
 
 }  // namespace tt::umd

@@ -164,10 +164,11 @@ private:
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid) :
+SWEmuleChip::SWEmuleChip(
+    const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid, uint32_t num_host_mem_channels) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;
@@ -455,15 +456,25 @@ TTDevice* SWEmuleChip::get_tt_device() {
 
 SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-// --- Host memory (no-ops) ---
+// --- Host memory: the cluster's host channels, as a simulated chip has them ---
 
-int SWEmuleChip::get_num_host_channels() { return 0; }
+int SWEmuleChip::get_num_host_channels() { return static_cast<int>(sysmem_manager_->get_num_host_mem_channels()); }
 
-int SWEmuleChip::get_host_channel_size(std::uint32_t) { return 0; }
+int SWEmuleChip::get_host_channel_size(std::uint32_t channel) {
+    UMD_ASSERT(
+        channel < static_cast<uint32_t>(get_num_host_channels()),
+        error::RuntimeError,
+        "Querying size for a host channel that does not exist.");
+    return static_cast<int>(sysmem_manager_->get_hugepage_mapping(channel).mapping_size);
+}
 
-void SWEmuleChip::write_to_sysmem(uint16_t, const void*, uint64_t, uint32_t) {}
+void SWEmuleChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
+}
 
-void SWEmuleChip::read_from_sysmem(uint16_t, void*, uint64_t, uint32_t) {}
+void SWEmuleChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
+}
 
 // --- Multicast (not implemented) ---
 

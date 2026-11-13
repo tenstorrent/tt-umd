@@ -49,7 +49,10 @@ public:
     // chips would both call theirs chip 0 and collide on one segment. std::nullopt means "no stable
     // identity", which is why the caller must not substitute a synthesized id: an id the descriptor
     // invented per-process is not shareable, and passing one would name a colliding segment.
-    explicit SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid = std::nullopt);
+    explicit SWEmuleChip(
+        const SocDescriptor& soc_descriptor,
+        std::optional<uint64_t> chip_uid = std::nullopt,
+        uint32_t num_host_mem_channels = 0);
     ~SWEmuleChip() override;
 
     // Chip lifecycle — no-ops.
@@ -63,7 +66,7 @@ public:
 
     const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
-    // Host memory — no-ops.
+    // Host memory — the host channels the cluster asked for, in the sysmem manager.
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
@@ -158,9 +161,8 @@ private:
 
     SocDescriptor soc_descriptor_;
 
-    // Host-facing (PCIe) address resolution — an existing, already-upstream UMD class (also used
-    // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
-    // has no hugepage concept), so 0.
+    // Host memory and host-facing (PCIe) address resolution — the same UMD class TTSimTTDevice uses, with the
+    // cluster's host-memory channel count.
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     // The device surface a simulated chip has: a simulation device model (no management firmware), with its

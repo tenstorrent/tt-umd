@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 
@@ -60,18 +59,6 @@ static void report_device_locks(int device_id, IODeviceType device_type) {
 }
 
 // ── device enumeration ────────────────────────────────────────────────────────
-
-// Returns the JTAG device ids (J-Link serials), or an empty list if JTAG is not usable on this host. The J-Link
-// library it needs is loaded at runtime and is absent on most systems.
-static std::vector<int> enumerate_jtag_devices() {
-    try {
-        const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate().serials;
-        return std::vector<int>(jlink_serials.begin(), jlink_serials.end());
-    } catch (const std::exception& e) {
-        log_debug(tt::LogUMD, "JTAG devices could not be enumerated: {}", e.what());
-        return {};
-    }
-}
 
 // ── testing mode ──────────────────────────────────────────────────────────────
 
@@ -201,13 +188,6 @@ int main(int argc, char* argv[]) {
             report_device_locks(device_id, IODeviceType::PCIe);
         }
 
-        std::vector<int> jtag_device_ids = enumerate_jtag_devices();
-        log_info(tt::LogUMD, "");
-        log_info(tt::LogUMD, "=== JTAG devices found ({}) ===", jtag_device_ids.size());
-        for (int device_id : jtag_device_ids) {
-            log_info(tt::LogUMD, "  device {}", device_id);
-            report_device_locks(device_id, IODeviceType::JTAG);
-        }
     } catch (const std::exception& e) {
         log_error(tt::LogUMD, "Error: {}", e.what());
         return 1;

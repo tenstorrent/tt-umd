@@ -93,7 +93,6 @@ target_sources(
         src/tt_device/firmware/wormhole_device_firmware.cpp
         src/tt_device/protocol/pcie_protocol.cpp
         src/tt_device/protocol/kmd_protocol.cpp
-        src/tt_device/protocol/jtag_protocol.cpp
         src/tt_device/protocol/remote_protocol.cpp
         src/tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
         src/tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
@@ -124,8 +123,6 @@ target_sources(
         src/topology/ip_block_layout.cpp
         src/tt_device/remote_communication.cpp
         src/tt_device/remote_communication_legacy_firmware.cpp
-        src/jtag/jtag_device.cpp
-        src/jtag/jtag.cpp
         # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
@@ -284,8 +281,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/wormhole_telemetry.hpp
                 api/tt-umd/types/xy_pair.hpp
                 api/tt-umd/arch/wormhole_implementation.hpp
-                api/tt-umd/jtag/jtag_device.hpp
-                api/tt-umd/jtag/jtag.hpp
                 api/tt-umd/arch/grendel_implementation.hpp
     )
 endif()

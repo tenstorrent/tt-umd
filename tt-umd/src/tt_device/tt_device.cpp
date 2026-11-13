@@ -200,6 +200,8 @@ ArchitectureImplementation *TTDevice::get_architecture_implementation() { return
 // providing callers with an explicit way to check validity rather than relying on nullptr semantics.
 PCIDevice *TTDevice::get_pci_device() { return model_->get_pci_device(); }
 
+SystemMemoryAllocator *TTDevice::get_system_memory_allocator() { return model_->get_system_memory_allocator(); }
+
 RemoteCommunication *TTDevice::get_remote_communication() {
     RemoteInterface *remote_interface = model_->get_remote_interface();
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();

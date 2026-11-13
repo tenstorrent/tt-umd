@@ -54,6 +54,7 @@ class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class SystemMemoryAllocator;
 class DmaInterface;
 class JtagDevice;
 class JtagInterface;
@@ -114,6 +115,9 @@ public:
     ArchitectureImplementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
     RemoteCommunication *get_remote_communication();
+
+    // Allocates host memory this device can reach, or nullptr when the device has no host memory access.
+    SystemMemoryAllocator *get_system_memory_allocator();
 
     DeviceProtocol *get_device_protocol();
     PcieInterface *get_pcie_interface();

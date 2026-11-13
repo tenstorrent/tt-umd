@@ -30,6 +30,7 @@ class PCIDevice;
 class PcieInterface;
 class RemoteInterface;
 class SocArchDescriptor;
+class SystemMemoryAllocator;
 
 /**
  * Composition root for a single device's hardware-facing components.
@@ -67,6 +68,10 @@ public:
 
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
+
+    // Allocates host memory the device can reach. Null for a model without host memory access, such as
+    // one over JTAG.
+    virtual SystemMemoryAllocator *get_system_memory_allocator() { return nullptr; }
 
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }

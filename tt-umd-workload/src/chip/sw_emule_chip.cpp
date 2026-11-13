@@ -20,6 +20,8 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt_device_model/simulation_tt_device_model.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
@@ -122,6 +124,42 @@ std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor
     }
     return slot_of;
 }
+
+namespace {
+
+// The simulation device model (no management firmware behind it), with the chip's own windows onto its cores.
+class SWEmuleTTDeviceModel final : public SimulationTTDeviceModel {
+public:
+    explicit SWEmuleTTDeviceModel(SWEmuleChip& chip) : SimulationTTDeviceModel(chip.get_soc_descriptor()), chip_(chip) {}
+
+    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override {
+        return chip_.create_io_window(target, host);
+    }
+
+private:
+    SWEmuleChip& chip_;
+};
+
+// A simulated chip's TTDevice, as TTSim chips have one, with the chip's own memory for every access.
+class SWEmuleTTDevice final : public TTDevice {
+public:
+    explicit SWEmuleTTDevice(SWEmuleChip& chip) : TTDevice(std::make_unique<SWEmuleTTDeviceModel>(chip)), chip_(chip) {
+        set_soc_descriptor(chip.get_soc_descriptor());
+    }
+
+    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId) override {
+        chip_.read_from_device(core, mem_ptr, addr, size);
+    }
+
+    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId) override {
+        chip_.write_to_device(core, mem_ptr, addr, size);
+    }
+
+private:
+    SWEmuleChip& chip_;
+};
+
+}  // namespace
 
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
@@ -408,7 +446,12 @@ void SWEmuleChip::start_device(uint32_t) {}
 
 void SWEmuleChip::close_device() {}
 
-TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
+TTDevice* SWEmuleChip::get_tt_device() {
+    if (!tt_device_) {
+        tt_device_ = std::make_unique<SWEmuleTTDevice>(*this);
+    }
+    return tt_device_.get();
+}
 
 SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 

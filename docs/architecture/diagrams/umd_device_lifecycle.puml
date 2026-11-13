@@ -1,0 +1,19 @@
+@startuml umd_device_lifecycle
+' Device lifecycle (Section 8.4). Transitions T1..T8 are described in the table under the diagram.
+' Explicit arrow directions keep the main flow top to bottom; the recovery loop T7 points up so it does not reorder the ranks.
+hide empty description
+skinparam shadowing false
+
+[*] -down-> Discovered : T1
+Discovered -down-> Constructed : T2
+Constructed -down-> Initialized : T3
+Constructed -left-> Failed : T4
+Initialized -down-> Operational : T5
+Operational -right-> Faulted : T6
+Faulted -up-> Constructed : T7
+Operational -down-> Closed : T8
+Failed -down-> [*]
+Closed -down-> [*]
+
+Operational : read / write, firmware commands, DMA
+@enduml

@@ -1,0 +1,68 @@
+@startuml umd_static_decomposition
+' Static decomposition (Section 7). Solid arrows: required components; dashed arrows: optional components [R11].
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+package "SW-100 Workload Layer (tt-umd-workload)" {
+  component "SW-101 Cluster" as CL
+  component "SW-102 Chip (Local/Remote)" as CH
+}
+
+package "SW-200 Base Driver Layer (tt-umd)" {
+  component "SW-201 TTDevice" as TTD
+  component "SW-202 TTDeviceModel\n(WH / BH / SW-203 Grendel)" as TDM
+  component "SW-210 DeviceProtocol" as DP
+  component "SW-211 DeviceFirmware" as DF
+  component "SW-212 ArchitectureImplementation" as AI
+  component "SW-213 SocArchDescriptor" as SAD
+  component "SW-214 IoWindow" as IOW
+  component "SW-215 FirmwareInfoProvider" as FIP
+  component "SW-216 SystemMemoryAllocator/Buffer" as SMA
+  component "SW-217 ATT EndpointResolver" as EPR
+  component "SW-220 HangDetector" as HD
+  component "SW-221 FirmwareTelemetryReader" as FTR
+  component "SW-222 DmaInterface" as DMA
+  component "SW-223 PcieInterface" as PCI
+  component "SW-224 JtagInterface" as JT
+  component "SW-225 RemoteInterface" as RI
+  component "SW-226 RiscReset" as RR
+  component "SW-230 TopologyDiscovery" as TD
+  component "SW-231 SocDescriptor / CoordinateManager" as SD
+  component "SW-232 ClusterDescriptor" as CD
+  component "SW-240 LockManager / KmdMutex" as LK
+}
+
+component "SW-500 tt-umd-utils\nRobustMutex, errors, OpTimeoutGuard" as UT
+component "SW-300 UMD uAPI (tt-kmd-lib)" as UAPI
+
+CL --> CH
+CH --> TTD
+CL --> CD
+TTD --> TDM
+
+TDM --> DP
+TDM --> DF
+TDM --> AI
+TDM --> SAD
+TDM --> IOW
+TDM --> FIP
+TDM --> SMA
+
+TDM ..> EPR
+TDM ..> HD
+TDM ..> RR
+TDM ..> FTR
+TDM ..> DMA
+TDM ..> PCI
+TDM ..> JT
+TDM ..> RI
+
+TD --> TTD
+TD --> CD
+DP --> UAPI
+SMA --> UAPI
+LK --> UAPI
+LK --> UT
+@enduml

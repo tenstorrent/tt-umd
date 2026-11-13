@@ -41,8 +41,6 @@ int main(int argc, char* argv[]) {
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
-            // A bare PCIDevice rather than a TTDevice: the latter holds TLBs of its own, which would
-            // leave the summary short of the device's full pool.
             PCIDevice pci_device(pci_device_id);
             std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
             tt::ARCH arch = pci_device.get_arch();

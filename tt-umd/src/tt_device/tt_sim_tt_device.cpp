@@ -43,6 +43,17 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 
 namespace {
 
+// Boot firmware's Quasar inbound routes. TLB_APP_IN0 PA NEO_WINDOWS_BASE + (k << 24) is the first
+// 16 MiB of Tensix k in row-major order. D2D0's Keraunos IO ATT set sends PA KERAUNOS_IO_BASE + off
+// to PCIe tile address 0x2_0000_0000_0000 + off (the sysmem window), and TLB_APP_OUT0 entry 0 sends
+// that out to host address off, for off below 2^44.
+constexpr uint64_t QUASAR_NEO_WINDOWS_BASE = 0x100'0000'0000ULL;
+constexpr uint64_t QUASAR_NEO_WINDOW_SIZE = 1ULL << 24;
+constexpr uint64_t QUASAR_KERAUNOS_IO_BASE = 0x6'0000'0000'0000ULL;
+constexpr uint64_t QUASAR_APP_OUT0_ENTRY_SIZE = 1ULL << 44;
+
+constexpr uint32_t PCI_COMMAND_MEMORY_AND_BUS_MASTER = 0x6;
+
 bool sim_dram_teleport_enabled() {
     // Cache the result since this is called on every device read/write.
     static const bool enabled = [] {
@@ -157,20 +168,20 @@ void TTSimTTDevice::initialize_backend() {
         libttsim_pci_device_id);
     UMD_ASSERT(vendor_id == TT_PCI_VENDOR_ID, error::RuntimeError, "Unexpected PCI vendor ID.");
 
+    uint64_t bar2_base = 0;
+    if (libttsim_pci_device_id == TT_QUASAR_PCI_DEVICE_ID) {
+        bar0_base = read_bar_base(0x10);
+        bar2_base = read_bar_base(0x18);
+        // The chip's replies to host reads, and sysmem DMA, are outbound requests, which need Bus Master Enable.
+        communicator_->pci_config_write32(0, 0x04, PCI_COMMAND_MEMORY_AND_BUS_MASTER);
+        init_quasar_inbound_routes();
+    }
+
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
-        // Compute physical address of BAR0 from PCI config registers.
-        bar0_base = communicator_->pci_config_read32(0, 0x10);
-        bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
-        bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
+        bar0_base = read_bar_base(0x10);
 
-        // BAR4 is a 64-bit memory BAR; its base address is split across two PCI config
-        // registers -- 0x20 holds the low 32 bits, 0x24 holds the high 32 bits. The low 4 bits
-        // of the low register encode BAR attributes (memory vs IO, prefetchable, 64-bit width)
-        // and are masked off to leave the physical address.
-        bar4_base = communicator_->pci_config_read32(0, 0x20);
-        bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
-        bar4_base &= ~15ull;
+        bar4_base = read_bar_base(0x20);
 
         if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
@@ -179,7 +190,7 @@ void TTSimTTDevice::initialize_backend() {
         }
     }
 
-    init_tlb_allocator(bar0_base, bar4_base);
+    init_tlb_allocator(bar0_base, bar4_base, bar2_base);
     setup_cached_tlb_window();
 
     // The protocol is now usable: the backend is up, BAR bases are known, and the TLB window the
@@ -202,6 +213,14 @@ void TTSimTTDevice::initialize_backend() {
     // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
     // of the multichip work), which is the behaviour of the stable simulator release.
     program_iatu_for_host_mem_channels();
+}
+
+uint64_t TTSimTTDevice::read_bar_base(uint32_t config_offset) {
+    // A 64-bit memory BAR splits its base across two config registers; the low 4 bits of the low
+    // register encode BAR attributes (memory vs IO, prefetchable, 64-bit width), not address.
+    uint64_t base = communicator_->pci_config_read32(0, config_offset);
+    base |= uint64_t(communicator_->pci_config_read32(0, config_offset + 4)) << 32;
+    return base & ~15ull;
 }
 
 void TTSimTTDevice::program_iatu_for_host_mem_channels() {
@@ -253,7 +272,10 @@ TTSimTTDevice::TTSimTTDevice(
 
 std::unique_ptr<TlbWindow> TTSimTTDevice::create_tlb_window(
     int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
-    auto handle = TTSimTlbHandle::create(tlb_allocator_, communicator_.get(), tlb_index, size, mapping);
+    auto handle = TTSimTlbHandle::create(
+        tlb_allocator_, communicator_.get(), tlb_index, size, mapping, [this](tt_xy_pair core, uint64_t addr) {
+            return get_quasar_inbound_address(core, addr);
+        });
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
@@ -295,8 +317,9 @@ void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void*
 
 void TTSimTTDevice::noc_multicast_write(
     const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    // Without a TLB window there is no NOC multicast to reach, so emulate it.
-    if (!should_use_cached_tlb_window()) {
+    // Without a TLB window there is no NOC multicast to reach, so emulate it. Quasar's TLB_APP_IN0
+    // windows are unicast.
+    if (!should_use_cached_tlb_window() || get_arch() == tt::ARCH::QUASAR) {
         multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
         return;
     }
@@ -322,8 +345,37 @@ void TTSimTTDevice::noc_multicast_write(
 
 bool TTSimTTDevice::is_device_closed() { return communicator_->is_closed(); }
 
-bool TTSimTTDevice::should_use_cached_tlb_window() {
-    return get_arch() != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
+void TTSimTTDevice::init_quasar_inbound_routes() {
+    const SocDescriptor& soc_descriptor = get_soc_descriptor();
+    const std::vector<CoreCoord> pcie_cores = soc_descriptor.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED);
+    if (!pcie_cores.empty()) {
+        quasar_pcie_core_ = pcie_cores.front();
+    }
+    const auto [tensix_first, tensix_last] = soc_descriptor.get_bounding_rectangle();
+    const uint64_t columns = tensix_last.x - tensix_first.x + 1;
+    for (const CoreCoord& tensix : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        const uint64_t tensix_index = (tensix.y - tensix_first.y) * columns + (tensix.x - tensix_first.x);
+        quasar_neo_windows_[tensix] = QUASAR_NEO_WINDOWS_BASE + tensix_index * QUASAR_NEO_WINDOW_SIZE;
+    }
+}
+
+std::optional<uint64_t> TTSimTTDevice::get_quasar_inbound_address(tt_xy_pair core, uint64_t addr) const {
+    if (core == quasar_pcie_core_) {
+        // There is no outbound iATU to add the chip's host base, so it goes into the APP_IN0 address.
+        const uint64_t sysmem_window_base = sysmem_manager_->get_pcie_base();
+        const uint64_t host_address = sysmem_manager_->get_host_base() + (addr - sysmem_window_base);
+        if (addr < sysmem_window_base || host_address >= QUASAR_APP_OUT0_ENTRY_SIZE) {
+            return std::nullopt;
+        }
+        return QUASAR_KERAUNOS_IO_BASE + host_address;
+    }
+    // Tensix addresses above the first 16 MiB, and every other core, have no boot ATT set, so they stay
+    // on the tile API.
+    const auto neo_window = quasar_neo_windows_.find(core);
+    if (neo_window == quasar_neo_windows_.end() || addr >= QUASAR_NEO_WINDOW_SIZE) {
+        return std::nullopt;
+    }
+    return neo_window->second + addr;
 }
 
 void TTSimTTDevice::after_read() {

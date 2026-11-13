@@ -141,9 +141,13 @@ bool PcieProtocol::write_to_core_range(
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_device_num(); }
 
-// PCIDevice takes a bool, so the requested state is narrowed here rather than in the interface.
 void PcieProtocol::set_power_state(PowerState state) {
-    pci_device_->set_power_state(/*busy=*/state == PowerState::HIGH);
+    const bool busy = state == PowerState::HIGH;
+    PciPowerState pci_state;
+    pci_state.mrisc_phy_wakeup = busy;
+    pci_state.tensix_enable = busy;
+    pci_state.l2cpu_enable = busy;
+    pci_device_->set_power_state(pci_state);
 }
 
 void PcieProtocol::noc_multicast_write(

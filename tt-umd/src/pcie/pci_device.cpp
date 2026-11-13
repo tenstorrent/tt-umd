@@ -1205,7 +1205,7 @@ void PCIDevice::noc_write_scalar(
         fmt::format("Writing {} bytes at 0x{:x} failed: {}.", width, addr, strerror(-ret)));
 }
 
-void PCIDevice::set_power_state(bool busy) {
+void PCIDevice::set_power_state(const PciPowerState &state) {
     if (arch != tt::ARCH::BLACKHOLE) {
         return;
     }
@@ -1215,15 +1215,23 @@ void PCIDevice::set_power_state(bool busy) {
         return;
     }
 
-    constexpr uint16_t not_busy_flags = 0;
-    constexpr uint16_t busy_flags =
-        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
-    uint16_t flags = busy ? busy_flags : not_busy_flags;
+    auto to_request = [](std::optional<bool> enable) {
+        if (!enable.has_value()) {
+            return TT_POWER_UNCHANGED;
+        }
+        return *enable ? TT_POWER_ENABLE : TT_POWER_DISABLE;
+    };
+    tt_power_state_t kmd_state = {};
+    kmd_state.max_ai_clk = to_request(state.max_ai_clk);
+    kmd_state.mrisc_phy_wakeup = to_request(state.mrisc_phy_wakeup);
+    kmd_state.tensix_enable = to_request(state.tensix_enable);
+    kmd_state.l2cpu_enable = to_request(state.l2cpu_enable);
 
-    int ret = tt_device_set_power_state(tt_device_handle, flags);
-    if (ret != 0) {
-        log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
-    }
+    int ret = tt_device_set_power_state(tt_device_handle, &kmd_state);
+    UMD_ASSERT(
+        ret == 0,
+        error::RuntimeError,
+        fmt::format("Setting power state failed on device {}: {}", pci_device_num, strerror(-ret)));
 }
 
 std::vector<int> PCIDevice::get_all_device_ids() {

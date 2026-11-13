@@ -648,31 +648,48 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
 int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd);
 
 /**
- * @brief Power flags for use with tt_device_set_power_state().
+ * @brief Requested value of a single power flag.
+ *
+ * Zero-initialization yields TT_POWER_UNCHANGED.
  */
-enum tt_power_flags {
-    TT_POWER_FLAG_MAX_AI_CLK = (1U << 0),       /**< 1=Max AI Clock,  0=Min AI Clock */
-    TT_POWER_FLAG_MRISC_PHY_WAKEUP = (1U << 1), /**< 1=PHY Wakeup,    0=PHY Powerdown */
-    TT_POWER_FLAG_TENSIX_ENABLE = (1U << 2),    /**< 1=Enable Tensix, 0=Clock Gate Tensix */
-    TT_POWER_FLAG_L2CPU_ENABLE = (1U << 3)      /**< 1=Enable L2CPU,  0=Clock Gate L2CPU */
+enum tt_power_request {
+    TT_POWER_UNCHANGED = 0, /**< Do not pass this flag to the driver, which keeps its current value */
+    TT_POWER_DISABLE = 1,
+    TT_POWER_ENABLE = 2,
 };
+
+/**
+ * @brief Per-flag power requests for use with tt_device_set_power_state().
+ *
+ * A zero-initialized struct leaves every flag unchanged.
+ */
+typedef struct tt_power_state {
+    enum tt_power_request max_ai_clk;       /**< Enable=Max AI Clock,  Disable=Min AI Clock */
+    enum tt_power_request mrisc_phy_wakeup; /**< Enable=PHY Wakeup,    Disable=PHY Powerdown */
+    enum tt_power_request tensix_enable;    /**< Enable=Enable Tensix, Disable=Clock Gate Tensix */
+    enum tt_power_request l2cpu_enable;     /**< Enable=Enable L2CPU,  Disable=Clock Gate L2CPU */
+} tt_power_state_t;
 
 /**
  * @brief Set per-client power state requirements for this device file descriptor.
  *
  * Declares the power requirements of this file descriptor to the driver.
  * The driver aggregates requirements across all open file descriptors,
- * applying bitwise OR for power_flags. When the file descriptor is closed,
- * its contribution is removed.
+ * enabling a domain if any of them requests it. When the file descriptor is
+ * closed, its contribution is removed.
+ *
+ * The driver takes a count of leading valid flags, so TT_POWER_UNCHANGED is
+ * only possible for the trailing flags of tt_power_state_t (declaration order).
+ * An unchanged flag followed by a changed one is rejected with -EINVAL.
  *
  * Opening the device with O_APPEND opts out of legacy mode, allowing the
  * device to enter low-power idle states when no client holds power flags.
  *
- * @param dev        Device handle
- * @param power_flags Bitmask of TT_POWER_FLAG_* values
- * @return 0 on success, negative error code on failure
+ * @param dev   Device handle
+ * @param state Requested changes; must not be NULL
+ * @return 0 on success, -EINVAL on an unsupported unchanged flag, other negative error code on failure
  */
-int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
+int tt_device_set_power_state(tt_device_t* dev, const tt_power_state_t* state);
 
 /**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.

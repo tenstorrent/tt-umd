@@ -53,6 +53,17 @@ struct PciDeviceInfo {
     // onto this struct as methods?  e.g. current_link_width etc.
 };
 
+/**
+ * Requested value of each power flag. A flag left as std::nullopt is not passed to the KMD, which can only leave
+ * trailing flags (in declaration order) unchanged.
+ */
+struct PciPowerState {
+    std::optional<bool> max_ai_clk;        // true: max AI clock, false: min AI clock.
+    std::optional<bool> mrisc_phy_wakeup;  // true: PHY wakeup, false: PHY powerdown.
+    std::optional<bool> tensix_enable;     // true: enable Tensix, false: clock gate Tensix.
+    std::optional<bool> l2cpu_enable;      // true: enable L2CPU, false: clock gate L2CPU.
+};
+
 struct DmaBuffer {
     uint8_t *buffer = nullptr;
     uint8_t *completion = nullptr;
@@ -426,14 +437,15 @@ public:
     void noc_write_scalar(uint64_t addr, uint64_t value, uint32_t width, NocAddressSpace space);
 
     /**
-     * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
-     * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
-     * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.
+     * Set the power requirements of this device via the KMD power API (requires KMD >= 2.6.0).
+     * The KMD enables a power domain while any client requests it, and drops this client's requests when the device
+     * is closed. Releasing all flags allows the device to enter a low-power idle state.
      * Has no effect on KMD versions older than 2.6.0. Has no effect on non-Blackhole devices.
      *
-     * @param busy true to request full power, false to release power flags.
+     * @param state Flags to change; unset flags keep their last requested value.
+     * @throws error::RuntimeError if the KMD rejects the request.
      */
-    void set_power_state(bool busy);
+    void set_power_state(const PciPowerState &state);
 
     /**
      * Get the tt_device handle for low-level operations.

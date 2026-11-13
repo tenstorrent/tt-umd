@@ -416,12 +416,7 @@ uint64_t WormholeDeviceFirmware::get_legacy_telemetry_noc_addr(NocId noc_id) {
 }
 
 void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
-    // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
-    // which matches what TTDevice::set_power_state did by returning early for them.
-    if (pcie_interface_ == nullptr) {
-        return;
-    }
-    pcie_interface_->set_power_state(state);
+    // Not available on Wormhole.
 }
 
 void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {

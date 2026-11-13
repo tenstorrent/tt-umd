@@ -792,11 +792,36 @@ int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint6
     return 0;
 }
 
-int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
+int tt_device_set_power_state(tt_device_t* dev, const tt_power_state_t* state) {
+    /* Ordered by flag bit position. */
+    const enum tt_power_request requests[] = {
+        state->max_ai_clk, state->mrisc_phy_wakeup, state->tensix_enable, state->l2cpu_enable};
+
+    const unsigned request_count = sizeof(requests) / sizeof(requests[0]);
+
+    /* The kernel's validity field counts leading flag bits, so a flag can only be left unchanged by lying beyond the
+     * last flag passed. */
+    unsigned valid_count = 0;
+    for (unsigned i = 0; i < request_count; i++) {
+        if (requests[i] != TT_POWER_UNCHANGED) {
+            valid_count = i + 1;
+        }
+    }
+
+    uint16_t power_flags = 0;
+    for (unsigned i = 0; i < valid_count; i++) {
+        if (requests[i] == TT_POWER_UNCHANGED) {
+            return -EINVAL;
+        }
+        if (requests[i] == TT_POWER_ENABLE) {
+            power_flags |= 1U << i;
+        }
+    }
+
     struct tenstorrent_power_state ps = {0};
     ps.argsz = sizeof(ps);
     ps.flags = 0;
-    ps.validity = TT_POWER_VALIDITY(4, 0);
+    ps.validity = TT_POWER_VALIDITY(valid_count, 0);
     ps.power_flags = power_flags;
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_SET_POWER_STATE, &ps) != 0) {

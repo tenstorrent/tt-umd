@@ -354,7 +354,7 @@ TEST(EmuTTDevice, KeraunosHartResetLeavesTheUncore) {
 
 // Whether each Keraunos ethernet core owns its own control window.
 //
-// The descriptor lists CCE0 on each HSIO tile. Each core's PF_CTRL must be its own register, and
+// The descriptor lists each CCE of each HSIO tile as a core. Each core's PF_CTRL must be its own register, and
 // holding one core's harts must leave every other core's reset word alone.
 //
 // Harts stay held at the end. A released hart fetches, and that fetch can stall the AXI master for

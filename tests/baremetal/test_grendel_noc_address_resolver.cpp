@@ -243,17 +243,23 @@ TEST(GrendelNocAddressResolver, MimirCceDmriscRemapUsesPackageWindows) {
     EXPECT_EQ(second[2].region_start, 0x1000200000000ULL);
 }
 
-// mmk.yaml records one core per HSIO tile 0-3, each spanning both CCEs. Tile 0 TL1 is 0x22800000,
-// tiles are 0x4000000 apart, and CCE1 SRAM follows CCE0's 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
+// mmk.yaml records one core per CCE of HSIO tiles 0-3: column 4 is CCE0 and column 5 is CCE1. Tile 0 TL1 is
+// 0x22800000, tiles are 0x4000000 apart, and CCE1 SRAM follows CCE0's 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
 // Control is the HSIO tile base 0x20000000, not that SRAM window, and CCE1's is 16 MiB above it.
 TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
     const SocDescriptor mmk(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
     const GrendelNocAddressResolver resolver(mmk, mimir_local_address_windows(mmk));
     const std::vector<CoreCoord> eth = mmk.get_cores(CoreType::ETH);
-    ASSERT_EQ(eth.size(), 4u);
-    const CoreCoord& hsio0_eth_cce0 = eth[0];
-    const CoreCoord& hsio2_eth_cce0 = eth[2];
-    const CoreCoord& hsio3_eth_cce0 = eth[3];
+    ASSERT_EQ(eth.size(), 8u);
+    const auto core_at = [&eth](uint32_t x, uint32_t y) {
+        const auto it = std::find_if(eth.begin(), eth.end(), [&](const CoreCoord& c) { return c.x == x && c.y == y; });
+        EXPECT_NE(it, eth.end());
+        return it != eth.end() ? *it : eth.front();
+    };
+    const CoreCoord hsio0_eth_cce0 = core_at(4, 0);
+    const CoreCoord hsio2_eth_cce0 = core_at(4, 2);
+    const CoreCoord hsio3_eth_cce0 = core_at(4, 3);
+    const CoreCoord hsio2_eth_cce1 = core_at(5, 2);
 
     constexpr uint64_t kOffset = 0x800;
     EXPECT_EQ(resolver.keraunos_sram_address(hsio0_eth_cce0, kOffset), 0x22800000ULL + kOffset);
@@ -264,14 +270,13 @@ TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
     EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, 0), 0x28000000ULL);
     EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x28200000ULL);
     EXPECT_EQ(resolver.keraunos_control_address(hsio3_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET), 0x2C200000ULL);
-    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_eth_cce0, 0x400000 + kOffset), 0x2AC00000ULL + kOffset);
-    EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce0, 0, /*eth_cce_in_core=*/1), 0x29000000ULL);
+    EXPECT_EQ(resolver.keraunos_sram_address(hsio2_eth_cce1, kOffset), 0x2AC00000ULL + kOffset);
+    EXPECT_EQ(resolver.keraunos_control_address(hsio2_eth_cce1, 0), 0x29000000ULL);
     EXPECT_EQ(
-        resolver.keraunos_control_address(hsio2_eth_cce0, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET, /*eth_cce_in_core=*/1),
+        resolver.keraunos_control_address(hsio2_eth_cce1, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET),
         0x29200000ULL);
-    EXPECT_THROW(resolver.keraunos_control_address(hsio2_eth_cce0, 0, /*eth_cce_in_core=*/2), std::exception);
 
-    // Column 4 is outside the Mimir mesh. It must not pick up a config slot.
+    // Columns 4 and 5 are outside the Mimir mesh. They must not pick up a config slot.
     EXPECT_THROW(resolver.get_windows().config_address(hsio0_eth_cce0.x, hsio0_eth_cce0.y, 0), std::exception);
 
     // Mimir CCE0 on channel 0 is still the chiplet-local SRAM base.

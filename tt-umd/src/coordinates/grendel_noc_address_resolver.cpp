@@ -247,6 +247,12 @@ uint64_t GrendelNocAddressResolver::keraunos_sram_address(const CoreCoord& core,
     const KeraunosChiplet& keraunos = soc_descriptor_->get_arch_descriptor().get_keraunos();
     const KeraunosCore& found = require_keraunos_core(*soc_descriptor_, core);
     const uint64_t region_size = soc_descriptor_->get_arch_descriptor().get_eth_l1_size();
+    // A core's SRAM is addressed by an offset in [0, region_size), or by the CCE's native view, where its SRAM sits
+    // at eth_cce * region_size (4 MiB for CCE1). Firmware and kernels are linked at native addresses.
+    const uint64_t native_base = static_cast<uint64_t>(found.eth_cce) * region_size;
+    if (offset >= native_base && offset - native_base < region_size) {
+        offset -= native_base;
+    }
     UMD_ASSERT(
         keraunos.local_window.has_value() && keraunos.tile_stride.has_value() && region_size > 0 &&
             offset < region_size,

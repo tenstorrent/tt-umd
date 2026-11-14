@@ -75,13 +75,18 @@ TEST(GrendelFlatAddress, KeraunosSramAndControlUseTheK0Transport) {
     EXPECT_EQ(mimir0->mem.count(control), 0u);
     EXPECT_EQ(mimir1->mem.count(control), 0u);
 
-    // The core spans both CCEs: CCE1's SRAM and control slot are on the same socket.
-    const uint64_t eth_cce1_sram = resolver.to_flat_address(eth, 0x400000 + kOffset, NocId::NOC0);
+    // CCE1 of the tile is its own core, (5, 0): its SRAM and control slot follow CCE0's, on the same socket.
+    const std::vector<CoreCoord> eth_cores = soc_descriptor.get_cores(CoreType::ETH);
+    const auto eth_cce1_it =
+        std::find_if(eth_cores.begin(), eth_cores.end(), [](const CoreCoord& c) { return c.x == 5 && c.y == 0; });
+    ASSERT_NE(eth_cce1_it, eth_cores.end());
+    const CoreCoord eth_cce1 = *eth_cce1_it;
+    const uint64_t eth_cce1_sram = resolver.to_flat_address(eth_cce1, kOffset, NocId::NOC0);
     ASSERT_EQ(eth_cce1_sram, 0x22C00800ULL);
     transport->write(eth_cce1_sram, &sram_value, sizeof(sram_value));
     EXPECT_EQ(keraunos->mem[eth_cce1_sram], sram_value);
     const uint64_t eth_cce1_control =
-        resolver.keraunos_control_address(eth, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET, /*eth_cce_in_core=*/1);
+        resolver.keraunos_control_address(eth_cce1, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
     ASSERT_EQ(eth_cce1_control, 0x21200000ULL);
     transport->write(eth_cce1_control, &control_value, sizeof(control_value));
     EXPECT_EQ(keraunos->mem[eth_cce1_control], control_value);

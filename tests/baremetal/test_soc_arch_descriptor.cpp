@@ -518,11 +518,14 @@ TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
     EXPECT_EQ(*keraunos.local_window, 0x22800000u);
     ASSERT_TRUE(keraunos.tile_stride.has_value());
     EXPECT_EQ(*keraunos.tile_stride, 0x4000000u);
-    ASSERT_EQ(keraunos.cores.size(), 4u);
+    EXPECT_EQ(keraunos.eth_cces_per_core, 1u);
+    // One core per CCE: column 4 is CCE0 and column 5 is CCE1 of HSIO tiles 0-3.
+    ASSERT_EQ(keraunos.cores.size(), 8u);
     for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {
-        EXPECT_EQ(keraunos.cores[i].coord, tt_xy_pair(4, i));
-        EXPECT_EQ(keraunos.cores[i].hsio, i);
-        EXPECT_EQ(keraunos.cores[i].eth_cce, 0u);
+        const uint32_t eth_cce = i / 4;
+        EXPECT_EQ(keraunos.cores[i].coord, tt_xy_pair(4 + eth_cce, i % 4));
+        EXPECT_EQ(keraunos.cores[i].hsio, i % 4);
+        EXPECT_EQ(keraunos.cores[i].eth_cce, eth_cce);
     }
     ASSERT_EQ(desc.get_eth_cores().size(), keraunos.cores.size());
     for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {

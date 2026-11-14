@@ -114,7 +114,11 @@ bool keraunos_ethernet(TTDevice &device, CoreCoord core) {
 // of that CCE so they share the same entry point.
 bool TTDevice::apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     // The SRAM clear is one large store at the same address. Only a register-width write is the vector.
-    const uint32_t eth_cce_in_core = static_cast<uint32_t>(addr / grendel::KERAUNOS_CCE_SRAM_SIZE);
+    // The vector plane is the start of the core's CCE SRAM, in either the 0-based or the native (eth_cce * 4 MiB) view.
+    const uint32_t eth_cce_in_core =
+        get_soc_descriptor().get_arch_descriptor().get_keraunos().eth_cces_per_core > 1
+            ? static_cast<uint32_t>(addr / grendel::KERAUNOS_CCE_SRAM_SIZE)
+            : 0;
     const uint64_t vector_offset = addr % grendel::KERAUNOS_CCE_SRAM_SIZE;
     if (size > sizeof(uint64_t) || vector_offset >= grendel::CCE_NUM_HARTS * grendel::CCE_HART_RESET_VECTOR_STRIDE) {
         return false;

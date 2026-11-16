@@ -569,7 +569,7 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        IoOrdering ordering = IoOrdering::Relaxed,
+        IoOrdering ordering = IoOrdering::RELAXED,
         NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);

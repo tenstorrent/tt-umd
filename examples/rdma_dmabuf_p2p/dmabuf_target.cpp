@@ -54,13 +54,13 @@ void print_usage() {
 
 IoOrdering parse_ordering(const std::string& name) {
     if (name == "relaxed") {
-        return IoOrdering::Relaxed;
+        return IoOrdering::RELAXED;
     }
     if (name == "posted") {
-        return IoOrdering::Posted;
+        return IoOrdering::POSTED;
     }
     if (name == "strict") {
-        return IoOrdering::Strict;
+        return IoOrdering::STRICT;
     }
     throw std::runtime_error("--ordering must be relaxed, posted or strict, got '" + name + "'");
 }

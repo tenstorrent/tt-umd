@@ -287,15 +287,44 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}/*.${{ matrix.image.package_ext }}
           if-no-files-found: error
 
+  build-python-sdist:
+    name: Build Python sdist
+    needs: prepare-release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      # Lets pip build tt-umd from source on hosts without a published wheel (e.g. riscv64,
+      # or Python versions newer than the wheel matrix). Third-party C++ dependencies are
+      # fetched by CPM at build time, so building from the sdist needs network access.
+      - name: Build sdist
+        run: |
+          python -m pip install build
+          python -m build --sdist --outdir ${{ env.WHEEL_OUTPUT_DIR }}
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-sdist
+          path: ${{ env.WHEEL_OUTPUT_DIR }}/*.tar.gz
+          if-no-files-found: error
+
   build-python-wheels:
     name: Build Python Wheel (manylinux ${{ matrix.arch }})
     needs: prepare-release
-    timeout-minutes: 60
+    # riscv64 builds under QEMU emulation and needs far longer than the native jobs.
+    timeout-minutes: ${{ matrix.arch == 'riscv64' && 330 || 60 }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        arch: [x86_64, aarch64, riscv64]
     # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    # GitHub has no riscv64 runners: riscv64 wheels build on x86_64 under QEMU.
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
 
     steps:
@@ -307,6 +336,12 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.10'
+
+      - name: Set up QEMU (riscv64)
+        if: matrix.arch == 'riscv64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: riscv64
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel
@@ -320,6 +355,10 @@ jobs:
           # cibuildwheel picks the image matching the architecture being built.
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
           CIBW_MANYLINUX_AARCH64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux-aarch64:latest
+          # riscv64: the stock pypa manylinux_2_39 image (the oldest manylinux with riscv64) plus
+          # the same packages the custom x86_64/aarch64 images add. Its system GCC is new enough.
+          CIBW_MANYLINUX_RISCV64_IMAGE: manylinux_2_39
+          CIBW_BEFORE_ALL_LINUX: ${{ matrix.arch == 'riscv64' && 'dnf install -y ninja-build hwloc-devel vim-common' || '' }}
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -338,7 +377,7 @@ jobs:
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
-    needs: [prepare-release, build-python-wheels, build-cpp-artifacts]
+    needs: [prepare-release, build-python-wheels, build-python-sdist, build-cpp-artifacts]
     runs-on: ubuntu-22.04
 
     environment:
@@ -364,7 +403,7 @@ jobs:
 
   publish-to-pypi:
     name: Publish Python 🐍 distribution 📦 to PyPI
-    needs: [prepare-release, build-python-wheels, build-cpp-artifacts, publish-to-testpypi]
+    needs: [prepare-release, build-python-wheels, build-python-sdist, build-cpp-artifacts, publish-to-testpypi]
     runs-on: ubuntu-22.04
 
     environment:
@@ -394,7 +433,7 @@ jobs:
       contents: write
       packages: write
       id-token: write
-    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi, publish-to-pypi]
+    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, build-python-sdist, publish-to-testpypi, publish-to-pypi]
     outputs:
       upload_url: ${{ steps.release.outputs.upload_url }}
       release_url: ${{ steps.release.outputs.url }}
@@ -415,6 +454,7 @@ jobs:
 
           # Copy and organize all artifacts
           find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "tt_umd-*.tar.gz" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.deb" -exec cp {} ./final-assets/ \;
           find ./release-artifacts -type f -name "*.rpm" -exec cp {} ./final-assets/ \;
 

@@ -61,6 +61,15 @@ private:
     bool pin_or_map_hugepages();
     bool pin_or_map_iommu();
 
+    /**
+     * Sysmem for DMA-non-coherent hosts (PCIDevice::is_dma_coherent() == false): hugepages and IOMMU-pinned pages
+     * are cacheable, so the device and host would see stale data. Channel 0 is instead backed by one uncached KMD DMA
+     * buffer (MAX_DMA_BUF_SIZE, 256 MiB), mapped into the NOC window bottom-up at pcie_base_.
+     */
+    bool init_kmd_dma(uint32_t num_host_mem_channels);
+    void* kmd_dma_mapping_ = nullptr;
+    size_t kmd_dma_size_ = 0;
+
     void print_file_contents(const std::string& filename, const std::string& hint = "");
 };
 

@@ -155,6 +155,9 @@ SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_hos
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
     ZoneScopedC(tracy::Color::Yellow);
+    if (kmd_dma_mapping_ != nullptr) {
+        return true;  // Mapped into the NOC window when it was allocated.
+    }
     if (pci_device_->is_iommu_enabled()) {
         return pin_or_map_iommu();
     } else {
@@ -166,18 +169,66 @@ SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_u
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     ZoneScopedC(tracy::Color::Yellow);
-    if (pci_device_->is_iommu_enabled()) {
+    // Checked before the IOMMU: translation does not make DMA cache-coherent.
+    if (pci_device_->uses_uncached_sysmem()) {
+        return init_kmd_dma(num_host_mem_channels);
+    } else if (pci_device_->is_iommu_enabled()) {
         return init_iommu(num_host_mem_channels);
     } else {
         return init_hugepages(num_host_mem_channels);
     }
 }
 
+bool SiliconSysmemManager::init_kmd_dma(uint32_t num_host_mem_channels) {
+    if (num_host_mem_channels == 0) {
+        return true;
+    }
+    if (num_host_mem_channels > 1) {
+        log_warning(
+            LogUMD,
+            "Non-coherent host DMA: sysmem provides 1 host memory channel; {} requested. Only channel 0 is backed.",
+            num_host_mem_channels);
+    }
+    // KMD caps one DMA buffer at 256 MiB (MAX_DMA_BUF_SIZE_LOG2 = 28). Buffer index 255 stays clear of indices other
+    // users pick from 0 upwards (e.g. the PCIe DMA buffer).
+    constexpr size_t kmd_dma_size = size_t(1) << 28;
+    auto [mapping, dma_address, noc_address] = pci_device_->allocate_noc_dma_buffer(kmd_dma_size, 255);
+    if (noc_address != pcie_base_) {
+        munmap(mapping, kmd_dma_size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Non-coherent host DMA: sysmem buffer mapped at NOC address {:#x}, expected {:#x}. This needs KMD "
+                ">= 2.13 (ALLOCATE_DMA_BUF_NOC_BOTTOM_UP) and no other process holding the sysmem NOC window.",
+                noc_address,
+                pcie_base_));
+    }
+    kmd_dma_mapping_ = mapping;
+    kmd_dma_size_ = kmd_dma_size;
+    hugepage_mapping_per_channel.resize(1);
+    hugepage_mapping_per_channel[0] = {mapping, kmd_dma_size, dma_address};
+    log_info(
+        LogUMD,
+        "Sysmem: {:#x}-byte uncached KMD DMA buffer (host DMA is not cache-coherent; IOMMU {}), DMA address {:#x}, "
+        "NOC address {:#x}",
+        kmd_dma_size,
+        pci_device_->is_iommu_enabled() ? "on" : "off",
+        dma_address,
+        noc_address);
+    TracyAllocN(mapping, kmd_dma_size, "Sysmem");
+    return true;
+}
+
 void SiliconSysmemManager::unpin_or_unmap_sysmem() {
     ZoneScopedC(tracy::Color::Yellow);
     // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
-    if (iommu_mapping != nullptr) {
+    if (kmd_dma_mapping_ != nullptr) {
+        // The KMD frees the buffer and its NOC window when the device fd closes; only drop our view.
+        TracyFreeN(kmd_dma_mapping_, "Sysmem");
+        munmap(kmd_dma_mapping_, kmd_dma_size_);
+        kmd_dma_mapping_ = nullptr;
+    } else if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that HugepageMappings are faked, so don't unmap them.
         TracyFreeN(iommu_mapping, "Sysmem");

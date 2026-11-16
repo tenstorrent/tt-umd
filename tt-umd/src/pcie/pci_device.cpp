@@ -199,7 +199,7 @@ PciDeviceInfo PCIDevice::read_device_info(const std::string &device_path) {
 
     std::string pci_bdf = get_pci_bdf(static_cast<uint16_t>(attrs.pci_domain), bus, dev, fn);
 
-    return PciDeviceInfo{
+    PciDeviceInfo device_info{
         static_cast<uint16_t>(attrs.pci_vendor_id),
         static_cast<uint16_t>(attrs.pci_device_id),
         static_cast<uint16_t>(attrs.pci_subsystem_vendor_id),
@@ -210,6 +210,8 @@ PciDeviceInfo PCIDevice::read_device_info(const std::string &device_path) {
         fn,
         pci_bdf,
         get_physical_slot_for_pcie_bdf(pci_bdf)};
+    device_info.dma_noncoherent = attrs.dma_noncoherent != 0;
+    return device_info;
 }
 
 static void send_reset_ioctl(int device_id, uint32_t flags) {
@@ -450,11 +452,12 @@ void PCIDevice::construct_resources() {
 
     log_debug(
         LogUMD,
-        "Opened PCI device {}; KMD version: {} (API version: {}); IOMMU: {}",
+        "Opened PCI device {}; KMD version: {} (API version: {}); IOMMU: {}; DMA: {}",
         pci_device_num,
         kmd_version.to_string(),
         driver_api_version,
-        iommu_enabled ? "enabled" : "disabled");
+        iommu_enabled ? "enabled" : "disabled",
+        is_dma_coherent() ? "coherent" : "non-coherent");
 
     UMD_ASSERT(
         arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
@@ -1025,6 +1028,33 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
     }
 }
 
+bool PCIDevice::is_dma_coherent() const {
+    if (const char *env = std::getenv("TT_UMD_DMA_NONCOHERENT"); env != nullptr && env[0] != '\0') {
+        return env[0] == '0';
+    }
+    return !info.dma_noncoherent;
+}
+
+bool PCIDevice::uses_uncached_sysmem() const {
+    // Single policy point for non-coherent hosts. Without host cache maintenance the uncached KMD buffer is the only
+    // safe sysmem; a cache-maintenance path would make this false where it is usable.
+    return !is_dma_coherent();
+}
+
+std::tuple<void *, uint64_t, uint64_t> PCIDevice::allocate_noc_dma_buffer(size_t size, uint8_t buf_index) {
+    void *mapping = nullptr;
+    uint64_t dma_address = 0;
+    uint64_t noc_address = 0;
+    int ret =
+        tt_allocate_dma_buf(tt_device_handle, buf_index, size, TT_DMA_FLAG_NOC, &mapping, &dma_address, &noc_address);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to allocate a {:#x}-byte NOC-mapped KMD DMA buffer: {}", size, strerror(-ret)));
+    }
+    return {mapping, dma_address, noc_address};
+}
+
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
     const uint64_t page_size = static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
     const uint64_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
@@ -1071,7 +1101,9 @@ void PCIDevice::allocate_pcie_dma_buffer() {
     while (dma_buf_size >= page_size) {
         bool dma_buf_allocation_success = false;
 
-        if (is_iommu_enabled()) {
+        // The IOMMU path pins cacheable user memory, which non-coherent hosts would read stale; the KMD buffer is
+        // uncached there and works with or without translation.
+        if (is_iommu_enabled() && is_dma_coherent()) {
             dma_buf_allocation_success = try_allocate_pcie_dma_buffer_iommu(dma_buf_size);
         } else {
             dma_buf_allocation_success = try_allocate_pcie_dma_buffer_no_iommu(dma_buf_size);

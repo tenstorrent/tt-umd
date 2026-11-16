@@ -57,15 +57,20 @@ size_t get_host_mem_channel_size(tt::ARCH arch, size_t channel) {
                                                            : HostMemChannels::CHANNEL_STRIDE;
 }
 
+// Channels sit CHANNEL_STRIDE apart, so one buffer backing the first num_channels spans this much.
+size_t get_host_mem_channels_span(tt::ARCH arch, size_t num_channels) {
+    return (num_channels - 1) * HostMemChannels::CHANNEL_STRIDE + get_host_mem_channel_size(arch, num_channels - 1);
+}
+
 struct HostMemChannelPlan {
     uint32_t num_channels = 0;
-    // One buffer for all channels when the allocator has no limit. A limited allocator backs each channel with its own
-    // hugepage, so it gets one buffer per channel.
+    // One buffer for all channels when the allocator can hold one that spans them. Otherwise a limited allocator backs
+    // each channel with its own hugepage, so it gets one buffer per channel.
     bool single_buffer = false;
 };
 
 HostMemChannelPlan plan_host_mem_channels(
-    const SystemMemoryAllocator& allocator, uint32_t requested_channels, int device_id) {
+    const SystemMemoryAllocator& allocator, tt::ARCH arch, uint32_t requested_channels, int device_id) {
     UMD_ASSERT(
         requested_channels <= HostMemChannels::MAX_CHANNELS,
         error::RuntimeError,
@@ -76,10 +81,12 @@ HostMemChannelPlan plan_host_mem_channels(
     if (requested_channels == 0) {
         return {};
     }
-    const std::optional<size_t> max_channels = allocator.get_max_buffer_count(HostMemChannels::CHANNEL_STRIDE);
-    if (!max_channels.has_value()) {
+    const std::optional<size_t> max_spanning_buffers =
+        allocator.get_max_buffer_count(get_host_mem_channels_span(arch, requested_channels));
+    if (!max_spanning_buffers.has_value() || *max_spanning_buffers > 0) {
         return {requested_channels, /*single_buffer=*/true};
     }
+    const std::optional<size_t> max_channels = allocator.get_max_buffer_count(HostMemChannels::CHANNEL_STRIDE);
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -87,7 +94,8 @@ HostMemChannelPlan plan_host_mem_channels(
     // application might try to use the channels it asked for.  We should
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
-    const auto num_channels = static_cast<uint32_t>(std::min<size_t>(requested_channels, *max_channels));
+    const auto num_channels =
+        static_cast<uint32_t>(std::min<size_t>(requested_channels, max_channels.value_or(requested_channels)));
     if (num_channels < requested_channels) {
         log_warning(
             LogUMD,
@@ -139,6 +147,32 @@ void check_channel_noc_address(
             expected_noc_address));
 }
 
+// Allocates the buffer backing the channels starting at first_channel, and checks it landed where those channels are
+// expected on the NOC.
+std::unique_ptr<SysmemBuffer> allocate_host_mem_buffer(
+    const std::function<std::unique_ptr<SysmemBuffer>()>& allocate,
+    uint64_t expected_noc_address,
+    size_t first_channel,
+    int device_id) {
+    std::unique_ptr<SysmemBuffer> buffer;
+    try {
+        buffer = allocate();
+    } catch (const std::exception& e) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to allocate host memory channel {} for device {}: {}", first_channel, device_id, e.what()));
+    }
+    check_channel_noc_address(buffer->get_noc_address(), expected_noc_address, first_channel, device_id);
+    log_debug(
+        LogUMD,
+        "Mapped host memory channel {} at IOVA {:#x} to NOC address {:#x}",
+        first_channel,
+        buffer->get_iova(),
+        *buffer->get_noc_address());
+    return buffer;
+}
+
 }  // namespace
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
@@ -149,8 +183,8 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
     }
 
     if (SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator()) {
-        channel_plan =
-            plan_host_mem_channels(*allocator, num_host_mem_channels, tt_device->get_communication_device_id());
+        channel_plan = plan_host_mem_channels(
+            *allocator, tt_device->get_arch(), num_host_mem_channels, tt_device->get_communication_device_id());
     }
 
     return std::unique_ptr<LocalChip>(
@@ -283,13 +317,14 @@ void LocalChip::map_host_mem_channels() {
     if (host_mem_in_single_buffer_) {
         // One buffer bound to the NOC places channel N at its expected NOC address, as long as the buffer itself
         // lands at noc_base.
-        const size_t size =
-            (num_channels - 1) * HostMemChannels::CHANNEL_STRIDE + get_host_mem_channel_size(arch, num_channels - 1);
-        std::unique_ptr<SysmemBuffer> buffer = system_memory_allocator_->allocate_buffer(size, /*bind_to_noc=*/true);
-        check_channel_noc_address(buffer->get_noc_address(), noc_base, 0, device_id);
-        log_debug(
-            LogUMD, "Mapped sysmem to IOVA {:#x}; NOC address {:#x}", buffer->get_iova(), *buffer->get_noc_address());
-
+        std::unique_ptr<SysmemBuffer> buffer = allocate_host_mem_buffer(
+            [&] {
+                return system_memory_allocator_->allocate_buffer(
+                    get_host_mem_channels_span(arch, num_channels), /*bind_to_noc=*/true);
+            },
+            noc_base,
+            0,
+            device_id);
         auto* base = static_cast<uint8_t*>(buffer->get_va());
         for (size_t channel = 0; channel < num_channels; channel++) {
             host_mem_channels_.map_channel(
@@ -309,26 +344,14 @@ void LocalChip::map_host_mem_channels() {
         "Host memory channels need a silicon sysmem manager to allocate one buffer per channel.");
     for (size_t channel = 0; channel < num_channels; channel++) {
         const size_t channel_size = get_host_mem_channel_size(arch, channel);
-        std::unique_ptr<SysmemBuffer> buffer;
-        try {
-            buffer = silicon_sysmem_manager->allocate_channel_buffer(static_cast<uint32_t>(channel), channel_size);
-        } catch (const std::exception& e) {
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "Failed to allocate host memory channel {} for device {}: {}", channel, device_id, e.what()));
-        }
-
         // The truncated channel is the final one, so the channels before it all sit on the CHANNEL_STRIDE grid.
-        check_channel_noc_address(
-            buffer->get_noc_address(), noc_base + channel * HostMemChannels::CHANNEL_STRIDE, channel, device_id);
-        log_debug(
-            LogUMD,
-            "Mapped host memory channel {} at IOVA {:#x} to NOC address {:#x}",
+        std::unique_ptr<SysmemBuffer> buffer = allocate_host_mem_buffer(
+            [&] {
+                return silicon_sysmem_manager->allocate_channel_buffer(static_cast<uint32_t>(channel), channel_size);
+            },
+            noc_base + channel * HostMemChannels::CHANNEL_STRIDE,
             channel,
-            buffer->get_iova(),
-            *buffer->get_noc_address());
-
+            device_id);
         host_mem_channels_.map_channel(channel, buffer->get_va(), channel_size);
         host_mem_channel_buffers_.push_back(std::move(buffer));
     }

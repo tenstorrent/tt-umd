@@ -2,6 +2,7 @@ set(API_TESTS_SRCS
     test_cluster_descriptor.cpp
     test_soc_descriptor.cpp
     test_dma_zero_copy_async.cpp
+    test_dma_queue.cpp
     test_grendel_device_io.cpp
     test_grendel_att_fold.cpp
     test_device_memcpy.cpp

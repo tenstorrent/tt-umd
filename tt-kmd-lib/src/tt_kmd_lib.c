@@ -573,6 +573,54 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     return 0;
 }
 
+int tt_dma_set_windows(tt_device_t* dev, uint64_t size, uint32_t count, uint64_t* out_size, uint32_t* out_count) {
+    struct tenstorrent_set_dma_windows set;
+
+    memset(&set, 0, sizeof(set));
+    set.in.size = size;
+    set.in.count = count;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_SET_DMA_WINDOWS, &set) != 0) {
+        return -errno;
+    }
+
+    if (out_size) {
+        *out_size = set.out.size;
+    }
+    if (out_count) {
+        *out_count = set.out.granted;
+    }
+
+    return 0;
+}
+
+_Static_assert(sizeof(tt_dma_write_desc_t) == sizeof(struct tenstorrent_dma_desc), "DMA descriptor layout mismatch");
+_Static_assert(TT_DMA_WRITE_MAX_DESCS == TENSTORRENT_DMA_WRITE_MAX_DESCS, "DMA descriptor limit mismatch");
+
+// Layout of struct io_uring_sqe for IORING_OP_URING_CMD, spelled out because
+// the kernel headers of older distributions do not have the command fields.
+#define TT_SQE_SIZE 64
+#define TT_SQE_FD_OFFSET 4
+#define TT_SQE_CMD_OP_OFFSET 8
+#define TT_SQE_CMD_OFFSET 48
+#define TT_IORING_OP_URING_CMD 46
+
+void tt_dma_write_prep(tt_device_t* dev, void* sqe, const tt_dma_write_desc_t* descs, uint32_t count) {
+    uint8_t* raw = sqe;
+    const uint32_t cmd_op = TENSTORRENT_URING_CMD_DMA_WRITE;
+    struct tenstorrent_dma_write write;
+
+    memset(&write, 0, sizeof(write));
+    write.descs = (uint64_t)(uintptr_t)descs;
+    write.count = count;
+
+    memset(raw, 0, TT_SQE_SIZE);
+    raw[0] = TT_IORING_OP_URING_CMD;
+    memcpy(raw + TT_SQE_FD_OFFSET, &dev->fd, sizeof(dev->fd));
+    memcpy(raw + TT_SQE_CMD_OP_OFFSET, &cmd_op, sizeof(cmd_op));
+    memcpy(raw + TT_SQE_CMD_OFFSET, &write, sizeof(write));
+}
+
 int tt_dma_unmap(tt_device_t* dev, tt_dma_t* dma) {
     int ret = tt_unpin_pages(dev, dma->addr, dma->len);
     if (ret != 0) {

@@ -208,6 +208,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/kmd_versions.hpp
                 api/tt-umd/driver_atomics.hpp
                 api/tt-umd/pcie/pci_device.hpp
+                api/tt-umd/pcie/dma_queue.hpp
                 api/tt-umd/pcie/silicon_tlb_window.hpp
                 api/tt-umd/pcie/tlb_window.hpp
                 api/tt-umd/pcie/tlb_handle.hpp
@@ -315,6 +316,19 @@ target_link_libraries(
 target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
+
+# DmaQueue submits driver commands through io_uring. It is left out of the library where liburing is
+# missing, so that the rest of UMD keeps building there.
+find_library(URING_LIBRARY NAMES uring)
+find_path(URING_INCLUDE_DIR NAMES liburing.h)
+if(URING_LIBRARY AND URING_INCLUDE_DIR)
+    target_sources(tt-umd-base PRIVATE src/pcie/dma_queue.cpp)
+    target_include_directories(tt-umd-base PRIVATE ${URING_INCLUDE_DIR})
+    target_link_libraries(tt-umd-base PRIVATE ${URING_LIBRARY})
+    target_compile_definitions(tt-umd-base PUBLIC TT_UMD_HAS_DMA_QUEUE)
+else()
+    message(STATUS "liburing not found: building without DmaQueue")
+endif()
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
 target_link_libraries(

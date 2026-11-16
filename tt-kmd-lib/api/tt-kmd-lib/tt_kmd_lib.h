@@ -556,6 +556,64 @@ int tt_allocate_dma_buf(
     uint64_t* out_noc_addr);
 
 /**
+ * @brief One host-to-device copy of a `tt_dma_write_prep()` command.
+ *
+ * `src`, `addr` and `size` must be multiples of 4, and `size` non-zero.
+ */
+typedef struct tt_dma_write_desc {
+    uint64_t src;        /**< DMA address to read, in a buffer pinned or allocated on the same device handle. */
+    uint64_t addr;       /**< Address at the endpoint to write. */
+    uint32_t size;       /**< Bytes to copy. */
+    uint16_t x;          /**< X coordinate of the endpoint. */
+    uint16_t y;          /**< Y coordinate of the endpoint. */
+    uint8_t noc;         /**< NOC to use, 0 or 1. */
+    uint8_t reserved[7]; /**< Must be 0. */
+} tt_dma_write_desc_t;
+
+/** Most descriptors one `tt_dma_write_prep()` command takes. */
+#define TT_DMA_WRITE_MAX_DESCS 1024
+
+/**
+ * @brief Chooses the address windows the driver's DMA writes go through.
+ *
+ * The driver copies each `tt_dma_write_prep()` command through a set of
+ * equally sized windows, one per region the command targets, where a region is
+ * an endpoint and a window-sized, window-aligned range of its addresses. It
+ * rejects a command with a descriptor that crosses a region boundary, or with
+ * more regions than windows. This asks for the set that fits the caller's
+ * traffic; without it the driver uses 8 windows of 2 MiB.
+ *
+ * The set replaces the device's current one, and stays until the handle is
+ * closed or this is called again; a `count` of 0 returns to the default.
+ *
+ * @param dev Device handle
+ * @param size Size of each window, `TT_TLB_SIZE_2M` or `TT_TLB_SIZE_4G`
+ * @param count Number of windows wanted
+ * @param out_size On success, the size of the windows now in use. May be NULL.
+ * @param out_count On success, the number of windows now in use, which may be
+ *                  fewer than asked for. May be NULL.
+ * @return 0 on success, -errno code on failure; -EBUSY while DMA writes are in
+ *         flight or when no window of that size is free.
+ */
+int tt_dma_set_windows(tt_device_t* dev, uint64_t size, uint32_t count, uint64_t* out_size, uint32_t* out_count);
+
+/**
+ * @brief Fills an io_uring submission entry with a DMA write of `count` copies.
+ *
+ * The driver runs the commands of a device one at a time in submission order
+ * and posts one completion per command: 0, or -errno, in which case any part
+ * of the command may have run. `descs` must stay valid until then. Needs
+ * Linux 6.6 or newer and Blackhole.
+ *
+ * @param dev Device handle
+ * @param sqe The `struct io_uring_sqe` to fill; every field is overwritten, so
+ *            set its user data afterwards
+ * @param descs Copies to run, in order
+ * @param count Number of copies, 1 to `TT_DMA_WRITE_MAX_DESCS`
+ */
+void tt_dma_write_prep(tt_device_t* dev, void* sqe, const tt_dma_write_desc_t* descs, uint32_t count);
+
+/**
  * @brief Allocates a TLB window.
  *
  * Quantities and sizes of TLB windows vary by device architecture:

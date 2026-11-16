@@ -39,6 +39,8 @@ public:
 
     bool is_user_buffer_mapping_supported() const override;
 
+    bool is_read_only_page_pinning_supported() const override;
+
 private:
     /**
      * Pins buffer_va for the device and wraps it in a SysmemBuffer.
@@ -66,6 +68,8 @@ private:
     std::shared_ptr<void> acquire_hugepage(const std::string& hugepage_dir);
 
     void print_file_contents(const std::string& filename, const std::string& hint = "");
+
+    PCIDevice* pci_device_;
 
     struct HugepageFiles;
     std::unique_ptr<HugepageFiles> hugepage_files_;

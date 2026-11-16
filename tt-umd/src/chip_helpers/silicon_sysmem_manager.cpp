@@ -189,9 +189,8 @@ struct SiliconSysmemManager::HugepageFiles {
 };
 
 SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, int communication_id) :
-    hugepage_files_(std::make_unique<HugepageFiles>()) {
+    pci_device_(pci_device), hugepage_files_(std::make_unique<HugepageFiles>()) {
     UMD_ASSERT(pci_device != nullptr, error::RuntimeError, "Silicon sysmem manager needs a PCI device.");
-    pci_device_ = pci_device;
     communication_id_ = communication_id;
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
 }
@@ -201,6 +200,10 @@ SiliconSysmemManager::~SiliconSysmemManager() = default;
 
 // Without an IOMMU the device sees physical addresses, so scattered user pages cannot be presented as one buffer.
 bool SiliconSysmemManager::is_user_buffer_mapping_supported() const { return pci_device_->is_iommu_enabled(); }
+
+bool SiliconSysmemManager::is_read_only_page_pinning_supported() const {
+    return pci_device_->is_read_only_page_pinning_supported();
+}
 
 std::optional<size_t> SiliconSysmemManager::get_max_buffer_count(size_t size) const {
     // With an IOMMU buffers are ordinary memory, so any number fits.

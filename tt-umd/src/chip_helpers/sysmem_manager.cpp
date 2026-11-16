@@ -4,7 +4,6 @@
 
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 
-#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/arch.hpp"
 
 namespace tt::umd {
@@ -27,11 +26,6 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
         default:
             return 0;
     }
-}
-
-bool SysmemManager::is_read_only_page_pinning_supported() const {
-    // Managers without a PCI device behind them (simulation) cannot pin host pages at all.
-    return pci_device_ != nullptr && pci_device_->is_read_only_page_pinning_supported();
 }
 
 }  // namespace tt::umd

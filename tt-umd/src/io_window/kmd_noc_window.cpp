@@ -2,4 +2,5 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// TODO: temporary - empty until this component is implemented.
+// Quasar is not supported by this build. A window over the driver's scalar NOC path serves only Quasar, where the
+// kernel keeps the inbound apertures, so no such window is ever built.

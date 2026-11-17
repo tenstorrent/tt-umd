@@ -87,6 +87,9 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
                  blackhole::TLB_4G_OFFSET},
             },
         .cached_window_size = blackhole::DYNAMIC_TLB_2M_SIZE,
+        // The NOC picks virtual channels itself, which keeps writes through one window in order in every ordering
+        // mode; which static channel classes host traffic may claim without colliding with device traffic is not
+        // something UMD knows.
         .use_static_vc = false,
         .static_vc_is_configurable = true,
         .static_cfg_addr = blackhole::STATIC_TLB_CFG_ADDR,

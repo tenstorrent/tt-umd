@@ -8,7 +8,6 @@
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/utils/error.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
@@ -58,8 +57,9 @@ PcieInterface* BlackholeTTDeviceModel::get_pcie_interface() { return pcie_protoc
 DmaInterface* BlackholeTTDeviceModel::get_dma_interface() { return dma_transfer_.get(); }
 
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
-    UMD_THROW(error::RuntimeError, "BlackholeTTDeviceModel::create_io_window is not implemented yet");
+    TargetIoWindowConfig /*target*/, HostIoWindowConfig /*host*/) {
+    // Blackhole windows are TLB windows, which TTDevice serves from its TLB path.
+    return nullptr;
 }
 
 std::shared_ptr<SocArchDescriptor> BlackholeTTDeviceModel::get_shared_soc_arch_descriptor() {

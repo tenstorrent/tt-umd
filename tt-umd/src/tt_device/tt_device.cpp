@@ -4,14 +4,46 @@
 
 #include "tt-umd/tt_device/tt_device.hpp"
 
+#include <fmt/format.h>
+
+#include <algorithm>
+#include <chrono>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "common/utils.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/tt_device/reset/risc_reset.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/hang_detection/hang_detector_implementation.hpp"
+#include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device_model/blackhole_tt_device_model.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Firmware-backed state (chip info, the SoC descriptor, the info provider and telemetry reader) exists only once
+// init_tt_device() has run.
+void throw_if_uninitialized(const TTDevice &tt_device, bool initialized) {
+    if (!initialized) {
+        UMD_THROW(error::UninitializedDeviceError, tt_device);
+    }
+}
+
+RiscReset *require_risc_reset(RiscReset *risc_reset) {
+    if (risc_reset == nullptr) {
+        UMD_THROW(error::RuntimeError, "RISC reset is not available on this device.");
+    }
+    return risc_reset;
+}
+
+TlbMapping to_tlb_mapping(HostMemoryCaching caching) {
+    return caching == HostMemoryCaching::UC ? TlbMapping::UC : TlbMapping::WC;
+}
+
+}  // namespace
 
 std::unique_ptr<TTDevice> TTDevice::create(
     int device_number,
@@ -43,7 +75,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     UMD_THROW(error::RuntimeError, "Remote devices are not supported.");
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {}
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
 
 ArchitectureImplementation *TTDevice::get_architecture_implementation() { return model_->get_architecture_impl(); }
 
@@ -66,10 +98,14 @@ tt::ARCH TTDevice::get_arch() const { return model_->get_architecture_impl()->ge
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
+    throw_if_uninitialized(*this, soc_descriptor_.has_value());
     return model_->get_firmware_telemetry_reader();
 }
 
-FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return model_->get_firmware_info_provider(); }
+FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
+    throw_if_uninitialized(*this, soc_descriptor_.has_value());
+    return model_->get_firmware_info_provider();
+}
 
 uint32_t TTDevice::get_min_clock_freq() { return model_->get_architecture_impl()->get_min_clock_freq(); }
 
@@ -94,33 +130,60 @@ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
 }
 
 RemoteCommunication *TTDevice::get_remote_communication() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_remote_communication is not implemented yet");
+    RemoteInterface *remote_interface = get_remote_interface();
+    return remote_interface != nullptr ? remote_interface->get_remote_communication() : nullptr;
 }
 
 bool TTDevice::is_pcie_hung(uint32_t data_read, HangAction action) {
-    UMD_THROW(error::RuntimeError, "TTDevice::is_pcie_hung is not implemented yet");
+    HangDetector *hang_detector = model_->get_hang_detector();
+    if (hang_detector == nullptr) {
+        return false;
+    }
+    const std::optional<bool> hung = hang_detector->is_bus_hung(data_read);
+    if (!hung.has_value()) {
+        return false;
+    }
+    if (*hung && action == HangAction::THROW) {
+        UMD_THROW(error::PcieHangError, *this, data_read);
+    }
+    return *hung;
 }
 
 bool TTDevice::is_noc_hung(NocId noc, HangAction action) {
-    UMD_THROW(error::RuntimeError, "TTDevice::is_noc_hung is not implemented yet");
+    HangDetector *hang_detector = model_->get_hang_detector();
+    if (hang_detector == nullptr) {
+        return false;
+    }
+    const std::optional<bool> hung = hang_detector->is_noc_hung(noc);
+    if (!hung.has_value()) {
+        return false;
+    }
+    if (*hung && action == HangAction::THROW) {
+        UMD_THROW(error::NocHangError, *this, noc);
+    }
+    return *hung;
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::read_from_device is not implemented yet");
+    get_device_protocol()->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::write_to_device is not implemented yet");
+    get_device_protocol()->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(
     void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    UMD_THROW(error::RuntimeError, "TTDevice::read_from_device_reg is not implemented yet");
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
+    get_device_protocol()->read_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id, width);
 }
 
 void TTDevice::write_to_device_reg(
     const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    UMD_THROW(error::RuntimeError, "TTDevice::write_to_device_reg is not implemented yet");
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
+    get_device_protocol()->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id, width);
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
@@ -168,156 +231,269 @@ size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::noc_multicast_write is not implemented yet");
+    const bool multicast_done = get_device_protocol()->write_to_core_range(
+        src, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), addr, size, noc_id);
+    if (!multicast_done) {
+        multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+    }
 }
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::noc_multicast_write is not implemented yet");
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+    const std::vector<CoreCoord> tensix_cores = soc_descriptor.get_cores(CoreType::TENSIX);
+
+    // The rectangle spanning every usable Tensix core also spans non-Tensix columns and harvested rows or columns;
+    // firmware opts those tiles out of broadcasts, so only usable Tensix cores receive the data.
+    tt_xy_pair grid_start = soc_descriptor.translate_chip_coord_to_translated(tensix_cores.front(), noc_id);
+    tt_xy_pair grid_end = grid_start;
+    for (const CoreCoord &core : tensix_cores) {
+        const tt_xy_pair translated = soc_descriptor.translate_chip_coord_to_translated(core, noc_id);
+        grid_start = {std::min(grid_start.x, translated.x), std::min(grid_start.y, translated.y)};
+        grid_end = {std::max(grid_end.x, translated.x), std::max(grid_end.y, translated.y)};
+    }
+
+    if (!get_device_protocol()->write_to_core_range(src, grid_start, grid_end, addr, size, noc_id)) {
+        for (const CoreCoord &core : tensix_cores) {
+            write_to_device(src, core, addr, size, noc_id);
+        }
+    }
 }
 
-ChipInfo TTDevice::get_chip_info() { UMD_THROW(error::RuntimeError, "TTDevice::get_chip_info is not implemented yet"); }
+ChipInfo TTDevice::get_chip_info() {
+    throw_if_uninitialized(*this, soc_descriptor_.has_value());
+    return get_device_firmware()->get_chip_info(get_selected_noc_id());
+}
 
 FirmwareBundleVersion TTDevice::get_firmware_version() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_firmware_version is not implemented yet");
+    return get_firmware_info_provider()->get_firmware_version(get_selected_noc_id());
 }
 
 std::chrono::milliseconds TTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "TTDevice::wait_eth_core_training is not implemented yet");
+    const NocId noc_id = get_selected_noc_id();
+    const auto start = std::chrono::steady_clock::now();
+    const bool trained =
+        get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
+    const auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+    if (!trained) {
+        // An untrained link only loses that Ethernet connection; the chip itself stays usable.
+        log_warning(LogUMD, "ETH core {} did not finish training within {} ms.", eth_core.str(), timeout_ms.count());
+    }
+    return elapsed;
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "TTDevice::wait_dram_channel_training is not implemented yet");
+    if (!get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id())) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("DRAM channel {} did not finish training within {} ms.", dram_channel, timeout_ms.count()));
+    }
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
-    UMD_THROW(error::RuntimeError, "TTDevice::bar_write32 is not implemented yet");
+    PcieInterface *pcie_interface = get_pcie_interface();
+    if (pcie_interface == nullptr) {
+        UMD_THROW(error::RuntimeError, "BAR access needs a PCIe device.");
+    }
+    pcie_interface->bar_write32(addr, data);
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
-    UMD_THROW(error::RuntimeError, "TTDevice::bar_read32 is not implemented yet");
+    PcieInterface *pcie_interface = get_pcie_interface();
+    if (pcie_interface == nullptr) {
+        UMD_THROW(error::RuntimeError, "BAR access needs a PCIe device.");
+    }
+    return pcie_interface->bar_read32(addr);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_arc_core is not implemented yet");
-}
+tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(get_selected_noc_id()); }
 
 tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_arc_core is not implemented yet");
+    return get_device_firmware()->get_firmware_noc_coord(noc_id);
 }
 
-void TTDevice::set_power_state(PowerState state, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::set_power_state is not implemented yet");
+void TTDevice::set_power_state(PowerState state, NocId /*noc_id*/) {
+    // Power is voted through the KMD, which combines the votes of every process holding the device. Devices the KMD
+    // does not manage (JTAG, remote) request no power of their own.
+    PcieInterface *pcie_interface = get_pcie_interface();
+    if (pcie_interface == nullptr) {
+        return;
+    }
+    pcie_interface->set_power_state(
+        state == PowerState::BUSY ? ::tt::umd::PowerState::HIGH : ::tt::umd::PowerState::LOW);
 }
 
 void TTDevice::set_clock_state(ClockState state, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::set_clock_state is not implemented yet");
+    get_device_firmware()->set_clock_state(state, noc_id);
 }
 
-uint32_t TTDevice::get_clock() { UMD_THROW(error::RuntimeError, "TTDevice::get_clock is not implemented yet"); }
+uint32_t TTDevice::get_clock() {
+    const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_aiclk(get_selected_noc_id());
+    if (!aiclk.has_value()) {
+        UMD_THROW(error::RuntimeError, "The firmware publishes no AICLK telemetry.");
+    }
+    return *aiclk;
+}
 
 uint32_t TTDevice::get_max_clock_freq() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_max_clock_freq is not implemented yet");
+    return get_firmware_info_provider()->get_max_clock_freq(get_selected_noc_id()).value_or(0);
 }
 
-uint64_t TTDevice::get_board_id() { UMD_THROW(error::RuntimeError, "TTDevice::get_board_id is not implemented yet"); }
+uint64_t TTDevice::get_board_id() {
+    return get_firmware_info_provider()->get_board_id(get_selected_noc_id()).value_or(0);
+}
 
 uint8_t TTDevice::get_asic_location() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_asic_location is not implemented yet");
+    return get_firmware_info_provider()->get_asic_location(get_selected_noc_id()).value_or(0);
 }
 
-BoardType TTDevice::get_board_type() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_board_type is not implemented yet");
-}
+BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
 bool TTDevice::get_noc_translation_enabled() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_noc_translation_enabled is not implemented yet");
+    return get_device_firmware()->get_noc_translation_enabled(get_selected_noc_id());
 }
 
 double TTDevice::get_asic_temperature() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_asic_temperature is not implemented yet");
+    return get_firmware_info_provider()->get_asic_temperature(get_selected_noc_id()).value_or(0.0);
 }
 
 void TTDevice::wait_for_non_mmio_flush() {
-    UMD_THROW(error::RuntimeError, "TTDevice::wait_for_non_mmio_flush is not implemented yet");
+    RemoteInterface *remote_interface = get_remote_interface();
+    if (remote_interface != nullptr) {
+        remote_interface->wait_for_non_mmio_flush();
+    }
 }
 
 void TTDevice::init_tt_device(std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "TTDevice::init_tt_device is not implemented yet");
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
+    construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
-uint64_t TTDevice::get_refclk_counter() {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_refclk_counter is not implemented yet");
-}
+uint64_t TTDevice::get_refclk_counter() { return get_device_firmware()->get_refclk_counter(get_selected_noc_id()); }
 
 uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_risc_reset_state is not implemented yet");
+    const NocId noc_id = get_selected_noc_id();
+    const std::optional<RiscType> riscs_in_reset =
+        require_risc_reset(get_risc_reset())->get_risc_reset_state(resolve_coordinate(core, noc_id), noc_id);
+    if (!riscs_in_reset.has_value()) {
+        UMD_THROW(error::RuntimeError, fmt::format("The reset state of core {} cannot be read.", core.str()));
+    }
+    return get_architecture_implementation()->get_soft_reset_reg_value(*riscs_in_reset);
 }
 
 void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    UMD_THROW(error::RuntimeError, "TTDevice::set_risc_reset_state is not implemented yet");
+    write_to_device_reg(
+        &risc_flags,
+        core,
+        get_architecture_implementation()->get_tensix_soft_reset_addr(),
+        sizeof(risc_flags),
+        get_selected_noc_id());
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::assert_risc_reset is not implemented yet");
+    require_risc_reset(get_risc_reset())->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::deassert_risc_reset is not implemented yet");
+    require_risc_reset(get_risc_reset())
+        ->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
 }
 
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_io_window is not implemented yet");
+    // Only the PCIe transport has TLB windows to hand out.
+    auto *pcie_protocol = dynamic_cast<PcieProtocol *>(get_device_protocol());
+    if (pcie_protocol == nullptr) {
+        UMD_THROW(error::RuntimeError, "TLB windows need a PCIe device.");
+    }
+    return pcie_protocol->allocate_window(config, mapping, size);
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
-    UMD_THROW(error::RuntimeError, "TTDevice::create_io_window is not implemented yet");
+    return create_io_window(target, host, IoOrdering::Strict);
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
-    UMD_THROW(error::RuntimeError, "TTDevice::create_io_window is not implemented yet");
+    // Fixed now so the window keeps routing over the NOC selected when it was made, whichever thread uses it later.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+
+    std::unique_ptr<IoWindow> model_window = model_->create_io_window(target, host);
+    if (model_window != nullptr) {
+        model_window->configure(target, ordering);
+        return model_window;
+    }
+
+    std::unique_ptr<TlbWindow> tlb_window = get_io_window(tlb_data{}, to_tlb_mapping(host.mapping), host.size);
+    tlb_window->configure(target, ordering);
+    return tlb_window;
 }
 
 int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::export_dmabuf is not implemented yet");
+    PcieInterface *pcie_interface = get_pcie_interface();
+    if (pcie_interface == nullptr) {
+        UMD_THROW(error::RuntimeError, "dma-buf export needs a PCIe device.");
+    }
+    return pcie_interface->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
 EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    UMD_THROW(error::RuntimeError, "TTDevice::read_eth_core_training_status is not implemented yet");
+    const NocId noc_id = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {
-    UMD_THROW(error::RuntimeError, "TTDevice::get_soc_descriptor is not implemented yet");
+    throw_if_uninitialized(*this, soc_descriptor_.has_value());
+    return *soc_descriptor_;
 }
 
 void TTDevice::multicast_write_via_unicast(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::multicast_write_via_unicast is not implemented yet");
+    for (size_t x = core_start.x; x <= core_end.x; x++) {
+        for (size_t y = core_start.y; y <= core_end.y; y++) {
+            write_to_device(src, CoreCoord(x, y, core_start.core_type, core_start.coord_system), addr, size, noc_id);
+        }
+    }
 }
 
 void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
-    UMD_THROW(error::RuntimeError, "TTDevice::construct_soc_descriptor is not implemented yet");
+    soc_descriptor_.emplace(soc_arch_descriptor, get_device_firmware()->get_chip_info(get_selected_noc_id()));
 }
 
-void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
-    UMD_THROW(error::RuntimeError, "TTDevice::set_soc_descriptor is not implemented yet");
-}
+void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) { soc_descriptor_ = soc_descriptor; }
 
 void TTDevice::wire_hang_detector() {
-    UMD_THROW(error::RuntimeError, "TTDevice::wire_hang_detector is not implemented yet");
+    PcieInterface *pcie_interface = get_pcie_interface();
+    if (pcie_interface == nullptr || model_->get_hang_detector() == nullptr) {
+        return;
+    }
+
+    // The timeout check runs while the stuck op may still hold the protocol's windows, so the detector needs a
+    // window of its own. Without one it still works, as long as the protocol is not stuck.
+    if (auto *hang_detector = dynamic_cast<HangDetectorImplementation *>(model_->get_hang_detector())) {
+        try {
+            hang_detector->set_noc_probe_window(get_io_window(tlb_data{}, TlbMapping::UC));
+        } catch (const std::exception &e) {
+            log_debug(LogUMD, "No dedicated hang-probe window, probing through the protocol: {}", e.what());
+        }
+    }
+    pcie_interface->set_io_timeout_callback(make_io_timeout_hang_check());
 }
 
 std::function<bool(NocId)> TTDevice::make_io_timeout_hang_check() {
-    UMD_THROW(error::RuntimeError, "TTDevice::make_io_timeout_hang_check is not implemented yet");
+    return [this](NocId noc_id) { return is_noc_hung(noc_id, HangAction::RETURN); };
 }
 
 xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {
-    UMD_THROW(error::RuntimeError, "TTDevice::resolve_coordinate is not implemented yet");
-}
-
-std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const {
-    UMD_THROW(error::RuntimeError, "TTDevice::resolve_target is not implemented yet");
+    if (core.coord_system == CoordSystem::LITERAL) {
+        return core;
+    }
+    if (!soc_descriptor_.has_value()) {
+        UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc_id);
+    }
+    return soc_descriptor_->translate_chip_coord_to_translated(core, noc_id);
 }
 
 }  // namespace tt::umd

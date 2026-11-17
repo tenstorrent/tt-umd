@@ -34,6 +34,9 @@ size_t channel_size(uint32_t channel) {
 
 size_t page_size() { return static_cast<size_t>(sysconf(_SC_PAGESIZE)); }
 
+// MAP_HUGETLB page-size selector for 1 GiB pages (log2 of the size in bits 26..31).
+constexpr int MAP_HUGE_1GIB = 30 << MAP_HUGE_SHIFT;
+
 // Device code addresses channel N at pcie_base + N GiB, so a channel the KMD placed elsewhere is unusable.
 [[noreturn]] void throw_misplaced_channel(
     uint32_t channel, int communication_id, uint64_t noc_address, uint64_t expected_noc_address) {
@@ -214,23 +217,35 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     UMD_ASSERT(sysmem_buffer_size > 0, error::RuntimeError, "Cannot allocate an empty system memory buffer.");
-    UMD_ASSERT(
-        pci_device_->is_iommu_enabled(),
-        error::RuntimeError,
-        "Allocating system memory buffers needs an IOMMU, since without one the device can only reach physically "
-        "contiguous memory.");
     const size_t page = page_size();
     UMD_ASSERT(
         sysmem_buffer_size <= std::numeric_limits<size_t>::max() - (page - 1),
         error::RuntimeError,
         fmt::format("A {:#x}-byte system memory buffer cannot be allocated.", sysmem_buffer_size));
-    const size_t mapped_size = (sysmem_buffer_size + page - 1) & ~(page - 1);
 
-    void* memory = mmap(nullptr, mapped_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    // Without an IOMMU the device sees physical addresses, so the buffer must be physically contiguous: one 1 GiB
+    // hugepage backs it.
+    const bool iommu_enabled = pci_device_->is_iommu_enabled();
+    UMD_ASSERT(
+        iommu_enabled || sysmem_buffer_size <= HUGEPAGE_REGION_SIZE,
+        error::RuntimeError,
+        fmt::format(
+            "A {:#x}-byte system memory buffer does not fit in one 1 GiB hugepage, which bounds buffers without an "
+            "IOMMU.",
+            sysmem_buffer_size));
+    const size_t mapped_size =
+        iommu_enabled ? (sysmem_buffer_size + page - 1) & ~(page - 1) : static_cast<size_t>(HUGEPAGE_REGION_SIZE);
+    const int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS | (iommu_enabled ? 0 : MAP_HUGETLB | MAP_HUGE_1GIB);
+
+    void* memory = mmap(nullptr, mapped_size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
     UMD_ASSERT(
         memory != MAP_FAILED,
         error::RuntimeError,
-        fmt::format("Failed to allocate a {:#x}-byte system memory buffer: {}", mapped_size, std::strerror(errno)));
+        fmt::format(
+            "Failed to allocate a {:#x}-byte system memory buffer{}: {}",
+            mapped_size,
+            iommu_enabled ? "" : " backed by a 1 GiB hugepage",
+            std::strerror(errno)));
 
     SysmemBuffer::Deleter free_memory = [mapped_size](void* aligned_start) { munmap(aligned_start, mapped_size); };
     try {
@@ -268,7 +283,11 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     uint64_t iova = 0;
     std::optional<uint64_t> noc_address;
     if (map_to_noc) {
-        const auto [noc, dma_address] = pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
+        // Without an IOMMU only allocate_sysmem_buffer reaches here, with memory from one hugepage.
+        const auto [noc, dma_address] =
+            pci_device_->is_iommu_enabled()
+                ? pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access)
+                : pci_device_->map_hugepage_to_noc(range.base, range.mapped_size);
         noc_address = noc + range.offset_from_base;
         iova = dma_address;
     } else {

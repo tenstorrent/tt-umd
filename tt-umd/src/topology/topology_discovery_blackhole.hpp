@@ -31,6 +31,7 @@ protected:
     uint64_t get_local_board_id(TTDevice* tt_device, CoreCoord eth_core) override;
     uint64_t get_local_asic_id(TTDevice* tt_device, CoreCoord eth_core) override;
     uint64_t get_remote_asic_id(TTDevice* tt_device, CoreCoord eth_core) override;
+    bool eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) override;
     uint32_t get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) override;
     uint32_t get_eth_postcode(TTDevice* tt_device, CoreCoord eth_core) override;
     uint64_t get_unconnected_device_id(TTDevice* tt_device) override;

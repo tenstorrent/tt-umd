@@ -5,10 +5,10 @@
 #include "topology/topology_discovery_blackhole.hpp"
 
 #include <cstddef>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
-#include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -68,6 +68,17 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, Cor
     return to_asic_id(read_remote_chip_info(tt_device, eth_core));
 }
 
+bool TopologyDiscoveryBlackhole::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
+    // CMFW zeroes ETH L1 before loading the firmware, which starts beating only once link training has ended. A zero
+    // word is firmware that has not started yet, not a crash: the core cannot serve I/O, but there is nothing to
+    // report.
+    if (get_eth_heartbeat(tt_device, eth_core) == 0) {
+        log_debug(LogUMD, "ETH firmware on core {} has not started its heartbeat yet.", eth_core.str());
+        return false;
+    }
+    return TopologyDiscovery::eth_heartbeat_running(tt_device, asic_id, eth_core);
+}
+
 uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) {
     return read_eth_status_word(tt_device, eth_core, offsetof(blackhole::eth_status_t, heartbeat));
 }
@@ -111,13 +122,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
 }
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
-    // Every ETH core runs the firmware of the bundle, trained or not, so the first core of the first device gives the
-    // version the rest of the cluster is checked against.
-    const SocDescriptor& soc_descriptor = tt_device->get_soc_descriptor();
-    if (soc_descriptor.get_num_eth_channels() > 0) {
-        expected_eth_fw_version =
-            get_eth_fw_version(tt_device, soc_descriptor.get_eth_core_for_channel(0, CoordSystem::NOC0));
-    }
+    // Nothing to configure: the expected ETH FW version comes from the link walk, which checks heartbeats first.
 }
 
 void TopologyDiscoveryBlackhole::verify_routing_firmware_state(

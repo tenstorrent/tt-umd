@@ -491,8 +491,14 @@ bool PCIDevice::is_read_only_page_pinning_supported() const {
 }
 
 void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
-    check_kmd_result(
-        tt_unpin_pages(tt_device_handle, buffer, size), fmt::format("Unpinning {} bytes on {}", size, device_path));
+    const int result = tt_unpin_pages(tt_device_handle, buffer, size);
+    // Through a reset and after it, an fd opened before the reset rejects every ioctl; the KMD releases its pins when
+    // it closes.
+    if (result == -ENODEV) {
+        log_debug(LogUMD, "{} cannot unpin after a reset; its pins are released when it closes.", device_path);
+        return;
+    }
+    check_kmd_result(result, fmt::format("Unpinning {} bytes on {}", size, device_path));
 }
 
 SemVer PCIDevice::read_kmd_version() {

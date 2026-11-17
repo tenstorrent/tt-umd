@@ -57,7 +57,10 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
         create_topology_discovery(options, io_device_type, soc_descriptor_path);
     if (topology_discovery == nullptr) {
         // Callers go through discovery on machines without devices too, so they get a valid, chipless descriptor.
-        return {std::make_unique<ClusterDescriptor>(), std::map<ChipId, std::unique_ptr<TTDevice>>()};
+        auto cluster_descriptor = std::make_unique<ClusterDescriptor>();
+        cluster_descriptor->cluster_id = utils::resolve_cluster_id(options.cluster_id);
+        cluster_descriptor->io_device_type = io_device_type;
+        return {std::move(cluster_descriptor), std::map<ChipId, std::unique_ptr<TTDevice>>()};
     }
 
     std::unique_ptr<ClusterDescriptor> cluster_descriptor = topology_discovery->create_ethernet_map();
@@ -114,9 +117,15 @@ void TopologyDiscovery::get_connected_devices() {
         const SocDescriptor& soc_descriptor = tt_device->get_soc_descriptor();
         for (uint32_t channel = 0; channel < soc_descriptor.get_num_eth_channels(); channel++) {
             const CoreCoord eth_core = soc_descriptor.get_eth_core_for_channel(channel, CoordSystem::NOC0);
-            if (is_eth_port_disabled(tt_device.get(), eth_core) || !is_eth_trained(tt_device.get(), eth_core) ||
-                !verify_eth_core_fw_version(tt_device.get(), asic_id, eth_core) ||
+            // Every core runs firmware whether its link trained or not, and clients use idle cores too, so a crashed
+            // core is reported even when it has no link.
+            if (is_eth_port_disabled(tt_device.get(), eth_core) ||
                 !eth_heartbeat_running(tt_device.get(), asic_id, eth_core)) {
+                continue;
+            }
+            // A mismatch the options ignore is recorded and the core keeps serving as usual.
+            verify_eth_core_fw_version(tt_device.get(), asic_id, eth_core);
+            if (!is_eth_trained(tt_device.get(), eth_core)) {
                 continue;
             }
             verify_routing_firmware_state(tt_device.get(), asic_id, eth_core);
@@ -134,6 +143,12 @@ void TopologyDiscovery::get_connected_devices() {
     }
     devices.merge(devices_to_discover);
 }
+
+// Blackhole devices are reached only over PCIe, so no device sits behind an Ethernet link of a local one.
+void TopologyDiscovery::discover_remote_devices() {}
+
+// Without remote devices there are no tunnels to spread over gateway links.
+void TopologyDiscovery::tunnel_remote_devices_over_all_gateway_links() {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     auto cluster_desc = std::make_unique<ClusterDescriptor>();
@@ -246,6 +261,7 @@ void TopologyDiscovery::patch_eth_connections() {}
 
 bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     const SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+    // Taken from the first core whose heartbeat runs, so a crashed core never sets the reference.
     if (!expected_eth_fw_version.has_value()) {
         expected_eth_fw_version = eth_fw_version;
         return true;

@@ -9,6 +9,7 @@
 #include <cstring>
 #include <mutex>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
@@ -412,10 +413,18 @@ public:
     HostMemoryCaching get_memory_caching_type() const override { return host_.mapping; }
 
 private:
+    // As a TLB window: an access past the window's end faults instead of reaching the memory beyond it.
+    void validate(uint64_t offset, size_t size) const {
+        if (offset + size > host_.size) {
+            throw std::out_of_range("Out of bounds access");
+        }
+    }
     void write(uint64_t offset, const void* data, size_t size) {
+        validate(offset, size);
         chip_.write_to_device(core_, data, target_.addr + offset, size);
     }
     void read(uint64_t offset, void* data, size_t size) {
+        validate(offset, size);
         chip_.read_from_device(core_, data, target_.addr + offset, size);
     }
     template <typename T>

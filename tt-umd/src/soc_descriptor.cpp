@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "coordinates/coordinate_manager_utils.hpp"
 #include "tt-umd/utils/common.hpp"
 #include "tt-umd/utils/error.hpp"
 
@@ -29,17 +30,16 @@ namespace tt::umd {
 
 namespace {
 
-// Every core type a SoC descriptor describes.
-constexpr std::array<CoreType, 9> CORE_TYPES = {
-    CoreType::TENSIX,
-    CoreType::DRAM,
-    CoreType::ETH,
-    CoreType::ARC,
-    CoreType::PCIE,
-    CoreType::ROUTER_ONLY,
-    CoreType::SECURITY,
-    CoreType::L2CPU,
-    CoreType::DISPATCH};
+// Core types that have coordinates in coord_system: routers have no LOGICAL ones.
+std::vector<CoreType> core_types_with_coords_in(CoordSystem coord_system) {
+    std::vector<CoreType> core_types;
+    for (const CoreType core_type : coordinate_utils::ALL_CORE_TYPES) {
+        if (coord_system != CoordSystem::LOGICAL || core_type != CoreType::ROUTER_ONLY) {
+            core_types.push_back(core_type);
+        }
+    }
+    return core_types;
+}
 
 std::string ip_variant_to_str(tt::IpVariant ip_variant) {
     switch (ip_variant) {
@@ -259,7 +259,7 @@ std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
 
 std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
     std::vector<CoreCoord> cores;
-    for (const CoreType core_type : CORE_TYPES) {
+    for (const CoreType core_type : core_types_with_coords_in(coord_system)) {
         const std::vector<CoreCoord> cores_of_type = get_cores(core_type, coord_system);
         cores.insert(cores.end(), cores_of_type.begin(), cores_of_type.end());
     }
@@ -268,7 +268,7 @@ std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_syst
 
 std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem coord_system) const {
     std::vector<CoreCoord> cores;
-    for (const CoreType core_type : CORE_TYPES) {
+    for (const CoreType core_type : core_types_with_coords_in(coord_system)) {
         const std::vector<CoreCoord> cores_of_type = get_harvested_cores(core_type, coord_system);
         cores.insert(cores.end(), cores_of_type.begin(), cores_of_type.end());
     }
@@ -383,27 +383,8 @@ void SocDescriptor::init_from_arch_descriptor(const ChipInfo& chip_info) {
 }
 
 void SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
-    // The board needs no special handling: which PCIe core it uses is carried by the PCIe harvesting mask.
-    const std::vector<std::vector<tt_xy_pair>>& dram_cores = arch_desc_->get_dram_cores();
-    coordinate_manager = CoordinateManager::create_coordinate_manager(
-        arch,
-        noc_translation_enabled,
-        harvesting_masks,
-        arch_desc_->get_worker_grid_size(),
-        arch_desc_->get_tensix_cores(),
-        {dram_cores.size(), dram_cores.empty() ? 0 : dram_cores.front().size()},
-        flatten_vector(dram_cores),
-        arch_desc_->get_eth_cores(),
-        SocArchDescriptor::calculate_grid_size(arch_desc_->get_firmware_cores()),
-        arch_desc_->get_firmware_cores(),
-        SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores()),
-        arch_desc_->get_pcie_cores(),
-        arch_desc_->get_router_cores(),
-        arch_desc_->get_security_cores(),
-        arch_desc_->get_l2cpu_cores(),
-        arch_desc_->get_dispatch_cores(),
-        arch_desc_->get_noc0_x_to_noc1_x(),
-        arch_desc_->get_noc0_y_to_noc1_y());
+    coordinate_manager = coordinate_utils::coordinate_manager_from_arch_descriptor(
+        *arch_desc_, noc_translation_enabled, harvesting_masks);
 }
 
 std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {

@@ -94,27 +94,17 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
 }
 
 std::vector<CoreCoord> BlackholeCoordinateManager::get_tensix_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        for (size_t x = 0; x < tensix_grid_size.x; x++) {
-            if (!is_harvested(harvesting_masks.tensix_harvesting_mask, x)) {
-                cores.emplace_back(tensix_cores[y * tensix_grid_size.x + x], CoreType::TENSIX, CoordSystem::NOC0);
-            }
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        tensix_cores, CoreType::TENSIX, harvesting_masks.tensix_harvesting_mask, false, [this](size_t index) {
+            return index % tensix_grid_size.x;
+        });
 }
 
 std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_tensix_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        for (size_t x = 0; x < tensix_grid_size.x; x++) {
-            if (is_harvested(harvesting_masks.tensix_harvesting_mask, x)) {
-                cores.emplace_back(tensix_cores[y * tensix_grid_size.x + x], CoreType::TENSIX, CoordSystem::NOC0);
-            }
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        tensix_cores, CoreType::TENSIX, harvesting_masks.tensix_harvesting_mask, true, [this](size_t index) {
+            return index % tensix_grid_size.x;
+        });
 }
 
 tt_xy_pair BlackholeCoordinateManager::get_tensix_grid_size() const {
@@ -155,22 +145,12 @@ void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
         fill_eth_default_noc0_translated_mapping();
         return;
     }
-    // Working channels get one translated row in channel order. Harvested channels are not translated: their
-    // translated coordinates are their NOC0 ones.
-    const std::vector<tt_xy_pair> working_eth_cores =
-        filter_cores_by_mask(eth_cores, harvesting_masks.eth_harvesting_mask, false);
-    for (size_t index = 0; index < working_eth_cores.size(); index++) {
-        add_core_translation(
-            CoreCoord(
-                blackhole::eth_translated_coordinate_start_x + index,
-                blackhole::eth_translated_coordinate_start_y,
-                CoreType::ETH,
-                CoordSystem::TRANSLATED),
-            working_eth_cores[index]);
-    }
-    const std::vector<tt_xy_pair> harvested_eth_cores =
-        filter_cores_by_mask(eth_cores, harvesting_masks.eth_harvesting_mask, true);
-    for (const auto& [translated_coord, noc0_pair] : identity_translations(harvested_eth_cores, CoreType::ETH)) {
+    for (const auto& [translated_coord, noc0_pair] : working_row_translations(
+             eth_cores,
+             CoreType::ETH,
+             harvesting_masks.eth_harvesting_mask,
+             blackhole::eth_translated_coordinate_start_x,
+             blackhole::eth_translated_coordinate_start_y)) {
         add_core_translation(translated_coord, noc0_pair);
     }
 }
@@ -202,22 +182,12 @@ void BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
         fill_pcie_default_noc0_translated_mapping();
         return;
     }
-    // Working PCIe cores get one translated row. Harvested ones are not translated: their translated coordinates
-    // are their NOC0 ones.
-    const std::vector<tt_xy_pair> working_pcie_cores =
-        filter_cores_by_mask(pcie_cores, harvesting_masks.pcie_harvesting_mask, false);
-    for (size_t index = 0; index < working_pcie_cores.size(); index++) {
-        add_core_translation(
-            CoreCoord(
-                blackhole::pcie_translated_coordinate_start_x + index,
-                blackhole::pcie_translated_coordinate_start_y,
-                CoreType::PCIE,
-                CoordSystem::TRANSLATED),
-            working_pcie_cores[index]);
-    }
-    const std::vector<tt_xy_pair> harvested_pcie_cores =
-        filter_cores_by_mask(pcie_cores, harvesting_masks.pcie_harvesting_mask, true);
-    for (const auto& [translated_coord, noc0_pair] : identity_translations(harvested_pcie_cores, CoreType::PCIE)) {
+    for (const auto& [translated_coord, noc0_pair] : working_row_translations(
+             pcie_cores,
+             CoreType::PCIE,
+             harvesting_masks.pcie_harvesting_mask,
+             blackhole::pcie_translated_coordinate_start_x,
+             blackhole::pcie_translated_coordinate_start_y)) {
         add_core_translation(translated_coord, noc0_pair);
     }
 }

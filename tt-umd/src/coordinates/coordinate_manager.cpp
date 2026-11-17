@@ -30,18 +30,6 @@ using namespace coordinate_utils;
 
 namespace {
 
-// Every core type the manager keeps coordinates for.
-constexpr std::array<CoreType, 9> CORE_TYPES = {
-    CoreType::TENSIX,
-    CoreType::DRAM,
-    CoreType::ETH,
-    CoreType::ARC,
-    CoreType::PCIE,
-    CoreType::ROUTER_ONLY,
-    CoreType::SECURITY,
-    CoreType::L2CPU,
-    CoreType::DISPATCH};
-
 std::vector<CoreCoord> to_noc0_core_coords(const std::vector<tt_xy_pair>& cores, CoreType core_type) {
     std::vector<CoreCoord> core_coords;
     core_coords.reserve(cores.size());
@@ -151,28 +139,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const HarvestingMasks harvesting_masks,
     const BoardType board_type,
     const uint8_t asic_location) {
-    // Which PCIe core a board uses is carried by the PCIe harvesting mask, so the board does not change the layout.
-    const SocArchDescriptor arch_descriptor(arch);
-    const std::vector<std::vector<tt_xy_pair>>& dram_cores = arch_descriptor.get_dram_cores();
-    return create_coordinate_manager(
-        arch,
-        noc_translation_enabled,
-        harvesting_masks,
-        arch_descriptor.get_worker_grid_size(),
-        arch_descriptor.get_tensix_cores(),
-        {dram_cores.size(), dram_cores.empty() ? 0 : dram_cores.front().size()},
-        flatten_vector(dram_cores),
-        arch_descriptor.get_eth_cores(),
-        SocArchDescriptor::calculate_grid_size(arch_descriptor.get_firmware_cores()),
-        arch_descriptor.get_firmware_cores(),
-        SocArchDescriptor::calculate_grid_size(arch_descriptor.get_pcie_cores()),
-        arch_descriptor.get_pcie_cores(),
-        arch_descriptor.get_router_cores(),
-        arch_descriptor.get_security_cores(),
-        arch_descriptor.get_l2cpu_cores(),
-        arch_descriptor.get_dispatch_cores(),
-        arch_descriptor.get_noc0_x_to_noc1_x(),
-        arch_descriptor.get_noc0_y_to_noc1_y());
+    return coordinate_manager_from_arch_descriptor(SocArchDescriptor(arch), noc_translation_enabled, harvesting_masks);
 }
 
 size_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
@@ -431,7 +398,7 @@ CoordinateManager::CoordinateManager(
     pcie_cores(pcie_cores),
     router_cores(router_cores),
     security_cores(security_cores),
-    l2cpu_cores(l2cpu_cores),
+    l2cpu_cores(sort_by_noc0_position(l2cpu_cores)),
     dispatch_cores(dispatch_cores),
     noc0_x_to_noc1_x(noc0_x_to_noc1_x),
     noc0_y_to_noc1_y(noc0_y_to_noc1_y) {}
@@ -566,7 +533,7 @@ void CoordinateManager::translate_dispatch_coords() {
 }
 
 void CoordinateManager::identity_map_noc0_cores() {
-    for (const CoreType core_type : CORE_TYPES) {
+    for (const CoreType core_type : ALL_CORE_TYPES) {
         for (const tt_xy_pair& core : get_noc0_pairs(core_type)) {
             add_core_translation(CoreCoord(core, core_type, CoordSystem::NOC0), core);
         }
@@ -594,7 +561,7 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
         log_debug(tt::LogUMD, "No NOC0 to NOC1 mapping given, NOC1 coordinates are unavailable.");
         return;
     }
-    for (const CoreType core_type : CORE_TYPES) {
+    for (const CoreType core_type : ALL_CORE_TYPES) {
         for (const tt_xy_pair& core : get_noc0_pairs(core_type)) {
             UMD_ASSERT(
                 core.x < noc0_x_to_noc1_x.size() && core.y < noc0_y_to_noc1_y.size(),
@@ -607,55 +574,31 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
 }
 
 std::vector<CoreCoord> CoordinateManager::get_tensix_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        if (is_harvested(harvesting_masks.tensix_harvesting_mask, y)) {
-            continue;
-        }
-        for (size_t x = 0; x < tensix_grid_size.x; x++) {
-            cores.emplace_back(tensix_cores[y * tensix_grid_size.x + x], CoreType::TENSIX, CoordSystem::NOC0);
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        tensix_cores, CoreType::TENSIX, harvesting_masks.tensix_harvesting_mask, false, [this](size_t index) {
+            return index / tensix_grid_size.x;
+        });
 }
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_tensix_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        if (!is_harvested(harvesting_masks.tensix_harvesting_mask, y)) {
-            continue;
-        }
-        for (size_t x = 0; x < tensix_grid_size.x; x++) {
-            cores.emplace_back(tensix_cores[y * tensix_grid_size.x + x], CoreType::TENSIX, CoordSystem::NOC0);
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        tensix_cores, CoreType::TENSIX, harvesting_masks.tensix_harvesting_mask, true, [this](size_t index) {
+            return index / tensix_grid_size.x;
+        });
 }
 
 std::vector<CoreCoord> CoordinateManager::get_dram_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
-        if (is_harvested(harvesting_masks.dram_harvesting_mask, bank)) {
-            continue;
-        }
-        for (size_t port = 0; port < dram_grid_size.y; port++) {
-            cores.emplace_back(dram_cores[bank * dram_grid_size.y + port], CoreType::DRAM, CoordSystem::NOC0);
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        dram_cores, CoreType::DRAM, harvesting_masks.dram_harvesting_mask, false, [this](size_t index) {
+            return index / dram_grid_size.y;
+        });
 }
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_dram_cores() const {
-    std::vector<CoreCoord> cores;
-    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
-        if (!is_harvested(harvesting_masks.dram_harvesting_mask, bank)) {
-            continue;
-        }
-        for (size_t port = 0; port < dram_grid_size.y; port++) {
-            cores.emplace_back(dram_cores[bank * dram_grid_size.y + port], CoreType::DRAM, CoordSystem::NOC0);
-        }
-    }
-    return cores;
+    return filter_grid_cores_by_mask(
+        dram_cores, CoreType::DRAM, harvesting_masks.dram_harvesting_mask, true, [this](size_t index) {
+            return index / dram_grid_size.y;
+        });
 }
 
 std::vector<CoreCoord> CoordinateManager::get_eth_cores() const {
@@ -740,13 +683,7 @@ void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
 }
 
 std::vector<size_t> CoordinateManager::get_harvested_indices(const size_t harvesting_mask) {
-    std::vector<size_t> indices;
-    for (size_t index = 0; index < sizeof(harvesting_mask) * 8; index++) {
-        if (is_harvested(harvesting_mask, index)) {
-            indices.push_back(index);
-        }
-    }
-    return indices;
+    return filter_indices_by_mask(sizeof(harvesting_mask) * 8, harvesting_mask, true);
 }
 
 }  // namespace tt::umd

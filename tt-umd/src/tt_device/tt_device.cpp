@@ -17,6 +17,7 @@
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt_device/hang_detection/hang_detector_implementation.hpp"
+#include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device_model/blackhole_tt_device_model.hpp"
 
@@ -41,6 +42,19 @@ RiscReset *require_risc_reset(RiscReset *risc_reset) {
 
 TlbMapping to_tlb_mapping(HostMemoryCaching caching) {
     return caching == HostMemoryCaching::UC ? TlbMapping::UC : TlbMapping::WC;
+}
+
+[[noreturn]] void throw_dma_unavailable(const TTDevice &tt_device, const std::string &what) {
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("{} is not available on device {}.", what, tt_device.get_communication_device_id()));
+}
+
+DmaInterface *require_dma(const TTDevice &tt_device, DmaInterface *dma) {
+    if (dma == nullptr) {
+        throw_dma_unavailable(tt_device, "PCIe DMA");
+    }
+    return dma;
 }
 
 }  // namespace
@@ -187,46 +201,75 @@ void TTDevice::write_to_device_reg(
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_write is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id)) {
+        write_to_device(src, core, dst_addr, size, noc_id);
+    }
 }
 
 void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_read is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id)) {
+        read_from_device(dst, core, src_addr, size, noc_id);
+    }
 }
 
 void TTDevice::dma_write_to_core_range(
     const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_write_to_core_range is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_multicast_write(
+                              src,
+                              dst_addr,
+                              size,
+                              resolve_coordinate(core_start, noc_id),
+                              resolve_coordinate(core_end, noc_id),
+                              noc_id)) {
+        // Falls back the way a NOC multicast does, down to unicast writes, so the data always lands.
+        noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
+    }
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_read_zero_copy is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    // Zero-copy has no fallback: the caller's memory is reachable only by the DMA engine.
+    if (dma == nullptr ||
+        !dma->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id)) {
+        throw_dma_unavailable(*this, "Device-to-host zero-copy DMA");
+    }
 }
 
 void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_write_zero_copy is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr ||
+        !dma->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id)) {
+        throw_dma_unavailable(*this, "Host-to-device zero-copy DMA");
+    }
 }
 
 bool TTDevice::dma_write_zero_copy_start(
     uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_write_zero_copy_start is not implemented yet");
+    return require_dma(*this, get_dma_interface())
+        ->dma_write_zero_copy_start(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
 }
 
 bool TTDevice::dma_read_zero_copy_start(
     uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_read_zero_copy_start is not implemented yet");
+    return require_dma(*this, get_dma_interface())
+        ->dma_read_zero_copy_start(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
 }
 
 DmaTransferState TTDevice::dma_write_zero_copy_check() {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_write_zero_copy_check is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    return dma != nullptr ? dma->dma_write_zero_copy_check() : DmaTransferState::IDLE;
 }
 
 DmaTransferState TTDevice::dma_read_zero_copy_check() {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_read_zero_copy_check is not implemented yet");
+    DmaInterface *dma = get_dma_interface();
+    return dma != nullptr ? dma->dma_read_zero_copy_check() : DmaTransferState::IDLE;
 }
 
 size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
-    UMD_THROW(error::RuntimeError, "TTDevice::dma_zero_copy_max_size is not implemented yet");
+    return require_dma(*this, get_dma_interface())->dma_zero_copy_max_size(device_addr);
 }
 
 void TTDevice::noc_multicast_write(

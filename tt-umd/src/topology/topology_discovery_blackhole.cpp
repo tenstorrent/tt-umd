@@ -21,6 +21,9 @@ namespace tt::umd {
 
 namespace {
 
+// Sized from the observed ~100 ms between the end of link training and the first heartbeat.
+constexpr auto ETH_HEARTBEAT_START_GRACE = std::chrono::milliseconds(500);
+
 // The ERISC firmware publishes what it knows about this chip and about its link partner in its boot results.
 blackhole::chip_info_t read_chip_info(TTDevice* tt_device, CoreCoord eth_core, size_t offset) {
     blackhole::chip_info_t chip_info = {};
@@ -41,9 +44,6 @@ uint32_t read_eth_status_word(TTDevice* tt_device, CoreCoord eth_core, size_t of
     tt_device->read_from_device(&value, eth_core, blackhole::BOOT_RESULTS_ADDR + offset, sizeof(value));
     return value;
 }
-
-// Sized from the observed ~100 ms between the end of link training and the first heartbeat.
-constexpr auto ETH_HEARTBEAT_START_GRACE = std::chrono::milliseconds(500);
 
 uint64_t to_asic_id(const blackhole::chip_info_t& chip_info) {
     return (static_cast<uint64_t>(chip_info.asic_id_hi) << 32) | chip_info.asic_id_lo;
@@ -77,26 +77,33 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, Cor
 
 bool TopologyDiscoveryBlackhole::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     // CMFW zeroes ETH L1 before loading the firmware, and after a reset the word was observed to stay 0 until about
-    // 100 ms after link training ended. A zero word during training is a firmware that has not started yet; once
-    // training has ended it gets a grace period to start, and a word still 0 after it is a firmware that never started,
-    // which only the missing heartbeat reveals.
+    // 100 ms after link training ended. The training status lives in that zeroed L1 too, so a firmware that never
+    // started reads as training forever and only its missing heartbeat reveals it.
+    // - Still training without having waited for training: the firmware may just not have started yet, so the core
+    //   is left idle.
+    // - Still training after the wait gave up: the firmware never started, so the zero word is reported right away.
+    // - Training ended: the firmware gets a grace period to start beating before a zero word is reported.
     if (get_eth_heartbeat(tt_device, eth_core) == 0) {
-        if (tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
+        const bool training = tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS;
+        if (training && !options.wait_on_ethernet_link_training) {
             log_debug(LogUMD, "ETH firmware on core {} has not started its heartbeat yet.", eth_core.str());
             return false;
         }
-        // One deadline per device: its cores start together, and a device whose firmware never started on any core
-        // costs one grace period, not one per core.
-        const auto now = std::chrono::steady_clock::now();
-        const auto deadline =
-            heartbeat_start_deadlines.try_emplace(asic_id, now + ETH_HEARTBEAT_START_GRACE).first->second;
-        const auto remaining_grace = std::max(
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now), std::chrono::milliseconds::zero());
-        utils::poll_until(
-            [&]() { return get_eth_heartbeat(tt_device, eth_core) != 0; },
-            remaining_grace,
-            timeout::FIRMWARE_BUSY_POLL_WINDOW,
-            timeout::FIRMWARE_POLL_INTERVAL);
+        if (!training) {
+            // One deadline per device: its cores start together, and a device whose firmware never started on any
+            // core costs one grace period, not one per core.
+            const auto now = std::chrono::steady_clock::now();
+            const auto deadline =
+                heartbeat_start_deadlines.try_emplace(asic_id, now + ETH_HEARTBEAT_START_GRACE).first->second;
+            const auto remaining_grace = std::max(
+                std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
+                std::chrono::milliseconds::zero());
+            utils::poll_until(
+                [&]() { return get_eth_heartbeat(tt_device, eth_core) != 0; },
+                remaining_grace,
+                timeout::FIRMWARE_BUSY_POLL_WINDOW,
+                timeout::FIRMWARE_POLL_INTERVAL);
+        }
     }
     return TopologyDiscovery::eth_heartbeat_running(tt_device, asic_id, eth_core);
 }

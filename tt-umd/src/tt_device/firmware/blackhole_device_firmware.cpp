@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "common/unsupported.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -29,6 +28,7 @@
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/telemetry.hpp"
 
@@ -48,7 +48,9 @@ uint32_t hw_init_state(uint32_t boot_status) {
     return (boot_status >> BOOT_STATUS_HW_INIT_SHIFT) & BOOT_STATUS_HW_INIT_MASK;
 }
 
-// NIU_CFG_0 bit set while the NIU translates coordinates.
+// NIU_CFG_0 sits at this offset in each NIU's register block; its bit 14 is set while the NIU translates
+// coordinates.
+constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
 constexpr uint32_t NIU_CFG_NOC_ID_TRANSLATE_EN = 1u << 14;
 
 // Each PCIe instance reports its use in two bits of PCIE_USAGE; 0 means the instance is not in use.
@@ -71,9 +73,10 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     pcie_interface_(pcie_interface),
     architecture_impl_(architecture_impl),
     arc_apb_(device_protocol, pcie_interface, nullptr) {
-    // The ARC core is at its NOC0 coordinates over NOC0 whether or not translation is on, so this read cannot
-    // depend on its own answer.
-    noc_translation_enabled_ = get_noc_translation_enabled(NocId::NOC0);
+    // Translation is configured chip-wide, so the PCIe tile's own NIU tells the same as the ARC's. It answers over
+    // BAR0 without NOC traffic, so creating the device neither stalls on nor misreads a hung NOC.
+    const uint32_t niu_cfg = pcie_interface_->bar_read32(blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + NIU_CFG_0_OFFSET);
+    noc_translation_enabled_ = (niu_cfg & NIU_CFG_NOC_ID_TRANSLATE_EN) != 0;
 }
 
 void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
@@ -126,10 +129,16 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
         noc_translation_enabled_,
         BlackholeArcMessageQueueIndex::APPLICATION,
         noc_id);
-    auto telemetry_reader = ArcTelemetryReader::create_arc_telemetry_reader(
-        device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0, arc_core_noc1);
-    auto firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        tt::ARCH::BLACKHOLE, device_protocol_, arc_core_noc0, arc_core_noc1, telemetry_reader.get());
+    std::unique_ptr<ArcTelemetryReader> telemetry_reader;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider;
+    {
+        // The reader locates its table over the thread's NOC, which the caller's choice has to override.
+        NocIdSwitcher noc_switcher(noc_id);
+        telemetry_reader = ArcTelemetryReader::create_arc_telemetry_reader(
+            device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0, arc_core_noc1);
+        firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+            tt::ARCH::BLACKHOLE, device_protocol_, arc_core_noc0, arc_core_noc1, telemetry_reader.get());
+    }
 
     const FirmwareBundleVersion firmware_version = firmware_info_provider->get_firmware_version(noc_id);
     const FirmwareBundleVersion minimum_version = get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);

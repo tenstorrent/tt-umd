@@ -37,6 +37,8 @@ public:
     BlackholeDeviceFirmware(
         DeviceProtocol* device_protocol, PcieInterface* pcie_interface, ArchitectureImplementation* architecture_impl);
 
+    // Running it again rebuilds the message queue, telemetry reader and info provider: pointers obtained from the
+    // getters below are invalidated, and no other thread may use this object meanwhile.
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     DeviceCommandResult send_device_command(

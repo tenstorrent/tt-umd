@@ -14,10 +14,12 @@ namespace tt::umd {
 
 namespace {
 
-// The hang detector's own window: it probes while an I/O through the protocol holds the protocol's windows.
-std::unique_ptr<TlbWindow> make_probe_window(PCIDevice& pci_device) {
+// The hang detector's own window: it probes while an I/O through the protocol holds the protocol's windows. It
+// shares their io_safety because the probe runs inside a stalled guarded access: a fault during the probe must
+// surface from the probe itself, unwinding the detector's lock, rather than jump past it to the outer access.
+std::unique_ptr<TlbWindow> make_probe_window(PCIDevice& pci_device, IoSafety io_safety) {
     const size_t size = get_architecture_tlbs(pci_device.get_arch()).cached_window_size;
-    return std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(size, TlbMapping::UC));
+    return std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(size, TlbMapping::UC), tlb_data{}, io_safety);
 }
 
 }  // namespace
@@ -34,7 +36,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     risc_reset_(&protocol_, &architecture_impl_),
     hang_detector_(
         &protocol_,
-        make_probe_window(*protocol_.get_pci_device()),
+        make_probe_window(*protocol_.get_pci_device(), io_safety),
         firmware_.get_firmware_noc_coord(NocId::NOC0),
         firmware_.get_firmware_noc_coord(NocId::NOC1)) {}
 

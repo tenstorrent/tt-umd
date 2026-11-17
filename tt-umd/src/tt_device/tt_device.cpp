@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common/unsupported.hpp"
+#include "common/utils.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -113,33 +114,18 @@ void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t add
     get_device_protocol()->write_data(mem_ptr, target_core, target_addr, size, noc_id);
 }
 
-namespace {
-
-void check_register_access(tt::ARCH arch, uint64_t addr, size_t size, RegisterAccessWidth width) {
-    if (width == RegisterAccessWidth::BITS64 && arch != tt::ARCH::QUASAR) {
-        UMD_THROW(error::RuntimeError, "64-bit register accesses are supported only on Quasar.");
-    }
-    const size_t access_size = register_access_size(width);
-    if (addr % access_size != 0 || size % access_size != 0) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Register access of {} bytes at {:#x} is not aligned to its {}-byte width.", size, addr, access_size));
-    }
-}
-
-}  // namespace
-
 void TTDevice::read_from_device_reg(
     void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    check_register_access(get_arch(), addr, size, width);
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
     const auto [target_core, target_addr] = resolve_target(core, addr, size, noc_id);
     get_device_protocol()->read_ctrl(mem_ptr, target_core, target_addr, size, noc_id, width);
 }
 
 void TTDevice::write_to_device_reg(
     const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
-    check_register_access(get_arch(), addr, size, width);
+    validate_register_access_width(get_arch(), width);
+    validate_register_access(addr, size, width);
     const auto [target_core, target_addr] = resolve_target(core, addr, size, noc_id);
     get_device_protocol()->write_ctrl(mem_ptr, target_core, target_addr, size, noc_id, width);
 }

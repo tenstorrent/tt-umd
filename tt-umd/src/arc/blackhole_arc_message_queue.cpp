@@ -68,6 +68,10 @@ uint32_t BlackholeArcMessageQueue::send_message(
     std::array<uint32_t, entry_len> response{};
     {
         auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG, device_protocol->get_mmio_id(), IODeviceType::PCIe);
+        // Every sender holds this lock until its response is read, so an unread response belongs to a message
+        // whose sender timed out; dropping it keeps it from being taken as the answer to this one.
+        uint32_t response_wptr = read_word(response_wptr_offset, noc_id);
+        write_words(&response_wptr, 1, response_rptr_offset, noc_id);
         push_request(request, timeout_ms, noc_id);
         trigger_fw_int(noc_id);
         response = pop_response(timeout_ms, noc_id);

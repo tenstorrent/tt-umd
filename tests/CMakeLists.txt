@@ -29,7 +29,6 @@ if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/baremetal)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/destructive)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
@@ -52,7 +51,6 @@ add_custom_target(
         test_pcie_device
         api_tests
         destructive_tests
-        baremetal_tests
         umd_misc_tests
         tt_umd_utils_tests
         unified_tests

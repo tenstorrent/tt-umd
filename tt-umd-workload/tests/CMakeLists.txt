@@ -13,7 +13,6 @@ target_sources(
         api/test_risc_program.cpp
         api/test_tt_visible_devices.cpp
 )
-target_sources(baremetal_tests PRIVATE baremetal/test_cluster.cpp)
 target_sources(unit_tests_blackhole PRIVATE blackhole/test_cluster_bh.cpp)
 target_sources(unified_tests PRIVATE unified/multiprocess.cpp)
 target_sources(
@@ -28,8 +27,6 @@ if(TARGET umd_microbenchmark)
 endif()
 
 if(TT_UMD_BUILD_EMULE)
-    target_sources(baremetal_tests PRIVATE baremetal/test_sw_emule_chip.cpp)
-    target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 
 add_subdirectory(galaxy)

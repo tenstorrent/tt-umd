@@ -96,6 +96,16 @@ auto notify_host_read(Core& core, uint64_t addr, size_t size, int) -> decltype(c
 template <typename Core>
 void notify_host_read(Core&, uint64_t, size_t, long) {}
 
+// A host poll of the chip's host memory (a command-queue pointer) lets a tt-emule run make progress, as the
+// simulator's clock does.
+template <typename Core>
+auto notify_host_poll(int) -> decltype(Core::notify_host_poll()) {
+    return Core::notify_host_poll();
+}
+
+template <typename Core>
+void notify_host_poll(long) {}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -155,6 +165,8 @@ public:
     void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId) override {
         chip_.write_to_device(core, mem_ptr, addr, size);
     }
+
+    void advance_device_execution() override { notify_host_poll<tt_emule::Core>(0); }
 
 private:
     SWEmuleChip& chip_;

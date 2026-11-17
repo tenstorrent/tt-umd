@@ -57,11 +57,6 @@ constexpr uint32_t NIU_CFG_NOC_ID_TRANSLATE_EN = 1u << 14;
 constexpr uint32_t PCIE_USAGE_BITS = 2;
 constexpr uint32_t PCIE_USAGE_MASK = 0x3;
 
-// GDDR_STATUS holds two bits per DRAM channel: training done, then training failed.
-constexpr uint32_t GDDR_STATUS_BITS = 2;
-constexpr uint32_t GDDR_TRAINING_DONE = 1u << 0;
-constexpr uint32_t GDDR_TRAINING_FAILED = 1u << 1;
-
 // Mask with the low num_units bits set.
 uint32_t unit_mask(size_t num_units) { return static_cast<uint32_t>((1ull << num_units) - 1); }
 
@@ -279,18 +274,19 @@ EthTrainingStatus BlackholeDeviceFirmware::get_eth_core_training_status(tt_xy_pa
 bool BlackholeDeviceFirmware::wait_dram_channel_training(
     uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id) {
     require_initialized();
-    uint32_t channel_status = 0;
+    DramTrainingStatus channel_status = DramTrainingStatus::IN_PROGRESS;
     const bool finished = utils::poll_until(
         [&]() {
-            const uint32_t gddr_status = telemetry_reader_->read_entry(TelemetryTag::GDDR_STATUS, noc_id);
-            channel_status = gddr_status >> (dram_channel * GDDR_STATUS_BITS);
-            return (channel_status & (GDDR_TRAINING_DONE | GDDR_TRAINING_FAILED)) != 0;
+            const std::vector<DramTrainingStatus> statuses =
+                firmware_info_provider_->get_dram_training_status(dram_channel + 1, noc_id);
+            channel_status = statuses.empty() ? DramTrainingStatus::IN_PROGRESS : statuses.back();
+            return channel_status != DramTrainingStatus::IN_PROGRESS;
         },
         timeout_ms,
         timeout::FIRMWARE_BUSY_POLL_WINDOW,
         timeout::FIRMWARE_POLL_INTERVAL,
         fmt::format("DRAM channel {} on device {} to train", dram_channel, device_protocol_->get_mmio_id()));
-    if ((channel_status & GDDR_TRAINING_FAILED) != 0) {
+    if (channel_status == DramTrainingStatus::FAIL) {
         log_warning(
             LogUMD, "DRAM channel {} on device {} failed training.", dram_channel, device_protocol_->get_mmio_id());
     }

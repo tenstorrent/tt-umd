@@ -30,6 +30,17 @@ uint64_t channel_size(uint32_t channel) { return channel == 3 ? HUGEPAGE_CHANNEL
 
 size_t page_size() { return static_cast<size_t>(sysconf(_SC_PAGESIZE)); }
 
+void check_channel_count(uint32_t num_host_mem_channels) {
+    UMD_ASSERT(
+        num_host_mem_channels <= MAX_CHANNELS,
+        error::RuntimeError,
+        fmt::format(
+            "{} host memory channels do not fit the {:#x}-byte device IO window; at most {} do.",
+            num_host_mem_channels,
+            SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE,
+            MAX_CHANNELS));
+}
+
 }  // namespace
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id) :
@@ -45,14 +56,7 @@ SimulationSysmemManager::~SimulationSysmemManager() { unmap_system_memory(); }
 uint64_t SimulationSysmemManager::get_mapped_arena_size() const { return DEVICE_IO_WINDOW_SIZE - system_memory_size_; }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
-    UMD_ASSERT(
-        num_host_mem_channels <= MAX_CHANNELS,
-        error::RuntimeError,
-        fmt::format(
-            "{} host memory channels do not fit the {:#x}-byte device IO window; at most {} do.",
-            num_host_mem_channels,
-            DEVICE_IO_WINDOW_SIZE,
-            MAX_CHANNELS));
+    check_channel_count(num_host_mem_channels);
 
     size_t total_size = 0;
     for (uint32_t channel = 0; channel < num_host_mem_channels; channel++) {
@@ -105,6 +109,8 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
         registry_->next_arena_offset == 0,
         error::RuntimeError,
         "Host memory channels can only grow before any system memory buffer has been handed out.");
+    // Checked before unmapping so a rejected count leaves the current channels in place.
+    check_channel_count(num_host_mem_channels);
     unmap_system_memory();
     init_sysmem(num_host_mem_channels);
     return true;

@@ -13,12 +13,15 @@ TargetIoWindowConfig make_io_window_target(
     std::optional<NocId> noc,
     std::optional<CoreCoord> core_end,
     WindowFlags flags) {
+    // The coordinates a NOC request carries depend on the NOC it travels on, so the NOC is fixed here and
+    // handed to the window too; otherwise the window could route over a NOC the coordinates were not made for.
+    const NocId noc_id = noc.value_or(get_selected_noc_id());
     std::optional<tt_xy_pair> translated_end;
     if (core_end.has_value()) {
-        translated_end = soc_descriptor.translate_coord_to(*core_end, CoordSystem::TRANSLATED);
+        translated_end = soc_descriptor.translate_chip_coord_to_translated(*core_end, noc_id);
     }
     return TargetIoWindowConfig{
-        soc_descriptor.translate_coord_to(core_start, CoordSystem::TRANSLATED), translated_end, addr, noc, flags};
+        soc_descriptor.translate_chip_coord_to_translated(core_start, noc_id), translated_end, addr, noc_id, flags};
 }
 
 }  // namespace tt::umd

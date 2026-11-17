@@ -241,11 +241,12 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
         }
         case tt::ARCH::BLACKHOLE: {
             // Blackhole leaves X untranslated in rows 0 and 1 (router, ARC, PCIe and ETH rows), so there
-            // X is the raw X of the NOC carrying the request while Y still goes through the table.
+            // X is the raw X of the NOC carrying the request while Y still goes through the table. The
+            // pair is a translated coordinate as NOC1 reads it, not a NOC1 coordinate.
             constexpr size_t FIRST_TRANSLATED_ROW = 2;
             if (translated.y < FIRST_TRANSLATED_ROW) {
                 const CoreCoord noc1 = translate_coord_to(core, CoordSystem::NOC1);
-                return CoreCoord(noc1.x, translated.y, translated.core_type, CoordSystem::NOC1);
+                return CoreCoord(noc1.x, translated.y, translated.core_type, CoordSystem::TRANSLATED);
             }
             return translated;
         }

@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -49,6 +50,10 @@ protected:
     void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) override;
     void patch_eth_connections() override;
     void retrain_eth_cores() override;
+
+private:
+    // Per ASIC id, when the ETH cores whose training has ended must have started their heartbeat.
+    std::map<uint64_t, std::chrono::steady_clock::time_point> heartbeat_start_deadlines;
 };
 
 }  // namespace tt::umd

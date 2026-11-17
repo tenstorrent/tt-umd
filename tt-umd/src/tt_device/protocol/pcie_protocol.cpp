@@ -14,7 +14,9 @@
 #include "common/utils.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/utils/error.hpp"
 
@@ -26,6 +28,21 @@ namespace {
 // the register space.
 constexpr uint64_t BAR0_SIZE = 512ULL << 20;
 constexpr uint64_t BAR0_REGISTER_SPACE_START = BAR0_SIZE - PCIDevice::bar0_size;
+
+// Blackhole documents only the two 8 KiB NIU blocks of its register space; the rest is reserved, and
+// touching it can wedge the card.
+constexpr uint32_t BLACKHOLE_NIU_BAR0_BLOCK_SIZE = 0x2000;
+constexpr uint32_t ARC_APB_SIZE = 1 << 20;
+
+// Translation leaves the ARC tile's column alone, so its NOC0 coordinates hold either way.
+tt_xy_pair get_blackhole_arc_noc0_core() { return blackhole::get_arc_core(false, false); }
+
+bool is_in_range(uint32_t addr, uint64_t start, uint64_t size) { return addr >= start && addr - start < size; }
+
+bool is_blackhole_niu_register(uint32_t addr) {
+    return is_in_range(addr, blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR, BLACKHOLE_NIU_BAR0_BLOCK_SIZE) ||
+           is_in_range(addr, blackhole::NIU_CFG_NOC1_BAR_PCIE_ADDR, BLACKHOLE_NIU_BAR0_BLOCK_SIZE);
+}
 
 }  // namespace
 
@@ -82,23 +99,46 @@ bool PcieProtocol::write_to_core_range(
 }
 
 volatile uint32_t* PcieProtocol::get_bar_register(uint32_t addr) const {
-    if (addr % sizeof(uint32_t) != 0 || addr < BAR0_REGISTER_SPACE_START ||
-        addr - BAR0_REGISTER_SPACE_START + sizeof(uint32_t) > PCIDevice::bar0_size) {
+    const bool is_register = architecture_impl_->get_architecture() == tt::ARCH::BLACKHOLE
+                                 ? is_blackhole_niu_register(addr)
+                                 : is_in_range(addr, BAR0_REGISTER_SPACE_START, PCIDevice::bar0_size);
+    if (addr % sizeof(uint32_t) != 0 || !is_register) {
         UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "BAR0 address {:#x} is not a 4-byte aligned address in the register space [{:#x}, {:#x}).",
-                addr,
-                BAR0_REGISTER_SPACE_START,
-                BAR0_SIZE));
+            error::RuntimeError, fmt::format("BAR0 address {:#x} is not a 4-byte aligned device register.", addr));
     }
     return reinterpret_cast<volatile uint32_t*>(
         static_cast<uint8_t*>(pci_device_->bar0) + (addr - BAR0_REGISTER_SPACE_START));
 }
 
-void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) { *get_bar_register(addr) = data; }
+std::optional<uint64_t> PcieProtocol::get_arc_apb_noc_address(uint32_t addr) const {
+    // Only Blackhole's PCIe 1 maps ARC into BAR0, and p150 uses PCIe 0, so the host reaches the ARC APB
+    // registers over the NOC. Serving the window that way on both tiles keeps one BAR0 layout for callers.
+    const tt::ARCH arch = architecture_impl_->get_architecture();
+    const ArchitectureRegisters registers = get_architecture_registers(arch);
+    if (arch != tt::ARCH::BLACKHOLE || !is_in_range(addr, registers.arc_apb_bar0_offset, ARC_APB_SIZE)) {
+        return std::nullopt;
+    }
+    return registers.arc_apb_noc_base_address + (addr - registers.arc_apb_bar0_offset);
+}
 
-uint32_t PcieProtocol::bar_read32(uint32_t addr) { return *get_bar_register(addr); }
+void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
+    if (const std::optional<uint64_t> noc_addr = get_arc_apb_noc_address(addr)) {
+        write_ctrl(
+            &data, get_blackhole_arc_noc0_core(), *noc_addr, sizeof(data), NocId::NOC0, RegisterAccessWidth::BITS32);
+        return;
+    }
+    *get_bar_register(addr) = data;
+}
+
+uint32_t PcieProtocol::bar_read32(uint32_t addr) {
+    if (const std::optional<uint64_t> noc_addr = get_arc_apb_noc_address(addr)) {
+        uint32_t data = 0;
+        read_ctrl(
+            &data, get_blackhole_arc_noc0_core(), *noc_addr, sizeof(data), NocId::NOC0, RegisterAccessWidth::BITS32);
+        return data;
+    }
+    return *get_bar_register(addr);
+}
 
 void PcieProtocol::set_power_state(PowerState state) { pci_device_->set_power_state(state == PowerState::HIGH); }
 

@@ -56,8 +56,8 @@ public:
         const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) override;
     int get_mmio_id() override;
 
-    // PcieInterface. BAR addresses are BAR0 offsets inside the register space PCIDevice maps, which
-    // holds the NOC2AXI configuration and the ARC registers; anything else throws.
+    // PcieInterface. BAR addresses are BAR0 offsets of documented registers: the PCIe tile's NIU
+    // configuration and the ARC APB registers; anything else throws.
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
@@ -88,7 +88,12 @@ private:
     // Returns shared's window, allocating it if needed. The caller must hold shared.mutex.
     TlbWindow& get_shared_window(SharedWindow& shared, TlbMapping mapping);
 
+    // The host pointer of a BAR0 register PCIDevice maps; throws for an offset that is not such a register.
     volatile uint32_t* get_bar_register(uint32_t addr) const;
+
+    // The ARC NOC address a BAR0 offset in the ARC APB window stands for, when this device serves that
+    // window over the NOC; nullopt otherwise.
+    std::optional<uint64_t> get_arc_apb_noc_address(uint32_t addr) const;
 
     std::unique_ptr<PCIDevice> pci_device_;
     ArchitectureImplementation* architecture_impl_ = nullptr;

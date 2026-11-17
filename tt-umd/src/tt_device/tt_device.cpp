@@ -251,6 +251,11 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
         grid_start = {std::min(grid_start.x, translated.x), std::min(grid_start.y, translated.y)};
         grid_end = {std::max(grid_end.x, translated.x), std::max(grid_end.y, translated.y)};
     }
+    // Multicast corners are named as NOC0 sees the grid. Untranslated NOC1 coordinates are mirrored, so their
+    // smallest corner is NOC0's lower-right one.
+    if (noc_id == NocId::NOC1 && !soc_descriptor.noc_translation_enabled) {
+        std::swap(grid_start, grid_end);
+    }
 
     if (!get_device_protocol()->write_to_core_range(src, grid_start, grid_end, addr, size, noc_id)) {
         for (const CoreCoord &core : tensix_cores) {
@@ -470,13 +475,14 @@ void TTDevice::wire_hang_detector() {
         return;
     }
 
-    // The timeout check runs while the stuck op may still hold the protocol's windows, so the detector needs a
-    // window of its own. Without one it still works, as long as the protocol is not stuck.
+    // The timeout check runs while the timed-out op still holds the protocol's window, so the detector must probe
+    // through a window of its own. Without one, overruns stay unchecked rather than deadlock on that window.
     if (auto *hang_detector = dynamic_cast<HangDetectorImplementation *>(model_->get_hang_detector())) {
         try {
             hang_detector->set_noc_probe_window(get_io_window(tlb_data{}, TlbMapping::UC));
         } catch (const std::exception &e) {
-            log_debug(LogUMD, "No dedicated hang-probe window, probing through the protocol: {}", e.what());
+            log_debug(LogUMD, "No TLB window for NOC hang probes, IO timeouts will not check for hangs: {}", e.what());
+            return;
         }
     }
     pcie_interface->set_io_timeout_callback(make_io_timeout_hang_check());

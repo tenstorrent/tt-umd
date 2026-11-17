@@ -43,14 +43,15 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
 
     const NocId noc_id = config.noc.value_or(get_selected_noc_id());
     const bool mcast = config.core_end.has_value();
-    tlb_data new_config = make_tlb_config(
-        config.addr,
-        mcast ? *config.core_end : config.core_start,
-        noc_id,
-        static_cast<uint64_t>(ordering),
-        config.flags,
-        mcast,
-        mcast ? config.core_start : tt_xy_pair{});
+    tt_xy_pair tlb_start = mcast ? config.core_start : tt_xy_pair{};
+    tt_xy_pair tlb_end = mcast ? *config.core_end : config.core_start;
+    if (mcast && noc_id == NocId::NOC1) {
+        // NOC1 flows the opposite way, so the rectangle's corners trade places in the TLB; translation does not
+        // change that.
+        std::swap(tlb_start, tlb_end);
+    }
+    tlb_data new_config =
+        make_tlb_config(config.addr, tlb_end, noc_id, static_cast<uint64_t>(ordering), config.flags, mcast, tlb_start);
     configure(new_config);
     window_flags_ = config.flags;
 }
@@ -58,14 +59,17 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
 TargetIoWindowConfig TlbWindow::get_target_config() const {
     const tlb_data& config = tlb_handle->get_config();
     TargetIoWindowConfig target{};
+    target.noc = static_cast<NocId>(config.noc_sel);
     if (config.mcast != 0) {
         target.core_start = tt_xy_pair(config.x_start, config.y_start);
         target.core_end = tt_xy_pair(config.x_end, config.y_end);
+        if (target.noc == NocId::NOC1) {
+            std::swap(target.core_start, *target.core_end);
+        }
     } else {
         target.core_start = tt_xy_pair(config.x_end, config.y_end);
     }
     target.addr = get_base_address();
-    target.noc = static_cast<NocId>(config.noc_sel);
     target.flags = window_flags_;
     return target;
 }

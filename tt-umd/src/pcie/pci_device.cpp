@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
@@ -27,6 +28,7 @@
 #include "common/utils.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/pcie/silicon_tlb_handle.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/kmd_versions.hpp"
@@ -42,6 +44,12 @@ constexpr const char *DEVICE_NODE_DIR = "/dev/tenstorrent";
 // O_APPEND makes the fd power-aware (KMD >= 2.6): it votes for nothing until set_power_state() is
 // called, so an open device can idle. Older KMDs ignore the flag.
 constexpr int DEVICE_OPEN_FLAGS = O_RDWR | O_CLOEXEC | O_APPEND;
+
+// Blackhole windows 0-31 also have a strided-multicast register; the array follows the 210 window registers in
+// the config space.
+constexpr uint32_t BLACKHOLE_STRIDED_TLB_COUNT = 32;
+constexpr uint32_t BLACKHOLE_STRIDED_CONFIG_OFFSET =
+    (blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) * blackhole::TLB_CFG_REG_SIZE_BYTES;
 
 // The largest bounce buffer allocate_pcie_dma_buffer() tries; it halves from here down to one page.
 constexpr size_t MAX_PCIE_DMA_BUFFER_SIZE = 16 * (1 << 20);
@@ -323,10 +331,15 @@ std::vector<int> PCIDevice::enumerate_devices() {
             }
             visible_indices.insert(index);
         } else if (utils::is_bdf_string(token)) {
+            // sysfs spells BDFs in lower-case hex.
+            std::string bdf_prefix = token;
+            std::transform(bdf_prefix.begin(), bdf_prefix.end(), bdf_prefix.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
             bool matched = false;
             for (size_t index = 0; index < all_ids.size(); index++) {
                 const std::optional<std::string> bdf = read_pci_bdf(all_ids[index]);
-                if (bdf.has_value() && bdf->rfind(token, 0) == 0) {
+                if (bdf.has_value() && bdf->rfind(bdf_prefix, 0) == 0) {
                     visible_indices.insert(index);
                     matched = true;
                 }
@@ -538,6 +551,12 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         static_cast<uint8_t *>(tlb_config_space) + (configuration.cfg_addr - tlbs.static_cfg_addr));
     for (size_t i = 0; i < register_words; i++) {
         reg[i] = words[i];
+    }
+    if (arch == tt::ARCH::BLACKHOLE && tlb_index < BLACKHOLE_STRIDED_TLB_COUNT) {
+        // A strided config left by an earlier owner would turn a rectangle multicast into a different target set.
+        auto *strided = reinterpret_cast<volatile uint32_t *>(
+            static_cast<uint8_t *>(tlb_config_space) + BLACKHOLE_STRIDED_CONFIG_OFFSET + tlb_index * sizeof(uint32_t));
+        *strided = 0;
     }
 
     if (!verify) {

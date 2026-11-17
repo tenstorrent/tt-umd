@@ -811,9 +811,10 @@ void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE || kmd_version < KMD_POWER_STATE) {
         return;
     }
-    const uint16_t power_flags = busy ? (TT_POWER_FLAG_MAX_AI_CLK | TT_POWER_FLAG_MRISC_PHY_WAKEUP |
-                                         TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE)
-                                      : 0;
+    // AICLK is left to the firmware's clock messages: a client holding TT_POWER_FLAG_MAX_AI_CLK pins it at the
+    // maximum, so a later request for the idle clock would have no effect.
+    const uint16_t power_flags =
+        busy ? (TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE) : 0;
     const int result = tt_device_set_power_state(tt_device_handle, power_flags);
     if (result != 0) {
         UMD_THROW(

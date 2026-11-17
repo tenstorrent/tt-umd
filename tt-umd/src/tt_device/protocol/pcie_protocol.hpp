@@ -41,8 +41,9 @@ public:
     PCIDevice* get_pci_device() const { return pci_device_.get(); }
 
     // --- DeviceProtocol ---
-    // Data goes through a write-combined window, control through an uncached one, so register accesses reach the
-    // device one by one and in order.
+    // Data writes go through a write-combined window. Data reads go through an uncached one: a read through a
+    // write-combined mapping of register space returns zeros (on Blackhole), and is no faster for memory. Control
+    // accesses have an uncached window of their own, so register accesses reach the device one by one and in order.
     void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     void read_ctrl(
@@ -76,7 +77,8 @@ private:
 
     // Declared first so that the windows, which hold TLBs of this device, are released before it is closed.
     std::unique_ptr<PCIDevice> pci_device_;
-    LockedWindow data_window_;
+    LockedWindow data_write_window_;
+    LockedWindow data_read_window_;
     LockedWindow ctrl_window_;
 };
 

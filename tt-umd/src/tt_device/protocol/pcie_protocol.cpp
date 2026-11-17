@@ -38,18 +38,19 @@ volatile uint32_t* bar_register(PCIDevice& pci_device, uint32_t addr) {
 
 PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, IoSafety io_safety) :
     pci_device_(std::move(pci_device)) {
-    data_window_.window = make_window(*pci_device_, TlbMapping::WC, io_safety);
+    data_write_window_.window = make_window(*pci_device_, TlbMapping::WC, io_safety);
+    data_read_window_.window = make_window(*pci_device_, TlbMapping::UC, io_safety);
     ctrl_window_.window = make_window(*pci_device_, TlbMapping::UC, io_safety);
 }
 
 void PcieProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::mutex> lock(data_window_.mutex);
-    read_block_reconfigure(*data_window_.window, dst, core, addr, size, noc_id);
+    std::lock_guard<std::mutex> lock(data_read_window_.mutex);
+    read_block_reconfigure(*data_read_window_.window, dst, core, addr, size, noc_id);
 }
 
 void PcieProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::mutex> lock(data_window_.mutex);
-    write_block_reconfigure(*data_window_.window, src, core, addr, size, noc_id);
+    std::lock_guard<std::mutex> lock(data_write_window_.mutex);
+    write_block_reconfigure(*data_write_window_.window, src, core, addr, size, noc_id);
 }
 
 void PcieProtocol::read_ctrl(
@@ -66,8 +67,8 @@ void PcieProtocol::write_ctrl(
 
 bool PcieProtocol::write_to_core_range(
     const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::mutex> lock(data_window_.mutex);
-    noc_multicast_write_reconfigure(*data_window_.window, src, size, core_start, core_end, addr, noc_id);
+    std::lock_guard<std::mutex> lock(data_write_window_.mutex);
+    noc_multicast_write_reconfigure(*data_write_window_.window, src, size, core_start, core_end, addr, noc_id);
     return true;
 }
 
@@ -104,7 +105,7 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
 }
 
 void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
-    for (LockedWindow* locked_window : {&data_window_, &ctrl_window_}) {
+    for (LockedWindow* locked_window : {&data_write_window_, &data_read_window_, &ctrl_window_}) {
         std::lock_guard<std::mutex> lock(locked_window->mutex);
         locked_window->window->set_io_timeout_hang_check(hang_check);
     }

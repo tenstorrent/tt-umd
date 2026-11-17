@@ -7,12 +7,24 @@
 #include <cstdint>
 #include <optional>
 
-#include "common/unsupported.hpp"
-
 namespace tt::umd {
 
-std::optional<bool> HangDetector::is_bus_hung(uint32_t data_read) { UMD_NOT_IMPLEMENTED(); }
+std::optional<bool> HangDetector::is_bus_hung(uint32_t data_read) {
+    if (!is_bus_available()) {
+        return std::nullopt;
+    }
+    // Only an all-ones read can come from a hung bus, so anything else needs no second look.
+    if (data_read != HANG_READ_VALUE) {
+        return false;
+    }
+    return read_hang_check_reg_via_bar() == HANG_READ_VALUE;
+}
 
-std::optional<bool> HangDetector::is_noc_hung(NocId noc) { UMD_NOT_IMPLEMENTED(); }
+std::optional<bool> HangDetector::is_noc_hung(NocId noc) {
+    if (!is_noc_available()) {
+        return std::nullopt;
+    }
+    return read_hang_check_reg_via_noc(noc) == HANG_READ_VALUE;
+}
 
 }  // namespace tt::umd

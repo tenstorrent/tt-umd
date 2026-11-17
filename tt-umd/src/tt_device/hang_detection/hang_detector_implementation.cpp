@@ -2,4 +2,5 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// TODO: temporary - empty until this component is implemented.
+// Blackhole is the only architecture this build supports, so BlackholeHangDetector implements HangDetector
+// directly; there is no second architecture to share an implementation with.

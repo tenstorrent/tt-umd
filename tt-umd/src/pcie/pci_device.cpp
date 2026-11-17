@@ -712,9 +712,10 @@ void PCIDevice::set_power_state(bool busy) {
     if (kmd_version < KMD_POWER_STATE || arch != tt::ARCH::BLACKHOLE) {
         return;
     }
-    const uint16_t power_flags = busy ? TT_POWER_FLAG_MAX_AI_CLK | TT_POWER_FLAG_MRISC_PHY_WAKEUP |
-                                            TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE
-                                      : 0;
+    // AICLK is left out of the vote: the firmware ORs this flag with the clock state, so voting it would pin AICLK at
+    // its maximum and make set_clock_state(IDLE) ineffective while the device is busy.
+    const uint16_t power_flags =
+        busy ? TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE : 0;
     check_kmd_result(
         tt_device_set_power_state(tt_device_handle, power_flags),
         fmt::format("Setting the power state of {} to {}", device_path, busy ? "busy" : "idle"));

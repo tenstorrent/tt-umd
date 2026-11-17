@@ -65,8 +65,8 @@ std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 void PcieProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::mutex> lock(data_window_.mutex);
-    read_block_reconfigure(get_shared_window(data_window_, TlbMapping::WC), dst, core, addr, size, noc_id);
+    std::lock_guard<std::mutex> lock(data_read_window_.mutex);
+    read_block_reconfigure(get_shared_window(data_read_window_, TlbMapping::UC), dst, core, addr, size, noc_id);
 }
 
 void PcieProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
@@ -176,7 +176,7 @@ void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& han
         std::lock_guard<std::mutex> lock(hang_check_mutex_);
         io_timeout_hang_check_ = hang_check;
     }
-    for (SharedWindow* shared : {&data_window_, &ctrl_window_}) {
+    for (SharedWindow* shared : {&data_window_, &data_read_window_, &ctrl_window_}) {
         std::lock_guard<std::mutex> lock(shared->mutex);
         if (shared->window != nullptr) {
             shared->window->set_io_timeout_hang_check(hang_check);

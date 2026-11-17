@@ -102,7 +102,10 @@ private:
     std::mutex hang_check_mutex_;
     std::function<bool(NocId)> io_timeout_hang_check_;
 
+    // Data writes go through a WC window. Data reads use a UC window of their own: a WC mapping lets the CPU read
+    // speculatively and in wider chunks, and a register block answers such reads with zeros.
     SharedWindow data_window_;
+    SharedWindow data_read_window_;
     SharedWindow ctrl_window_;
 };
 

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "tt-umd/arc/blackhole_arc_message_queue.hpp"
@@ -73,7 +74,23 @@ public:
     FirmwareInfoProvider* get_firmware_info_provider() const;
 
 private:
+    // Whether the given NOC translates coordinates, read from the hardware so it is known before the firmware is
+    // initialized.
+    bool is_noc_translation_enabled(NocId noc_id) const;
+
+    uint32_t read_arc_register(uint32_t arc_addr_offset, NocId noc_id);
+
+    // NOC address and size of the runtime telemetry buffer, if the firmware publishes one.
+    std::optional<std::pair<uint64_t, uint32_t>> read_runtime_telemetry_buffer(NocId noc_id);
+
+    // Throws error::UninitializedDeviceError unless init_firmware() has run.
+    void throw_if_uninitialized() const;
+
+    // Polls AICLK telemetry until it is near target_mhz; warns if it does not get there in time.
+    void wait_for_aiclk(uint32_t target_mhz, NocId noc_id);
+
     DeviceProtocol* device_protocol_ = nullptr;
+    PcieInterface* pcie_interface_ = nullptr;
     ArchitectureImplementation* architecture_impl_ = nullptr;
     BlackholeArcApb arc_apb_;
 

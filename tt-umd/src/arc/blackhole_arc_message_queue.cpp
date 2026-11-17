@@ -131,6 +131,14 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     const uint64_t queue_size_bytes = ARC_MSG_QUEUE_HEADER_SIZE + 2 * entries * ARC_QUEUE_ENTRY_SIZE;
     const uint64_t queue_base = queue_info[0] + queue_index * queue_size_bytes;
+    UMD_ASSERT(
+        queue_info[0] >= ARC_CSM_BASE && queue_base + queue_size_bytes <= ARC_CSM_BASE + ARC_CSM_SIZE,
+        error::RuntimeError,
+        fmt::format(
+            "The ARC firmware publishes message queues outside its CSM: queue {} at {:#x}, {} bytes.",
+            queue_index,
+            queue_base,
+            queue_size_bytes));
     log_debug(LogUMD, "Using ARC message queue {} at {:#x} with {} entries.", queue_index, queue_base, entries);
     return std::make_unique<BlackholeArcMessageQueue>(
         device_protocol, arc_apb, queue_base, entries, noc_translation_enabled);

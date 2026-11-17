@@ -8,6 +8,7 @@
 
 #include <cstring>
 
+#include "hugepage.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -18,6 +19,7 @@ namespace tt::umd {
 namespace {
 
 // Returns the host address of [offset, offset + size) inside a channel, after checking it lies within the channel.
+// Offsets wrap at the 1 GiB hugepage size, the span each channel occupies in the device's view of host memory.
 uint8_t* channel_address(
     const std::vector<HugepageMapping>& channels, uint16_t channel, uint64_t offset, uint32_t size) {
     UMD_ASSERT(
@@ -25,6 +27,7 @@ uint8_t* channel_address(
         error::RuntimeError,
         fmt::format("Host memory channel {} is not mapped.", channel));
     const HugepageMapping& mapping = channels[channel];
+    offset %= HUGEPAGE_REGION_SIZE;
     UMD_ASSERT(
         offset <= mapping.mapping_size && size <= mapping.mapping_size - offset,
         error::RuntimeError,

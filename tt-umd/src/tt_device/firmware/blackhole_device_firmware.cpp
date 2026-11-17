@@ -23,6 +23,7 @@
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -167,6 +168,8 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
 
     const tt_xy_pair arc_core_noc0 = blackhole::get_arc_core(translation_enabled, false);
     const tt_xy_pair arc_core_noc1 = blackhole::get_arc_core(translation_enabled, true);
+    // Both read the telemetry table while they are built, which goes over the thread's NOC.
+    NocIdSwitcher noc_switcher(noc_id);
     telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
         device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0, arc_core_noc1);
     firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(

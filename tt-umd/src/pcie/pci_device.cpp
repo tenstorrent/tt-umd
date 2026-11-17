@@ -310,8 +310,12 @@ std::vector<int> PCIDevice::enumerate_devices() {
     const std::vector<int> all_ids = sort_ids_based_on_bdf(get_all_device_ids());
 
     const std::optional<std::string> visible_devices = utils::get_env_var_value(utils::TT_VISIBLE_DEVICES_ENV.data());
-    if (!visible_devices.has_value() || visible_devices->empty()) {
+    if (!visible_devices.has_value()) {
         return all_ids;
+    }
+    // Set but empty hides every device, as an empty CUDA_VISIBLE_DEVICES does.
+    if (visible_devices->empty()) {
+        return {};
     }
 
     // An integer token is a logical id, i.e. an index into the BDF-sorted device list; any other token
@@ -716,9 +720,13 @@ void PCIDevice::set_power_state(bool busy) {
     // its maximum and make set_clock_state(IDLE) ineffective while the device is busy.
     const uint16_t power_flags =
         busy ? TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE : 0;
-    check_kmd_result(
-        tt_device_set_power_state(tt_device_handle, power_flags),
-        fmt::format("Setting the power state of {} to {}", device_path, busy ? "busy" : "idle"));
+    const int result = tt_device_set_power_state(tt_device_handle, power_flags);
+    // An fd opened before a reset no longer counts towards the vote, so there is nothing left to withdraw.
+    if (!busy && result == -ENODEV) {
+        log_debug(LogUMD, "{} was reset since it was opened; its power vote is already void.", device_path);
+        return;
+    }
+    check_kmd_result(result, fmt::format("Setting the power state of {} to {}", device_path, busy ? "busy" : "idle"));
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {

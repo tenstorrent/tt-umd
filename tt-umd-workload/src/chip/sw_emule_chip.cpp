@@ -106,6 +106,14 @@ auto notify_host_poll(int) -> decltype(Core::notify_host_poll()) {
 template <typename Core>
 void notify_host_poll(long) {}
 
+template <typename Core>
+auto notify_host_write_begin(int) -> decltype(Core::notify_host_write_begin()) {
+    return Core::notify_host_write_begin();
+}
+
+template <typename Core>
+void notify_host_write_begin(long) {}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -353,6 +361,8 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
+    // The device first catches up with the work it can already do, so the store does not overtake it.
+    notify_host_write_begin<tt_emule::Core>(0);
     target_core->access(l1_dest, const_cast<void*>(src), size, /*is_write=*/true);
     if (l1_dest < target_core->l1_size()) {
         notify_host_write(*target_core, l1_dest, size, 0);

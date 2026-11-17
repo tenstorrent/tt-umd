@@ -78,8 +78,8 @@ private:
     // Whether this device has the pinned staging buffer and completion page every transfer needs.
     bool is_available() const;
 
-    // Takes the device for a blocking transfer, waiting for any other transfer to end.
-    std::unique_lock<MutexInterface> lock_for_blocking_transfer();
+    // Throws on the thread that owns the asynchronous transfer in flight: a blocking DMA from it would wait for itself.
+    void throw_if_async_owner();
 
     // Runs a host-to-device transfer of any size under the device lock, split where the window ends.
     void write_blocking(const uint8_t* src, uint64_t src_iova, uint64_t dst_addr, size_t size, const Destination& dst);
@@ -94,7 +94,7 @@ private:
 
     bool is_channel_running() const;
 
-    // Waits until a transfer this object did not start, such as one left behind by a timed-out transfer, ends.
+    // Waits until an earlier transfer still on the engine, the firmware's or one of ours that timed out, ends.
     void wait_for_channel_idle();
 
     uint32_t read_channel_register(uint32_t offset) const;

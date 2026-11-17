@@ -60,27 +60,31 @@ constexpr size_t COMPLETION_WORDS = 2;
 constexpr auto BUSY_POLL_WINDOW = std::chrono::microseconds(1000);
 constexpr auto POLL_INTERVAL = std::chrono::microseconds(50);
 
-uint64_t get_window_bar0_offset(const TlbHandle& handle) {
-    const uint32_t tlb_id = static_cast<uint32_t>(handle.get_tlb_id());
-    for (const TlbSizeClass& size_class : get_architecture_tlbs(tt::ARCH::BLACKHOLE).size_classes) {
-        if (!size_class.in_bar4 && size_class.size == handle.get_size() && tlb_id >= size_class.base_index &&
-            tlb_id < size_class.base_index + size_class.count) {
-            return size_class.bar_offset + static_cast<uint64_t>(tlb_id - size_class.base_index) * size_class.size;
-        }
-    }
-    UMD_THROW(error::RuntimeError, fmt::format("TLB window {} is not a BAR0 window the DMA engine can reach.", tlb_id));
+// The engine is only given transfers of whole 32-bit words at word-aligned device addresses. Bounce-buffer writes that
+// do not fit this fall back to MMIO; zero-copy transfers have no fallback and throw.
+bool is_word_aligned(uint64_t device_addr, size_t size) {
+    return size % sizeof(uint32_t) == 0 && device_addr % sizeof(uint32_t) == 0;
 }
 
-void validate_async_transfer(uint64_t device_addr, size_t size, size_t max_size) {
-    if (size == 0 || size % sizeof(uint32_t) != 0 || device_addr % sizeof(uint32_t) != 0) {
+void validate_word_aligned(uint64_t device_addr, size_t size) {
+    if (!is_word_aligned(device_addr, size)) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "DMA transfer of {} bytes at device address {:#x} must be a non-zero multiple of 4 bytes at a 4-byte "
-                "aligned address.",
+                "DMA transfer of {} bytes at device address {:#x} must be a multiple of 4 bytes at a 4-byte aligned "
+                "address.",
                 size,
                 device_addr));
     }
+}
+
+void validate_async_transfer(uint64_t device_addr, size_t size, size_t max_size) {
+    if (size == 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Asynchronous DMA transfer at device address {:#x} must not be empty.", device_addr));
+    }
+    validate_word_aligned(device_addr, size);
     if (size > max_size) {
         UMD_THROW(
             error::RuntimeError,
@@ -104,22 +108,33 @@ BlackholeDmaTransfer::~BlackholeDmaTransfer() {
         return;
     }
     // The owner never saw its transfer finish. Let the engine finish with the window and the host memory before
-    // both go away, and hand the device back to other users.
+    // both go away, then try to give the device lock back.
     utils::poll_until([&] { return !is_channel_running(); }, timeout::DMA_TIMEOUT, BUSY_POLL_WINDOW, POLL_INTERVAL);
+    std::unique_lock<MutexInterface>& device_lock = async_transfer_->device_lock;
     try {
-        async_transfer_->device_lock.unlock();
+        device_lock.unlock();
     } catch (const std::exception& e) {
-        log_warning(LogUMD, "Could not release the PCIe DMA lock of an unfinished transfer: {}", e.what());
+        // Typically this runs on a thread other than the one that started the transfer, which cannot give the lock
+        // back. The unique_lock must not keep owning it, or its destructor would unlock it again and terminate.
+        device_lock.release();
+        log_warning(
+            LogUMD,
+            "An unchecked asynchronous PCIe DMA on device {} was abandoned; its PCIe DMA lock stays held until the "
+            "thread that started it exits: {}",
+            pci_device_->get_device_num(),
+            e.what());
     }
 }
 
 bool BlackholeDmaTransfer::dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    throw_if_async_owner();
     // The engine's device-to-host direction is not supported on Blackhole; the caller reads over MMIO instead.
     return false;
 }
 
 bool BlackholeDmaTransfer::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
-    if (!is_available() || size % sizeof(uint32_t) != 0 || dst_addr % sizeof(uint32_t) != 0) {
+    throw_if_async_owner();
+    if (!is_available() || !is_word_aligned(dst_addr, size)) {
         return false;
     }
     write_blocking(static_cast<const uint8_t*>(src), 0, dst_addr, size, Destination{core, std::nullopt, noc_id});
@@ -128,7 +143,8 @@ bool BlackholeDmaTransfer::dma_write(const void* src, uint64_t dst_addr, size_t 
 
 bool BlackholeDmaTransfer::dma_multicast_write(
     const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
-    if (!is_available() || size % sizeof(uint32_t) != 0 || dst_addr % sizeof(uint32_t) != 0) {
+    throw_if_async_owner();
+    if (!is_available() || !is_word_aligned(dst_addr, size)) {
         return false;
     }
     write_blocking(static_cast<const uint8_t*>(src), 0, dst_addr, size, Destination{core_start, core_end, noc_id});
@@ -137,23 +153,28 @@ bool BlackholeDmaTransfer::dma_multicast_write(
 
 bool BlackholeDmaTransfer::dma_read_zero_copy(
     uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    throw_if_async_owner();
     return false;
 }
 
 bool BlackholeDmaTransfer::dma_write_zero_copy(
     uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    throw_if_async_owner();
     if (!is_available()) {
         return false;
     }
+    validate_word_aligned(dst_addr, size);
     write_blocking(nullptr, src_iova, dst_addr, size, Destination{core, std::nullopt, noc_id});
     return true;
 }
 
 bool BlackholeDmaTransfer::dma_multicast_write_zero_copy(
     uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
+    throw_if_async_owner();
     if (!is_available()) {
         return false;
     }
+    validate_word_aligned(dst_addr, size);
     write_blocking(nullptr, src_iova, dst_addr, size, Destination{core_start, core_end, noc_id});
     return true;
 }
@@ -229,17 +250,18 @@ bool BlackholeDmaTransfer::is_available() const {
            pci_device_->bar2_uc_size >= CHANNEL_REGISTERS_END;
 }
 
+void BlackholeDmaTransfer::throw_if_async_owner() {
+    std::lock_guard<std::mutex> state_lock(state_mutex_);
+    if (async_transfer_.has_value() && async_transfer_->owner == std::this_thread::get_id()) {
+        UMD_THROW(
+            error::RuntimeError,
+            "This thread has an asynchronous DMA transfer in flight; a blocking DMA from it would wait for itself. "
+            "Check the transfer until it finishes first.");
+    }
+}
+
 void BlackholeDmaTransfer::write_blocking(
     const uint8_t* src, uint64_t src_iova, uint64_t dst_addr, size_t size, const Destination& dst) {
-    {
-        std::lock_guard<std::mutex> state_lock(state_mutex_);
-        if (async_transfer_.has_value() && async_transfer_->owner == std::this_thread::get_id()) {
-            UMD_THROW(
-                error::RuntimeError,
-                "This thread has an asynchronous DMA transfer in flight; a blocking DMA from it would wait for itself. "
-                "Check the transfer until it finishes first.");
-        }
-    }
     std::unique_lock<MutexInterface> device_lock =
         LockManager::acquire_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
     {
@@ -285,7 +307,11 @@ uint16_t BlackholeDmaTransfer::start_transfer(
     // data has landed, at full speed. Strict ordering would serialize the writes for no added guarantee.
     window_->configure(
         TargetIoWindowConfig{dst.core_start, dst.core_end, dst_addr, dst.noc_id, direction}, IoOrdering::Relaxed);
-    const uint64_t engine_dst_addr = get_window_bar0_offset(window_->handle_ref()) + dst_addr % WINDOW_SIZE;
+    const uint64_t window_bar0_offset =
+        get_architecture_tlbs(tt::ARCH::BLACKHOLE)
+            .get_configuration(static_cast<uint32_t>(window_->handle_ref().get_tlb_id()))
+            .tlb_offset;
+    const uint64_t engine_dst_addr = window_bar0_offset + dst_addr % WINDOW_SIZE;
 
     // The message data the engine writes on completion lands in the low 16 bits of the completion word.
     last_token_ = last_token_ == UINT16_MAX ? 1 : last_token_ + 1;
@@ -360,7 +386,8 @@ void BlackholeDmaTransfer::wait_for_channel_idle() {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "The PCIe DMA engine of device {} stayed busy for {} s with a transfer UMD did not start.",
+                "The PCIe DMA engine of device {} stayed busy for {} s with an earlier transfer still running "
+                "(the firmware's, or one of ours that timed out).",
                 pci_device_->get_device_num(),
                 timeout::DMA_TIMEOUT.count()));
     }

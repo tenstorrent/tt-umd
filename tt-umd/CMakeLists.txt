@@ -137,38 +137,7 @@ target_sources(
 )
 
 if(TT_UMD_BUILD_SIMULATION)
-    target_sources(
-        tt-umd-base
-        PRIVATE
-            src/simulation/simulation_connector.cpp
-            src/simulation/simulation_server_protocol.cpp
-            src/simulation/simulation_device_identity.cpp
-            src/simulation/simulation_host.cpp
-            src/simulation/simulator_paths.cpp
-            src/simulation/tt_sim_communicator.cpp
-            src/simulation/rtl_sim_channel.cpp
-            src/simulation/rtl_sim_communicator.cpp
-            src/simulation/rtl_sim_session.cpp
-            src/simulation/rtl_sim_att_program.cpp
-            src/simulation/rtl_sim_ip_block_layout.cpp
-            src/tt_device/simulation_tt_device.cpp
-            src/tt_device/reset/tt_sim_risc_reset.cpp
-            src/tt_device/reset/rtl_sim_risc_reset.cpp
-            src/tt_device/rtl_simulation_tt_device.cpp
-            src/tt_device/tt_sim_tt_device.cpp
-            src/chip_helpers/simulation_tlb_allocator.cpp
-            src/tt_device/protocol/tt_sim_protocol.cpp
-            src/tt_device/protocol/simulation_noc_protocol.cpp
-            # Composes the protocol above, so it cannot be built without it. Every user of it is a
-            # simulation device, all of which are in this block too.
-            src/tt_device_model/simulation_tt_device_model.cpp
-            src/tt_device/simulation_device_factory.cpp
-            src/pcie/tt_sim_tlb_window.cpp
-            src/pcie/tt_sim_tlb_handle.cpp
-            src/pcie/rtl_sim_tlb_window.cpp
-            src/pcie/rtl_sim_tlb_handle.cpp
-            ${FBS_GENERATED_HEADERS}
-    )
+    target_sources(tt-umd-base PRIVATE ${FBS_GENERATED_HEADERS})
     target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 

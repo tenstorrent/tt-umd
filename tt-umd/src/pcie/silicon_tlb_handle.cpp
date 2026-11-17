@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -64,9 +65,14 @@ void SiliconTlbHandle::free_tlb() noexcept {
     tlb_handle_ = nullptr;
     if (result != 0) {
         // Called from the destructor, so a failure can only be reported. The window goes back to the driver's
-        // pool at the latest when the device is closed.
+        // pool at the latest when the device is closed; a reset has already released it.
         try {
-            log_warning(LogUMD, "Failed to free TLB {} (error {}).", tlb_id_, result);
+            if (result == -ENODEV) {
+                log_debug(
+                    LogUMD, "TLB {} was released by a reset of PCI device {}.", tlb_id_, pci_device_.get_device_num());
+            } else {
+                log_warning(LogUMD, "Failed to free TLB {} (error {}).", tlb_id_, result);
+            }
         } catch (const std::exception&) {
         }
     }

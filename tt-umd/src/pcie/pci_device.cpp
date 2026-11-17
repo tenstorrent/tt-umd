@@ -833,6 +833,11 @@ void PCIDevice::set_power_state(bool busy) {
     const uint16_t power_flags =
         busy ? (TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE) : 0;
     const int result = tt_device_set_power_state(tt_device_handle, power_flags);
+    // A reset invalidates the handle and drops every claim it held, so there is nothing left to release.
+    if (!busy && result == -ENODEV) {
+        log_debug(LogUMD, "{} was reset; its power claims are already released.", device_path);
+        return;
+    }
     if (result != 0) {
         UMD_THROW(
             error::RuntimeError, fmt::format("Failed to set the power state of {} (error {}).", device_path, result));

@@ -119,11 +119,16 @@ FirmwareStartupError::FirmwareStartupError(
             io_device_type, chip_id, arch, noc_id, fw_core, scratch_status, postcode, message_id, smc_init_status)) {}
 
 NocHangError::NocHangError(const TTDevice &tt_device, NocId noc_id) :
-    UmdError<NocHangData>(fmt::format("{} is hung: reads over it return the hang signature.", noc_to_str(noc_id)), [&] {
-        NocHangData data = make_device_data<NocHangData>(TTDeviceData(tt_device));
-        data.noc_id = noc_id;
-        return data;
-    }()) {}
+    UmdError<NocHangData>(
+        fmt::format(
+            "{} on {} is hung: reads over it return the hang signature.",
+            noc_to_str(noc_id),
+            describe_device(TTDeviceData(tt_device))),
+        [&] {
+            NocHangData data = make_device_data<NocHangData>(TTDeviceData(tt_device));
+            data.noc_id = noc_id;
+            return data;
+        }()) {}
 
 PcieHangError::PcieHangError(const TTDevice &tt_device, uint32_t data_read) :
     PcieHangError(

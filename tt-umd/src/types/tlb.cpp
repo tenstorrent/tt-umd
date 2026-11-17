@@ -24,8 +24,10 @@ struct RegisterField {
 
 // Each field ends where the next one in the register begins. The static VC fields at the top are the
 // exception: their ends are given explicitly, because the architectures differ in which of them exist.
+// static_vc is a single enable bit; a layout that leaves its end out has a field tlb_offsets does not name
+// (Blackhole's stream_header) right after it, which must stay zero.
 std::array<RegisterField, 12> get_register_fields(const tlb_data &data, const tlb_offsets &offset) {
-    const uint32_t static_vc_end = offset.static_vc_end != 0 ? offset.static_vc_end : offset.static_vc_buddy;
+    const uint32_t static_vc_end = offset.static_vc_end != 0 ? offset.static_vc_end : offset.static_vc + 1;
     return {{
         {data.local_offset, offset.local_offset, offset.x_end},
         {data.x_end, offset.x_end, offset.y_end},

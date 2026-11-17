@@ -42,21 +42,7 @@ class TimedOps {
 public:
     TimedOps(
         const char* fn_name, const char* operation, std::size_t total_size, const std::function<bool()>& on_timeout) :
-        recorder_(fn_name, total_size, timing_summary_enabled()),
-        guard_(
-            MmioTimeoutConfig::get_op_timeout(),
-            on_timeout,
-            [operation, total_size](
-                std::chrono::nanoseconds delta, std::uint32_t op_bytes, std::size_t bytes_remaining) {
-                UMD_THROW(
-                    error::DeviceTimeoutError,
-                    operation,
-                    op_bytes,
-                    delta,
-                    MmioTimeoutConfig::get_op_timeout(),
-                    bytes_remaining,
-                    total_size);
-            }) {}
+        TimedOps(fn_name, operation, total_size, on_timeout, MmioTimeoutConfig::get_op_timeout()) {}
 
     // bytes_remaining counts the bytes still to transfer when the op starts, the op included.
     template <typename Op>
@@ -69,6 +55,22 @@ public:
 
 private:
     using OnOverrun = std::function<void(std::chrono::nanoseconds, std::uint32_t, std::size_t)>;
+
+    // The budget is read once, so an overrun reports the budget that was actually enforced.
+    TimedOps(
+        const char* fn_name,
+        const char* operation,
+        std::size_t total_size,
+        const std::function<bool()>& on_timeout,
+        std::chrono::milliseconds budget) :
+        recorder_(fn_name, total_size, timing_summary_enabled()),
+        guard_(
+            budget,
+            on_timeout,
+            [operation, total_size, budget](
+                std::chrono::nanoseconds delta, std::uint32_t op_bytes, std::size_t bytes_remaining) {
+                UMD_THROW(error::DeviceTimeoutError, operation, op_bytes, delta, budget, bytes_remaining, total_size);
+            }) {}
 
     MemcpyTimingRecorder recorder_;
     OpTimeoutGuard<OnOverrun> guard_;

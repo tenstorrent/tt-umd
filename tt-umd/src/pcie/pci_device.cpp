@@ -7,13 +7,16 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
@@ -72,14 +75,58 @@ DeviceHandle open_device_handle(const std::string &device_path) {
     return DeviceHandle(handle);
 }
 
-// Selects the devices TT_VISIBLE_DEVICES names among all_devices, which are in BDF order. A token is either an
-// index into that order or a BDF fragment matching every device whose BDF contains it.
-std::vector<int> filter_visible_devices(
-    const std::vector<int> &all_devices, const std::map<int, PciDeviceInfo> &all_infos, const std::string &value) {
+// Device numbers N of the /dev/tenstorrent/N nodes, in ascending numeric order.
+std::vector<int> list_device_numbers() {
+    std::vector<int> device_nums;
+    std::error_code ec;
+    for (const auto &entry : std::filesystem::directory_iterator(DEVICE_DIRECTORY, ec)) {
+        const std::string name = entry.path().filename().string();
+        if (utils::is_integer_string(name)) {
+            device_nums.push_back(std::stoi(name));
+        }
+    }
+    std::sort(device_nums.begin(), device_nums.end());
+    return device_nums;
+}
+
+// Info of each device in device_nums that can be opened and queried. The others are left out, so one broken node
+// does not hide the healthy devices.
+std::map<int, PciDeviceInfo> read_device_infos(const std::vector<int> &device_nums) {
+    std::map<int, PciDeviceInfo> infos;
+    for (const int device_num : device_nums) {
+        try {
+            infos.emplace(device_num, PCIDevice::read_device_info(device_path_for(device_num)));
+        } catch (const std::exception &e) {
+            log_debug(LogUMD, "Cannot read the info of {}: {}", device_path_for(device_num), e.what());
+        }
+    }
+    return infos;
+}
+
+// device_nums in BDF order, followed by the ones missing from infos in their original order.
+std::vector<int> order_by_bdf(const std::vector<int> &device_nums, const std::map<int, PciDeviceInfo> &infos) {
+    std::vector<int> ordered = device_nums;
+    const auto unreadable_begin = std::stable_partition(
+        ordered.begin(), ordered.end(), [&](int device_num) { return infos.count(device_num) != 0; });
+    std::sort(ordered.begin(), unreadable_begin, [&](int lhs, int rhs) {
+        return infos.at(lhs).pci_bdf < infos.at(rhs).pci_bdf;
+    });
+    return ordered;
+}
+
+// Devices named by the TT_VISIBLE_DEVICES value. An integer token is a position in all_devices, the device numbers in
+// numeric order; any other token is a BDF fragment matching every device whose BDF contains it.
+std::vector<int> select_visible_devices(
+    const std::vector<int> &all_devices, const std::map<int, PciDeviceInfo> &infos, const std::string &value) {
     std::set<int> selected;
     for (const std::string &token : utils::split_string_by_comma(value)) {
         if (utils::is_integer_string(token)) {
-            const size_t index = std::stoul(token);
+            // An index too large for size_t is just as out of range as one past the end.
+            size_t index = std::numeric_limits<size_t>::max();
+            try {
+                index = std::stoul(token);
+            } catch (const std::out_of_range &) {
+            }
             if (index >= all_devices.size()) {
                 UMD_THROW(
                     error::RuntimeError,
@@ -91,9 +138,14 @@ std::vector<int> filter_visible_devices(
             }
             selected.insert(all_devices[index]);
         } else if (utils::is_bdf_string(token)) {
+            // BDFs are formatted in lowercase hex.
+            std::string bdf_fragment = token;
+            std::transform(bdf_fragment.begin(), bdf_fragment.end(), bdf_fragment.begin(), [](unsigned char c) {
+                return std::tolower(c);
+            });
             bool matched = false;
-            for (const auto &[device_num, info] : all_infos) {
-                if (info.pci_bdf.find(token) != std::string::npos) {
+            for (const auto &[device_num, info] : infos) {
+                if (info.pci_bdf.find(bdf_fragment) != std::string::npos) {
                     selected.insert(device_num);
                     matched = true;
                 }
@@ -112,11 +164,26 @@ std::vector<int> filter_visible_devices(
                     utils::TT_VISIBLE_DEVICES_ENV));
         }
     }
-    std::vector<int> visible;
-    std::copy_if(all_devices.begin(), all_devices.end(), std::back_inserter(visible), [&](int device_num) {
-        return selected.count(device_num) != 0;
-    });
-    return visible;
+    return {selected.begin(), selected.end()};
+}
+
+// The devices enumerate_devices() returns, together with the info of every device that could be read.
+std::pair<std::vector<int>, std::map<int, PciDeviceInfo>> enumerate_visible_devices() {
+    const std::vector<int> all_devices = list_device_numbers();
+    std::map<int, PciDeviceInfo> infos = read_device_infos(all_devices);
+    const std::optional<std::string> visible_devices = utils::get_env_var_value(utils::TT_VISIBLE_DEVICES_ENV.data());
+    if (!visible_devices.has_value()) {
+        return {order_by_bdf(all_devices, infos), std::move(infos)};
+    }
+    std::vector<int> visible = order_by_bdf(select_visible_devices(all_devices, infos, *visible_devices), infos);
+    log_debug(
+        LogUMD,
+        "{}={} leaves {} of {} devices.",
+        utils::TT_VISIBLE_DEVICES_ENV,
+        *visible_devices,
+        visible.size(),
+        all_devices.size());
+    return {std::move(visible), std::move(infos)};
 }
 
 }  // namespace
@@ -136,68 +203,32 @@ tt::ARCH arch_from_pci_device_id(uint16_t device_id) {
 
 tt::ARCH PciDeviceInfo::get_arch() const { return arch_from_pci_device_id(device_id); }
 
-std::vector<int> PCIDevice::get_all_device_ids() {
-    std::vector<int> device_ids;
-    std::error_code ec;
-    for (const auto &entry : std::filesystem::directory_iterator(DEVICE_DIRECTORY, ec)) {
-        const std::string name = entry.path().filename().string();
-        if (utils::is_integer_string(name)) {
-            device_ids.push_back(std::stoi(name));
-        }
-    }
-    return sort_ids_based_on_bdf(device_ids);
-}
+std::vector<int> PCIDevice::get_all_device_ids() { return list_device_numbers(); }
 
 std::map<std::string, int> PCIDevice::get_bdf_to_device_id_map() {
     std::map<std::string, int> bdf_to_device_id;
-    for (const int device_num : get_all_device_ids()) {
-        bdf_to_device_id.emplace(read_device_info(device_path_for(device_num)).pci_bdf, device_num);
+    for (const auto &[device_num, info] : read_device_infos(list_device_numbers())) {
+        bdf_to_device_id.emplace(info.pci_bdf, device_num);
     }
     return bdf_to_device_id;
 }
 
 std::vector<int> PCIDevice::sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids) {
-    std::vector<std::pair<std::string, int>> bdf_and_id;
-    bdf_and_id.reserve(pci_device_ids.size());
-    for (const int device_num : pci_device_ids) {
-        bdf_and_id.emplace_back(read_device_info(device_path_for(device_num)).pci_bdf, device_num);
-    }
-    std::sort(bdf_and_id.begin(), bdf_and_id.end());
-    std::vector<int> sorted_ids;
-    sorted_ids.reserve(bdf_and_id.size());
-    for (const auto &[bdf, device_num] : bdf_and_id) {
-        sorted_ids.push_back(device_num);
-    }
-    return sorted_ids;
+    return order_by_bdf(pci_device_ids, read_device_infos(pci_device_ids));
 }
 
-std::vector<int> PCIDevice::enumerate_devices() {
-    const std::vector<int> all_devices = get_all_device_ids();
-    const std::optional<std::string> visible_devices = utils::get_env_var_value(utils::TT_VISIBLE_DEVICES_ENV.data());
-    if (!visible_devices.has_value()) {
-        return all_devices;
-    }
-    std::map<int, PciDeviceInfo> all_infos;
-    for (const int device_num : all_devices) {
-        all_infos.emplace(device_num, read_device_info(device_path_for(device_num)));
-    }
-    std::vector<int> visible = filter_visible_devices(all_devices, all_infos, visible_devices.value());
-    log_debug(
-        LogUMD,
-        "{}={} leaves {} of {} devices.",
-        utils::TT_VISIBLE_DEVICES_ENV,
-        *visible_devices,
-        visible.size(),
-        all_devices.size());
-    return visible;
-}
+std::vector<int> PCIDevice::enumerate_devices() { return enumerate_visible_devices().first; }
 
 std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
-    std::map<int, PciDeviceInfo> infos;
-    for (const int device_num : enumerate_devices()) {
-        infos.emplace(device_num, read_device_info(device_path_for(device_num)));
+    const auto [visible, infos] = enumerate_visible_devices();
+    std::map<int, PciDeviceInfo> visible_infos;
+    for (const int device_num : visible) {
+        // A device whose info cannot be read has nothing to report here.
+        if (const auto info = infos.find(device_num); info != infos.end()) {
+            visible_infos.emplace(*info);
+        }
     }
-    return infos;
+    return visible_infos;
 }
 
 std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {

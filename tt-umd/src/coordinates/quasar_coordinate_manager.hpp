@@ -1,0 +1,47 @@
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+#include "tt-umd/coordinates/coordinate_manager.hpp"
+
+namespace tt::umd {
+
+// Quasar has no NOC translation: translated coordinates are NOC0 coordinates for every core. Tensix
+// harvesting, when present, takes out rows.
+class QuasarCoordinateManager : public CoordinateManager {
+public:
+    QuasarCoordinateManager(
+        const bool noc_translation_enabled,
+        const HarvestingMasks harvesting_masks,
+        const tt_xy_pair& tensix_grid_size,
+        const std::vector<tt_xy_pair>& tensix_cores,
+        const tt_xy_pair& dram_grid_size,
+        const std::vector<tt_xy_pair>& dram_cores,
+        const std::vector<tt_xy_pair>& eth_cores,
+        const tt_xy_pair& arc_grid_size,
+        const std::vector<tt_xy_pair>& arc_cores,
+        const tt_xy_pair& pcie_grid_size,
+        const std::vector<tt_xy_pair>& pcie_cores,
+        const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<tt_xy_pair>& security_cores,
+        const std::vector<tt_xy_pair>& l2cpu_cores,
+        const std::vector<tt_xy_pair>& dispatch_cores,
+        const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
+
+protected:
+    tt_xy_pair get_tensix_grid_size() const override;
+
+    void fill_tensix_noc0_translated_mapping() override;
+    void fill_eth_noc0_translated_mapping() override;
+    void fill_dram_noc0_translated_mapping() override;
+    void fill_pcie_noc0_translated_mapping() override;
+    void fill_arc_noc0_translated_mapping() override;
+};
+
+}  // namespace tt::umd

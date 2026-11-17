@@ -38,7 +38,8 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
         &protocol_,
         make_probe_window(*protocol_.get_pci_device(), io_safety),
         firmware_.get_firmware_noc_coord(NocId::NOC0),
-        firmware_.get_firmware_noc_coord(NocId::NOC1)) {}
+        firmware_.get_firmware_noc_coord(NocId::NOC1)),
+    dma_(protocol_.get_pci_device()) {}
 
 DeviceProtocol* BlackholeTTDeviceModel::get_device_protocol() { return &protocol_; }
 
@@ -61,6 +62,8 @@ FirmwareInfoProvider* BlackholeTTDeviceModel::get_firmware_info_provider() {
 }
 
 PcieInterface* BlackholeTTDeviceModel::get_pcie_interface() { return &protocol_; }
+
+DmaInterface* BlackholeTTDeviceModel::get_dma_interface() { return &dma_; }
 
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host) {

@@ -16,7 +16,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "common/unsupported.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -115,12 +117,23 @@ void SysmemBuffer::bind_noc_address() {
     noc_addr_ = noc_binder_();
 }
 
+// The core is already in the coordinates the selected NOC routes by, so it is passed on as is.
 void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
-    UMD_NOT_IMPLEMENTED();
+    validate(offset, size);
+    UMD_ASSERT(
+        tt_device_ != nullptr, error::RuntimeError, "This sysmem buffer is not attached to a device to DMA with.");
+    tt_device_->dma_write_zero_copy(get_iova(offset), addr, size, CoreCoord(core), get_selected_noc_id());
 }
 
 void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
-    UMD_NOT_IMPLEMENTED();
+    UMD_ASSERT(
+        device_access_ != DeviceBufferAccess::READ_ONLY,
+        error::RuntimeError,
+        "The device may only read this sysmem buffer, so it cannot DMA into it.");
+    validate(offset, size);
+    UMD_ASSERT(
+        tt_device_ != nullptr, error::RuntimeError, "This sysmem buffer is not attached to a device to DMA with.");
+    tt_device_->dma_read_zero_copy(get_iova(offset), addr, size, CoreCoord(core), get_selected_noc_id());
 }
 
 void SysmemBuffer::validate(const size_t offset, const size_t size) const {

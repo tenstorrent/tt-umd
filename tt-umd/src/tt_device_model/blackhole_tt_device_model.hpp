@@ -13,6 +13,7 @@
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
+#include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/reset/classic_tile_risc_reset.hpp"
 
@@ -42,6 +43,7 @@ public:
     FirmwareTelemetryReader* get_firmware_telemetry_reader() override;
     FirmwareInfoProvider* get_firmware_info_provider() override;
     PcieInterface* get_pcie_interface() override;
+    DmaInterface* get_dma_interface() override;
     // Served by TTDevice's TLB path.
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
@@ -55,6 +57,7 @@ private:
     BlackholeDeviceFirmware firmware_;
     ClassicTileRiscReset risc_reset_;
     BlackholeHangDetector hang_detector_;
+    BlackholeDmaTransfer dma_;
 };
 
 }  // namespace tt::umd

@@ -426,6 +426,18 @@ void PCIDevice::construct_resources() {
     void *arc_window = map_bar0_range(bar0_mapping_offset, bar0_size);
     bar0 = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(arc_window) - bar0_mapping_offset);
     tlb_config_space = map_bar0_range(tlbs.static_cfg_addr, tlb_config_space_size);
+
+    // BAR2 holds the PCIe controller's own registers, among them its DMA engine. A device that does not expose it
+    // simply has no use for it.
+    const tt_bar_mapping_t &bar2 = bar_mappings.resource1_uc;
+    if (bar2.id != TT_BAR_MAPPING_UNUSED && bar2.size > 0) {
+        void *mapping = mmap(nullptr, bar2.size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar2.base);
+        if (mapping == MAP_FAILED) {
+            UMD_THROW(error::RuntimeError, fmt::format("Failed to map BAR2 of {}: {}.", device_path, strerror(errno)));
+        }
+        bar2_uc = mapping;
+        bar2_uc_size = bar2.size;
+    }
     read_checking_offset = get_architecture_registers(arch).noc_node_id_bar_offset;
 
     allocate_pcie_dma_buffer();
@@ -439,6 +451,11 @@ void PCIDevice::release_resources() {
         }
         munmap(dma_buffer.buffer, dma_buffer.size + page_size());
         dma_buffer = DmaBuffer{};
+    }
+    if (bar2_uc != nullptr) {
+        munmap(bar2_uc, bar2_uc_size);
+        bar2_uc = nullptr;
+        bar2_uc_size = 0;
     }
     if (tlb_config_space != nullptr) {
         munmap(tlb_config_space, tlb_config_space_size);

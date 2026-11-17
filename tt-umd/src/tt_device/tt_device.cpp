@@ -23,9 +23,22 @@
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
+#include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device_model/blackhole_tt_device_model.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// For the zero-copy paths, which have no fallback.
+DmaInterface *require_dma(DmaInterface *dma) {
+    if (dma == nullptr) {
+        UMD_THROW(error::RuntimeError, "DMA is not available on this device.");
+    }
+    return dma;
+}
+
+}  // namespace
 
 std::unique_ptr<TTDevice> TTDevice::create(
     int device_number,
@@ -131,41 +144,76 @@ void TTDevice::write_to_device_reg(
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, dst_addr, size, noc_id);
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_write(src, target_addr, size, target_core, noc_id)) {
+        get_device_protocol()->write_data(src, target_core, target_addr, size, noc_id);
+    }
 }
 
 void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, src_addr, size, noc_id);
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_read(dst, target_addr, size, target_core, noc_id)) {
+        get_device_protocol()->read_data(dst, target_core, target_addr, size, noc_id);
+    }
 }
 
 void TTDevice::dma_write_to_core_range(
     const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    DmaInterface *dma = get_dma_interface();
+    if (dma == nullptr || !dma->dma_multicast_write(
+                              src,
+                              dst_addr,
+                              size,
+                              resolve_coordinate(core_start, noc_id),
+                              resolve_coordinate(core_end, noc_id),
+                              noc_id)) {
+        noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
+    }
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, src_addr, size, noc_id);
+    if (!require_dma(get_dma_interface())->dma_read_zero_copy(dst_iova, target_addr, size, target_core, noc_id)) {
+        UMD_THROW(error::RuntimeError, "Device-to-host DMA is not available on this device.");
+    }
 }
 
 void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, dst_addr, size, noc_id);
+    if (!require_dma(get_dma_interface())->dma_write_zero_copy(src_iova, target_addr, size, target_core, noc_id)) {
+        UMD_THROW(error::RuntimeError, "Host-to-device DMA is not available on this device.");
+    }
 }
 
 bool TTDevice::dma_write_zero_copy_start(
     uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, dst_addr, size, noc_id);
+    return require_dma(get_dma_interface())
+        ->dma_write_zero_copy_start(src_iova, target_addr, size, target_core, noc_id);
 }
 
 bool TTDevice::dma_read_zero_copy_start(
     uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
-    UMD_NOT_IMPLEMENTED();
+    const auto [target_core, target_addr] = resolve_target(core, src_addr, size, noc_id);
+    return require_dma(get_dma_interface())->dma_read_zero_copy_start(dst_iova, target_addr, size, target_core, noc_id);
 }
 
-DmaTransferState TTDevice::dma_write_zero_copy_check() { UMD_NOT_IMPLEMENTED(); }
+// A device without DMA never has a transfer in flight.
+DmaTransferState TTDevice::dma_write_zero_copy_check() {
+    DmaInterface *dma = get_dma_interface();
+    return dma == nullptr ? DmaTransferState::IDLE : dma->dma_write_zero_copy_check();
+}
 
-DmaTransferState TTDevice::dma_read_zero_copy_check() { UMD_NOT_IMPLEMENTED(); }
+DmaTransferState TTDevice::dma_read_zero_copy_check() {
+    DmaInterface *dma = get_dma_interface();
+    return dma == nullptr ? DmaTransferState::IDLE : dma->dma_read_zero_copy_check();
+}
 
-size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) { UMD_NOT_IMPLEMENTED(); }
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+    return require_dma(get_dma_interface())->dma_zero_copy_max_size(device_addr);
+}
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {

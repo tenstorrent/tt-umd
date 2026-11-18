@@ -49,7 +49,6 @@ public:
     void close_device() override;
 
     TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
 
     SystemMemoryAllocator* get_system_memory_allocator() override { return nullptr; }
 

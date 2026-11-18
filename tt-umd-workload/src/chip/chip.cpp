@@ -51,7 +51,7 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
-SystemMemoryAllocator* Chip::get_system_memory_allocator() { return get_sysmem_manager(); }
+SysmemManager* Chip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(get_system_memory_allocator()); }
 
 // Only a chip whose host memory is pinned for its own DMA engine can serve these.
 void Chip::dma_write_zero_copy(const SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {

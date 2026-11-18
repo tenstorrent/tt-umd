@@ -68,12 +68,11 @@ public:
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
 
+    // Controls the reset state of the device's RISC cores.
+    virtual RiscReset *get_risc_reset() = 0;
+
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
-
-    // Controls the reset state of the device's RISC cores. Null only while a model has not migrated
-    // to it, in which case reset is unavailable on every device built from that model.
-    virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware
     // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the

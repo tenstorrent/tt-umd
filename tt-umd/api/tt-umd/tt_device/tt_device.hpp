@@ -464,7 +464,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -474,7 +474,7 @@ public:
      * @param staggered_start Whether to use staggered start
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void deassert_risc_reset(
+    void deassert_risc_reset(
         CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }

@@ -349,7 +349,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Voltage in mV, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_vdd_max([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_vdd_max([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the lowest core voltage (VDD) the firmware is allowed to request.
@@ -357,7 +359,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Voltage in mV, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_vdd_min([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_vdd_min([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the current clock of each L2CPU (RISC-V) cluster.
@@ -368,7 +372,9 @@ public:
      * @return std::vector<std::optional<uint32_t>> Frequency in MHz per cluster, indexed by cluster.
      */
     virtual std::vector<std::optional<uint32_t>> get_l2cpu_clocks(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return {};
+    }
 
     /**
      * @brief Retrieves which Tensix columns are enabled (not harvested).
@@ -378,7 +384,9 @@ public:
      * @return std::optional<uint32_t> Bitmask of enabled columns, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_enabled_tensix_columns(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves which Tensix rows are enabled (not harvested).
@@ -387,8 +395,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Bitmask of enabled rows, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_enabled_tensix_rows(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_enabled_tensix_rows([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves which Ethernet cores are enabled (not harvested).
@@ -397,7 +406,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Bitmask of enabled channels, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_enabled_eth_cores([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_enabled_eth_cores([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves which GDDR instances are enabled (not harvested).
@@ -405,7 +416,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Bitmask of enabled instances, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_enabled_gddr([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_enabled_gddr([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves which L2CPU clusters are enabled (not harvested).
@@ -413,7 +426,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Bitmask of enabled clusters, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_enabled_l2cpus([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_enabled_l2cpus([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the configured mode of each PCIe instance.
@@ -422,7 +437,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::vector<PcieMode> Mode per PCIe instance, indexed by instance.
      */
-    virtual std::vector<PcieMode> get_pcie_modes([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::vector<PcieMode> get_pcie_modes([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return {};
+    }
 
     /**
      * @brief Retrieves the board's total input power, as measured at the board's power input.
@@ -430,14 +447,18 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_input_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the Thermal Design Current limit the firmware throttles AICLK to stay under.
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> TDC limit in amps, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_tdc_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_tdc_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the power drawn by the GDDR IO rail on the west side of the chip.
@@ -445,8 +466,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_gddr_west_io_power(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_gddr_west_io_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the power drawn by the GDDR IO rail on the east side of the chip.
@@ -454,8 +476,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Power in watts, truncated to an integer, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_gddr_east_io_power(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_gddr_east_io_power([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the AICLK arbitration state: the effective floor and ceiling, which arbiters are enabled and
@@ -471,7 +494,9 @@ public:
      * it.
      */
     virtual std::optional<AiclkArbitration> get_aiclk_arbitration(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the AICLK ceiling set by the host.
@@ -479,7 +504,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_host_aiclk_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_host_aiclk_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the number of errors the ARC's SMBus target has seen in its traffic with the board
@@ -487,7 +514,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Error count, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_smbus_error_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Reports whether the firmware supports an optional capability. Blackhole only.
@@ -498,7 +527,9 @@ public:
      * @return std::optional<bool> true if supported, or std::nullopt if the firmware does not say.
      */
     virtual std::optional<bool> is_capability_supported(
-        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Reports whether a capability is currently switched on. Blackhole only.
@@ -508,7 +539,9 @@ public:
      * does not say.
      */
     virtual std::optional<bool> is_capability_enabled(
-        FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] FirmwareCapability capability, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves the AICLK at which the kernel NOP throttler stops inserting NOPs.
@@ -518,7 +551,9 @@ public:
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_kernel_nop_throttler_stop_freq(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves how many times the firmware has started making the Tensix cores execute NOPs since the chip
@@ -527,7 +562,9 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Start count, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_nop_start_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_nop_start_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 
     /**
      * @brief Retrieves how long the Tensix cores were made to execute NOPs during the firmware's most recent
@@ -536,6 +573,8 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Duration in milliseconds, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_nop_on_duration([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    virtual std::optional<uint32_t> get_nop_on_duration([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const {
+        return std::nullopt;
+    }
 };
 }  // namespace tt::umd

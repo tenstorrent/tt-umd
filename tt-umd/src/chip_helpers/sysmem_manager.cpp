@@ -4,78 +4,10 @@
 
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 
-#include <fmt/format.h>
-
-#include <cstring>
-#include <tt-logger/tt-logger.hpp>
-
-#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
-
-void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
-    ZoneScopedC(tracy::Color::Yellow);
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    UMD_ASSERT(
-        hugepage_map.mapping,
-        error::RuntimeError,
-        fmt::format(
-            "write_buffer: Hugepages are not allocated ch: {}."
-            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-            channel));
-    UMD_ASSERT(
-        hugepage_map.mapping_size != 0,
-        error::RuntimeError,
-        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
-
-    UMD_ASSERT(
-        size <= hugepage_map.mapping_size,
-        error::RuntimeError,
-        fmt::format(
-            "write_buffer data has larger size {} than destination buffer {}", size, hugepage_map.mapping_size));
-    log_debug(
-        LogUMD,
-        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
-        hugepage_map.mapping,
-        (sysmem_dest % hugepage_map.mapping_size),
-        channel,
-        size);
-    void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
-
-    memcpy(user_scratchspace, src, size);
-}
-
-void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
-    ZoneScopedC(tracy::Color::Yellow);
-    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    UMD_ASSERT(
-        hugepage_map.mapping,
-        error::RuntimeError,
-        fmt::format(
-            "read_buffer: Hugepages are not allocated ch: {}."
-            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-            channel));
-    UMD_ASSERT(
-        hugepage_map.mapping_size != 0,
-        error::RuntimeError,
-        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
-
-    void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
-
-    if (tt_device_) {
-        log_debug(
-            LogUMD,
-            "SysmemManager: read_from_sysmem (comm. device ID: {}, ch: {}) from {:p}",
-            tt_device_->get_communication_device_id(),
-            channel,
-            user_scratchspace);
-    }
-    memcpy(dest, user_scratchspace, size);
-}
 
 std::unique_ptr<SysmemBuffer> SysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
     return allocate_sysmem_buffer(size, bind_to_noc);
@@ -97,19 +29,9 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
     }
 }
 
-size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
-
 bool SysmemManager::is_read_only_page_pinning_supported() const {
     // Managers without a PCI device behind them (simulation) cannot pin host pages at all.
     return pci_device_ != nullptr && pci_device_->is_read_only_page_pinning_supported();
-}
-
-HugepageMapping SysmemManager::get_hugepage_mapping(size_t channel) const {
-    if (hugepage_mapping_per_channel.size() <= channel) {
-        return {nullptr, 0, 0};
-    } else {
-        return hugepage_mapping_per_channel[channel];
-    }
 }
 
 }  // namespace tt::umd

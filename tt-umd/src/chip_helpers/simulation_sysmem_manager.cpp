@@ -53,10 +53,10 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
-bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+void SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     ZoneScopedC(tracy::Color::Yellow);
     if (num_host_mem_channels == 0) {
-        return true;
+        return;
     }
 
     if (num_host_mem_channels > 4) {
@@ -95,8 +95,6 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         hugepage_mapping_per_channel.push_back(
             {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
     }
-
-    return true;
 }
 
 uint64_t SimulationSysmemManager::get_mapped_arena_size() const {
@@ -127,17 +125,73 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
     return true;
 }
 
-bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
-
-SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
-
-void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+SimulationSysmemManager::~SimulationSysmemManager() {
     ZoneScopedC(tracy::Color::Yellow);
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
     unmap_system_memory();
+}
+
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    UMD_ASSERT(
+        hugepage_map.mapping,
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
+
+    UMD_ASSERT(
+        size <= hugepage_map.mapping_size,
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer data has larger size {} than destination buffer {}", size, hugepage_map.mapping_size));
+    log_debug(
+        LogUMD,
+        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
+        hugepage_map.mapping,
+        (sysmem_dest % hugepage_map.mapping_size),
+        channel,
+        size);
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
+
+    memcpy(user_scratchspace, src, size);
+}
+
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
+    HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+    UMD_ASSERT(
+        hugepage_map.mapping,
+        error::RuntimeError,
+        fmt::format(
+            "read_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
+
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
+
+    memcpy(dest, user_scratchspace, size);
+}
+
+HugepageMapping SimulationSysmemManager::get_hugepage_mapping(size_t channel) const {
+    if (hugepage_mapping_per_channel.size() <= channel) {
+        return {nullptr, 0, 0};
+    } else {
+        return hugepage_mapping_per_channel[channel];
+    }
 }
 
 void SimulationSysmemManager::unmap_system_memory() {
@@ -203,16 +257,16 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
-    // This mapping belongs to the buffer, so it is released along with the registry entry. mmap returns
-    // a page-aligned address, so the pointer the deleter receives is the one to munmap.
+    // This mapping belongs to the buffer, so it is released along with the registry entry. The buffer
+    // starts at the mapping, so the pointer the deleter receives is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
-    const auto release_mapping = [mapping_size](void* aligned_va) {
-        if (munmap(aligned_va, mapping_size) != 0) {
+    const auto release_mapping = [mapping_size](void* buffer_va) {
+        if (munmap(buffer_va, mapping_size) != 0) {
             log_warning(
                 LogUMD,
                 "Failed to munmap simulation sysmem buffer of size {:#x} at {:p}: {}.",
                 mapping_size,
-                aligned_va,
+                buffer_va,
                 strerror(errno));
         }
     };
@@ -252,21 +306,20 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
     check_arena_capacity(extent);
 
+    // The arena hands out whole pages, so the buffer's address keeps its offset into the first one.
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t host_offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
-    const uint64_t page_io_addr = pcie_base_ + registry_->next_arena_offset;
-    const uint64_t device_io_addr = page_io_addr + host_offset;
+    const uint64_t device_io_addr = pcie_base_ + registry_->next_arena_offset + host_offset;
     const std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
     registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});
-    // SysmemBuffer adds the host page offset to its device IO base, but returns noc_addr unchanged.
     // The registry covers only the requested bytes, not the padding on either side of the mapping.
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     try {
         // Drop the registry entry before releasing backing memory. Only allocated
         // buffers carry a release callable; external mappings remain caller-owned.
         SysmemBuffer::Deleter deleter =
-            [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* aligned_va) {
+            [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* buffer_va) {
                 if (auto reg = weak_reg.lock()) {
                     std::lock_guard<std::mutex> lock(reg->mutex);
                     reg->buffers.erase(
@@ -279,18 +332,11 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
                         reg->buffers.end());
                 }
                 if (release) {
-                    release(aligned_va);
+                    release(buffer_va);
                 }
             };
         auto result = create_buffer(
-            /*tt_device=*/nullptr,
-            buffer,
-            sysmem_buffer_size,
-            page_io_addr,
-            communication_id_,
-            std::move(deleter),
-            noc_addr,
-            device_access);
+            buffer, sysmem_buffer_size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
         registry_->next_arena_offset += extent;
         return result;
     } catch (...) {

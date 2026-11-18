@@ -115,8 +115,6 @@ JtagInterface *WormholeTTDeviceModel::get_jtag_interface() { return jtag_interfa
 
 RemoteInterface *WormholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
-PCIDevice *WormholeTTDeviceModel::get_pci_device() { return pci_device_; }
-
 SystemMemoryAllocator *WormholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
 
 }  // namespace tt::umd

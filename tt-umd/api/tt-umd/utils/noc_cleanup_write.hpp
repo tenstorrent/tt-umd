@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -27,6 +28,11 @@ public:
     // be opened or KMD rejects the action (it needs KMD 2.2.0+).
     NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data);
     ~NocCleanupWrite() noexcept;
+
+    // Pins `size` bytes at page-aligned `addr` on this object's device handle and returns their DMA address. KMD
+    // unpins them when the handle closes, after the cleanup write. The caller keeps the memory mapped until then.
+    // Needs an IOMMU. Throws when KMD refuses.
+    uint64_t pin(void* addr, size_t size);
 
     NocCleanupWrite(const NocCleanupWrite&) = delete;
     NocCleanupWrite& operator=(const NocCleanupWrite&) = delete;

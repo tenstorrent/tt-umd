@@ -7,6 +7,7 @@
 #include <fcntl.h>  // O_APPEND
 #include <fmt/format.h>
 
+#include <cstring>
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
@@ -21,7 +22,7 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
     UMD_ASSERT(
         result == 0,
         error::RuntimeError,
-        fmt::format("tt_device_open() failed for NOC cleanup device {} errno: {}", device_path_, -result));
+        fmt::format("tt_device_open() failed for NOC cleanup device {}: {}", device_path_, strerror(-result)));
     result = tt_device_set_noc_cleanup(device_, x, y, noc, addr, data);
     if (result != 0) {
         tt_device_close(device_);
@@ -29,7 +30,7 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "tt_device_set_noc_cleanup() failed on {} errno: {}; it needs KMD 2.2.0+", device_path_, -result));
+                "tt_device_set_noc_cleanup() failed on {}: {}; it needs KMD 2.2.0+", device_path_, strerror(-result)));
     }
 }
 
@@ -39,7 +40,7 @@ uint64_t NocCleanupWrite::pin(void* addr, size_t size) {
     UMD_ASSERT(
         result == 0,
         error::RuntimeError,
-        fmt::format("tt_pin_pages() failed on NOC cleanup device {} errno: {}", device_path_, -result));
+        fmt::format("tt_pin_pages() failed on NOC cleanup device {}: {}", device_path_, strerror(-result)));
     return dma_addr;
 }
 
@@ -49,7 +50,8 @@ NocCleanupWrite::~NocCleanupWrite() noexcept {
     }
     const int result = tt_device_close(device_);
     if (result != 0) {
-        log_warning(tt::LogUMD, "tt_device_close() failed for NOC cleanup device {} errno: {}", device_path_, -result);
+        log_warning(
+            tt::LogUMD, "tt_device_close() failed for NOC cleanup device {}: {}", device_path_, strerror(-result));
     }
 }
 

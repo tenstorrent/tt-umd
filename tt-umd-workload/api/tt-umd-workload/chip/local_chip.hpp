@@ -15,6 +15,8 @@
 
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -40,6 +42,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
+    HostMemChannels* get_host_mem_channels() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
@@ -79,9 +82,25 @@ public:
     int get_numa_node() override;
 
 private:
-    LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager);
+    LocalChip(
+        std::unique_ptr<TTDevice> tt_device,
+        std::unique_ptr<SysmemManager> sysmem_manager,
+        uint32_t num_host_mem_channels,
+        bool host_mem_in_single_buffer);
+
+    // Allocates the channels' memory and binds channel N to NOC address noc_base + N * CHANNEL_STRIDE.
+    void map_host_mem_channels();
+    void unmap_host_mem_channels();
 
     std::unique_ptr<SysmemManager> sysmem_manager_;
+
+    HostMemChannels host_mem_channels_;
+
+    // Whether the channels share one buffer, or each has its own.
+    bool host_mem_in_single_buffer_ = false;
+
+    // Memory behind host_mem_channels_ while the chip is started.
+    std::vector<std::unique_ptr<SysmemBuffer>> host_mem_channel_buffers_;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.

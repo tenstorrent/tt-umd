@@ -18,8 +18,8 @@
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
-    local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
+RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, HostMemChannels* host_mem_channels) :
+    local_tt_device_(local_tt_device), host_mem_channels_(host_mem_channels) {
     LockManager::initialize_mutex(
         MutexType::NON_MMIO,
         local_tt_device->get_communication_device_id(),
@@ -27,10 +27,10 @@ RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManage
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) {
+    TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels) {
     switch (local_tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
+            return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, host_mem_channels);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
@@ -57,9 +57,11 @@ const std::vector<tt_xy_pair>& RemoteCommunication::get_remote_transfer_ethernet
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
-void RemoteCommunication::set_sysmem_manager(SysmemManager* sysmem_manager) { sysmem_manager_ = sysmem_manager; }
+void RemoteCommunication::set_host_mem_channels(HostMemChannels* host_mem_channels) {
+    host_mem_channels_ = host_mem_channels;
+}
 
-bool RemoteCommunication::has_sysmem_manager() const { return sysmem_manager_ != nullptr; }
+bool RemoteCommunication::has_host_mem_channels() const { return host_mem_channels_ != nullptr; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

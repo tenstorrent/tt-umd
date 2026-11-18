@@ -65,7 +65,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
         std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
             std::make_unique<RemoteCommunicationLegacyFirmware>(
-                local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+                local_chip->get_tt_device(), remote_eth_coord, local_chip->get_host_mem_channels());
         remote_comm->set_remote_transfer_ethernet_cores(local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id), CoordSystem::TRANSLATED));
 
@@ -141,7 +141,7 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
     ChipId remote_chip_id = *cluster->get_target_remote_device_ids().begin();
     EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
     RotatableRemoteCommunication remote_comm(
-        local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+        local_chip->get_tt_device(), remote_eth_coord, local_chip->get_host_mem_channels());
 
     remote_comm.set_remote_transfer_ethernet_cores(all_cores);
     // One rotation moves the index to 1, which is past the end of the single-core set below.
@@ -167,7 +167,7 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
 }
 
 // Test large transfers (> 1024 bytes) to remote chips without sysmem
-// This test verifies that chunking works correctly when sysmem_manager is nullptr.
+// This test verifies that chunking works correctly when there are no host memory channels.
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     // Discover cluster topology.
     auto [cluster_desc, devices] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});

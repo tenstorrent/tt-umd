@@ -5,7 +5,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
@@ -66,6 +68,21 @@ public:
      * and stamps this value into every buffer it produces.
      */
     virtual int get_communication_id() const = 0;
+
+    /**
+     * Returns how many buffers of @p size this device should plan to hold at once, or std::nullopt if there is
+     * no limit; 0 means no buffer of that size can be created.
+     *
+     * A planning figure rather than a reservation: allocations within it can still fail, and allocations beyond
+     * it are not refused.
+     */
+    virtual std::optional<size_t> get_max_buffer_count(size_t size) const = 0;
+
+    /**
+     * Returns the start of the NOC address window through which the device reaches buffers this allocator binds
+     * to the NOC. Where in the window a buffer lands is decided when it is bound.
+     */
+    virtual uint64_t get_noc_base() const = 0;
 
 protected:
     /**

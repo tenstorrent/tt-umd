@@ -22,6 +22,7 @@
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
@@ -151,7 +152,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     remote_communication->set_remote_transfer_ethernet_cores(
         gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             gateway_eth_channels, CoordSystem::TRANSLATED));
-    return TTDevice::create(std::move(remote_communication), soc_arch_descriptor);
+    return create_tt_device(std::move(remote_communication), soc_arch_descriptor);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {

@@ -1,0 +1,115 @@
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <tuple>
+#include <vector>
+
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/types/blackhole_arc.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/timeouts.hpp"
+
+namespace tt::umd::blackhole {
+enum class ArcMessageType : uint8_t;
+}  // namespace tt::umd::blackhole
+
+using namespace tt::umd::blackhole;
+
+namespace tt::umd {
+
+class BlackholeArcApb;
+class DeviceProtocol;
+class JtagInterface;
+
+/* On Blackhole there are few ARC message queues that can be used to communicate with ARC FW.
+ * ARC message queues are simple circular queues. There are read/write pointers both for requests and responses.
+ * Reading from SCRATCH_RAM[11] gives the address of the ARC message queuse descriptor.
+ *
+ * | Purpose                  | Start bit offset | Length in bits |
+ * ----------------------------------------------------------------
+ * ARC address of first queue |                0 |             32 |
+ * # of entries in each queue |               32 |              8 |
+ * # of queues                |               40 |              8 |
+ *
+ * Each queue starts with a header followed by the request queue then the response queue.
+ *
+ * The read and write pointers are double-wrapping, meaning that they wrap at twice queue size. The number of occupied
+ * entries in a queue is (wptr – rptr) % (2*size).
+ *
+ * Usage of this class is not thread-safe, this synchronization is going to be implemented, similar to Wormhole.
+ */
+class BlackholeArcMessageQueue {
+private:
+    // Header length and entry length in words.
+    static constexpr uint8_t header_len = 8;
+    static constexpr uint8_t entry_len = 8;
+
+    static constexpr uint8_t request_wptr_offset = 0;
+    static constexpr uint8_t response_rptr_offset = 1;
+    static constexpr uint8_t request_rptr_offset = 4;
+    static constexpr uint8_t response_wptr_offset = 5;
+
+public:
+    BlackholeArcMessageQueue(
+        DeviceProtocol* device_protocol,
+        BlackholeArcApb* arc_apb,
+        const uint64_t base_address,
+        const uint64_t size,
+        const bool noc_translation_enabled);
+
+    /*
+     * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
+     */
+    uint32_t send_message(
+        const ArcMessageType message_type,
+        std::vector<uint32_t>& return_values,
+        const std::vector<uint32_t>& args = {},
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT,
+        const NocId noc_id = NocId::DEFAULT_NOC);
+
+    static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
+        DeviceProtocol* device_protocol,
+        JtagInterface* jtag_interface,
+        BlackholeArcApb* arc_apb,
+        const bool noc_translation_enabled,
+        const size_t queue_index,
+        const NocId noc_id = NocId::DEFAULT_NOC);
+
+private:
+    void push_request(
+        std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request,
+        const std::chrono::milliseconds timeout_ms,
+        const NocId noc_id);
+
+    std::array<uint32_t, entry_len> pop_response(const std::chrono::milliseconds timeout_ms, const NocId noc_id);
+
+    void read_words(uint32_t* data, size_t num_words, size_t offset, const NocId noc_id);
+
+    uint32_t read_word(size_t offset, const NocId noc_id);
+
+    void write_words(uint32_t* data, size_t num_words, size_t offset, const NocId noc_id);
+
+    void trigger_fw_int(const NocId noc_id);
+
+    // The ARC core coordinate depends on the NOC the access is routed over, so it is resolved per
+    // call rather than stored.
+    tt_xy_pair get_arc_core(const NocId noc_id) const;
+
+    const uint64_t base_address;
+    const uint64_t size;
+    // Non-owning; both belong to the component that owns this queue and must outlive it.
+    DeviceProtocol* device_protocol;
+    BlackholeArcApb* arc_apb;
+    const bool noc_translation_enabled;
+};
+
+}  // namespace tt::umd

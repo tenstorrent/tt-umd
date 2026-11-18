@@ -53,7 +53,6 @@ inline std::vector<std::string> get_all_cluster_descs() {
              "wormhole_N300_with_remote_connections.yaml",
              "wormhole_N300_with_bus_id.yaml",
              "wormhole_N300.yaml",
-             "wormhole_N300_jtag.yaml",
              "wormhole_N300_pci_bdf.yaml",
              "quasar_Q1.yaml",
          }) {

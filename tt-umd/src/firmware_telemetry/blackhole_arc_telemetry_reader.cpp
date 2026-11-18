@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "arc/blackhole_arc_telemetry_reader.hpp"
+#include "firmware_telemetry/blackhole_arc_telemetry_reader.hpp"
 
 #include <cstdint>
 

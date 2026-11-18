@@ -4,8 +4,8 @@
 
 #include <gtest/gtest.h>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;

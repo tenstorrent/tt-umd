@@ -19,7 +19,6 @@ enum class ARCH;
 
 namespace tt::umd {
 class PCIDevice;
-class TTDevice;
 
 class SysmemManager : public SystemMemoryAllocator {
 public:
@@ -67,7 +66,6 @@ public:
 
 protected:
     PCIDevice* pci_device_ = nullptr;
-    TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;
 

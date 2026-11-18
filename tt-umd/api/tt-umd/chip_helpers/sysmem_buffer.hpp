@@ -14,7 +14,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
-class TTDevice;
 
 /**
  * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
@@ -129,28 +128,6 @@ public:
      */
     int get_communication_id() const { return communication_id_; }
 
-    /**
-     * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer to the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core to which the data will be transferred.
-     * @param addr Address on the core to which the data will be transferred.
-     */
-    void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
-
-    /**
-     * Does zero copy DMA transfer from the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer from the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core from which the data will be transferred.
-     * @param addr Address on the core from which the data will be transferred.
-     */
-    void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
-
 private:
     // Buffers are created only by an allocator, which pins the pages and therefore knows the IOVA, the NOC
     // address and how the memory has to be released.
@@ -163,8 +140,6 @@ private:
      * passed in, and offsets are bounded by that size. Any page alignment the pinning needed is the
      * allocator's to track.
      *
-     * @param tt_device Device this buffer belongs to, used for the zero-copy DMA helpers. May be null for
-     * buffers never used for DMA, such as the simulator's.
      * @param buffer_va Virtual address of the buffer as the user sees it.
      * @param buffer_size Size of the buffer requested by the user.
      * @param device_io_addr IOVA of buffer_va.
@@ -175,7 +150,6 @@ private:
      * @param noc_binder Optional callable for deferred NOC binding.
      */
     SysmemBuffer(
-        TTDevice* tt_device,
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
@@ -193,8 +167,6 @@ private:
      * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
     void validate(const size_t offset, const size_t size = 0) const;
-
-    TTDevice* tt_device_;
 
     // Virtual address in process addr space.
     void* buffer_va_;

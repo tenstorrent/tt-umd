@@ -446,8 +446,7 @@ Cluster::Cluster(ClusterOptions options) {
                 UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
-            auto [desc, devices] = TopologyDiscovery::discover(
-                options.topology_discovery_options, options.io_device_type, options.sdesc_path);
+            auto [desc, devices] = TopologyDiscovery::discover(options.topology_discovery_options);
             cluster_desc = std::move(desc);
             tt_devices = std::move(devices);
             break;
@@ -529,8 +528,9 @@ Cluster::Cluster(ClusterOptions options) {
                         ip_devices,
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                         launch);
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path = layout.get_soc_descriptor(first_device).string();
+                    if (options.topology_discovery_options.soc_descriptor_path.empty()) {
+                        options.topology_discovery_options.soc_descriptor_path =
+                            layout.get_soc_descriptor(first_device).string();
                     }
                     break;
                 }
@@ -549,8 +549,9 @@ Cluster::Cluster(ClusterOptions options) {
                     // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
                     // below are populated from the simulator-provided data when it ships one (matches the
                     // fallback path's sdesc_path resolution).
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
+                    if (options.topology_discovery_options.soc_descriptor_path.empty()) {
+                        options.topology_discovery_options.soc_descriptor_path =
+                            find_simulator_soc_descriptor_path(options.simulator_directory);
                     }
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                         ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
@@ -559,8 +560,10 @@ Cluster::Cluster(ClusterOptions options) {
 
                 // Without a soc_descriptor.yaml the per-chip SocDescriptors are built from the architecture
                 // the cluster descriptor records for each chip.
-                if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-                    options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
+                if (options.topology_discovery_options.soc_descriptor_path.empty() &&
+                    options.chip_type == ChipType::SIMULATION) {
+                    options.topology_discovery_options.soc_descriptor_path =
+                        find_simulator_soc_descriptor_path(options.simulator_directory);
                 }
 
                 // Nothing declared this simulator's topology, so ask the simulator: enumerate its chips and
@@ -579,8 +582,7 @@ Cluster::Cluster(ClusterOptions options) {
                         .simulator_path = options.simulator_directory.string(),
                         .num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                     };
-                    auto [discovered_desc, discovered_devices] =
-                        TopologyDiscovery::discover(discovery_options, options.io_device_type, options.sdesc_path);
+                    auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
                     // discover() answers with a valid, chipless descriptor when it found nothing --
                     // callers and the Python bindings go through it on an empty machine too -- so
                     // the devices, not the pointer, are what say whether this simulator was
@@ -603,9 +605,10 @@ Cluster::Cluster(ClusterOptions options) {
                 auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
                 if (options.chip_type == ChipType::SIMULATION) {
-                    arch = options.sdesc_path.empty()
+                    arch = options.topology_discovery_options.soc_descriptor_path.empty()
                                ? get_simulator_arch(options.simulator_directory)
-                               : SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+                               : SocDescriptor::get_arch_from_soc_descriptor_path(
+                                     options.topology_discovery_options.soc_descriptor_path);
                 }
 #endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
@@ -645,7 +648,7 @@ Cluster::Cluster(ClusterOptions options) {
 #ifdef TT_UMD_BUILD_SIMULATION
     // Without a SoC descriptor, each chip's descriptor is built from the architecture the cluster
     // descriptor records, which nothing else checks against the image the chips will run on.
-    if (options.chip_type == ChipType::SIMULATION && options.sdesc_path.empty() &&
+    if (options.chip_type == ChipType::SIMULATION && options.topology_discovery_options.soc_descriptor_path.empty() &&
         options.simulator_directory.extension() == ".so") {
         const tt::ARCH image_arch = get_simulator_arch(options.simulator_directory);
         for (const ChipId chip_id : cluster_desc->get_all_chips()) {
@@ -677,8 +680,8 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        SocDescriptor soc_desc =
-            construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
+        SocDescriptor soc_desc = construct_soc_descriptor(
+            options.topology_discovery_options.soc_descriptor_path, chip_id, options.chip_type, cluster_desc.get());
 
         // Reuse TTDevice from topology discovery if available, avoiding duplicate device creation.
         std::unique_ptr<TTDevice> tt_device;
@@ -1125,7 +1128,9 @@ void Cluster::refresh_cluster_description() {
     }
 
     auto new_cluster_desc = Cluster::create_cluster_descriptor(
-        options_.sdesc_path, options_.io_device_type, options_.topology_discovery_options);
+        options_.topology_discovery_options.soc_descriptor_path,
+        options_.topology_discovery_options.io_device_type,
+        options_.topology_discovery_options);
 
     // Validate that the same physical chips are present by matching unique IDs.
     const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
@@ -1558,7 +1563,9 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
         log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
         adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
     }
-    return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
+    adjusted_topology_options.io_device_type = device_type;
+    adjusted_topology_options.soc_descriptor_path = sdesc_path;
+    return TopologyDiscovery::discover(adjusted_topology_options).first;
 }
 
 }  // namespace tt::umd

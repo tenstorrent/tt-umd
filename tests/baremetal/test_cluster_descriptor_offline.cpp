@@ -28,6 +28,7 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd-utils/internal/disjoint_set.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/cluster_description.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -469,6 +470,23 @@ TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P150.yaml"));
     const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, std::nullopt}};
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
+}
+
+TEST(ApiClusterDescriptorOfflineTest, CreateFromDescription) {
+    ClusterDescription description;
+    ChipDescription& chip = description.chips[0];
+    chip.arch = tt::ARCH::BLACKHOLE;
+    chip.mmio_device_id = 3;
+    chip.pci_bdf = "0000:04:00.0";
+
+    std::unique_ptr<ClusterDescriptor> cluster_desc = create_cluster_descriptor(std::move(description));
+
+    EXPECT_EQ(cluster_desc->get_number_of_chips(), 1);
+    EXPECT_EQ(cluster_desc->get_arch(0), tt::ARCH::BLACKHOLE);
+    EXPECT_EQ(cluster_desc->get_board_type(0), BoardType::UNKNOWN);
+    EXPECT_EQ(cluster_desc->get_chips_with_mmio().at(0), 3);
+    EXPECT_EQ(cluster_desc->get_chip_pci_bdfs().at(0), "0000:04:00.0");
+    EXPECT_TRUE(cluster_desc->get_ethernet_connections().at(0).empty());
 }
 
 class MockClusterBoardTypeTest : public ::testing::TestWithParam<std::tuple<tt::ARCH, BoardType>> {};

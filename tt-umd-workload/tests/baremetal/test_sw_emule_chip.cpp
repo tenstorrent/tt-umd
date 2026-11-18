@@ -203,7 +203,8 @@ namespace {
 std::unique_ptr<Cluster> make_quasar_2x3_cluster(ClusterDescriptor& cluster_desc) {
     ClusterOptions options{};
     options.chip_type = ChipType::SWEMULE;
-    options.sdesc_path = test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml");
+    options.topology_discovery_options.soc_descriptor_path =
+        test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml");
     options.cluster_descriptor = &cluster_desc;
     return std::make_unique<Cluster>(options);
 }

@@ -104,15 +104,10 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
 
 ArchitectureImplementation *TTDevice::get_architecture_implementation() { return model_->get_architecture_impl(); }
 
-// The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication
-// exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
-// Throwing an exception would break existing behavior and require significant changes across client code.
-// This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
-// providing callers with an explicit way to check validity rather than relying on nullptr semantics.
-PCIDevice *TTDevice::get_pci_device() { return model_->get_pci_device(); }
-
 SystemMemoryAllocator *TTDevice::get_system_memory_allocator() { return model_->get_system_memory_allocator(); }
 
+// Returns nullptr rather than throwing when the device has no remote transport, for backward compatibility.
+// Temporary, until the API reports absence explicitly (tl::expected or std::optional).
 RemoteCommunication *TTDevice::get_remote_communication() {
     RemoteInterface *remote_interface = model_->get_remote_interface();
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();

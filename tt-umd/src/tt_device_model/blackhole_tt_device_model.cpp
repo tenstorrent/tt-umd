@@ -94,8 +94,6 @@ JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interf
 
 RemoteInterface *BlackholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
-PCIDevice *BlackholeTTDeviceModel::get_pci_device() { return pci_device_; }
-
 SystemMemoryAllocator *BlackholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
 
 }  // namespace tt::umd

@@ -31,7 +31,6 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -40,6 +39,7 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
@@ -78,17 +78,6 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
                 return ARCH::Invalid;
             }
             return pci_devices_info.begin()->second.get_arch();
-        }
-        case IODeviceType::JTAG: {
-            // Invalid when there are no usable J-Links.
-            const tt::ARCH arch = JtagDevice::enumerate().arch;
-            // This guard previously compared the architecture before it had been probed, so it
-            // could never fire. Comparing the probed value is what it was meant to do.
-            UMD_ASSERT(
-                arch != tt::ARCH::BLACKHOLE,
-                error::RuntimeError,
-                "Blackhole architecture is not yet supported over JTAG interface.");
-            return arch;
         }
         default:
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
@@ -253,7 +242,7 @@ void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
 
     // Checked before the io_device_type switch below, and deliberately so: a simulator reports PCIe
-    // as its transport, but TTDevice::create(device_id, ...) would try to open /dev/tenstorrent for
+    // as its transport, but create_tt_device(device_id, ...) would try to open /dev/tenstorrent for
     // it. A simulator image enumerates its own endpoints instead.
     if (options.simulation.has_value()) {
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -284,18 +273,13 @@ void TopologyDiscovery::get_connected_devices() {
             local_device_ids = PCIDevice::enumerate_devices();
             break;
         }
-        case IODeviceType::JTAG: {
-            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path).serials;
-            local_device_ids.assign(jlink_serials.begin(), jlink_serials.end());
-            break;
-        }
         default:
             UMD_THROW(error::RuntimeError, "Unsupported device type.");
     }
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+            create_tt_device(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
@@ -735,7 +719,9 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        const auto start = std::chrono::steady_clock::now();
+        tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        timeout_left -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     }
     log_debug(
         LogUMD,

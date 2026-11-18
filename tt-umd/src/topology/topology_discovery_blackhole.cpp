@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "firmware/erisc_firmware.hpp"
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"

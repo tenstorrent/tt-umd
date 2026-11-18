@@ -39,7 +39,7 @@
 
 namespace tt::umd::test::utils {
 
-static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
+static const std::string SOC_DESC_PATH = "descriptors/soc_descs/wormhole_b0_8x10.yaml";
 
 enum RemoteTransferType : uint8_t { WRITE = 0, READ };
 

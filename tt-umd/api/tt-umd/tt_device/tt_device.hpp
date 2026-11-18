@@ -162,21 +162,21 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    // A transport that cannot honour the requested ordering serves it as IoOrdering::Strict.
+    // A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
     virtual void read_from_device(
         void *mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
     virtual void write_to_device(
         const void *mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     // Register reads/writes reach the device as one access of the given width per register; addr and size must
     // be multiples of that width. 64-bit accesses are supported only on Quasar.

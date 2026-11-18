@@ -30,7 +30,7 @@ public:
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
      *
-     * A transport that cannot honour the requested ordering serves it as IoOrdering::Strict.
+     * A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
      *
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
@@ -45,12 +45,12 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        IoOrdering ordering = IoOrdering::Strict) = 0;
+        IoOrdering ordering = IoOrdering::STRICT) = 0;
 
     /**
      * @brief Writes a block of host data to a device core, suited for bulk data transfers.
      *
-     * A transport that cannot honour the requested ordering serves it as IoOrdering::Strict.
+     * A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
      *
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
@@ -65,7 +65,7 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        IoOrdering ordering = IoOrdering::Strict) = 0;
+        IoOrdering ordering = IoOrdering::STRICT) = 0;
 
     /**
      * @brief Reads data from a device core into a host buffer, suited for register and control transactions.

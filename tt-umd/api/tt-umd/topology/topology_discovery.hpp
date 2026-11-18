@@ -21,6 +21,9 @@ public:
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discover(
         const TopologyDiscoveryOptions& options = {});
 
+    // discover() is the only entry point; there is nothing for a caller to construct.
+    TopologyDiscovery() = delete;
+
     virtual ~TopologyDiscovery() = default;
 };
 

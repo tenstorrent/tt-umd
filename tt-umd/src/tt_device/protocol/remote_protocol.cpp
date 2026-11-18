@@ -21,11 +21,18 @@ namespace tt::umd {
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {}
 
-void RemoteProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::write_data(
+    const void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    [[maybe_unused]] IoOrdering ordering) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::read_data(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 

@@ -14,6 +14,7 @@
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/protocol/remote_interface.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/register_access_width.hpp"
@@ -29,8 +30,8 @@ namespace tt::umd::test_utils {
 // component test drives the same doubles.
 class MockDeviceProtocol : public DeviceProtocol {
 public:
-    MOCK_METHOD(void, read_data, (void*, tt_xy_pair, uint64_t, size_t, NocId), (override));
-    MOCK_METHOD(void, write_data, (const void*, tt_xy_pair, uint64_t, size_t, NocId), (override));
+    MOCK_METHOD(void, read_data, (void*, tt_xy_pair, uint64_t, size_t, NocId, IoOrdering), (override));
+    MOCK_METHOD(void, write_data, (const void*, tt_xy_pair, uint64_t, size_t, NocId, IoOrdering), (override));
     MOCK_METHOD(void, read_ctrl, (void*, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth), (override));
     MOCK_METHOD(void, write_ctrl, (const void*, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth), (override));
     MOCK_METHOD(bool, write_to_core_range, (const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId), (override));

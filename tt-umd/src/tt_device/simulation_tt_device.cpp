@@ -148,7 +148,12 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 }
 
 void SimulationTTDevice::write_to_device(
-    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    const void* mem_ptr,
+    CoreCoord core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    [[maybe_unused]] IoOrdering ordering) {
     // Client and host are disjoint paths with nothing shared; dispatch on the named role rather
     // than a bare client_ null-check. Each helper takes device_lock itself (the client path always;
     // the host path after its is_device_closed() gate), so the lock is never dropped on either.
@@ -159,7 +164,8 @@ void SimulationTTDevice::write_to_device(
     }
 }
 
-void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void SimulationTTDevice::read_from_device(
+    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     if (client_mode()) {
         client_read(core, addr, mem_ptr, size);
     } else {

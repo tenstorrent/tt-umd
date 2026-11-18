@@ -48,8 +48,9 @@ public:
     // A simulator has no separate ordered-register transport: every access reaches it through the
     // same entry points, clocked synchronously from the calling thread, so ordering is already
     // guaranteed and the ctrl variants delegate to the data ones.
-    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
+    void write_data(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override;
     void write_ctrl(

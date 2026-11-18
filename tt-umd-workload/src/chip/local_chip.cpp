@@ -225,8 +225,15 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
         tt_device_->get_communication_device_id(),
         tt_device_->get_communication_device_type()));
 
-    map_host_mem_channels();
-    initialize_membars(dram_membar_subchannel);
+    // A failed start leaves the chip as if it was never started, so it can be closed or started again.
+    try {
+        map_host_mem_channels();
+        initialize_membars(dram_membar_subchannel);
+    } catch (...) {
+        unmap_host_mem_channels();
+        chip_started_lock_.reset();
+        throw;
+    }
 }
 
 void LocalChip::close_device() {
@@ -317,15 +324,18 @@ void LocalChip::map_host_mem_channels() {
         }
 
         const std::optional<uint64_t> noc_address = buffer->get_noc_address();
+        if (!noc_address.has_value()) {
+            UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
+        }
         log_debug(
             LogUMD,
             "Mapped host memory channel {} at IOVA {:#x} to NOC address {:#x}",
             channel,
             buffer->get_iova(),
-            noc_address.value_or(0));
+            *noc_address);
         // The truncated channel is the final one, so the channels before it all sit on the CHANNEL_STRIDE grid.
         const uint64_t expected_noc_address = noc_base + channel * HostMemChannels::CHANNEL_STRIDE;
-        if (noc_address != expected_noc_address) {
+        if (*noc_address != expected_noc_address) {
             log_error(
                 LogUMD,
                 "Expected host memory channel {} to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This "
@@ -334,7 +344,7 @@ void LocalChip::map_host_mem_channels() {
                 "the Tenstorrent device(s), then retry.",
                 channel,
                 expected_noc_address,
-                noc_address.value_or(0));
+                *noc_address);
             UMD_THROW(
                 error::RuntimeError,
                 "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "

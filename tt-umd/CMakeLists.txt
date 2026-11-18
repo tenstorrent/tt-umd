@@ -52,11 +52,11 @@ target_sources(
         src/arch/architecture_implementation.cpp
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
-        src/chip_helpers/host_mem_channels.cpp
-        src/chip_helpers/sysmem_manager.cpp
-        src/chip_helpers/simulation_sysmem_manager.cpp
-        src/chip_helpers/silicon_sysmem_manager.cpp
-        src/chip_helpers/sysmem_buffer.cpp
+        src/system_memory/host_mem_channels.cpp
+        src/system_memory/sysmem_manager.cpp
+        src/system_memory/simulation_sysmem_manager.cpp
+        src/system_memory/silicon_sysmem_manager.cpp
+        src/system_memory/sysmem_buffer.cpp
         src/pcie/tlb_window.cpp
         src/pcie/io_window_reconfigure.cpp
         src/common/noc_address_space.cpp
@@ -155,7 +155,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/tt_device/reset/rtl_sim_risc_reset.cpp
             src/tt_device/rtl_simulation_tt_device.cpp
             src/tt_device/tt_sim_tt_device.cpp
-            src/chip_helpers/simulation_tlb_allocator.cpp
+            src/pcie/simulation_tlb_allocator.cpp
             src/tt_device/protocol/tt_sim_protocol.cpp
             src/tt_device/protocol/simulation_noc_protocol.cpp
             # Composes the protocol above, so it cannot be built without it. Every user of it is a
@@ -199,12 +199,17 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip_helpers/host_mem_channels.hpp
-                api/tt-umd/chip_helpers/sysmem_manager.hpp
-                api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
-                api/tt-umd/chip_helpers/system_memory_allocator.hpp
+                api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/sysmem_buffer.hpp
-                api/tt-umd/chip_helpers/simulation_tlb_allocator.hpp
+                api/tt-umd/chip_helpers/sysmem_manager.hpp
+                api/tt-umd/chip_helpers/system_memory_allocator.hpp
+                api/tt-umd/system_memory/host_mem_channels.hpp
+                api/tt-umd/system_memory/silicon_sysmem_manager.hpp
+                api/tt-umd/system_memory/simulation_sysmem_manager.hpp
+                api/tt-umd/system_memory/sysmem_buffer.hpp
+                api/tt-umd/system_memory/sysmem_manager.hpp
+                api/tt-umd/system_memory/system_memory_allocator.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp

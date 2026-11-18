@@ -17,7 +17,7 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_manager.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"

@@ -13,11 +13,10 @@
 #include <string>
 #include <vector>
 
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/tlb.hpp"

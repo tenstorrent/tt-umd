@@ -8,7 +8,7 @@
 #include <exception>
 #include <vector>
 
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
 
 using namespace tt::umd;
 

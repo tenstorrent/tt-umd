@@ -51,12 +51,12 @@
 #include "io_window/io_window_target.hpp"
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/ethernet_broadcast.hpp"

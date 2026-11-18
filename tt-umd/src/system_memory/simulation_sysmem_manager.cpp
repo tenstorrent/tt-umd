@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 
 #include <fmt/format.h>
 #include <sys/mman.h>  // for mmap, munmap
@@ -19,7 +19,7 @@
 
 #include "hugepage.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt {

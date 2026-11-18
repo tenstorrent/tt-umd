@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
 
 #include <fmt/format.h>
 

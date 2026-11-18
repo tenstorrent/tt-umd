@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/system_memory/silicon_sysmem_manager.hpp"
 
 #include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_512MB, MAP_HUGE_2MB
@@ -29,8 +29,8 @@
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/utils/error.hpp"

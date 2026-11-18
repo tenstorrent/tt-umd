@@ -16,7 +16,7 @@
 
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"

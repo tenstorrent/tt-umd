@@ -15,10 +15,10 @@
 
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/sysmem_manager.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"

@@ -354,9 +354,4 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
-void SimulationTTDevice::dma_write_to_core_range(
-    const void* src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
-}
-
 }  // namespace tt::umd

@@ -20,6 +20,7 @@
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/dma.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
@@ -31,10 +32,12 @@ enum class ARCH;
 
 namespace tt::umd {
 
+class IoWindow;
 class PCIDevice;
+class SiliconTlbWindow;
 class TlbWindow;
 struct tlb_data;
-enum class WindowFlags : uint32_t;
+enum TlbMapping : uint8_t;
 
 /**
  * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
@@ -78,6 +81,11 @@ public:
     // NOC shows up in the value read rather than as an error.
     std::function<uint32_t(tt_xy_pair core, uint64_t addr, NocId noc)> make_noc_probe_reader();
 
+    // Builds a caller-owned window over one of this device's TLBs. It carries io_timeout_hang_check like the
+    // protocol's own windows, so an overrun aborts only on a confirmed NOC hang.
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering);
+
     // DmaInterface.
     [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
     [[nodiscard]] bool dma_write(
@@ -99,6 +107,9 @@ public:
     [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr) const override;
 
 private:
+    // A size of 0 takes the smallest window still free.
+    std::unique_ptr<SiliconTlbWindow> allocate_tlb_window(size_t size, TlbMapping mapping);
+
     TlbWindow* get_cached_tlb_window();
     TlbWindow* get_cached_dma_tlb_window(const tlb_data& config);
 

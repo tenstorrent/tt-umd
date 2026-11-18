@@ -38,6 +38,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     });
     hang_detector_ =
         std::make_unique<WormholeHangDetector>(pcie_protocol.get(), pcie_protocol->make_noc_probe_reader());
+    pcie_protocol_ = pcie_protocol.get();
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
@@ -86,8 +87,8 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> WormholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return nullptr;
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    return pcie_protocol_ == nullptr ? nullptr : pcie_protocol_->create_io_window(target, host, ordering);
 }
 
 DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }

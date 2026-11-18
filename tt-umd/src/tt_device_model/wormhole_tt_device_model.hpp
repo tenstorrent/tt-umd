@@ -14,6 +14,7 @@ class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
+class PcieProtocol;
 class JtagDevice;
 class SocArchDescriptor;
 class RemoteCommunication;
@@ -35,7 +36,8 @@ public:
 
     ~WormholeTTDeviceModel() override;
 
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
 
@@ -74,6 +76,8 @@ private:
     DmaInterface *dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
+    // The PCIe protocol's concrete type, which builds this model's windows. Null on other transports.
+    PcieProtocol *pcie_protocol_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
 

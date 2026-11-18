@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -495,10 +494,9 @@ public:
     /**
      * Allocate a TlbWindow for use by callers.
      *
-     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
-     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their in-process bitmap and
-     * build the appropriate sim-backend TlbWindow.
+     * Simulation TTDevice subclasses override this to allocate from their in-process bitmap and build
+     * the appropriate sim-backend TlbWindow. Other devices build their windows in the model, so the
+     * default throws.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.
@@ -612,10 +610,6 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
-    // confirmed only when the in-flight op's NOC is hung.
-    std::function<bool(NocId)> make_io_timeout_hang_check();
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */

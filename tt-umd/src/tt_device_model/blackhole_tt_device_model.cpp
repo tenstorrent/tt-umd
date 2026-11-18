@@ -33,6 +33,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
         return hang_detector_ != nullptr && hang_detector_->is_noc_hung(noc).value_or(false);
     });
     PcieProtocol *pcie = pcie_protocol.get();
+    pcie_protocol_ = pcie;
     pcie_interface_ = pcie;
     dma_interface_ = pcie;
     protocol_ = std::move(pcie_protocol);
@@ -67,8 +68,8 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
 BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return nullptr;
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    return pcie_protocol_ == nullptr ? nullptr : pcie_protocol_->create_io_window(target, host, ordering);
 }
 
 DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }

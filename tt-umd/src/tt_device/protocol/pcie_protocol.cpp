@@ -28,6 +28,7 @@
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -169,19 +170,34 @@ int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
 std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
 
-std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_probe_reader() {
-    // Not the cached window: the hang check runs inside a timed-out op that holds it under io_lock_. Any
-    // size reaches a register, so the smallest window still free is taken.
-    std::shared_ptr<TlbWindow> window;
+std::unique_ptr<SiliconTlbWindow> PcieProtocol::allocate_tlb_window(size_t size, TlbMapping mapping) {
+    if (size != 0) {
+        return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size, mapping));
+    }
     for (const TlbSizeClass& size_class : get_architecture_tlbs(pci_device_->get_arch()).size_classes) {
         try {
-            window = std::make_shared<SiliconTlbWindow>(pci_device_->allocate_tlb(size_class.size, TlbMapping::UC));
-            break;
+            return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size_class.size, mapping));
         } catch (const std::exception& e) {
             log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
         }
     }
-    UMD_ASSERT(window != nullptr, error::RuntimeError, "Failed to allocate a TLB window for the NOC probe.");
+    UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+}
+
+std::unique_ptr<IoWindow> PcieProtocol::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+    std::unique_ptr<SiliconTlbWindow> window =
+        allocate_tlb_window(fit_tlb_window_size(pci_device_->get_arch(), target.addr, host.size), mapping);
+    window->set_io_timeout_hang_check(io_timeout_hang_check_);
+    window->configure(target, ordering);
+    return window;
+}
+
+std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_probe_reader() {
+    // Not the cached window: the hang check runs inside a timed-out op that holds it under io_lock_. Any
+    // size reaches a register, so the smallest window still free is taken.
+    std::shared_ptr<TlbWindow> window = allocate_tlb_window(0, TlbMapping::UC);
 
     auto window_lock = std::make_shared<std::mutex>();
     return [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {

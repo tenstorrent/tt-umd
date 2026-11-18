@@ -17,7 +17,7 @@ namespace tt::umd {
 
 NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data) :
     device_path_(fmt::format("/dev/tenstorrent/{}", pci_device_num)) {
-    // O_APPEND tells KMD (>= 2.6) not to request high power on open; the flag is harmless on older KMD versions.
+    // O_APPEND keeps this handle from requesting high power on KMD 2.6+; older KMD ignores it.
     int result = tt_device_open(device_path_.c_str(), &device_, O_APPEND);
     UMD_ASSERT(
         result == 0,

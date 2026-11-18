@@ -62,7 +62,9 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        timeout_left -= tt_device->wait_eth_core_training(eth_core, timeout_left);
+        const auto start = std::chrono::steady_clock::now();
+        tt_device->wait_eth_core_training(eth_core, timeout_left);
+        timeout_left -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     }
 }
 

@@ -14,7 +14,6 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
-#include <vector>
 
 #include "noc_access.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
@@ -277,30 +276,8 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
-std::function<bool(NocId)> TTDevice::make_io_timeout_hang_check() {
-    return [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); };
-}
-
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    PCIDevice *pci = get_pci_device();
-    UMD_ASSERT(
-        pci != nullptr, error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
-
-    if (size != 0) {
-        return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size, mapping), config);
-    }
-
-    // Caller didn't specify a size — try arch-supported sizes in preference order.
-    for (const TlbSizeClass &size_class : get_architecture_tlbs(get_arch()).size_classes) {
-        try {
-            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size_class.size, mapping), config);
-        } catch (const std::exception &e) {
-            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
-        }
-    }
-
-    UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+    UMD_THROW(error::RuntimeError, "I/O windows are not supported on this device.");
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
@@ -321,53 +298,19 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
 
-    // Resolved before the model is asked, so a model serving its own window sees the same target
-    // the TLB path below would have used.
+    // Resolved before the model is asked, so every window sees the same target whoever builds it.
     if (!target.noc.has_value()) {
         target.noc = get_selected_noc_id();
     }
 
-    // A model whose architecture has no mappable aperture serves the window itself. The ordering
-    // argument does not travel with it: the Base API's signature takes target and host only, and a
-    // window with nothing mapped behind it has nothing weaker than Strict to offer anyway.
-    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host)) {
+    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host, ordering)) {
         return window;
     }
 
+    // The simulation devices serve windows from their own TLB allocator.
     const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
-
-    // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
-    // request is served by the smallest one that covers it and get_size() reports what the caller got.
-    // This keeps the caller from having to know the architecture's window sizes; a request of 0 leaves
-    // the choice to the backend entirely.
-    size_t size = host.size;
-    if (size != 0) {
-        // A mapping is anchored at the start of an aligned block of its own size, so the span reachable
-        // from target.addr is what is left of that block -- the class has to cover the address's offset
-        // into it as well. Size classes are ordered smallest first, so the first fit is the smallest.
-        const std::vector<TlbSizeClass> &size_classes = get_architecture_tlbs(get_arch()).size_classes;
-        auto size_class =
-            std::find_if(size_classes.begin(), size_classes.end(), [&target, size](const TlbSizeClass &candidate) {
-                // Written as a subtraction so a huge requested size cannot overflow the sum.
-                return size <= candidate.size - (target.addr % candidate.size);
-            });
-        UMD_ASSERT(
-            size_class != size_classes.end(),
-            error::RuntimeError,
-            fmt::format(
-                "Requested I/O window of {} bytes at address {:#x} does not fit in the largest window {} provides "
-                "({} bytes).",
-                size,
-                target.addr,
-                tt::arch_to_str(get_arch()),
-                size_classes.back().size));
-        size = size_class->size;
-    }
-
-    std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
-    // A caller-owned window carries the same per-op timeout hang check as the cached ones: an overrun
-    // aborts only on a confirmed NOC hang. Installed once here, so the I/O path never mutates state.
-    window->set_io_timeout_hang_check(make_io_timeout_hang_check());
+    std::unique_ptr<TlbWindow> window =
+        get_io_window({}, mapping, fit_tlb_window_size(get_arch(), target.addr, host.size));
     window->configure(target, ordering);
     return window;
 }

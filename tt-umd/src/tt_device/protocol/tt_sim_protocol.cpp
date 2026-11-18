@@ -116,4 +116,9 @@ int TTSimProtocol::export_dmabuf(
     UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for simulation devices.");
 }
 
+std::unique_ptr<IoWindow> TTSimProtocol::create_io_window(
+    TargetIoWindowConfig /*target*/, HostIoWindowConfig /*host*/, IoOrdering /*ordering*/) {
+    UMD_THROW(error::RuntimeError, "Simulation devices serve I/O windows from their own TLB allocator.");
+}
+
 }  // namespace tt::umd

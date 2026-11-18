@@ -71,8 +71,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> WormholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return nullptr;
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    // Over JTAG or a remote link there is no BAR to map, so the window is left to TTDevice.
+    return pcie_interface_ == nullptr ? nullptr : pcie_interface_->create_io_window(target, host, ordering);
 }
 
 DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }

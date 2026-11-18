@@ -43,8 +43,7 @@ public:
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
     // Maps the harvesting indexes firmware reports onto NOC coordinates along the harvesting axis,
     // rows for Wormhole and columns for Blackhole.
-    // Replace with std::span once we enable C++20.
-    virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
+    virtual std::vector<uint32_t> get_harvesting_noc_locations() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
 

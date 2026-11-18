@@ -111,9 +111,4 @@ void TTSimProtocol::set_power_state(PowerState /*state*/) {
     // power state during startup, and refusing would fail bringup over something inconsequential.
 }
 
-int TTSimProtocol::export_dmabuf(
-    tt_xy_pair /*core*/, uint64_t /*addr*/, size_t /*size*/, uint64_t /*ordering*/, NocId /*noc_id*/) {
-    UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for simulation devices.");
-}
-
 }  // namespace tt::umd

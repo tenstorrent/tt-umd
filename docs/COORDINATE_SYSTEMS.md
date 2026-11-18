@@ -57,7 +57,7 @@ In order to illustrate harvesting effect on coordinate systems, example with two
 
 ## NoC 0 Coordinates
 
-These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor ([example Wormhole soc descriptor](../tests/soc_descs/wormhole_b0_8x10.yaml)), NOC0 coordinates are specified.
+These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor ([example Wormhole soc descriptor](../descriptors/soc_descs/wormhole_b0_8x10.yaml)), NOC0 coordinates are specified.
 
 ![Tensix noc0 coordinates](images/tensix_physical_coordinates.png)
 

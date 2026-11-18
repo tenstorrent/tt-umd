@@ -88,9 +88,9 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   TOOLS_OUTPUT_DIR: ./build/tools
   WHEEL_OUTPUT_DIR: ./build/wheel
-  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
-  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
-  ATT_MAPS_DIR: ./tests/att_maps
+  CLUSTER_DESCRIPTORS_DIR: ./descriptors/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./descriptors/soc_descs
+  ATT_MAPS_DIR: ./descriptors/att_maps
   NANOBIND_TEST_DIR: ./nanobind/tests
   # Env. vars related to SCCache:
   SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}

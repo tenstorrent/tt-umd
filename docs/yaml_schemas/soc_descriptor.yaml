@@ -1,6 +1,6 @@
 # YAML Schema for SOC (System on Chip) Descriptor files
 # This schema validates the structure of SOC descriptor YAML files used in tt-umd.
-# See examples in ./tests/soc_descs
+# See examples in ./descriptors/soc_descs
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Tenstorrent SOC Descriptor Schema

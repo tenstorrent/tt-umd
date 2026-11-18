@@ -21,8 +21,10 @@ constexpr IpDeviceId DEV0 = static_cast<IpDeviceId>(0);
 constexpr IpDeviceId DEV1 = static_cast<IpDeviceId>(1);
 constexpr IpDeviceId DEV2 = static_cast<IpDeviceId>(2);
 
-// A build directory under tests/att_programs holding one att_program.yaml.
-std::filesystem::path program_dir(const std::string& name) { return test_utils::GetAbsPath("att_programs/" + name); }
+// A build directory under descriptors/att_programs holding one att_program.yaml.
+std::filesystem::path program_dir(const std::string& name) {
+    return test_utils::GetAbsPath("../descriptors/att_programs/" + name);
+}
 
 // The message loading @p name throws, or "" if it doesn't throw.
 std::string error_of(const std::string& name) {

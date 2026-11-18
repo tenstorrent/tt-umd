@@ -24,6 +24,7 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
+#include "tt_device/protocol/io_window_factory.hpp"
 #include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 
 namespace tt {
@@ -40,13 +41,13 @@ struct tlb_data;
 enum TlbMapping : uint8_t;
 
 /**
- * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
+ * PcieProtocol implements DeviceProtocol, PcieInterface, DmaInterface and IoWindowFactory for PCIe-connected
  * devices.
  *
  * Provides PCIe-based device I/O including DMA transfers, register access,
  * and multicast writes.
  */
-class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface {
+class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface, public IoWindowFactory {
 public:
     // io_timeout_hang_check is consulted with the in-flight op's NOC when an MMIO op overruns its timeout:
     // true confirms a hung NOC and aborts the op, false lets it continue.
@@ -75,8 +76,9 @@ public:
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
-    // Builds the window over one of this device's TLBs. It carries io_timeout_hang_check like the protocol's
-    // own windows, so an overrun aborts only on a confirmed NOC hang.
+
+    // IoWindowFactory. The window sits over one of this device's TLBs and carries io_timeout_hang_check like the
+    // protocol's own windows, so an overrun aborts only on a confirmed NOC hang.
     std::unique_ptr<IoWindow> create_io_window(
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 

@@ -5,19 +5,14 @@
  */
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <optional>
 
-#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
-
-class IoWindow;
 
 /**
  * @brief PCIe-specific device access: BAR register I/O and NUMA topology.
@@ -79,20 +74,6 @@ public:
      * @return int The dma-buf fd; the caller owns it and must close() it.
      */
     virtual int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) = 0;
-
-    /**
-     * @brief Creates a caller-owned I/O window over one of the device's BAR mappings.
-     *
-     * Temporary: this is not part of the Base API spec. It lives here so a model can serve windows over
-     * PCIe without reaching for the PCIDevice; it moves once the spec covers window creation.
-     *
-     * @param target Device-side target (core, address, NOC).
-     * @param host Host-side properties (caching, size). A size of 0 takes the smallest window free.
-     * @param ordering Ordering of the window's transactions.
-     * @return std::unique_ptr<IoWindow> The window, carrying the protocol's I/O timeout hang check.
-     */
-    virtual std::unique_ptr<IoWindow> create_io_window(
-        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) = 0;
 };
 
 }  // namespace tt::umd

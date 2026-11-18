@@ -13,6 +13,7 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
+#include "tt_device/protocol/io_window_factory.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/reset/classic_tile_risc_reset.hpp"
 #include "tt_device_model/soc_arch_descriptor_resolver.hpp"
@@ -34,6 +35,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     PcieProtocol *pcie = pcie_protocol.get();
     pcie_interface_ = pcie;
     dma_interface_ = pcie;
+    io_window_factory_ = pcie;
     protocol_ = std::move(pcie_protocol);
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
@@ -55,7 +57,7 @@ BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     // Over JTAG or a remote link there is no BAR to map, so the window is left to TTDevice.
-    return pcie_interface_ == nullptr ? nullptr : pcie_interface_->create_io_window(target, host, ordering);
+    return io_window_factory_ == nullptr ? nullptr : io_window_factory_->create_io_window(target, host, ordering);
 }
 
 DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }

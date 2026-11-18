@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <optional>
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -73,9 +72,6 @@ public:
     std::optional<uint32_t> get_lane_count() const override;
     void set_power_state(PowerState state) override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
-    // Simulation windows come from SimulationTTDevice's own TLB allocator, so this one is never asked.
-    std::unique_ptr<IoWindow> create_io_window(
-        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
 private:
     // BAR0's physical base, read from the simulator's config space on first use. The simulator

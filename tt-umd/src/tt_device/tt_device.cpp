@@ -265,10 +265,8 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         target.noc = get_selected_noc_id();
     }
 
-    // A model whose architecture has no mappable aperture serves the window itself. The ordering
-    // argument does not travel with it: the Base API's signature takes target and host only, and a
-    // window with nothing mapped behind it has nothing weaker than Strict to offer anyway.
-    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host)) {
+    // A model whose architecture has no mappable aperture serves the window itself.
+    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host, ordering)) {
         return window;
     }
 

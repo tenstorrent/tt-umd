@@ -113,9 +113,11 @@ public:
      *
      * @param target Device-side target (core, address, NOC).
      * @param host Host-side properties (caching, size).
+     * @param ordering Ordering of the window's transactions; a window that cannot relax it serves IoOrdering::STRICT.
      * @return Exclusively owned window handle, or nullptr for the TLB path.
      */
-    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
+    virtual std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) = 0;
 
     // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once

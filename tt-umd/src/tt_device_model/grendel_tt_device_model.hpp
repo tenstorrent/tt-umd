@@ -42,7 +42,8 @@ public:
      * A window served from the same scalar accesses the protocol uses, because the TLB path
      * TTDevice takes otherwise allocates a hardware mapping and this architecture exposes none.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
     PCIDevice *get_pci_device() override;

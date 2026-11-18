@@ -26,7 +26,9 @@ GrendelTTDeviceModel::~GrendelTTDeviceModel() = default;
 
 // The window borrows the device the protocol owns: both issue their accesses over the same driver
 // handle, and this model outlives the windows it hands out.
-std::unique_ptr<IoWindow> GrendelTTDeviceModel::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+std::unique_ptr<IoWindow> GrendelTTDeviceModel::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering /*ordering*/) {
+    // The driver performs each access on its own, so the window is strict whatever the caller asks.
     return std::make_unique<KmdNocWindow>(pci_device_, target, host.size);
 }
 

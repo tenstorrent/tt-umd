@@ -74,7 +74,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> WormholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     return nullptr;
 }
 

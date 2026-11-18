@@ -56,7 +56,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
 BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> BlackholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     return nullptr;
 }
 

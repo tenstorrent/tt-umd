@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <string>
 
-// tt-kmd-lib device handle. Forward declared so this public header does not require tt-kmd-lib's
-// include path, which UMD links privately.
 struct tt_device_t;
 
 namespace tt::umd {
@@ -18,9 +16,8 @@ namespace tt::umd {
 // when the process dies without destroying it. Lets device-side software learn that its host client
 // is gone, even after a crash.
 //
-// Owns a dedicated device handle, opened with O_APPEND so it does not request high power. The handle
-// is close-on-exec, but a child forked without exec shares it, and then KMD writes only once the child
-// has closed it too. Not copyable or movable.
+// Owns a dedicated, close-on-exec device handle. A child forked without exec shares it, and then KMD
+// writes only once the child has closed it too.
 class NocCleanupWrite {
 public:
     // Registers a write of `data` to `addr` on tile (x, y) of NOC `noc` (0 or 1) of

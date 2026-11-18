@@ -249,6 +249,13 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     }
 }
 
+TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
+    }
+}
+
 TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

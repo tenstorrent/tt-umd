@@ -11,12 +11,22 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 
 namespace tt::umd {
 
 NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data) :
     device_path_(fmt::format("/dev/tenstorrent/{}", pci_device_num)) {
+    const SemVer kmd_version = PCIDevice::read_kmd_version();
+    UMD_ASSERT(
+        kmd_version >= KMD_NOC_CLEANUP,
+        error::RuntimeError,
+        fmt::format(
+            "NOC cleanup writes require KMD {} or newer, but this system runs KMD {}.",
+            KMD_NOC_CLEANUP.str(),
+            kmd_version.str()));
     // O_APPEND keeps this handle from requesting high power on KMD 2.6+; older KMD ignores it.
     int result = tt_device_open(device_path_.c_str(), &device_, O_APPEND);
     UMD_ASSERT(
@@ -29,8 +39,7 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
         device_ = nullptr;
         UMD_THROW(
             error::RuntimeError,
-            fmt::format(
-                "tt_device_set_noc_cleanup() failed on {}: {}; it needs KMD 2.2.0+", device_path_, strerror(-result)));
+            fmt::format("tt_device_set_noc_cleanup() failed on {}: {}", device_path_, strerror(-result)));
     }
 }
 

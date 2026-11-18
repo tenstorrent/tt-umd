@@ -30,8 +30,10 @@ public:
     ~RemoteProtocol() override = default;
 
     // DeviceProtocol interface.
-    void write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_data(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
+    void read_data(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
     void write_ctrl(
         const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
         override;

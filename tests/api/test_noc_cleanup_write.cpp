@@ -17,6 +17,7 @@
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/noc_cleanup_write.hpp"
 
 using namespace tt;
@@ -28,6 +29,10 @@ protected:
         const std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         if (pci_device_ids.empty()) {
             GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+        }
+        if (PCIDevice::read_kmd_version() < KMD_NOC_CLEANUP) {
+            GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                         << KMD_NOC_CLEANUP.str();
         }
         pci_device_id_ = pci_device_ids[0];
         tt_device_ = create_tt_device(pci_device_id_);

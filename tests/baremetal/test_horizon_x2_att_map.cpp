@@ -125,6 +125,13 @@ void expect_window_matches(const att::MapData& map, att::WindowClass window_clas
     }
 }
 
+// @p map with its WORKER window moved to the atomic base: the atomic window it describes.
+att::MapData atomic_window_map(const att::MapData& map) {
+    att::MapData atomic = map;
+    atomic.windows[static_cast<size_t>(att::WindowClass::WORKER)].compare = map.worker_atomic_compare;
+    return atomic;
+}
+
 }  // namespace
 
 // The maps are transcriptions, so they are checked against the tables they were transcribed from:
@@ -142,6 +149,16 @@ INSTANTIATE_TEST_SUITE_P(
     HorizonX2RebasedWindow,
     ::testing::Combine(
         ::testing::Values(0, 1, 2, 3), ::testing::Values(att::WindowClass::WORKER, att::WindowClass::FULL_TILE)));
+
+// Each access point's atomic window is the L1 window at the atomic base, in the same tables.
+class HorizonX2AtomicWindow : public ::testing::TestWithParam<size_t> {};
+
+TEST_P(HorizonX2AtomicWindow, MatchesTheTables) {
+    const AccessPointMap& entry = ACCESS_POINT_MAPS[GetParam()];
+    expect_window_matches(atomic_window_map(*entry.map), att::WindowClass::WORKER, device_tables(entry.device));
+}
+
+INSTANTIATE_TEST_SUITE_P(PerAccessPoint, HorizonX2AtomicWindow, ::testing::Values(0, 1, 2, 3));
 
 // The tables hold each DRAM bank as its own pass-through window; the maps fold the two into one
 // window with a one-bit selector, which must give the same addresses and reach the same NOC2AXI tiles.
@@ -220,6 +237,17 @@ INSTANTIATE_TEST_SUITE_P(
     HorizonX2ColumnWindow,
     ::testing::Combine(
         ::testing::Values(0, 1, 2, 3), ::testing::Values(att::WindowClass::WORKER, att::WindowClass::FULL_TILE)));
+
+// Each column's atomic window is its L1 window at the atomic base, in the same NOC2AXI tables.
+class HorizonX2ColumnAtomicWindow : public ::testing::TestWithParam<size_t> {};
+
+TEST_P(HorizonX2ColumnAtomicWindow, MatchesTheNoc2AxiTables) {
+    const ColumnMap& entry = COLUMN_MAPS[GetParam()];
+    expect_window_matches(
+        atomic_window_map(*entry.map), att::WindowClass::WORKER, column_noc2axi_tables(entry.device, entry.column));
+}
+
+INSTANTIATE_TEST_SUITE_P(PerColumn, HorizonX2ColumnAtomicWindow, ::testing::Values(0, 1, 2, 3));
 
 // Each column device's addresses: those aether's AttConfig resolver gives for horizon_x2_columns.yaml
 // through the column's NOC2AXI, and for DRAM the crossbar's dram_P range.

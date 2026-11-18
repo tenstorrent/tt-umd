@@ -5,12 +5,14 @@
 #include <fmt/base.h>
 #include <fmt/ranges.h>
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <string>
 #include <vector>
 
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
 
@@ -37,4 +39,25 @@ TEST(PcieDeviceTest, Numa) {
     } else {
         SUCCEED() << "No PCIe devices were enumerated";
     }
+}
+
+TEST(PcieDeviceTest, MapPeerBar) {
+    const std::vector<int> device_ids = PCIDevice::enumerate_devices();
+    if (device_ids.size() < 2) {
+        GTEST_SKIP() << "Mapping a peer BAR needs two devices.";
+    }
+    PCIDevice device(device_ids[0]);
+    const PCIDevice peer(device_ids[1]);
+
+    EXPECT_NE(device.map_peer_bar(peer, 0, 0, getpagesize()), 0);
+}
+
+TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {
+    const std::vector<int> device_ids = PCIDevice::enumerate_devices();
+    if (device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    PCIDevice device(device_ids[0]);
+
+    EXPECT_THROW(device.map_peer_bar(device, 0, 0, getpagesize()), error::UmdException<error::RuntimeError>);
 }

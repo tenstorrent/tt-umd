@@ -187,12 +187,13 @@ jobs:
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
+            'pull_request|*|BH-Quietbox-2' \
+            'merge_group|*|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             '*|*|wh-glx-6u' \
             '*|*|bh-glx-6u' \
             '*|*|P300-viommu' \
-            '*|*|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|TSan|ubuntu-22.04' \

@@ -12,6 +12,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <exception>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -60,10 +63,12 @@ size_t PcieProtocol::get_dma_tlb_size(tt::ARCH arch) {
     }
 }
 
-PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
+PcieProtocol::PcieProtocol(
+    std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, std::function<bool(NocId)> io_timeout_hang_check) :
     pci_device_(std::move(pci_device)),
     dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
-    use_safe_api_(use_safe_api) {
+    use_safe_api_(use_safe_api),
+    io_timeout_hang_check_(std::move(io_timeout_hang_check)) {
     LockManager::initialize_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
@@ -86,14 +91,6 @@ PcieProtocol::~PcieProtocol() {
     }
 }
 
-void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
-    hang_check_ = hang_check;
-    // The cached window may already exist if I/O ran before the hang detector was wired; keep it in sync.
-    if (cached_tlb_window_ != nullptr) {
-        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
-    }
-}
-
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(
@@ -101,7 +98,7 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
                 get_architecture_tlbs(pci_device_->get_arch()).cached_window_size, TlbMapping::UC),
             tlb_data{},
             static_cast<IoSafety>(use_safe_api_));
-        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
+        cached_tlb_window_->set_io_timeout_hang_check(io_timeout_hang_check_);
     }
     return cached_tlb_window_.get();
 }
@@ -171,6 +168,32 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
 std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
+
+std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_probe_reader() {
+    // Not the cached window: the hang check runs inside a timed-out op that holds it under io_lock_. Any
+    // size reaches a register, so the smallest window still free is taken.
+    std::shared_ptr<TlbWindow> window;
+    for (const TlbSizeClass& size_class : get_architecture_tlbs(pci_device_->get_arch()).size_classes) {
+        try {
+            window = std::make_shared<SiliconTlbWindow>(pci_device_->allocate_tlb(size_class.size, TlbMapping::UC));
+            break;
+        } catch (const std::exception& e) {
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
+        }
+    }
+    UMD_ASSERT(window != nullptr, error::RuntimeError, "Failed to allocate a TLB window for the NOC probe.");
+
+    auto window_lock = std::make_shared<std::mutex>();
+    return [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
+        std::lock_guard<std::mutex> lock(*window_lock);
+        // The window has no hang check, so an overrun is a false alarm and the read completes; the hang
+        // detector judges the value. A DeviceTimeoutError here is therefore unexpected and is let surface
+        // rather than masked as a hang.
+        uint32_t value = 0;
+        read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
+        return value;
+    };
+}
 
 // A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
 // address at or below addr; the smallest window that still covers [addr, addr + size) is selected.

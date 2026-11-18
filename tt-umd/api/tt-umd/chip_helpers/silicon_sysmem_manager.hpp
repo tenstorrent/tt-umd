@@ -37,6 +37,8 @@ public:
 
     std::optional<size_t> get_max_buffer_count(size_t size) const override;
 
+    bool is_user_buffer_mapping_supported() const override;
+
 private:
     /**
      * Pins buffer_va for the device and wraps it in a SysmemBuffer.

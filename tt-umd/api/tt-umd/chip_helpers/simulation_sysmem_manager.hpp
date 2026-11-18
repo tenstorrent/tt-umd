@@ -65,6 +65,8 @@ public:
 
     std::optional<size_t> get_max_buffer_count(size_t /*size*/) const override { return std::nullopt; }
 
+    bool is_user_buffer_mapping_supported() const override { return true; }
+
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
     //

@@ -26,9 +26,9 @@ repos:
   hooks:
     - id: check-jsonschema
       name: Validate cluster descriptor YAML files
-      files: ^tests/cluster_descriptor_examples/.*\.yaml$
+      files: ^descriptors/cluster_descriptor_examples/.*\.yaml$
       args: ['--schemafile', 'docs/yaml_schemas/cluster_descriptor.yaml']
     - id: check-jsonschema
       name: Validate SoC descriptor YAML files
-      files: ^tests/soc_descs/.*\.yaml$
+      files: ^descriptors/soc_descs/.*\.yaml$
       args: ['--schemafile', 'docs/yaml_schemas/soc_descriptor.yaml']

@@ -23,7 +23,7 @@ namespace tt::umd {
 class Cluster;
 }  // namespace tt::umd
 
-// static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+// static const std::string SOC_DESC_PATH = "./descriptors/soc_descs/wormhole_b0_8x10.yaml";
 
 using namespace tt;
 using namespace tt::umd;

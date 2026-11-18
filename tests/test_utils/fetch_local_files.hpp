@@ -28,11 +28,11 @@ inline std::string GetAbsPath(const std::string& relative_path) {
 }
 
 inline std::string GetSocDescAbsPath(const std::string& soc_desc_name) {
-    return GetAbsPath("soc_descs/" + soc_desc_name);
+    return GetAbsPath("../descriptors/soc_descs/" + soc_desc_name);
 }
 
 inline std::string GetClusterDescAbsPath(const std::string& cluster_desc_name) {
-    return GetAbsPath("cluster_descriptor_examples/" + cluster_desc_name);
+    return GetAbsPath("../descriptors/cluster_descriptor_examples/" + cluster_desc_name);
 }
 
 inline std::vector<std::string> GetAllClusterDescs() {
@@ -90,11 +90,11 @@ inline std::vector<std::string> GetAllSocDescs() {
 inline std::string get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return GetAbsPath("soc_descs/wormhole_b0_8x10.yaml");
+            return GetAbsPath("../descriptors/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE:
-            return GetAbsPath("soc_descs/blackhole_140_arch.yaml");
+            return GetAbsPath("../descriptors/soc_descs/blackhole_140_arch.yaml");
         case tt::ARCH::QUASAR:
-            return GetAbsPath("soc_descs/quasar_simulation_1x1.yaml");
+            return GetAbsPath("../descriptors/soc_descs/quasar_simulation_1x1.yaml");
         default:
             throw std::runtime_error("Invalid architecture");
     }

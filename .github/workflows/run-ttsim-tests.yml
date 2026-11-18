@@ -645,10 +645,10 @@ jobs:
           mv /tmp/ttsim-wh-x2/libttsim_wh_x2_aarch64.so sim_wh_x2/libttsim.so
           # Wormhole and Blackhole images need no soc_descriptor.yaml: UMD reads their architecture from
           # the image. Quasar needs one.
-          cp tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
+          cp descriptors/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it and
           # enumerates both the MMIO gateway and the remote chip.
-          cp tests/cluster_descriptor_examples/wormhole_N300.yaml sim_wh_x2/cluster_descriptor.yaml
+          cp descriptors/cluster_descriptor_examples/wormhole_N300.yaml sim_wh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests with simulation support
         run: |

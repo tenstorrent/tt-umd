@@ -8,7 +8,7 @@ UMD includes several layers of abstraction and implementation. Ideally only a sm
 ## Descriptor files
 
 SoC Descriptor is one of those components which is reusable for other grid-like SoC. More importantly, higher software stacks built on top of UMD use this layout format as a contract with UMD. See [SOC_DESCRIPTOR.md](./SOC_DESCRIPTOR.md) for more information. An example 
-can be found in [blackhole_simulation_1x2.yaml](../tests/soc_descs/blackhole_simulation_1x2.yaml). Note that tt-metal uses slightly different soc descriptors with a couple of additional fields, so if instantiating device through tt-metal, a minimal example can be found in [blackhole_simulation_1x2_arch.yaml](https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/soc_descriptors/blackhole_simulation_1x2_arch.yaml).
+can be found in [blackhole_simulation_1x2.yaml](../descriptors/soc_descs/blackhole_simulation_1x2.yaml). Note that tt-metal uses slightly different soc descriptors with a couple of additional fields, so if instantiating device through tt-metal, a minimal example can be found in [blackhole_simulation_1x2_arch.yaml](https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/soc_descriptors/blackhole_simulation_1x2_arch.yaml).
 
 Another system descriptor is ClusterDescriptor. These files are describing the topology of the connected system, along with some additional chip specific details which might be important for the topology. An example of minimal cluster descriptor can be found in [wormhole_N150.yaml](../tests/api/cluster_descriptor_examples/wormhole_N150.yaml). This file describes a topology of one device, without any special features, and without any harvesting.
 

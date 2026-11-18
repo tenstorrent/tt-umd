@@ -71,6 +71,8 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
+
+    std::optional<int> get_physical_slot() const override;
     void set_power_state(PowerState state) override;
 
 private:

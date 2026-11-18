@@ -75,6 +75,8 @@ public:
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
 
+    std::optional<int> get_physical_slot() const override;
+
     // Builds a 32-bit NOC register reader for a hang detector to probe NOC liveness with. It is safe to call
     // from io_timeout_hang_check, inside a timed-out op: it reads through its own window and lock, and a hung
     // NOC shows up in the value read rather than as an error.

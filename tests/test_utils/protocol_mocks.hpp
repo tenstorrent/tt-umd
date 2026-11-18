@@ -44,6 +44,7 @@ public:
     MOCK_METHOD(uint32_t, bar_read32, (uint32_t), (override));
     MOCK_METHOD(int, get_numa_node, (), (const, override));
     MOCK_METHOD(std::optional<uint32_t>, get_lane_count, (), (const, override));
+    MOCK_METHOD(std::optional<int>, get_physical_slot, (), (const, override));
     MOCK_METHOD(void, set_power_state, (PowerState), (override));
 };
 

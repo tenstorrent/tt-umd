@@ -172,6 +172,10 @@ int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
 std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
 
+bool PcieProtocol::is_iommu_enabled() const { return pci_device_->is_iommu_enabled(); }
+
+std::optional<int> PcieProtocol::get_physical_slot() const { return pci_device_->get_device_info().physical_slot; }
+
 // A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
 // address at or below addr; the smallest window that still covers [addr, addr + size) is selected.
 // The offset handed to the driver is addr's distance from that base, and both offset and size must

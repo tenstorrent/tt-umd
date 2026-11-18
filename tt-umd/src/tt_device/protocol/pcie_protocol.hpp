@@ -17,13 +17,13 @@
 #include <utility>
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device/protocol/dma_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
-#include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device/protocol/pcie_dma/dma_transfer.hpp"
 
 namespace tt {

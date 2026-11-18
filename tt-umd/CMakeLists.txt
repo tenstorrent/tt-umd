@@ -244,6 +244,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/simulation/simulation_host.hpp
                 api/tt-umd/tt_device/simulation_device_factory.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
+                api/tt-umd/tt_device/protocol/dma_interface.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
                 api/tt-umd/tt_device/protocol/peer_dma_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp

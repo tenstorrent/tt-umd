@@ -190,6 +190,7 @@ LocalChip::LocalChip(
     host_mem_channels_(num_host_mem_channels),
     host_mem_in_single_buffer_(host_mem_in_single_buffer),
     tt_device_(std::move(tt_device)) {
+    l1_address_params = tt_device_->get_architecture_implementation()->get_l1_address_params();
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
 

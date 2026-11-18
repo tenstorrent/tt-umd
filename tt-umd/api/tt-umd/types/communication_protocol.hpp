@@ -8,12 +8,12 @@
 
 namespace tt::umd {
 
-// The values are part of the ABI: keep them, and give a new type the next free one.
+// Explicit values, in the order the Base API spec lists the types, so adding one cannot silently renumber another.
 enum class IODeviceType {
     PCIe = 0,
     JTAG = 1,
-    UNDEFINED = 2,
-    AXI = 3,
+    AXI = 2,
+    UNDEFINED = 3,
 };
 
 // Const map of Device type names for each of the types listed in the enum.

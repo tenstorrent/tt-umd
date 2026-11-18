@@ -224,8 +224,15 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
         tt_device_->get_communication_device_id(),
         tt_device_->get_communication_device_type()));
 
-    map_host_mem_channels();
-    initialize_membars(dram_membar_subchannel);
+    // A failed start leaves the chip as if it was never started, so it can be closed or started again.
+    try {
+        map_host_mem_channels();
+        initialize_membars(dram_membar_subchannel);
+    } catch (...) {
+        unmap_host_mem_channels();
+        chip_started_lock_.reset();
+        throw;
+    }
 }
 
 void LocalChip::close_device() {
@@ -292,37 +299,49 @@ void LocalChip::map_host_mem_channels() {
         return;
     }
 
-    // Each channel is its own buffer. A channel that cannot be allocated stays unmapped, so copies through it throw.
+    // Each channel is its own buffer. Every channel a chip reports is used, so one that cannot be allocated or lands
+    // elsewhere on the NOC fails the start rather than surfacing later as an unmapped or misplaced channel.
     for (size_t channel = 0; channel < num_channels; channel++) {
         const size_t channel_size = get_host_mem_channel_size(arch, channel);
         std::unique_ptr<SysmemBuffer> buffer;
         try {
             buffer = system_memory_allocator_->allocate_buffer(channel_size, /*bind_to_noc=*/true);
         } catch (const std::exception& e) {
-            log_warning(
-                LogUMD,
-                "Failed to allocate host memory channel {} for device {}: {}",
-                channel,
-                tt_device_->get_communication_device_id(),
-                e.what());
-            continue;
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to allocate host memory channel {} for device {}: {}",
+                    channel,
+                    tt_device_->get_communication_device_id(),
+                    e.what()));
         }
 
         const std::optional<uint64_t> noc_address = buffer->get_noc_address();
+        if (!noc_address.has_value()) {
+            UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
+        }
         log_debug(
             LogUMD,
             "Mapped host memory channel {} at IOVA {:#x} to NOC address {:#x}",
             channel,
             buffer->get_iova(),
-            noc_address.value_or(0));
+            *noc_address);
         // The truncated channel is the final one, so the channels before it all sit on the CHANNEL_STRIDE grid.
-        if (noc_address != noc_base + channel * HostMemChannels::CHANNEL_STRIDE) {
-            log_warning(
+        const uint64_t expected_noc_address = noc_base + channel * HostMemChannels::CHANNEL_STRIDE;
+        if (*noc_address != expected_noc_address) {
+            log_error(
                 LogUMD,
-                "NOC address of a host memory channel does not match the expected address. This usually means another "
-                "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
-                "process from a previous run). To fix this, find and kill the other processes using the "
-                "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
+                "Expected host memory channel {} to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This "
+                "usually means another process is already holding the sysmem NOC address space UMD requires (often a "
+                "stale or crashed process from a previous run). To fix this, find and kill the other processes using "
+                "the Tenstorrent device(s), then retry.",
+                channel,
+                expected_noc_address,
+                *noc_address);
+            UMD_THROW(
+                error::RuntimeError,
+                "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
+                "lead to undefined behavior");
         }
 
         host_mem_channels_.map_channel(channel, buffer->get_va(), channel_size);

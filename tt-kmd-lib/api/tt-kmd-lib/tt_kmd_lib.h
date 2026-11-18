@@ -691,6 +691,22 @@ int tt_device_map_peer_bar(
     tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr);
 
 /**
+ * @brief Register a NOC write the driver performs when this device handle's file descriptor closes.
+ *
+ * The write happens however the fd closes: tt_device_close(), process exit, or a crash. Requires
+ * tt-kmd >= 2.2.0.
+ *
+ * @param dev  Device handle
+ * @param x    X coordinate of the NOC tile to write to
+ * @param y    Y coordinate of the NOC tile to write to
+ * @param noc  NOC to write on; 0 or 1
+ * @param addr NOC address to write to; must be 4-byte aligned
+ * @param data Value to write
+ * @return 0 on success, negative error code on failure
+ */
+int tt_device_set_noc_cleanup(tt_device_t* dev, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data);
+
+/**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.
  *
  * @param dev Device handle; must not be NULL

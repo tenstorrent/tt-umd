@@ -29,7 +29,7 @@ using Devices = std::map<IpDeviceId, std::vector<AccessPointId>>;
 
 // A build directory under descriptors/ip_layouts holding one ip_layout.yaml.
 std::filesystem::path layout_dir(const std::string& name) {
-    return test_utils::GetAbsPath("../descriptors/ip_layouts/" + name);
+    return test_utils::get_descriptor_path("ip_layouts/" + name);
 }
 
 std::filesystem::path soc_descriptor_of(const std::string& name) {

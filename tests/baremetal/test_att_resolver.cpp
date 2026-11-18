@@ -226,7 +226,7 @@ namespace {
 // so it exercises the descriptor-facing path over real coordinates.
 SocDescriptor quasar_soc_descriptor() {
     return SocDescriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_32_arch.yaml")),
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("quasar_32_arch.yaml")),
         {.noc_translation_enabled = false});
 }
 

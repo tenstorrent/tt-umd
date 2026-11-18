@@ -26,7 +26,7 @@ namespace {
 const std::string cluster_id_example = "bh-glx-110-c01u02";
 
 std::string read_cluster_desc(const std::string& cluster_desc_name) {
-    std::ifstream fdesc(test_utils::GetClusterDescAbsPath(cluster_desc_name));
+    std::ifstream fdesc(test_utils::get_cluster_desc_path(cluster_desc_name));
     EXPECT_FALSE(fdesc.fail());
     std::stringstream buffer;
     buffer << fdesc.rdbuf();
@@ -74,7 +74,7 @@ TEST(ClusterDescriptorClusterIdTest, ClusterIdIsUnsetWhenYamlOmitsIt) {
 // Back-compat: no descriptor may be rejected because it predates this field. Deliberately does not
 // assert the id is unset, so filling cluster_id into an example later is not a test failure.
 TEST(ClusterDescriptorClusterIdTest, AllOfflineDescriptorsStillParse) {
-    for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+    for (const std::string& cluster_desc_yaml : test_utils::get_all_cluster_descs()) {
         std::ifstream fdesc(cluster_desc_yaml);
         ASSERT_FALSE(fdesc.fail()) << cluster_desc_yaml;
         std::stringstream buffer;

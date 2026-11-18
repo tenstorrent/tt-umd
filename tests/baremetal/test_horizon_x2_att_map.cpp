@@ -41,7 +41,8 @@ const AccessPointMap ACCESS_POINT_MAPS[] = {
 
 // Device @p device's tables in the snapshot the testbench programs.
 YAML::Node device_tables(int device) {
-    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("att_maps/horizon_x2_per_noc2axi.yaml"));
+    const YAML::Node tables =
+        YAML::LoadFile(test_utils::GetAbsPath("../descriptors/att_maps/horizon_x2_per_noc2axi.yaml"));
     for (const auto& entry : tables["devices"]) {
         if (entry["id"].as<int>() == device) {
             return entry["defaults"];
@@ -68,7 +69,7 @@ const ColumnMap COLUMN_MAPS[] = {
 
 // The tables of NOC2AXI (@p column, 2) of device @p device in the column snapshot.
 YAML::Node column_noc2axi_tables(int device, int column) {
-    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("att_maps/horizon_x2_columns.yaml"));
+    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("../descriptors/att_maps/horizon_x2_columns.yaml"));
     for (const auto& entry : tables["devices"]) {
         if (entry["id"].as<int>() != device) {
             continue;
@@ -128,7 +129,7 @@ void expect_window_matches(const att::MapData& map, att::WindowClass window_clas
 }  // namespace
 
 // The maps are transcriptions, so they are checked against the tables they were transcribed from:
-// tests/att_maps/horizon_x2_per_noc2axi.yaml.
+// descriptors/att_maps/horizon_x2_per_noc2axi.yaml.
 class HorizonX2RebasedWindow : public ::testing::TestWithParam<std::tuple<size_t, att::WindowClass>> {};
 
 TEST_P(HorizonX2RebasedWindow, MatchesTheTables) {
@@ -203,7 +204,7 @@ INSTANTIATE_TEST_SUITE_P(
         ResolveCase{2, {0, 2}, CoreType::DRAM, 0x100, 0x23'0000'0100}));
 
 // The column maps are transcriptions too, of each column's NOC2AXI tables in
-// tests/att_maps/horizon_x2_columns.yaml.
+// descriptors/att_maps/horizon_x2_columns.yaml.
 class HorizonX2ColumnWindow : public ::testing::TestWithParam<std::tuple<size_t, att::WindowClass>> {};
 
 TEST_P(HorizonX2ColumnWindow, MatchesTheNoc2AxiTables) {

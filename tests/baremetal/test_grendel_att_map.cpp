@@ -93,10 +93,11 @@ TEST(GrendelAttMap, EveryEndpointRowResolvesBackToItsOwnSlot) {
 }
 
 // The map is a transcription, so it is checked against the tables it was transcribed from rather
-// than against itself. tests/att_maps/grendel_qsr1_att_tables.yaml holds those tables; refreshing it
+// than against itself. descriptors/att_maps/grendel_qsr1_att_tables.yaml holds those tables; refreshing it
 // from grendelemulation is what turns a POR move into a failure here instead of a misrouted access.
 TEST(GrendelAttMap, MatchesTheTablesTheFirmwareProgrammes) {
-    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("att_maps/grendel_qsr1_att_tables.yaml"));
+    const YAML::Node tables =
+        YAML::LoadFile(test_utils::GetAbsPath("../descriptors/att_maps/grendel_qsr1_att_tables.yaml"));
 
     // Counted so the check runs both ways: walking the snapshot alone would leave a map window
     // unexamined if its mask entry were dropped upstream, and the stale window would still pass on

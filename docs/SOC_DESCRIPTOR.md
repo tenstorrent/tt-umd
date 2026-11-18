@@ -20,7 +20,7 @@ data sending.
 ## SoC Descriptor explanation
 
 The SoC descriptor file tells UMD what resources it could provide for a given workload on a particular SoC. Example SoC descriptors
-can be found in [soc_descs folder](../tests/soc_descs/).
+can be found in [soc_descs folder](../descriptors/soc_descs/).
 
 The following is a guide on how write up a custom SoC descriptor:
 1. Set the proper grid size with X/Y coordinates (including all components that are placed on a Tensix NOC ,e.g. NoC2AXI,Tensix,Router_only,etc... coordinates).

@@ -13,7 +13,7 @@ namespace tt::umd::att {
 /**
  * Two whole Horizon 2x3 devices behind linked crossbars (aether horizon_x2), with each device's
  * NOC2AXI tiles reaching the whole device, each in its own crossbar range: device d's NOC2AXI n
- * fronts ((d + 1) << 36) + (n << 32). Transcribed from tests/att_maps/horizon_x2_per_noc2axi.yaml,
+ * fronts ((d + 1) << 36) + (n << 32). Transcribed from descriptors/att_maps/horizon_x2_per_noc2axi.yaml,
  * the tables the testbench programs into every NOC2AXI and tile of a device (AETHER_ATT_CONFIG), and
  * checked against it.
  *

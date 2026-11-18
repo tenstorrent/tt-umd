@@ -27,8 +27,10 @@ constexpr IpDeviceId DEV1 = static_cast<IpDeviceId>(1);
 
 using Devices = std::map<IpDeviceId, std::vector<AccessPointId>>;
 
-// A build directory under tests/ip_layouts holding one ip_layout.yaml.
-std::filesystem::path layout_dir(const std::string& name) { return test_utils::GetAbsPath("ip_layouts/" + name); }
+// A build directory under descriptors/ip_layouts holding one ip_layout.yaml.
+std::filesystem::path layout_dir(const std::string& name) {
+    return test_utils::GetAbsPath("../descriptors/ip_layouts/" + name);
+}
 
 std::filesystem::path soc_descriptor_of(const std::string& name) {
     return layout_dir(name) / "../../soc_descs/quasar_simulation_1x3.yaml";

@@ -27,7 +27,7 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
             "NOC cleanup writes require KMD {} or newer, but this system runs KMD {}.",
             KMD_NOC_CLEANUP.str(),
             kmd_version.str()));
-    // O_APPEND keeps this handle from requesting high power on KMD 2.6+; older KMD ignores it.
+    // O_APPEND keeps this handle out of the device's power vote on KMD 2.6+; older KMD ignores it.
     int result = tt_device_open(device_path_.c_str(), &device_, O_APPEND);
     UMD_ASSERT(
         result == 0,

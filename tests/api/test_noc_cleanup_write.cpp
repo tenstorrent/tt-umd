@@ -36,12 +36,6 @@ protected:
         core_ = tt_device_->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
 
-    uint32_t read_l1_word() {
-        uint32_t value = 0;
-        tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
-        return value;
-    }
-
     NocCleanupWrite make_cleanup_write(uint8_t noc, uint32_t data) {
         return NocCleanupWrite(
             pci_device_id_,
@@ -58,13 +52,15 @@ protected:
 };
 
 TEST_F(ApiNocCleanupWriteTest, WritesWhenDestroyed) {
-    const uint32_t zero = 0;
-    tt_device_->write_to_device(&zero, core_, SAFE_IO_L1_ADDRESS, sizeof(zero));
+    uint32_t value = 0;
+    tt_device_->write_to_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
     {
         NocCleanupWrite cleanup_write = make_cleanup_write(0, 0xc1ea4);
-        EXPECT_EQ(read_l1_word(), 0);
+        tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+        EXPECT_EQ(value, 0);
     }
-    EXPECT_EQ(read_l1_word(), 0xc1ea4);
+    tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+    EXPECT_EQ(value, 0xc1ea4);
 }
 
 TEST_F(ApiNocCleanupWriteTest, PinReturnsDmaAddress) {

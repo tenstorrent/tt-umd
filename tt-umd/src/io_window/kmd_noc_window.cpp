@@ -154,7 +154,7 @@ void KmdNocWindow::configure(const TargetIoWindowConfig& config, IoOrdering orde
 
 TargetIoWindowConfig KmdNocWindow::get_target_config() const { return config_; }
 
-IoOrdering KmdNocWindow::get_io_ordering() const { return IoOrdering::Strict; }
+IoOrdering KmdNocWindow::get_io_ordering() const { return IoOrdering::STRICT; }
 
 // What this window accepts offsets within: the caller's requested size, or, when the caller left the
 // choice here, everything still addressable from the current base. Valid offsets are [0, get_size()),

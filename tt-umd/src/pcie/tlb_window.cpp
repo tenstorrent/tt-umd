@@ -25,9 +25,9 @@ namespace tt::umd {
 // window API and IoOrdering is what callers pass all the way down. tlb_data itself stays either way --
 // it is the hardware register descriptor (see tlb_data::apply_offset) and remains internal to the
 // handle/PCI layer.
-static_assert(static_cast<uint64_t>(IoOrdering::Relaxed) == tlb_data::Relaxed);
-static_assert(static_cast<uint64_t>(IoOrdering::Strict) == tlb_data::Strict);
-static_assert(static_cast<uint64_t>(IoOrdering::Posted) == tlb_data::Posted);
+static_assert(static_cast<uint64_t>(IoOrdering::RELAXED) == tlb_data::Relaxed);
+static_assert(static_cast<uint64_t>(IoOrdering::STRICT) == tlb_data::Strict);
+static_assert(static_cast<uint64_t>(IoOrdering::POSTED) == tlb_data::Posted);
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
     tlb_handle(std::move(handle)), io_safety_(io_safety) {
@@ -93,7 +93,7 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
     read_register(offset, data, size);
 }
 
-void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
+void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::STRICT); }
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
     // The direction field is encoded into the TLB mapping; anything else must be honored by the

@@ -17,8 +17,8 @@
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/system_memory/host_mem_channels.hpp"
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -70,8 +70,9 @@ public:
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
     void dma_write_zero_copy(
-        const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
-    void dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
+        const SystemMemoryBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_zero_copy(
+        SystemMemoryBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
 
     int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering);
 
@@ -101,7 +102,7 @@ private:
     bool host_mem_in_single_buffer_ = false;
 
     // Memory behind host_mem_channels_ while the chip is started.
-    std::vector<std::unique_ptr<SysmemBuffer>> host_mem_channel_buffers_;
+    std::vector<std::unique_ptr<SystemMemoryBuffer>> host_mem_channel_buffers_;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.

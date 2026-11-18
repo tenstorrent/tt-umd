@@ -54,10 +54,10 @@ public:
 
     HugepageMapping get_hugepage_mapping(size_t channel) const;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+    std::unique_ptr<SystemMemoryBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+    std::unique_ptr<SystemMemoryBuffer> map_sysmem_buffer(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
@@ -92,7 +92,7 @@ public:
     // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
     // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
     // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
-    // mapped: the caller must not retain it across the manager's or the SysmemBuffer's
+    // mapped: the caller must not retain it across the manager's or the SystemMemoryBuffer's
     // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
     // This is a pure address translation — the caller owns the access length (the returned bare
     // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
@@ -123,7 +123,7 @@ private:
     };
 
     // Shared registry of active mapped-buffer entries.  Held by shared_ptr so
-    // that SysmemBuffer unmap callbacks can capture a weak_ptr and safely
+    // that SystemMemoryBuffer unmap callbacks can capture a weak_ptr and safely
     // become no-ops when the manager is destroyed before the buffer.
     struct MappedBufferRegistry {
         std::mutex mutex;
@@ -143,12 +143,12 @@ private:
     // Shared by the allocate and map
     // paths, which differ only in who owns the memory: allocate passes a release callable that frees
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
-    std::unique_ptr<SysmemBuffer> register_and_wrap(
+    std::unique_ptr<SystemMemoryBuffer> register_and_wrap(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc,
         DeviceBufferAccess device_access,
-        SysmemBuffer::Deleter release_backing_memory);
+        SystemMemoryBuffer::Deleter release_backing_memory);
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;

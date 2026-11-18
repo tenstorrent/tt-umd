@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 
 #include <fmt/format.h>
 
@@ -27,9 +27,9 @@ namespace {
 
 // Wraps a caller-supplied deleter so it is always safe for unique_ptr to run from the destructor.
 // Two things are handled here: an empty std::function deleter makes unique_ptr throw bad_function_call
-// on a non-null pointer, and an exception escaping the deleter would propagate out of ~SysmemBuffer and
+// on a non-null pointer, and an exception escaping the deleter would propagate out of ~SystemMemoryBuffer and
 // terminate the process. Cleanup failures are logged instead.
-SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
+SystemMemoryBuffer::Deleter make_non_throwing(SystemMemoryBuffer::Deleter deleter) {
     return [deleter = std::move(deleter)](void* buffer_va) noexcept {
         if (!deleter) {
             return;
@@ -46,7 +46,7 @@ SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
 
 }  // namespace
 
-SysmemBuffer::SysmemBuffer(
+SystemMemoryBuffer::SystemMemoryBuffer(
     void* buffer_va,
     size_t buffer_size,
     uint64_t device_io_addr,
@@ -63,28 +63,28 @@ SysmemBuffer::SysmemBuffer(
     device_access_(device_access),
     communication_id_(communication_id) {
     system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
-    TracyAllocN(buffer_va_, buffer_size_, "SysmemBuffer");
+    TracyAllocN(buffer_va_, buffer_size_, "SystemMemoryBuffer");
 }
 
-SysmemBuffer::~SysmemBuffer() {
-    TracyFreeN(buffer_va_, "SysmemBuffer");
+SystemMemoryBuffer::~SystemMemoryBuffer() {
+    TracyFreeN(buffer_va_, "SystemMemoryBuffer");
     // Destroying system_memory_ptr_ runs the deleter composed at construction: unpin, and free the
     // backing memory if this buffer owns it.
 }
 
-void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
+void SystemMemoryBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
     memcpy(static_cast<uint8_t*>(get_va()) + offset, src, size);
 }
 
-void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
+void SystemMemoryBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
     memcpy(dest, static_cast<const uint8_t*>(get_va()) + offset, size);
 }
 
-void SysmemBuffer::bind_noc_address() {
+void SystemMemoryBuffer::bind_noc_address() {
     if (noc_addr_.has_value()) {
         return;
     }
@@ -97,21 +97,21 @@ void SysmemBuffer::bind_noc_address() {
     noc_addr_ = noc_binder_();
 }
 
-void* SysmemBuffer::get_va() const { return buffer_va_; }
+void* SystemMemoryBuffer::get_va() const { return buffer_va_; }
 
-size_t SysmemBuffer::get_size() const { return buffer_size_; }
+size_t SystemMemoryBuffer::get_size() const { return buffer_size_; }
 
-uint64_t SysmemBuffer::get_iova(const size_t offset) const {
+uint64_t SystemMemoryBuffer::get_iova(const size_t offset) const {
     validate(offset);
     return device_io_addr_ + offset;
 }
 
-void SysmemBuffer::validate(const size_t offset, const size_t size) const {
+void SystemMemoryBuffer::validate(const size_t offset, const size_t size) const {
     if (offset >= buffer_size_ || size > buffer_size_ - offset) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Range starting at {:#x} with size {:#x} is out of bounds for SysmemBuffer of size {:#x}",
+                "Range starting at {:#x} with size {:#x} is out of bounds for SystemMemoryBuffer of size {:#x}",
                 offset,
                 size,
                 buffer_size_));

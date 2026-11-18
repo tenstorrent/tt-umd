@@ -23,8 +23,8 @@
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
@@ -386,7 +386,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
     test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }
 
-// Same scenario as Map1GBPages (three coexisting 1GiB buffers mapped to NOC), but routed through the SysmemBuffer
+// Same scenario as Map1GBPages (three coexisting 1GiB buffers mapped to NOC), but routed through the SystemMemoryBuffer
 // class to confirm there is no overhead compared to calling map_buffer_to_noc/unmap_for_dma directly.
 TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -432,7 +432,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     ankerl::nanobench::Result unmap_result(bench.config());
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
 
-    std::array<std::unique_ptr<SysmemBuffer>, NUM_PAGES> sysmem_buffers{};
+    std::array<std::unique_ptr<SystemMemoryBuffer>, NUM_PAGES> sysmem_buffers{};
     for (int i = 0; i < NUM_EPOCHS; i++) {
         for (size_t page = 0; page < NUM_PAGES; page++) {
             auto now = std::chrono::high_resolution_clock::now();

@@ -27,8 +27,8 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -107,9 +107,9 @@ HostMemChannelPlan plan_host_mem_channels(
 
 // Allocates a buffer bound to the NOC for the channels starting at first_channel, and checks it landed where those
 // channels are expected.
-std::unique_ptr<SysmemBuffer> allocate_host_mem_buffer(
+std::unique_ptr<SystemMemoryBuffer> allocate_host_mem_buffer(
     SystemMemoryAllocator& allocator, size_t size, uint64_t expected_noc_address, size_t first_channel, int device_id) {
-    std::unique_ptr<SysmemBuffer> buffer;
+    std::unique_ptr<SystemMemoryBuffer> buffer;
     try {
         buffer = allocator.allocate_buffer(size, /*bind_to_noc=*/true);
     } catch (const std::exception& e) {
@@ -149,7 +149,7 @@ std::unique_ptr<SysmemBuffer> allocate_host_mem_buffer(
 
 // The buffer's IOVA is valid only for the device it was pinned for, and the DMA engine trusts whatever range it is
 // given, so both are checked before a transfer starts.
-void check_zero_copy_buffer(const SysmemBuffer& buffer, int device_id, size_t offset, size_t size) {
+void check_zero_copy_buffer(const SystemMemoryBuffer& buffer, int device_id, size_t offset, size_t size) {
     UMD_ASSERT(
         buffer.get_communication_id() == device_id,
         error::RuntimeError,
@@ -307,7 +307,7 @@ void LocalChip::map_host_mem_channels() {
     const int device_id = tt_device_->get_communication_device_id();
 
     if (host_mem_in_single_buffer_) {
-        std::unique_ptr<SysmemBuffer> buffer = allocate_host_mem_buffer(
+        std::unique_ptr<SystemMemoryBuffer> buffer = allocate_host_mem_buffer(
             *system_memory_allocator_, get_host_mem_channels_span(arch, num_channels), noc_base, 0, device_id);
         auto* base = static_cast<uint8_t*>(buffer->get_va());
         for (size_t channel = 0; channel < num_channels; channel++) {
@@ -320,7 +320,7 @@ void LocalChip::map_host_mem_channels() {
 
     for (size_t channel = 0; channel < num_channels; channel++) {
         const size_t channel_size = get_host_mem_channel_size(arch, channel);
-        std::unique_ptr<SysmemBuffer> buffer = allocate_host_mem_buffer(
+        std::unique_ptr<SystemMemoryBuffer> buffer = allocate_host_mem_buffer(
             *system_memory_allocator_,
             channel_size,
             noc_base + channel * HostMemChannels::CHANNEL_STRIDE,
@@ -457,12 +457,13 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
 }
 
 void LocalChip::dma_write_zero_copy(
-    const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
+    const SystemMemoryBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
     check_zero_copy_buffer(buffer, tt_device_->get_communication_device_id(), offset, size);
     tt_device_->dma_write_zero_copy(buffer.get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
-void LocalChip::dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
+void LocalChip::dma_read_zero_copy(
+    SystemMemoryBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) {
     UMD_ASSERT(
         buffer.get_device_access() != DeviceBufferAccess::READ_ONLY,
         error::RuntimeError,

@@ -1,0 +1,199 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+
+#include "tt-umd/types/host_memory.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+
+namespace tt::umd {
+
+/**
+ * SystemMemoryBuffer class should represent the resource of the HOST memory that is visible to the device.
+ * Currently, there are two types of sysmem buffers:
+ * 1. Hugepage-based sysmem buffer, that represents old system memory scheme used, that we still want to support until
+ * transition to IOMMU is complete.
+ * 2. Sysmem buffer, that is used when the system is protected by an IOMMU. With IOMMU, the mappings can be requested at
+ * much finer granularity than hugepages.
+ *
+ * Traditionally, we have referred to the sysmem buffer as something that is
+ * visible to device, has its own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
+ * buffers.
+ */
+class SystemMemoryBuffer {
+public:
+    /**
+     * Cleanup callable invoked on destruction, receiving the buffer's virtual address.
+     *
+     * The allocator is its sole author and states the ownership model outright: unpin-and-free for
+     * memory UMD owns, unpin-only for memory the client owns.
+     */
+    using Deleter = std::function<void(void*)>;
+
+    /**
+     * Callable that programs the hardware address translation binding this buffer to the NOC, returning
+     * the resulting NOC address.
+     *
+     * Injected by the allocator, which holds the device context the translation needs. Optional: an
+     * allocator whose driver assigns the NOC address at pin time supplies none, and a buffer without one
+     * cannot be bound after construction.
+     */
+    using NocBinder = std::function<uint64_t()>;
+
+    ~SystemMemoryBuffer();
+
+    /**
+     * Copies data from a caller-provided source buffer into this system memory buffer.
+     * Pure host-side operation, the device is not involved. This is allowed regardless of
+     * DeviceBufferAccess, which only constrains what the device may do to the mapping.
+     *
+     * @param src Pointer to the source host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to write to. offset + size must fit in the buffer.
+     */
+    void write_to_sysmem(const void* src, size_t size, size_t offset);
+
+    /**
+     * Copies data from this system memory buffer into a caller-provided destination buffer.
+     * Pure host-side operation, the device is not involved.
+     *
+     * @param dest Pointer to the destination host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to read from. offset + size must fit in the buffer.
+     */
+    void read_from_sysmem(void* dest, size_t size, size_t offset);
+
+    /**
+     * Returns the virtual address of the buffer in the process address space.
+     * Both in case of aligned and unaligned buffers, this will return the original buffer address.
+     */
+    void* get_va() const;
+
+    [[deprecated("Use get_va() instead.")]] void* get_buffer_va() const { return get_va(); }
+
+    /**
+     * Returns the size of the buffer passed by the user.
+     *
+     * @return Size of the buffer passed by the user.
+     */
+    size_t get_size() const;
+
+    [[deprecated("Use get_size() instead.")]] size_t get_buffer_size() const { return get_size(); }
+
+    /**
+     * Returns device IOVA (IO virtual address) of the buffer on the offset from the start of the buffer.
+     *
+     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
+     * @return Device IOVA of the buffer on the offset from the start of the buffer.
+     */
+    uint64_t get_iova(const size_t offset = 0) const;
+
+    [[deprecated("Use get_iova() instead.")]] uint64_t get_device_io_addr(const size_t offset = 0) const {
+        return get_iova(offset);
+    }
+
+    /**
+     * Returns the NOC address through which every tile on the device can reach this buffer, or std::nullopt
+     * until the buffer is bound, either at pin time or by bind_noc_address().
+     */
+    std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
+
+    [[deprecated("Use get_noc_address() instead.")]] std::optional<uint64_t> get_noc_addr() const {
+        return get_noc_address();
+    }
+
+    /**
+     * Binds a NOC address to this buffer, so every tile on the device can reach it rather than only the
+     * PCIe tile.
+     *
+     * Idempotent: a no-op once bound, whether that happened here or at pin time. Throws when the buffer is
+     * unbound and has no binder, which is the case for a buffer whose pages were not pinned with NOC access
+     * on a driver that only assigns NOC addresses at pin time.
+     */
+    void bind_noc_address();
+
+    DeviceBufferAccess get_device_access() const { return device_access_; }
+
+    /**
+     * Returns the identifier of the device context this buffer was pinned for. The IOVA is valid only
+     * for that device, so callers can compare this against TTDevice::get_communication_device_id() to
+     * confirm a buffer belongs to the device it is about to be used with.
+     */
+    int get_communication_id() const { return communication_id_; }
+
+private:
+    // Buffers are created only by an allocator, which pins the pages and therefore knows the IOVA, the NOC
+    // address and how the memory has to be released.
+    friend class SystemMemoryAllocator;
+
+    /**
+     * Constructs a buffer over host memory the allocator has already pinned for the device.
+     *
+     * The buffer covers exactly the user's range: get_va(), get_size() and get_iova() report what was
+     * passed in, and offsets are bounded by that size. Any page alignment the pinning needed is the
+     * allocator's to track.
+     *
+     * @param buffer_va Virtual address of the buffer as the user sees it.
+     * @param buffer_size Size of the buffer requested by the user.
+     * @param device_io_addr IOVA of buffer_va.
+     * @param communication_id Identifier of the device this buffer's IOVA is valid for.
+     * @param deleter Cleanup callable invoked on destruction with buffer_va.
+     * @param noc_addr NOC address, if the pages were pinned with NOC access.
+     * @param device_access Whether the device may write the mapping or only read it.
+     * @param noc_binder Optional callable for deferred NOC binding.
+     */
+    SystemMemoryBuffer(
+        void* buffer_va,
+        size_t buffer_size,
+        uint64_t device_io_addr,
+        int communication_id,
+        Deleter deleter,
+        std::optional<uint64_t> noc_addr = std::nullopt,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
+        NocBinder noc_binder = {});
+
+    /**
+     * Validates that the [offset, offset + size) range is within the bounds of the buffer.
+     * Throws an exception if the range is out of bounds.
+     *
+     * @param offset Offset to validate.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
+     */
+    void validate(const size_t offset, const size_t size = 0) const;
+
+    // Virtual address in process addr space.
+    void* buffer_va_;
+
+    // Size of the buffer requested by user. Offsets in other SystemMemoryBuffer functions are bounded by it.
+    size_t buffer_size_;
+
+    // Address that is used on the system bus to access buffer_va_.
+    uint64_t device_io_addr_;
+
+    // Address that is used on the NOC to access the buffer.  NOC target must be
+    // the PCIE core that is connected to the host and this address.
+    std::optional<uint64_t> noc_addr_;
+
+    // Programs the NOC translation on demand. Empty when the buffer cannot be bound after construction.
+    NocBinder noc_binder_;
+
+    // Owns buffer_va_. Releasing it runs the deleter composed at construction, which unpins the pages
+    // from the device and, for buffers the allocator allocated, frees them.
+    std::unique_ptr<void, Deleter> system_memory_ptr_;
+
+    DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;
+
+    // Device this buffer's IOVA is valid for. -1 when unknown.
+    int communication_id_ = -1;
+};
+
+using SysmemBuffer [[deprecated("Use SystemMemoryBuffer instead.")]] = SystemMemoryBuffer;
+
+}  // namespace tt::umd

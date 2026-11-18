@@ -56,7 +56,7 @@ target_sources(
         src/system_memory/sysmem_manager.cpp
         src/system_memory/simulation_sysmem_manager.cpp
         src/system_memory/silicon_sysmem_manager.cpp
-        src/system_memory/sysmem_buffer.cpp
+        src/system_memory/system_memory_buffer.cpp
         src/pcie/tlb_window.cpp
         src/pcie/io_window_reconfigure.cpp
         src/common/noc_address_space.cpp
@@ -210,6 +210,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/system_memory/sysmem_buffer.hpp
                 api/tt-umd/system_memory/sysmem_manager.hpp
                 api/tt-umd/system_memory/system_memory_allocator.hpp
+                api/tt-umd/system_memory/system_memory_buffer.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp

@@ -8,8 +8,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/system_memory_allocator.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 
@@ -28,18 +28,18 @@ public:
      * SystemMemoryAllocator surface. These are the Base API Specification names; they forward to the
      * allocate_sysmem_buffer() / map_sysmem_buffer() implementations below.
      */
-    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
+    std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
 
-    std::unique_ptr<SysmemBuffer> map_user_buffer(
+    std::unique_ptr<SystemMemoryBuffer> map_user_buffer(
         void* user_ptr,
         size_t size,
         bool bind_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
-    virtual std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+    virtual std::unique_ptr<SystemMemoryBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
-    virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+    virtual std::unique_ptr<SystemMemoryBuffer> map_sysmem_buffer(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,

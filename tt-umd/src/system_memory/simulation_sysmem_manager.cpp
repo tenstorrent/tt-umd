@@ -19,7 +19,7 @@
 
 #include "hugepage.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
-#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_buffer.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt {
@@ -247,7 +247,7 @@ void* SimulationSysmemManager::get_mapped_host_ptr(uint64_t device_io_addr) {
     return static_cast<uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr);
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     const uint64_t extent = mapped_extent(nullptr, sysmem_buffer_size);
     // Hold the arena lock through allocation and registration so an exhaustion failure cannot
@@ -281,7 +281,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     }
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     std::lock_guard<std::mutex> lock(registry_->mutex);
     // The caller owns this memory, so the buffer only drops the registry entry.
@@ -296,12 +296,12 @@ void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
         "Simulation mapped-buffer arena exhausted.");
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::register_and_wrap(
     void* buffer,
     size_t sysmem_buffer_size,
     const bool map_to_noc,
     DeviceBufferAccess device_access,
-    SysmemBuffer::Deleter release_backing_memory) {
+    SystemMemoryBuffer::Deleter release_backing_memory) {
     UMD_ASSERT(buffer != nullptr, error::RuntimeError, "Cannot map a null simulation buffer.");
     const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
     check_arena_capacity(extent);
@@ -318,7 +318,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     try {
         // Drop the registry entry before releasing backing memory. Only allocated
         // buffers carry a release callable; external mappings remain caller-owned.
-        SysmemBuffer::Deleter deleter =
+        SystemMemoryBuffer::Deleter deleter =
             [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* buffer_va) {
                 if (auto reg = weak_reg.lock()) {
                     std::lock_guard<std::mutex> lock(reg->mutex);

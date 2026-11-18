@@ -54,11 +54,11 @@ const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 SysmemManager* Chip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(get_system_memory_allocator()); }
 
 // Only a chip whose host memory is pinned for its own DMA engine can serve these.
-void Chip::dma_write_zero_copy(const SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+void Chip::dma_write_zero_copy(const SystemMemoryBuffer&, size_t, size_t, CoreCoord, uint64_t) {
     UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
 }
 
-void Chip::dma_read_zero_copy(SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+void Chip::dma_read_zero_copy(SystemMemoryBuffer&, size_t, size_t, CoreCoord, uint64_t) {
     UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
 }
 

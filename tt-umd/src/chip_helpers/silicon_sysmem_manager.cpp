@@ -199,6 +199,9 @@ SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, int communicat
 // Out-of-line: hugepage_files_ holds a type declared only in this file.
 SiliconSysmemManager::~SiliconSysmemManager() = default;
 
+// Without an IOMMU the device sees physical addresses, so scattered user pages cannot be presented as one buffer.
+bool SiliconSysmemManager::is_user_buffer_mapping_supported() const { return pci_device_->is_iommu_enabled(); }
+
 std::optional<size_t> SiliconSysmemManager::get_max_buffer_count(size_t size) const {
     // With an IOMMU buffers are ordinary memory, so any number fits.
     if (pci_device_->is_iommu_enabled()) {

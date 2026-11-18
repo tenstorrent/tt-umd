@@ -151,6 +151,8 @@ public:
 
     bool is_read_only_page_pinning_supported() const override { return false; }
 
+    bool is_user_buffer_mapping_supported() const override { return false; }
+
     using SystemMemoryAllocator::create_buffer;
 };
 

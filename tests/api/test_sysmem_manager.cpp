@@ -139,10 +139,6 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
-    if (!pci_device->is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
-    }
-
     if (pci_device->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
     }
@@ -152,6 +148,9 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
 
     const uint32_t one_mb = 1 << 20;
     void* mapping =
@@ -204,16 +203,14 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferFunctions) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
-    }
-
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
 
     const size_t mmap_size = 20;
     const size_t buf_size = 10;
@@ -311,15 +308,15 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
-    }
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
 
     const size_t mmap_size = 2 * sysconf(_SC_PAGESIZE);
     const size_t buf_offset = 10;  // Deliberately not page aligned.

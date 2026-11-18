@@ -31,7 +31,6 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -78,17 +77,6 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
                 return ARCH::Invalid;
             }
             return pci_devices_info.begin()->second.get_arch();
-        }
-        case IODeviceType::JTAG: {
-            // Invalid when there are no usable J-Links.
-            const tt::ARCH arch = JtagDevice::enumerate().arch;
-            // This guard previously compared the architecture before it had been probed, so it
-            // could never fire. Comparing the probed value is what it was meant to do.
-            UMD_ASSERT(
-                arch != tt::ARCH::BLACKHOLE,
-                error::RuntimeError,
-                "Blackhole architecture is not yet supported over JTAG interface.");
-            return arch;
         }
         default:
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
@@ -282,11 +270,6 @@ void TopologyDiscovery::get_connected_devices() {
     switch (io_device_type) {
         case IODeviceType::PCIe: {
             local_device_ids = PCIDevice::enumerate_devices();
-            break;
-        }
-        case IODeviceType::JTAG: {
-            const std::vector<uint32_t> jlink_serials = JtagDevice::enumerate(JtagDevice::jtag_library_path).serials;
-            local_device_ids.assign(jlink_serials.begin(), jlink_serials.end());
             break;
         }
         default:

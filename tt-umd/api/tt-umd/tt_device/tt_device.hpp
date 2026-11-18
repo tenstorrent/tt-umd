@@ -55,7 +55,6 @@ class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
 class DmaInterface;
-class JtagDevice;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;

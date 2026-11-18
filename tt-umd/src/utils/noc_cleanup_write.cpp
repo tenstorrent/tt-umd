@@ -33,6 +33,16 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
     }
 }
 
+uint64_t NocCleanupWrite::pin(void* addr, size_t size) {
+    uint64_t dma_addr = 0;
+    const int result = tt_pin_pages(device_, addr, size, TT_DMA_FLAG_NONE, &dma_addr, nullptr);
+    UMD_ASSERT(
+        result == 0,
+        error::RuntimeError,
+        fmt::format("tt_pin_pages() failed on NOC cleanup device {} errno: {}", device_path_, -result));
+    return dma_addr;
+}
+
 NocCleanupWrite::~NocCleanupWrite() noexcept {
     if (device_ == nullptr) {
         return;

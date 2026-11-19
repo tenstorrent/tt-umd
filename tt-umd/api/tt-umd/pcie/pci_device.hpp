@@ -397,6 +397,10 @@ public:
      * Map @p length bytes at @p offset of BAR @p bar of @p peer for this device to reach by
      * peer-to-peer PCIe DMA. The mapping lasts until this device is closed.
      *
+     * The mapping covers BAR bytes only. Where a write to a TLB window's range lands is set by that
+     * window on @p peer, and nothing ties the window to this mapping: keep the window allocated and
+     * aimed for as long as this device uses the range, or its writes reach the window's next owner.
+     *
      * @return The address this device uses to reach the range.
      * @throws error::RuntimeError if KMD refuses the mapping.
      */

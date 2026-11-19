@@ -30,9 +30,9 @@ public:
         const tt_xy_pair arc_core_noc1,
         uint64_t telemetry_base_noc_addr = DEFAULT_TELEMETRY_NOC_ADDR);
 
-    uint32_t read_entry(const uint16_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
+    uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    bool is_entry_available(const uint16_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
+    bool is_entry_available(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
 protected:
     // Polls LegacyTelemetryTag::FW_BUNDLE_VERSION (the last entry written to the SMBus

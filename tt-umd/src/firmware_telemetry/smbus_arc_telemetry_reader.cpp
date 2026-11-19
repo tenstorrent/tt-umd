@@ -37,7 +37,7 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(
 // to ask the firmware for it. The hook stays because the base class declares it.
 void SmBusArcTelemetryReader::get_telemetry_address() {}
 
-uint32_t SmBusArcTelemetryReader::read_entry(const uint16_t telemetry_tag, NocId noc_id) {
+uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
     if (!is_entry_available(telemetry_tag, noc_id)) {
         UMD_THROW(
             error::RuntimeError,
@@ -58,7 +58,7 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint16_t telemetry_tag, NocId
     return telemetry_value;
 }
 
-bool SmBusArcTelemetryReader::is_entry_available(const uint16_t telemetry_tag, NocId noc_id) {
+bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag, NocId noc_id) {
     return telemetry_tag >= 0 && telemetry_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS;
 }
 

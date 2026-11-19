@@ -23,9 +23,9 @@ class DeviceProtocol;
 
 class ArcTelemetryReader : public FirmwareTelemetryReader {
 public:
-    uint32_t read_entry(const uint16_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
+    uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    bool is_entry_available(const uint16_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
+    bool is_entry_available(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
     // Constructs the reader and waits for the ARC telemetry table to be fully populated.
     //

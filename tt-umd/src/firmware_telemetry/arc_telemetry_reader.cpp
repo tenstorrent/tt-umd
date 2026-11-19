@@ -118,7 +118,7 @@ void ArcTelemetryReader::initialize_telemetry() {
     }
 }
 
-uint32_t ArcTelemetryReader::read_entry(const uint16_t telemetry_tag, NocId noc_id) {
+uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
     if (!is_entry_available(telemetry_tag, noc_id)) {
         UMD_THROW(
             error::RuntimeError,
@@ -145,7 +145,7 @@ uint32_t ArcTelemetryReader::read_entry(const uint16_t telemetry_tag, NocId noc_
     return telemetry_values[telemetry_tag];
 }
 
-bool ArcTelemetryReader::is_entry_available(const uint16_t telemetry_tag, NocId noc_id) {
+bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag, NocId noc_id) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
 }
 

@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
         "Telemetry tag to read. If omitted, will run default telemetry mode which reads aiclk, "
         "power, temperature and vcore. See tt-umd/api/tt-umd/types/telemetry.hpp "
         "for all available tags.",
-        cxxopts::value<uint16_t>())(
+        cxxopts::value<uint8_t>())(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
         "n,count",
         "Number of polling iterations. If set to 0, will poll indefinitely.",
@@ -84,9 +84,9 @@ int main(int argc, char* argv[]) {
     }
 
     int frequency_us = result["freq"].as<int>();
-    std::optional<uint16_t> telemetry_tag;
+    std::optional<uint8_t> telemetry_tag;
     if (result.count("tag")) {
-        telemetry_tag = result["tag"].as<uint16_t>();
+        telemetry_tag = result["tag"].as<uint8_t>();
     }
     int max_count = result["count"].as<int>();
 

@@ -194,22 +194,33 @@ bool SimulationServerSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
         // A directory we create for the socket is owner-only, so other users cannot even look up
         // the socket in it. A pre-existing dir (e.g. the system temp dir) is left untouched: there
-        // the socket's own mode, set below, is what keeps it private.
-        if (std::filesystem::create_directories(socket_path_.parent_path())) {
-            std::error_code dir_perm_ec;
-            std::filesystem::permissions(
-                socket_path_.parent_path(),
-                std::filesystem::perms::owner_all,
-                std::filesystem::perm_options::replace,
-                dir_perm_ec);
-            if (dir_perm_ec) {
+        // the socket's own mode, set below, is what keeps it private. Created owner-only by mkdir
+        // itself, so no other user can reach the directory at any point.
+        const std::filesystem::path socket_dir = socket_path_.parent_path();
+        if (socket_dir.has_parent_path()) {
+            std::filesystem::create_directories(socket_dir.parent_path());
+        }
+        if (::mkdir(socket_dir.c_str(), S_IRWXU) == 0) {
+            // mkdir's mode is narrowed by the umask; chmod's is not, so this pins exactly 0700.
+            if (::chmod(socket_dir.c_str(), S_IRWXU) != 0) {
+                const int chmod_errno = errno;
+                ::rmdir(socket_dir.c_str());
                 UMD_THROW(
                     error::RuntimeError,
                     fmt::format(
                         "Failed to set permissions on simulation server socket directory {}: {}",
-                        socket_path_.parent_path().string(),
-                        dir_perm_ec.message()));
+                        socket_dir.string(),
+                        std::strerror(chmod_errno)));
             }
+        } else {
+            const int mkdir_errno = errno;
+            UMD_ASSERT(
+                mkdir_errno == EEXIST,
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to create simulation server socket directory {}: {}",
+                    socket_dir.string(),
+                    std::strerror(mkdir_errno)));
         }
     }
 

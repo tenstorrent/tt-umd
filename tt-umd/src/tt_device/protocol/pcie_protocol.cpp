@@ -23,6 +23,7 @@
 #include <variant>
 #include <vector>
 
+#include "arch/tlb_window_size.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-utils/internal/polling.hpp"

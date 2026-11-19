@@ -15,6 +15,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "arch/tlb_window_size.hpp"
 #include "noc_access.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"

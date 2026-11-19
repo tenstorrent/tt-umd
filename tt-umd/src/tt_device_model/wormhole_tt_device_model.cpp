@@ -74,7 +74,7 @@ WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> WormholeTTDeviceModel::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
-    // Over JTAG or a remote link there is no BAR to map, so the window is left to TTDevice.
+    // Over a remote link there is no BAR to map, so the window is left to TTDevice.
     return io_window_factory_ == nullptr ? nullptr : io_window_factory_->create_io_window(target, host, ordering);
 }
 

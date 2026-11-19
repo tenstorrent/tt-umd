@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ios>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -213,9 +214,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     }
 
     // Now write some random data.
-    for (size_t i = 0; i < data_to_write.size(); i++) {
-        data_to_write[i] = i;
-    }
+    std::iota(data_to_write.begin(), data_to_write.end(), uint32_t{0});
     remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
     remote_tt_device->wait_for_non_mmio_flush();
     remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);

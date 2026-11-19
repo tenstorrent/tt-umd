@@ -243,9 +243,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     for (int i = 0; i < vec1.size(); i++) {
         vec1.at(i) = i;
     }
-    for (int i = 0; i < vec2.size(); i++) {
-        vec2.at(i) = vec1.size() + i;
-    }
+    std::iota(vec2.begin(), vec2.end(), vec1.size());
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
@@ -262,7 +260,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     });
 
     std::thread th2 = std::thread([&] {
-        std::uint32_t address = base_addr + vec1.size() * 4;
+        std::uint64_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -352,11 +350,11 @@ TEST(ClusterBH, WriteCountMatchesPostedWrites) {
 TEST(ClusterBH, TotalNumberOfEthCores) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
+    const size_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
-    const uint32_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
-    const uint32_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
+    const size_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
+    const size_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
 
     EXPECT_EQ(num_eth_cores, num_active_channels + num_idle_channels);
 }

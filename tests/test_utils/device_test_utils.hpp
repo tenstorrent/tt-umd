@@ -98,7 +98,7 @@ static inline void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t
 }
 
 static inline void read_data_from_device(
-    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
+    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, size_t size) {
     size_buffer_to_capacity(vec, size);
     // Use architecture-specific read method: DMA for WORMHOLE_B0, regular read for others (including Blackhole).
     cluster.read_from_device(vec.data(), chip_id, core, addr, size);
@@ -116,7 +116,8 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     }
 }
 
-inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
+template <typename T>
+inline std::string convert_to_comma_separated_string(const std::unordered_set<T>& devices) {
     return fmt::format("{}", fmt::join(devices, ","));
 }
 

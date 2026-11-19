@@ -24,7 +24,10 @@ class TTDevice;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device,
+        EthCoord target_chip,
+        SysmemManager* sysmem_manager = nullptr,
+        bool shared_across_processes = true);
 
     void read_non_mmio(
         tt_xy_pair target_core,

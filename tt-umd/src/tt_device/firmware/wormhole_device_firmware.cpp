@@ -92,13 +92,14 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
         remote_interface_ != nullptr
             ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
             : get_io_device_type();
-    // A Wormhole gateway with no host transport is only ever one simulated in this process, so no other process can
-    // reach the remote chips behind it either.
+    // A remote chip is reachable from other processes exactly when its RemoteCommunication is, and its creator
+    // decided that.
     LockManager::initialize_mutex(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
         lock_device_type,
-        shared_across_processes && lock_device_type != IODeviceType::UNDEFINED);
+        remote_interface_ != nullptr ? remote_interface_->get_remote_communication()->is_shared_across_processes()
+                                     : shared_across_processes);
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.

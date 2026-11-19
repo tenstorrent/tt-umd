@@ -39,7 +39,8 @@ class WormholeDeviceFirmware : public DeviceFirmware {
 public:
     // shared_across_processes is whether other processes can reach this device, and so contend for its ARC
     // message lock. On silicon they can, which is the default. A simulated device is modelled in-process, so it
-    // passes false and the lock serializes this process's threads only.
+    // passes false and the lock serializes this process's threads only. A remote device ignores it and asks its
+    // RemoteCommunication, whose creator already decided.
     WormholeDeviceFirmware(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,

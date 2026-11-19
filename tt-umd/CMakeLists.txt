@@ -91,6 +91,8 @@ target_sources(
         src/tt_device/firmware/blackhole_arc_apb.cpp
         src/tt_device/firmware/blackhole_arc_message_queue.cpp
         src/tt_device/firmware/blackhole_device_firmware.cpp
+        src/tt_device/firmware/grendel_device_firmware.cpp
+        src/tt_device/firmware/quasar_smc_message_queue.cpp
         src/tt_device/firmware/wormhole_arc_window.cpp
         src/tt_device/firmware/wormhole_device_firmware.cpp
         src/tt_device/protocol/pcie_protocol.cpp

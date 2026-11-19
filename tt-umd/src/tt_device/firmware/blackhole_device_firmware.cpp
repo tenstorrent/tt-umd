@@ -481,15 +481,16 @@ void BlackholeDeviceFirmware::retrain_dram_core(uint32_t dram_channel, NocId noc
 }
 
 uint64_t BlackholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
-    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
-    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
+    // The 64-bit counter is read as two 32-bit words, so the low word can carry into the high word
+    // between reads. Reading high twice detects that; the low word is then re-read to pair it with the
+    // second high read.
     uint32_t high1_addr = 0;
     uint32_t high2_addr = 0;
     uint32_t low_addr = 0;
     read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
     read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
-    if (high2_addr > high1_addr) {
+    read_from_arc_apb(&high2_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high2_addr), noc_id);
+    if (high2_addr != high1_addr) {
         read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;

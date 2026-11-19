@@ -31,7 +31,7 @@ void read_block_reconfigure(
     uint64_t addr,
     size_t size,
     NocId noc_id,
-    IoOrdering ordering = IoOrdering::Strict);
+    IoOrdering ordering = IoOrdering::STRICT);
 
 void write_block_reconfigure(
     IoWindow& window,
@@ -40,7 +40,7 @@ void write_block_reconfigure(
     uint64_t addr,
     size_t size,
     NocId noc_id,
-    IoOrdering ordering = IoOrdering::Strict);
+    IoOrdering ordering = IoOrdering::STRICT);
 
 // Register reconfigure functions transfer one access of the given width per register. Alignment
 // enforcement is the caller's responsibility.
@@ -52,7 +52,7 @@ void read_register_reconfigure(
     size_t size,
     NocId noc_id,
     RegisterAccessWidth width,
-    IoOrdering ordering = IoOrdering::Strict);
+    IoOrdering ordering = IoOrdering::STRICT);
 
 void write_register_reconfigure(
     IoWindow& window,
@@ -62,7 +62,7 @@ void write_register_reconfigure(
     size_t size,
     NocId noc_id,
     RegisterAccessWidth width,
-    IoOrdering ordering = IoOrdering::Strict);
+    IoOrdering ordering = IoOrdering::STRICT);
 
 void noc_multicast_write_reconfigure(
     IoWindow& window,
@@ -72,6 +72,6 @@ void noc_multicast_write_reconfigure(
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
-    IoOrdering ordering = IoOrdering::Strict);
+    IoOrdering ordering = IoOrdering::STRICT);
 
 }  // namespace tt::umd

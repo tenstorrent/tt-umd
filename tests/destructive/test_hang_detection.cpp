@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/api/tt-umd/warm_reset.hpp"
 #include "tt-umd/api/tt-umd/warm_reset_with_recovery.hpp"
@@ -25,6 +26,7 @@
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -32,7 +34,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -75,7 +76,8 @@ protected:
     }
 
     void init_device(int pci_device_id) {
-        tt_device_ = TTDevice::create(pci_device_id);
+        tt_device_ = create_tt_device(pci_device_id);
+        tt_device_->set_power_state(TTDevice::PowerState::BUSY);
         tt_device_->init_tt_device();
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }

@@ -36,15 +36,18 @@
 #include <utility>
 #include <vector>
 
+#include "tt-umd-utils/internal/host.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
+#include "tt-umd-utils/internal/string_utils.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -410,7 +413,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     tt_devices.reserve(pci_device_ids.size());
 
     for (auto& i : pci_device_ids) {
-        auto tt_device = TTDevice::create(i);
+        auto tt_device = create_tt_device(i);
         try {
             tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
         } catch (error::UmdBaseException& err) {

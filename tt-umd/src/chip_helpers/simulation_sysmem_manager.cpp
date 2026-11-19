@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "hugepage.hpp"
-#include "tracy.hpp"
+#include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/utils/error.hpp"
 

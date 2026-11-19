@@ -6,10 +6,12 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 
 #include "tt-umd/coordinates/att/att_map.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -45,6 +47,9 @@ public:
      *         run past the target's slot.
      */
     uint64_t resolve(tt_xy_pair core, CoreType core_type, uint64_t offset, uint64_t size) const;
+
+    /** The map this resolver resolves through. */
+    const MapData& map() const { return map_; }
 
 private:
     MapData map_;
@@ -83,5 +88,18 @@ uint64_t resolve_translated(
     tt_xy_pair core,
     uint64_t offset,
     uint64_t size);
+
+/**
+ * Flat address of @p offset in @p core's memory for an IoWindow with @p flags and @p ordering, or
+ * nullopt when the map has no window for them: currently only unicast has one. The core is resolved
+ * as resolve_core() does.
+ */
+std::optional<uint64_t> resolve_io_window(
+    const EndpointResolver& resolver,
+    const SocDescriptor& soc_descriptor,
+    const CoreCoord& core,
+    WindowFlags flags,
+    IoOrdering ordering,
+    uint64_t offset);
 
 }  // namespace tt::umd::att

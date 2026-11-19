@@ -14,6 +14,8 @@ namespace tt::umd {
 
 /**
  * @brief Controls the reset state of the RISC cores on a device.
+ *
+ * Whether concurrent calls on the same core are safe is up to each implementation.
  */
 class RiscReset {
 public:

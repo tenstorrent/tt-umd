@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -47,8 +46,7 @@ public:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
-        int num_host_mem_channels = 0,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt);
+        int num_host_mem_channels = 0);
 
     SimulationChip(
         const std::filesystem::path& simulator_directory,
@@ -108,9 +106,9 @@ public:
         const void* src,
         uint64_t l1_dest,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
     void read_from_device(
-        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) override;
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::STRICT) override;
 
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;

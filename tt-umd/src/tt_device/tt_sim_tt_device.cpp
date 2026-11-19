@@ -34,6 +34,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/reset/tt_sim_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {
@@ -58,18 +59,16 @@ bool sim_dram_teleport_enabled() {
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
-    const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     return TTSimTTDevice::create_for_chip(
-        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels, copy_sim_binary);
+        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     const std::filesystem::path& simulator_directory,
     ChipId chip_id,
     int num_host_mem_channels,
-    bool copy_sim_binary,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) {
     const tt::ARCH arch = get_simulator_arch(simulator_directory);
     ChipInfo chip_info{};
@@ -86,14 +85,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
                                                      : std::make_shared<SocArchDescriptor>(soc_desc_path);
     SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory,
-        soc_descriptor,
-        chip_id,
-        copy_sim_binary,
-        num_host_mem_channels,
-        num_chips,
-        image_endpoint_count,
-        pci_bdf);
+        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, pci_bdf);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
@@ -115,15 +107,13 @@ TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
-    bool copy_sim_binary,
     int num_host_mem_channels,
     size_t num_chips,
-    std::optional<uint32_t> image_endpoint_count,
     std::optional<uint32_t> pci_bdf) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
@@ -131,20 +121,24 @@ TTSimTTDevice::TTSimTTDevice(
     // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
     // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
     // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
-    // image addressed per-chip by PCI device. Single-chip keeps the legacy path.
+    // image addressed per-chip by PCI device. Single-chip loads the library on its own.
     communicator_(std::make_unique<TTSimCommunicator>(
-        simulator_directory,
-        copy_sim_binary,
-        static_cast<uint32_t>(chip_id),
-        static_cast<uint32_t>(num_chips),
-        image_endpoint_count,
-        pci_bdf)),
+        simulator_directory, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips), pci_bdf)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
+    install_risc_reset();
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
     setup_();
+}
+
+void TTSimTTDevice::install_risc_reset() {
+    // Quasar holds its DM cores in reset with the bit cleared, which is all the register write
+    // differs by between architectures.
+    const bool inverted_reset_polarity = get_soc_descriptor().arch == tt::ARCH::QUASAR;
+    get_simulation_model()->set_risc_reset(std::make_unique<TTSimRiscReset>(
+        this, get_architecture_implementation(), inverted_reset_polarity, device_lock));
 }
 
 void TTSimTTDevice::initialize_backend() {
@@ -244,9 +238,10 @@ void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor), std::move(client)),
+    SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
+    install_risc_reset();
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -373,46 +368,6 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     // cycle after_read() applies), and it returns before after_read() would otherwise run.
     communicator_->advance_clock(10);
     return true;
-}
-
-void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, [[maybe_unused]] NocId noc_id) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    if (libttsim_pci_device_id == 0xFEED) {  // QSR
-        uint64_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-        reset_value &=
-            ~(uint64_t)soft_reset_update;  // QSR logic is reversed for DM cores, so we need to invert the update.
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-    } else {
-        uint32_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-        reset_value |= soft_reset_update;
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-    }
-}
-
-void TTSimTTDevice::deassert_risc_reset(
-    CoreCoord core, const RiscType selected_riscs, bool staggered_start, [[maybe_unused]] NocId noc_id) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
-    uint64_t soft_reset_addr = get_architecture_implementation()->get_tensix_soft_reset_addr();
-    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-
-    if (libttsim_pci_device_id == 0xFEED) {  // QSR
-        uint64_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-        reset_value |=
-            (uint64_t)soft_reset_update;  // QSR logic is reversed for DM cores, so we need to invert the update.
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-    } else {
-        uint32_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-        reset_value &= ~soft_reset_update;
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
-    }
 }
 
 void TTSimTTDevice::advance_device_execution() {

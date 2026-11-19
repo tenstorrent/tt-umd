@@ -28,6 +28,7 @@
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/process_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/api/tt-umd/warm_reset.hpp"
@@ -42,7 +43,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
-#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;

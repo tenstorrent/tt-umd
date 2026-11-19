@@ -1,0 +1,105 @@
+# Horizon x2 ATT tables, as the testbench programs them (AETHER_ATT_CONFIG): each NOC2AXI
+# reaches its whole device in its own crossbar range. Ours, derived from aether's
+# verification/config/att_maps/horizon/two_devices.yaml at aether-dv-stable-sim-v2026.W42.1, which
+# puts L1 behind NOC2AXI 0 only and CSR behind NOC2AXI 1 only.
+#
+# test_horizon_x2_att_map.cpp checks the horizon_x2 maps against it; a build that runs with
+# TT_UMD_NOC_ATT=horizon_x2 passes this file as its ATT_CONFIG.
+#
+devices:
+  - id: 0
+    defaults:
+      mask_table:
+        # Local Alias
+        - {index: 0, compare: '0x0', mask: 0, ep_idx: 0, ep_id_size: 0, table_offset: 0, translate_addr: 0}
+        # L1 Unicast Device 0, NOC2AXI 0
+        - {index: 1, compare: '0x1040000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Multicast Device 0
+        - {index: 2, compare: '0x1044000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Snoop Device 0
+        - {index: 3, compare: '0x1048000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 0
+        - {index: 4, compare: '0x104c000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # Device 1, both npu_in ranges, pass-through
+        - {index: 5, compare: '0x2000000000', mask: 33, ep_idx: 33, ep_id_size: 0, table_offset: 5, translate_addr: 0}
+        # Tensix CSR Unicast Device 0, NOC2AXI 1
+        - {index: 6, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # L1 Unicast Device 0, NOC2AXI 1
+        - {index: 7, compare: '0x1140000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # NOC2AXI CSR Unicast 0 Device 0
+        - {index: 8, compare: '0x10f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+        # NOC2AXI CSR Unicast 1 Device 0
+        - {index: 9, compare: '0x11f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 5, translate_addr: 0}
+        # Tensix CSR Unicast Device 0, NOC2AXI 0
+        - {index: 10, compare: '0x1080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: '0x0'}
+        # DRAM 0 Device 0
+        - {index: 12, compare: '0x1300000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+        # DRAM 1 Device 0
+        - {index: 13, compare: '0x1340000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 5, translate_addr: 0}
+        # DRAM 0 Device 1
+        - {index: 14, compare: '0x2300000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+        # DRAM 1 Device 1
+        - {index: 15, compare: '0x2340000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 5, translate_addr: 0}
+      noc_endpoint_table:
+        - {index: 0, local: true}   # Loopback
+        - {index: 1, x: 0, y: 1}   # DISPATCH at logical (0, 1)
+        - {index: 2, x: 1, y: 1}   # DISPATCH at logical (1, 1)
+        - {index: 3, x: 0, y: 0}   # TENSIX at logical (0, 0)
+        - {index: 4, x: 1, y: 0}   # TENSIX at logical (1, 0)
+        - {index: 5, x: 1, y: 2}   # NOC2AXI at logical (1, 2)
+        - {index: 6, x: 0, y: 2}   # DRAM at logical (0, 2)
+    tiles:
+      - tile: [0, 2]
+      - tile: [1, 2]
+      - tile: [0, 1]
+      - tile: [1, 1]
+      - tile: [0, 0]
+      - tile: [1, 0]
+  - id: 1
+    defaults:
+      mask_table:
+        # Local Alias
+        - {index: 0, compare: '0x0', mask: 0, ep_idx: 0, ep_id_size: 0, table_offset: 0, translate_addr: 0}
+        # Device 0, both npu_in ranges, pass-through
+        - {index: 1, compare: '0x1000000000', mask: 33, ep_idx: 33, ep_id_size: 0, table_offset: 1, translate_addr: 0}
+        # L1 Unicast Device 1, NOC2AXI 0
+        - {index: 2, compare: '0x2040000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Multicast Device 1
+        - {index: 3, compare: '0x2044000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Snoop Device 1
+        - {index: 4, compare: '0x2048000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Posted Atomic Device 1
+        - {index: 5, compare: '0x204c000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # L1 Unicast Device 1, NOC2AXI 1
+        - {index: 6, compare: '0x2140000000', mask: 26, ep_idx: 20, ep_id_size: 6, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # Tensix CSR Unicast Device 1, NOC2AXI 1
+        - {index: 7, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # Tensix CSR Unicast Device 1, NOC2AXI 0
+        - {index: 8, compare: '0x2080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 2, translate_addr: 1, bar: '0x0'}
+        # NOC2AXI CSR Unicast 0 Device 1
+        - {index: 10, compare: '0x20f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 1, translate_addr: 0}
+        # NOC2AXI CSR Unicast 1 Device 1
+        - {index: 11, compare: '0x21f0000000', mask: 20, ep_idx: 20, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+        # DRAM 0 Device 0
+        - {index: 12, compare: '0x1300000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 1, translate_addr: 0}
+        # DRAM 1 Device 0
+        - {index: 13, compare: '0x1340000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+        # DRAM 0 Device 1
+        - {index: 14, compare: '0x2300000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 1, translate_addr: 0}
+        # DRAM 1 Device 1
+        - {index: 15, compare: '0x2340000000', mask: 30, ep_idx: 30, ep_id_size: 0, table_offset: 6, translate_addr: 0}
+      noc_endpoint_table:
+        - {index: 0, local: true}   # Loopback
+        - {index: 1, x: 0, y: 2}   # NOC2AXI at logical (0, 2)
+        - {index: 2, x: 0, y: 1}   # DISPATCH at logical (0, 1)
+        - {index: 3, x: 1, y: 1}   # DISPATCH at logical (1, 1)
+        - {index: 4, x: 0, y: 0}   # TENSIX at logical (0, 0)
+        - {index: 5, x: 1, y: 0}   # TENSIX at logical (1, 0)
+        - {index: 6, x: 1, y: 2}   # DRAM at logical (1, 2)
+    tiles:
+      - tile: [0, 2]
+      - tile: [1, 2]
+      - tile: [0, 1]
+      - tile: [1, 1]
+      - tile: [0, 0]
+      - tile: [1, 0]

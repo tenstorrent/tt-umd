@@ -11,12 +11,13 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
+#include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
@@ -28,7 +29,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -288,7 +288,7 @@ ChipInfo BlackholeDeviceFirmware::get_chip_info(NocId noc_id) {
         uint32_t pcie0_usage = pcie_usage & 0x3;
         uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
 
-        const uint32_t pcie_usage_endpoint = 1;
+        constexpr uint32_t pcie_usage_endpoint = 1;
         chip_info.harvesting_masks.pcie_harvesting_mask = 0;
         if (pcie0_usage != pcie_usage_endpoint) {
             chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;

@@ -29,6 +29,7 @@ class SimulationSysmemManager;
 class SimulationTlbAllocator;
 class SimulationServerSocket;
 class SimulationClient;
+class SimulationTTDeviceModel;
 class TlbWindow;
 
 // Common base class for the simulation TTDevice backends. It sits as an intermediary in the class
@@ -120,15 +121,29 @@ public:
     void noc_write_translated(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size);
 
 protected:
+    // Carries the model together with a typed pointer to it, taken while this still owns it: the
+    // TTDevice base takes ownership before any member is initialized, and it keeps the model as the
+    // interface type.
+    struct ModelHandle {
+        explicit ModelHandle(std::unique_ptr<SimulationTTDeviceModel> simulation_model);
+
+        // Declared before the owning pointer so it is taken before ownership moves on.
+        SimulationTTDeviceModel* simulation_model;
+        std::unique_ptr<TTDeviceModel> model;
+    };
+
     SimulationTTDevice(
-        std::unique_ptr<TTDeviceModel> model,
+        ModelHandle model,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<SimulationSysmemManager> sysmem_manager);
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
     // the client here so client_ is initialized through the base, not written by each derived ctor.
-    SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client);
+    SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client);
+
+    // The model this device was built with, for the components only the backend can finish wiring.
+    SimulationTTDeviceModel* get_simulation_model() { return simulation_model_; }
 
     // Attach to / detach from the remote host in client mode. Both derived devices drive their
     // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.
@@ -199,6 +214,8 @@ protected:
     // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
     // write_to_device to dispatch through it. Null in host/local mode.
     std::unique_ptr<SimulationClient> client_;
+
+    SimulationTTDeviceModel* simulation_model_ = nullptr;
 
 private:
     // Serves one socket request against this host device: decodes the wire request, runs it

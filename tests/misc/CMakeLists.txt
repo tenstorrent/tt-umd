@@ -4,7 +4,6 @@ set(UMD_MISC_TESTS_SRCS
     test_wait_progress_logger.cpp
     test_poll_until.cpp
     test_enum_array.cpp
-    test_cpp_compat.cpp
 )
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})

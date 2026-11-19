@@ -7,6 +7,8 @@
 #include <optional>
 #include <string>
 
+#include "tt-umd/types/communication_protocol.hpp"
+
 namespace tt::umd {
 /**
  * @brief Settings for discovering the chips a simulator models, rather than the host's own.
@@ -105,17 +107,29 @@ struct TopologyDiscoveryOptions {
      */
     bool perform_6u_eth_retrain = false;
 
-    // Open devices in low-power mode. When true, devices are opened with O_APPEND
-    // to opt out of KMD legacy mode (KMD >= 2.6.0), allowing idle power reduction.
-    // Default is false (high-power / legacy mode) to preserve backward compatibility.
+    // Leave discovered devices in low-power mode. Blackhole devices are always opened power aware
+    // (O_APPEND, KMD >= 2.6.0); unless this is set, discovery requests BUSY on each local device.
+    // When true, Tensix may be clock gated and must not be accessed until set_power_state(BUSY).
     bool low_power = false;
 
     /**
      * @brief If true, TTDevice instances created during discovery will use the safe API
-     * (forwarded as the use_safe_api argument to TTDevice::create).
+     * (forwarded as the use_safe_api argument to create_tt_device).
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief Transport type used to reach local devices during discovery.
+     * Defaults to PCIe.
+     */
+    IODeviceType io_device_type = IODeviceType::PCIe;
+
+    /**
+     * @brief Path to a custom SoC descriptor YAML file. If empty, the descriptor
+     * is auto-detected from the hardware.
+     */
+    std::string soc_descriptor_path;
 
     /**
      * @brief Cluster id to stamp on the discovered cluster descriptor: a unique string identifying

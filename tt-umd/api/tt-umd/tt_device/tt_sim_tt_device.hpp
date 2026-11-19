@@ -39,16 +39,14 @@ public:
         const std::filesystem::path &simulator_directory,
         const SocDescriptor &soc_descriptor,
         ChipId chip_id,
-        bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt,
         std::optional<uint32_t> pci_bdf = std::nullopt);
 
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
-        const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
+        const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0);
 
     // Factory for multichip testing: create a device with an explicit chip_id
     // so callers can open two devices with distinct IDs (chip 0 and chip 1) and
@@ -60,9 +58,7 @@ public:
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
         int num_host_mem_channels = 0,
-        bool copy_sim_binary = false,
         size_t num_chips = 1,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt,
         std::optional<uint32_t> pci_bdf = std::nullopt);
 
     // Builds a client-mode device from device identity the connector already fetched over the
@@ -89,13 +85,6 @@ public:
 
     void close_device();
     void start_device();
-
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC) override;
-    void deassert_risc_reset(
-        CoreCoord core,
-        const RiscType selected_riscs,
-        bool staggered_start,
-        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void advance_device_execution() override;
 
@@ -157,6 +146,9 @@ private:
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
+
+    // Gives the model this device's RiscReset; both constructors call it once the SoC descriptor is set.
+    void install_risc_reset();
 
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).
     void initialize_backend();

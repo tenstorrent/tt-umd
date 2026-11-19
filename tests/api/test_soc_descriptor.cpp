@@ -147,7 +147,6 @@ TEST(TestSocDescriptor, MmkKeraunosChipletSurvivesSerialization) {
     EXPECT_EQ(reloaded_keraunos.tap, keraunos.tap);
     EXPECT_EQ(reloaded_keraunos.local_window, keraunos.local_window);
     EXPECT_EQ(reloaded_keraunos.tile_stride, keraunos.tile_stride);
-    EXPECT_EQ(reloaded_keraunos.eth_cces_per_core, 1u);
     ASSERT_EQ(reloaded_keraunos.cores.size(), keraunos.cores.size());
     EXPECT_EQ(reloaded_keraunos.cores[0].coord, keraunos.cores[0].coord);
     EXPECT_EQ(reloaded_keraunos.cores[0].hsio, keraunos.cores[0].hsio);

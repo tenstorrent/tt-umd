@@ -267,8 +267,7 @@ uint64_t GrendelNocAddressResolver::keraunos_sram_address(const CoreCoord& core,
            static_cast<uint64_t>(found.eth_cce) * region_size + offset;
 }
 
-uint64_t GrendelNocAddressResolver::keraunos_control_address(
-    const CoreCoord& core, uint64_t register_offset, uint32_t eth_cce_in_core) const {
+uint64_t GrendelNocAddressResolver::keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const {
     const KeraunosChiplet& keraunos = soc_descriptor_->get_arch_descriptor().get_keraunos();
     const KeraunosCore& found = require_keraunos_core(*soc_descriptor_, core);
     UMD_ASSERT(
@@ -279,18 +278,8 @@ uint64_t GrendelNocAddressResolver::keraunos_control_address(
             register_offset,
             core.x,
             core.y));
-    UMD_ASSERT(
-        eth_cce_in_core < keraunos.eth_cces_per_core,
-        error::RuntimeError,
-        fmt::format(
-            "Keraunos core ({}, {}) spans {} CCE(s); CCE {} does not exist.",
-            core.x,
-            core.y,
-            keraunos.eth_cces_per_core,
-            eth_cce_in_core));
-    const uint64_t physical_eth_cce = static_cast<uint64_t>(found.eth_cce) * keraunos.eth_cces_per_core + eth_cce_in_core;
     return grendel::KERAUNOS_HSIO0_LOCAL_BASE + static_cast<uint64_t>(found.hsio) * *keraunos.tile_stride +
-           physical_eth_cce * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE + register_offset;
+           static_cast<uint64_t>(found.eth_cce) * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE + register_offset;
 }
 
 uint64_t GrendelNocAddressResolver::mimir_cce_control_address(const CoreCoord& core, uint64_t mimir_cce_local_offset) const {

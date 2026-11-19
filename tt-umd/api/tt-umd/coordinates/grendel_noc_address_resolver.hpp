@@ -210,10 +210,9 @@ public:
 
     /**
      * Chiplet-local register offset on one Keraunos ethernet core. register_offset is relative to
-     * the tt_cluster_ctrl (reset vector 0, PF_CTRL reset 0x200000) of CCE eth_cce_in_core of that core,
-     * which must be below the descriptor's eth_cces_per_core.
+     * the tt_cluster_ctrl (reset vector 0, PF_CTRL reset 0x200000) of the CCE that core is.
      */
-    uint64_t keraunos_control_address(const CoreCoord& core, uint64_t register_offset, uint32_t eth_cce_in_core = 0) const;
+    uint64_t keraunos_control_address(const CoreCoord& core, uint64_t register_offset) const;
 
     const GrendelAddressWindows& get_windows() const { return windows_; }
 

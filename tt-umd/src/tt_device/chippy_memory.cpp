@@ -152,7 +152,7 @@ void ChippyMemoryMap::add_keraunos_regions(
         const uint64_t control = grendel::KERAUNOS_HSIO0_LOCAL_BASE +
                                  static_cast<uint64_t>(core.hsio) * *keraunos.tile_stride +
                                  static_cast<uint64_t>(core.eth_cce) * grendel::MIMIR_CCE_WITHIN_TILE_STRIDE;
-        const auto control_size = static_cast<std::size_t>(grendel::MIMIR_CCE_WITHIN_TILE_STRIDE * keraunos.eth_cces_per_core);
+        const auto control_size = static_cast<std::size_t>(grendel::MIMIR_CCE_WITHIN_TILE_STRIDE);
         memory_regions_.push_back(make_region(control, control, control_size, keraunos_transport));
     }
 }

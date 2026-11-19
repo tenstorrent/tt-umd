@@ -427,9 +427,6 @@ std::string SocDescriptor::serialize() const {
         if (keraunos.tile_stride.has_value()) {
             out << YAML::Key << "tile_stride" << YAML::Value << *keraunos.tile_stride;
         }
-        if (keraunos.eth_cces_per_core != 1) {
-            out << YAML::Key << "eth_cces_per_core" << YAML::Value << keraunos.eth_cces_per_core;
-        }
         if (!keraunos.cores.empty()) {
             out << YAML::Key << "cores" << YAML::Value << YAML::BeginSeq;
             for (const auto &core : keraunos.cores) {

@@ -109,16 +109,11 @@ bool keraunos_ethernet(TTDevice &device, CoreCoord core) {
 bool TTDevice::apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     // The SRAM clear is one large store at the same address. Only a register-width write is the vector.
     // The vector plane is the start of the core's CCE SRAM, in either the 0-based or the native (eth_cce * 4 MiB) view.
-    const uint32_t eth_cce_in_core =
-        get_soc_descriptor().get_arch_descriptor().get_keraunos().eth_cces_per_core > 1
-            ? static_cast<uint32_t>(addr / grendel::KERAUNOS_CCE_SRAM_SIZE)
-            : 0;
     const uint64_t vector_offset = addr % grendel::KERAUNOS_CCE_SRAM_SIZE;
     if (size > sizeof(uint64_t) || vector_offset >= grendel::CCE_NUM_HARTS * grendel::CCE_HART_RESET_VECTOR_STRIDE) {
         return false;
     }
-    if (!keraunos_ethernet(*this, core) || grendel_address_resolver_ == nullptr ||
-        eth_cce_in_core >= get_soc_descriptor().get_arch_descriptor().get_keraunos().eth_cces_per_core) {
+    if (!keraunos_ethernet(*this, core) || grendel_address_resolver_ == nullptr) {
         return false;
     }
 
@@ -128,7 +123,7 @@ bool TTDevice::apply_keraunos_reset_vector_write(const void *mem_ptr, CoreCoord 
     const uint32_t last_hart = (vector_offset == 0) ? (grendel::CCE_NUM_HARTS - 1) : first_hart;
     for (uint32_t hart = first_hart; hart <= last_hart; ++hart) {
         const uint64_t flat = grendel_address_resolver_->keraunos_control_address(
-            core, hart * grendel::CCE_HART_RESET_VECTOR_STRIDE, eth_cce_in_core);
+            core, hart * grendel::CCE_HART_RESET_VECTOR_STRIDE);
         write_flat_address(flat, &reset_vector, sizeof(reset_vector));
     }
     tt_driver_atomics::sfence();
@@ -217,24 +212,18 @@ void TTDevice::apply_keraunos_hart_reset(CoreCoord core, uint64_t hart_bits, boo
         grendel_address_resolver_ != nullptr,
         error::RuntimeError,
         "Keraunos hart reset requires the chiplet-local address resolver.");
-    // RiscType names eight harts. Selecting all of them moves every CCE the core spans; a single
-    // hart is one of CCE0's.
-    const uint64_t all_harts = grendel::cce_hart_release_bits(RiscType::ALL);
-    const uint32_t eth_cces =
-        hart_bits == all_harts ? get_soc_descriptor().get_arch_descriptor().get_keraunos().eth_cces_per_core : 1;
-    for (uint32_t eth_cce_in_core = 0; eth_cce_in_core < eth_cces; ++eth_cce_in_core) {
-        const uint64_t flat = grendel_address_resolver_->keraunos_control_address(
-            core, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET, eth_cce_in_core);
-        uint64_t current = 0;
-        read_flat_address(flat, &current, sizeof(current));
-        uint64_t next = current;
-        if (release) {
-            next |= hart_bits;
-        } else {
-            next &= ~hart_bits;
-        }
-        write_flat_address(flat, &next, sizeof(next));
+    // The core is one CCE with eight harts: hart_bits selects among them.
+    const uint64_t flat =
+        grendel_address_resolver_->keraunos_control_address(core, grendel::KERAUNOS_CCE_PF_CTRL_RESET_OFFSET);
+    uint64_t current = 0;
+    read_flat_address(flat, &current, sizeof(current));
+    uint64_t next = current;
+    if (release) {
+        next |= hart_bits;
+    } else {
+        next &= ~hart_bits;
     }
+    write_flat_address(flat, &next, sizeof(next));
 }
 
 void TTDevice::apply_mimir_pf_ctrl_reset(CoreCoord core, uint64_t hart_bits, bool release, bool reset_uncore) {

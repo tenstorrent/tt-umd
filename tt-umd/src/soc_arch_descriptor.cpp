@@ -143,13 +143,6 @@ KeraunosChiplet parse_keraunos(
     parsed.tap = node["tap"].as<uint32_t>();
     parsed.local_window = node["local_window"].as<uint64_t>();
     parsed.tile_stride = node["tile_stride"].as<uint64_t>();
-    if (node["eth_cces_per_core"].IsDefined()) {
-        parsed.eth_cces_per_core = node["eth_cces_per_core"].as<uint32_t>();
-    }
-    UMD_ASSERT(
-        parsed.eth_cces_per_core == 1 || parsed.eth_cces_per_core == 2,
-        error::RuntimeError,
-        fmt::format("keraunos eth_cces_per_core must be 1 or 2, got {}.", parsed.eth_cces_per_core));
     UMD_ASSERT(
         *parsed.tile_stride >= eth_l1_size,
         error::RuntimeError,
@@ -165,14 +158,6 @@ KeraunosChiplet parse_keraunos(
         core.coord = format_node(entry["core"].as<std::string>());
         core.hsio = entry["hsio"].as<uint32_t>();
         core.eth_cce = entry["eth_cce"].as<uint32_t>();
-        UMD_ASSERT(
-            parsed.eth_cces_per_core == 1 || core.eth_cce == 0,
-            error::RuntimeError,
-            fmt::format(
-                "keraunos core {}-{} spans {} CCEs, so its eth_cce must be 0.",
-                core.coord.x,
-                core.coord.y,
-                parsed.eth_cces_per_core));
         const uint64_t region = static_cast<uint64_t>(core.eth_cce) * eth_l1_size;
         UMD_ASSERT(
             region + eth_l1_size <= *parsed.tile_stride,

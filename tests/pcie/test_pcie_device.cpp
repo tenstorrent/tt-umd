@@ -104,8 +104,8 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     uint32_t read_through_device = 0;
     device->read_from_device(
         &read_through_device, pcie_core, peer_window_address + SAFE_IO_L1_ADDRESS, sizeof(pattern));
-    EXPECT_EQ(read_through_device, 0x600d600d);
-    EXPECT_EQ(peer_window.read32(SAFE_IO_L1_ADDRESS), 0x600d600d);
+    EXPECT_EQ(read_through_device, pattern);
+    EXPECT_EQ(peer_window.read32(SAFE_IO_L1_ADDRESS), pattern);
 }
 
 TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {

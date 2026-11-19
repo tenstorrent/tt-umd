@@ -68,7 +68,8 @@ TEST(PcieDeviceTest, MapPeerBar) {
 
 // A write sent to the mapped address reaches the core the peer's TLB window is aimed at. Blackhole's PCIe tile passes
 // NOC addresses below 2^58 to PCIe unchanged, so the host sends that write through the device's PCIe tile without
-// running anything on either chip.
+// running anything on either chip. Wormhole's PCIe tile reaches PCIe addresses only through iATU regions, and
+// MAP_PEER_BAR does not set one up.
 TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     const std::vector<int> device_ids = PCIDevice::enumerate_devices();
     if (device_ids.size() < 2) {
@@ -77,7 +78,7 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     std::unique_ptr<TTDevice> device = create_tt_device(device_ids[0]);
     std::unique_ptr<TTDevice> peer = create_tt_device(device_ids[1]);
     if (device->get_arch() != ARCH::BLACKHOLE || peer->get_arch() != ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Sends the write through the Blackhole PCIe tile.";
+        GTEST_SKIP() << "Only the Blackhole PCIe tile reaches a peer BAR without an iATU region.";
     }
     for (TTDevice* tt_device : {device.get(), peer.get()}) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);

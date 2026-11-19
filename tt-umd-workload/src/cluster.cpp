@@ -113,12 +113,23 @@ void Cluster::log_pci_device_summary() {
         return;
     }
 
-    auto first_pci_device = chips_.at(*local_chip_ids_.begin())->get_tt_device()->get_pci_device();
-    if (!first_pci_device) {
+    // The IOMMU state is a host property of each PCIe device, so it is read from PCI enumeration. A simulated
+    // chip is not enumerated and has no state to report.
+    const std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    auto iommu_enabled = [&](ChipId chip_id) -> std::optional<bool> {
+        auto device_info = pci_devices_info.find(chips_.at(chip_id)->get_tt_device()->get_communication_device_id());
+        if (device_info == pci_devices_info.end()) {
+            return std::nullopt;
+        }
+        return PCIDevice::detect_iommu(device_info->second);
+    };
+
+    const std::optional<bool> first_iommu_state = iommu_enabled(*local_chip_ids_.begin());
+    if (!first_iommu_state) {
         return;
     }
 
-    bool expected_iommu_state = first_pci_device->is_iommu_enabled();
+    bool expected_iommu_state = *first_iommu_state;
     std::string kmd_version = PCIDevice::read_kmd_version().to_string();
 
     // Check IOMMU status consistency across all devices.
@@ -126,11 +137,11 @@ void Cluster::log_pci_device_summary() {
     auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
 
     for (ChipId chip_id : local_chip_ids_) {
-        auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
-        if (!pci_device) {
+        const std::optional<bool> iommu_state = iommu_enabled(chip_id);
+        if (!iommu_state) {
             continue;
         }
-        bool current_iommu_state = pci_device->is_iommu_enabled();
+        bool current_iommu_state = *iommu_state;
         if (current_iommu_state != expected_iommu_state) {
             log_warning(
                 LogUMD,

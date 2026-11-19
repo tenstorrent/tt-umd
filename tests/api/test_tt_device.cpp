@@ -24,6 +24,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
@@ -154,6 +155,17 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     }
 }
 
+TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
+    for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        PcieInterface* pcie_interface = tt_device->get_pcie_interface();
+        if (pcie_interface == nullptr) {
+            continue;
+        }
+        EXPECT_EQ(pcie_interface->get_physical_slot(), device_info.physical_slot);
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -246,6 +258,16 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
+    }
+}
+
+TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote devices found in cluster.";
+    }
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
     }
 }
 

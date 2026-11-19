@@ -46,7 +46,6 @@ public:
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
-    PCIDevice *get_pci_device() override;
     DeviceFirmware *get_device_firmware() override;
     ArchitectureImplementation *get_architecture_impl() override;
     SocArchDescriptor *get_soc_arch_descriptor() override;
@@ -63,7 +62,7 @@ private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     // Must come before protocol_: the protocol owns the device, so this records it before the
-    // ownership moves. Retained to serve get_pci_device() and the windows created here.
+    // ownership moves. Retained for the windows created here.
     PCIDevice *pci_device_ = nullptr;
 
     std::unique_ptr<DeviceProtocol> protocol_;

@@ -56,7 +56,6 @@ class SimulationSysmemManager;
 class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
@@ -99,7 +98,6 @@ public:
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
-    PCIDevice *get_pci_device();
     RemoteCommunication *get_remote_communication();
 
     // Allocates host memory this device can reach, or nullptr when the device has no host memory access.

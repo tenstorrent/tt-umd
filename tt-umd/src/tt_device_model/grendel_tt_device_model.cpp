@@ -34,8 +34,6 @@ std::unique_ptr<IoWindow> GrendelTTDeviceModel::create_io_window(
 
 DeviceProtocol *GrendelTTDeviceModel::get_device_protocol() { return protocol_.get(); }
 
-PCIDevice *GrendelTTDeviceModel::get_pci_device() { return pci_device_; }
-
 DeviceFirmware *GrendelTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
 
 ArchitectureImplementation *GrendelTTDeviceModel::get_architecture_impl() { return architecture_impl_.get(); }

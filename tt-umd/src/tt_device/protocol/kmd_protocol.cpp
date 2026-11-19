@@ -98,6 +98,4 @@ bool KmdProtocol::write_to_core_range(
 
 int KmdProtocol::get_mmio_id() { return mmio_id_; }
 
-PCIDevice* KmdProtocol::get_pci_device() { return pci_device_.get(); }
-
 }  // namespace tt::umd

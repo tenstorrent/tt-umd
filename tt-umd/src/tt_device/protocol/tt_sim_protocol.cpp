@@ -108,8 +108,6 @@ int TTSimProtocol::get_numa_node() const { return -1; }
 // A simulator has no physical link to train.
 std::optional<uint32_t> TTSimProtocol::get_lane_count() const { return std::nullopt; }
 
-bool TTSimProtocol::is_iommu_enabled() const { return false; }
-
 std::optional<int> TTSimProtocol::get_physical_slot() const { return std::nullopt; }
 
 void TTSimProtocol::set_power_state(PowerState /*state*/) {

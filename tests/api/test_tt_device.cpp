@@ -159,17 +159,6 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     }
 }
 
-TEST(ApiTTDeviceTest, PcieInterfaceIommu) {
-    for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        PcieInterface* pcie_interface = tt_device->get_pcie_interface();
-        if (pcie_interface == nullptr) {
-            continue;
-        }
-        EXPECT_EQ(pcie_interface->is_iommu_enabled(), PCIDevice::detect_iommu(device_info));
-    }
-}
-
 TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
     for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);

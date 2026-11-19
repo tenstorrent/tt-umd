@@ -52,11 +52,6 @@ public:
     virtual std::optional<uint32_t> get_lane_count() const = 0;
 
     /**
-     * @brief Returns whether an IOMMU translates this device's accesses to host memory.
-     */
-    virtual bool is_iommu_enabled() const = 0;
-
-    /**
      * @brief Returns the motherboard slot this device sits in.
      * @return std::optional<int> Slot number, or std::nullopt if the platform does not report one.
      */

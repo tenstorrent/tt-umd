@@ -111,9 +111,8 @@ bool is_server_gone(const SimulationServerInfo& server) {
            });
 }
 
-// Clears up after a server that is gone. Best-effort and quiet when it fails: simulation sockets
-// are cross-user by design, and another user's directory cannot be removed from the temp
-// directory, which every scan would otherwise report.
+// Clears up after a server that is gone. Best-effort and quiet when it fails: the sweep runs on
+// every scan, so a directory that cannot be removed would otherwise be reported each time.
 bool remove_server_directory(const SimulationServerInfo& server) {
     std::error_code ec;
     std::filesystem::remove_all(server.directory, ec);

@@ -63,6 +63,18 @@ public:
      * @param state The requested power state.
      */
     virtual void set_power_state(PowerState state) = 0;
+
+    /**
+     * @brief Requests hardware power domain changes through the kernel driver.
+     *
+     * Only the valid flags are applied; the others keep their current state. A no-op where the driver or
+     * architecture has no power state management, which is the default.
+     *
+     * @param power_flags_bitfield Requested state of each power flag, one bit per flag.
+     * @param power_flags_valid How many of the low flags in power_flags_bitfield are valid, in bits 0-3.
+     */
+    virtual void set_power_state(
+        [[maybe_unused]] uint16_t power_flags_bitfield, [[maybe_unused]] uint8_t power_flags_valid) {}
 };
 
 }  // namespace tt::umd

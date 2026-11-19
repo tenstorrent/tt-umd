@@ -564,6 +564,8 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
+    const bool secondary_bus_reset_supported = PCIDevice::read_kmd_version() >= KMD_GALAXY_SECONDARY_BUS_RESET;
+
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(PRE_RESET_NOTIFICATION_TIMEOUT);
 
@@ -571,7 +573,7 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     bool reset_success = false;
     std::exception_ptr reset_error;
     try {
-        if (PCIDevice::read_kmd_version() >= KMD_GALAXY_SECONDARY_BUS_RESET) {
+        if (secondary_bus_reset_supported) {
             PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
         }
         PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
@@ -586,8 +588,8 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         if (!ipmi_reset_success) {
             log_warning(
                 tt::LogUMD,
-                "IPMI reset without PCIe retimer failed, it requires BMC firmware v0.05.22 or later. Falling back to "
-                "reset with PCIe retimer.");
+                "IPMI reset without PCIe retimer failed, which may mean the BMC firmware is older than v0.05.22. "
+                "Falling back to reset with PCIe retimer.");
             ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE_WITH_RETIMER, RESET_TIME);
         }
 

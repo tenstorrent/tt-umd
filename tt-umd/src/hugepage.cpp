@@ -18,6 +18,7 @@
 #include <iterator>
 #include <regex>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
@@ -26,7 +27,7 @@
 
 namespace tt::umd {
 
-const std::string hugepage_dir = "/dev/hugepages-1G";
+constexpr std::string_view hugepage_dir = "/dev/hugepages-1G";
 
 uint32_t get_num_hugepages() {
     std::string nr_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages";

@@ -18,7 +18,7 @@ Required Ubuntu dependencies:
 sudo apt install -y libhwloc-dev cmake ninja-build
 ```
 
-UMD currently supports gcc-11 and newer gcc versions, and clang-13 and newer clang versions.
+Supported hardware, firmware, KMD, OS and compiler versions are listed in [SUPPORT.md](docs/SUPPORT.md).
 
 Other dependencies are fetched with [CPM](https://github.com/cpm-cmake/CPM.cmake). To use system libraries instead:
 * `-DCPM_USE_LOCAL_PACKAGES=ON`: prefer system libraries, fetch the missing ones.

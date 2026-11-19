@@ -60,6 +60,10 @@ public:
     // Binds and listens, reclaiming a socket left behind by a crashed owner, and throws when a
     // *live* owner already holds the path. Throws on real socket errors too. The socket is
     // presence-only (bound + connectable) until serve() installs a handler.
+    //
+    // The socket is private to the user that creates it: the socket file is owner-only (0600),
+    // and a parent directory this call has to create is owner-only (0700). A parent directory
+    // that already exists is left as it is.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
@@ -79,15 +83,17 @@ public:
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
     // Claims a fresh directory for one simulation server: <temp_dir>/tt-umd-sim-server-<index>,
-    // for the lowest index not already taken. Each server owns its own directory so two hosts
-    // never collide -- even when they serve overlapping chip ids, the sockets live in different
-    // directories. The claim is atomic (create_directory fails if the name exists), so racing
-    // hosts get distinct indices. Throws if no index is free. A client is then pointed at the
-    // returned directory.
+    // for the lowest index not already taken by any user. Each server owns its own directory so
+    // two hosts never collide -- even when they serve overlapping chip ids, the sockets live in
+    // different directories. The claim is atomic (creating the directory fails if the name
+    // exists), so racing hosts get distinct indices. The directory is owner-only (0700) whatever
+    // the umask, so other users can neither attach to nor list the sockets in it. Throws if no
+    // index is free. A client is then pointed at the returned directory.
     static std::filesystem::path allocate_server_directory();
 
-    // The simulation server directories present under the system temp dir: {index -> directory},
-    // keyed and ordered by index. This is what a caller enumerating the machine's servers scans;
+    // The simulation server directories under the system temp dir that belong to this process's
+    // effective user: {index -> directory}, keyed and ordered by index. Other users' directories
+    // and symlinks are skipped. This is what a caller enumerating its own servers scans;
     // sockets_in_directory() then lists the chips each one serves.
     static std::map<int, std::filesystem::path> list_server_directories();
 
@@ -96,8 +102,8 @@ public:
     static std::optional<int> server_index_from_directory_path(const std::filesystem::path& directory);
 
     // Deterministic per-chip socket path inside a server directory (the naming contract a client
-    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: one shared
-    // socket per chip that any user may attach to.
+    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: each server
+    // has a directory of its own, so the chip id alone is unique within it.
     static std::filesystem::path default_socket_path(const std::filesystem::path& server_directory, ChipId chip_id = 0);
 
     // Inverse of default_socket_path()'s naming: pulls the chip id out of a socket file *name*
@@ -126,9 +132,9 @@ private:
     // role a process takes is decided from the path rather than by racing for the bind.
     static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
 
-    // Binds + listens (claims the path; connectable for liveness). Does not accept yet -- the
-    // accept loop starts in serve(). Returns false if a live owner holds the path; throws on real
-    // socket errors.
+    // Binds + listens (claims the path; connectable for liveness), with the owner-only modes
+    // create() promises. Does not accept yet -- the accept loop starts in serve(). Returns false
+    // if a live owner holds the path; throws on real socket errors.
     bool bind_and_listen();
 
     // Re-arms the async accept; each accepted connection is handed to a serving thread. Only ever

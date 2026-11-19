@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -12,6 +13,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -52,6 +54,26 @@ stream_protocol::socket connect_client(asio::io_context& io, const std::filesyst
     socket.native_non_blocking(false);
     return socket;
 }
+
+// The permission bits of path (setuid/setgid/sticky included), for comparing against octal modes.
+unsigned mode_of(const std::filesystem::path& path) {
+    return static_cast<unsigned>(std::filesystem::status(path).permissions()) & 07777;
+}
+
+// Sets the process umask for the scope and restores the previous one at its end, so a test can
+// check that a mode holds whatever umask the user runs with.
+class ScopedUmask {
+public:
+    explicit ScopedUmask(mode_t mask) : previous_(::umask(mask)) {}
+
+    ScopedUmask(const ScopedUmask&) = delete;
+    ScopedUmask& operator=(const ScopedUmask&) = delete;
+
+    ~ScopedUmask() { ::umask(previous_); }
+
+private:
+    mode_t previous_;
+};
 
 // Provides a fresh socket path that is removed before and after each test, so cases share a
 // fixed name without leaking sockets between runs.
@@ -135,6 +157,42 @@ TEST_F(SimulationServerSocketTest, IsLiveIsFalseForAnOverlongPath) {
     const std::filesystem::path too_long =
         std::filesystem::temp_directory_path() / (std::string(sizeof(sockaddr_un::sun_path), 'x') + ".sock");
     EXPECT_FALSE(SimulationServerSocket::is_live(too_long));
+}
+
+// A server is private to its user: under the most permissive umask, the socket file is still
+// connectable only by its owner.
+TEST_F(SimulationServerSocketTest, SocketFileIsOwnerOnly) {
+    const ScopedUmask permissive_umask(0);
+
+    auto server = SimulationServerSocket::create(path_);
+
+    EXPECT_EQ(mode_of(path_), 0600u);
+}
+
+// A parent directory create() has to make itself is owner-only, so other users cannot even reach
+// the socket inside it.
+TEST_F(SimulationServerSocketTest, CreatesAMissingParentDirectoryOwnerOnly) {
+    const test_utils::ScopedServerDirectory parent(
+        std::filesystem::temp_directory_path() / ("tt-umd-sim-parent-test-" + std::to_string(::getpid())));
+    std::filesystem::remove_all(parent.path());
+    const ScopedUmask permissive_umask(0);
+
+    auto server = SimulationServerSocket::create(parent.path() / "tt-umd-sim-0.sock");
+
+    EXPECT_EQ(mode_of(parent.path()), 0700u);
+}
+
+// A parent directory that already exists belongs to whoever made it; create() does not change it.
+TEST_F(SimulationServerSocketTest, LeavesAnExistingParentDirectoryAsItIs) {
+    const test_utils::ScopedServerDirectory parent(
+        std::filesystem::temp_directory_path() / ("tt-umd-sim-parent-test-" + std::to_string(::getpid())));
+    std::filesystem::remove_all(parent.path());
+    std::filesystem::create_directory(parent.path());
+    std::filesystem::permissions(parent.path(), static_cast<std::filesystem::perms>(0755));
+
+    auto server = SimulationServerSocket::create(parent.path() / "tt-umd-sim-0.sock");
+
+    EXPECT_EQ(mode_of(parent.path()), 0755u);
 }
 
 // Inverts every byte, so a served reply is distinguishable from the request that produced it.
@@ -247,6 +305,29 @@ TEST(SimulationServerSocket, AllocateServerDirectoryClaimsDistinctDirs) {
     fs::remove(b);
 }
 
+// The directory allocate_server_directory() claims is owner-only (0700) whatever umask the caller
+// runs with: a permissive umask must not widen it, and a restrictive one must not narrow it below
+// what its owner needs to serve in it.
+class AllocateServerDirectoryUmaskTest : public ::testing::TestWithParam<mode_t> {};
+
+TEST_P(AllocateServerDirectoryUmaskTest, ClaimsAnOwnerOnlyDirectory) {
+    const ScopedUmask umask(GetParam());
+
+    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+
+    EXPECT_EQ(mode_of(directory.path()), 0700u);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SimulationServerSocket,
+    AllocateServerDirectoryUmaskTest,
+    ::testing::Values(0000, 0022, 0777),
+    [](const ::testing::TestParamInfo<mode_t>& info) {
+        std::ostringstream name;
+        name << "Umask" << std::oct << info.param;
+        return name.str();
+    });
+
 // list_server_directories must not follow a symlink: the temp dir is world-writable, so a link named
 // like a server directory (pointing anywhere) must not enumerate as a server.
 TEST(SimulationServerSocket, ListServerDirectoriesIgnoresSymlinks) {
@@ -262,6 +343,24 @@ TEST(SimulationServerSocket, ListServerDirectoriesIgnoresSymlinks) {
 
     fs::remove(link);
     fs::remove(target);
+}
+
+// list_server_directories enumerates the calling user's servers only: a directory named like a
+// server but owned by someone else is not one of them. Giving a directory another owner needs root,
+// which the CI containers run as.
+TEST(SimulationServerSocket, ListServerDirectoriesSkipsOtherUsersDirectories) {
+    if (::geteuid() != 0) {
+        GTEST_SKIP() << "needs root to give a directory another owner";
+    }
+    namespace fs = std::filesystem;
+    const int index = 9043;  // distinctive, unlikely to collide with a live server
+    const test_utils::ScopedServerDirectory directory(
+        fs::temp_directory_path() / ("tt-umd-sim-server-" + std::to_string(index)));
+    fs::create_directory(directory.path());
+    const uid_t nobody = 65534;
+    ASSERT_EQ(::chown(directory.path().c_str(), nobody, nobody), 0);
+
+    EXPECT_EQ(SimulationServerSocket::list_server_directories().count(index), 0u);
 }
 
 // server_index_from_directory_path is the inverse of allocate_server_directory's naming; it must

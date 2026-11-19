@@ -5,11 +5,15 @@
 #include "simulation/simulation_server_socket.hpp"
 
 #include <fmt/format.h>
+#include <sys/stat.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
+#include <unistd.h>
 
 #include <asio.hpp>
 #include <atomic>
+#include <cerrno>
 #include <charconv>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -188,18 +192,24 @@ bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
 
 bool SimulationServerSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
-        // A socket is only reachable cross-user if the directory holding it is too, so a
-        // directory we create for it gets /tmp's semantics: 0777 + sticky bit. World rwx lets
-        // any user host (bind creates the file) or attach (traverse to connect); the sticky
-        // bit still stops users from deleting each other's sockets. We only adjust a directory
-        // we created here -- a pre-existing dir (e.g. the system temp dir) is left untouched.
+        // A directory we create for the socket is owner-only, so other users cannot even look up
+        // the socket in it. A pre-existing dir (e.g. the system temp dir) is left untouched: there
+        // the socket's own mode, set below, is what keeps it private.
         if (std::filesystem::create_directories(socket_path_.parent_path())) {
             std::error_code dir_perm_ec;
             std::filesystem::permissions(
                 socket_path_.parent_path(),
-                std::filesystem::perms::all | std::filesystem::perms::sticky_bit,
+                std::filesystem::perms::owner_all,
                 std::filesystem::perm_options::replace,
                 dir_perm_ec);
+            if (dir_perm_ec) {
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Failed to set permissions on simulation server socket directory {}: {}",
+                        socket_path_.parent_path().string(),
+                        dir_perm_ec.message()));
+            }
         }
     }
 
@@ -266,15 +276,13 @@ bool SimulationServerSocket::bind_and_listen() {
             fmt::format("Failed to bind simulation server socket at {}: {}", socket_path_.string(), ec.message()));
     }
 
-    // The socket must be connectable by any user (cross-user attach): bind() created it with
-    // only umask-dependent permissions, and connect() to a UNIX socket requires write
-    // permission on the file. Make it world-readable/writable so any local user can attach.
+    // connect() to a UNIX socket requires write permission on the file, so an owner-only mode
+    // keeps every other user from attaching; bind() left it umask-dependent. Set before listen(),
+    // so the socket never accepts a connection under a wider mode.
     std::error_code perm_ec;
     std::filesystem::permissions(
         socket_path_,
-        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::group_read |
-            std::filesystem::perms::group_write | std::filesystem::perms::others_read |
-            std::filesystem::perms::others_write,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
         std::filesystem::perm_options::replace,
         perm_ec);
     if (perm_ec) {
@@ -364,19 +372,32 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
     const std::filesystem::path base = std::filesystem::temp_directory_path();
     for (int index = 0; index < kMaxServerIndex; ++index) {
         const std::filesystem::path dir = base / fmt::format("{}{}", kServerDirPrefix, index);
-        // create_directory returns true only when it actually creates the directory (mkdir is
-        // atomic), so the winner of a race claims the index and everyone else moves on. It returns
-        // false without setting ec when the directory already exists (taken) -- move to the next
-        // index; ec is set only on a real error (e.g. permissions, read-only fs), which we surface
-        // immediately rather than spin kMaxServerIndex times hiding it behind a generic message.
-        std::error_code ec;
-        if (std::filesystem::create_directory(dir, ec)) {
-            return dir;
+        // mkdir is atomic, so the winner of a race claims the index and everyone else moves on.
+        // EEXIST means taken (by this or another user) -- move to the next index; any other error
+        // (e.g. permissions, read-only fs) is surfaced immediately rather than spinning
+        // kMaxServerIndex times and hiding it behind a generic message. Created owner-only, so no
+        // other user can reach the directory at any point.
+        if (::mkdir(dir.c_str(), S_IRWXU) != 0) {
+            const int mkdir_errno = errno;
+            UMD_ASSERT(
+                mkdir_errno == EEXIST,
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to create simulation server directory {}: {}", dir.string(), std::strerror(mkdir_errno)));
+            continue;
         }
-        UMD_ASSERT(
-            !ec,
-            error::RuntimeError,
-            fmt::format("Failed to create simulation server directory {}: {}", dir.string(), ec.message()));
+        // mkdir's mode is narrowed by the umask; chmod's is not, so this pins exactly 0700.
+        if (::chmod(dir.c_str(), S_IRWXU) != 0) {
+            const int chmod_errno = errno;
+            ::rmdir(dir.c_str());
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to set permissions on simulation server directory {}: {}",
+                    dir.string(),
+                    std::strerror(chmod_errno)));
+        }
+        return dir;
     }
     UMD_THROW(
         error::RuntimeError, fmt::format("Could not allocate a simulation server directory under {}", base.string()));
@@ -389,15 +410,14 @@ std::map<int, std::filesystem::path> SimulationServerSocket::list_server_directo
     if (ec) {
         return servers;
     }
+    const uid_t uid = ::geteuid();
     for (const auto& entry : it) {
-        // Skip symlinks: the temp dir is world-writable, so a symlink named tt-umd-sim-server-<index>
-        // could otherwise make an arbitrary target enumerate as a server (is_directory() follows links).
-        std::error_code sym_ec;
-        if (entry.is_symlink(sym_ec)) {
-            continue;
-        }
-        std::error_code dir_ec;
-        if (!entry.is_directory(dir_ec)) {
+        // Only a real directory this user owns is one of its servers. lstat, not stat: the temp dir
+        // is world-writable, so a symlink named tt-umd-sim-server-<index> could otherwise make an
+        // arbitrary target enumerate as a server.
+        struct stat st {};
+
+        if (::lstat(entry.path().c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != uid) {
             continue;
         }
         if (const std::optional<int> index = server_index_from_directory_path(entry.path())) {
@@ -428,10 +448,11 @@ std::optional<int> SimulationServerSocket::server_index_from_directory_path(cons
 
 std::filesystem::path SimulationServerSocket::default_socket_path(
     const std::filesystem::path& server_directory, ChipId chip_id) {
-    // One shared socket per chip inside the server's directory: the name carries no uid, so every
-    // process (any user) resolves the same path and attaches to the host. The directory is assumed
-    // trusted: the path is predictable and the socket is world-writable (see bind_and_listen), so
-    // any local user can connect to or squat it.
+    // One socket per chip inside the server's directory: the name carries no uid, so every process
+    // of the owning user resolves the same path and attaches to the host. The path is predictable,
+    // so the directory is assumed trusted; an allocated server directory and the socket are both
+    // owner-only (see allocate_server_directory, bind_and_listen), so no other user can connect to
+    // or squat it there.
     return server_directory / fmt::format("tt-umd-sim-{}.sock", chip_id);
 }
 

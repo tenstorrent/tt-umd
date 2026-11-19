@@ -170,7 +170,9 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
-std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
+std::optional<uint32_t> PcieProtocol::get_lane_count() const {
+    return pci_device_->get_device_info().get_current_link_width();
+}
 
 // A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
 // address at or below addr; the smallest window that still covers [addr, addr + size) is selected.

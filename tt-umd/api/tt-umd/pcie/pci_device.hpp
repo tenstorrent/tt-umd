@@ -395,8 +395,7 @@ public:
 
     /**
      * Map @p length bytes at @p offset of BAR @p bar of @p peer for this device to reach by
-     * peer-to-peer PCIe DMA. The mapping lasts until this device is closed. On Wormhole, a chip reaches the
-     * address only through an iATU region, which this call does not set up.
+     * peer-to-peer PCIe DMA. The mapping lasts until this device is closed. Supported only on Blackhole.
      *
      * The mapping covers BAR bytes only. Where a write to a TLB window's range lands is set by that
      * window on @p peer, and nothing ties the window to this mapping: keep the window allocated and
@@ -405,7 +404,7 @@ public:
      * flight land at whichever target the window has when they arrive, so drain them first.
      *
      * @return The address this device uses to reach the range.
-     * @throws error::RuntimeError if KMD refuses the mapping.
+     * @throws error::RuntimeError if this device is not a Blackhole, or KMD refuses the mapping.
      */
     uint64_t map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length);
 

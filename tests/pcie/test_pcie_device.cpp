@@ -58,6 +58,9 @@ TEST(PcieDeviceTest, MapPeerBar) {
     if (device_ids.size() < 2) {
         GTEST_SKIP() << "Mapping a peer BAR needs two devices.";
     }
+    if (PCIDevice(device_ids[0]).get_arch() != ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
+    }
     PCIDevice device(device_ids[0]);
     const PCIDevice peer(device_ids[1]);
 
@@ -68,8 +71,7 @@ TEST(PcieDeviceTest, MapPeerBar) {
 
 // A write sent to the mapped address reaches the core the peer's TLB window is aimed at. Blackhole's PCIe tile passes
 // NOC addresses below 2^58 to PCIe unchanged, so the host sends that write through the device's PCIe tile without
-// running anything on either chip. Wormhole's PCIe tile reaches PCIe addresses only through iATU regions, and
-// MAP_PEER_BAR does not set one up.
+// running anything on either chip.
 TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     const std::vector<int> device_ids = PCIDevice::enumerate_devices();
     if (device_ids.size() < 2) {
@@ -78,7 +80,7 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     std::unique_ptr<TTDevice> device = create_tt_device(device_ids[0]);
     std::unique_ptr<TTDevice> peer = create_tt_device(device_ids[1]);
     if (device->get_arch() != ARCH::BLACKHOLE || peer->get_arch() != ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Only the Blackhole PCIe tile reaches a peer BAR without an iATU region.";
+        GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
     }
     for (TTDevice* tt_device : {device.get(), peer.get()}) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
@@ -114,7 +116,24 @@ TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {
     if (device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
+    if (PCIDevice(device_ids[0]).get_arch() != ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
+    }
     PCIDevice device(device_ids[0]);
 
     EXPECT_THROW(device.map_peer_bar(device, 0, 0, getpagesize()), error::UmdException<error::RuntimeError>);
+}
+
+TEST(PcieDeviceTest, MapPeerBarThrowsOutsideBlackhole) {
+    const std::vector<int> device_ids = PCIDevice::enumerate_devices();
+    if (device_ids.size() < 2) {
+        GTEST_SKIP() << "Mapping a peer BAR needs two devices.";
+    }
+    PCIDevice device(device_ids[0]);
+    if (device.get_arch() == ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Peer BAR mapping is supported on Blackhole.";
+    }
+    const PCIDevice peer(device_ids[1]);
+
+    EXPECT_THROW(device.map_peer_bar(peer, 0, 0, getpagesize()), error::UmdException<error::RuntimeError>);
 }

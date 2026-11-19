@@ -1175,6 +1175,11 @@ int PCIDevice::export_tlb_dmabuf(
 }
 
 uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
+    // Other architectures reach PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up.
+    UMD_ASSERT(
+        arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format("Peer BAR mapping is supported only on Blackhole, not on {}.", arch));
     uint64_t dma_address = 0;
     const int ret = tt_device_map_peer_bar(tt_device_handle, peer.tt_device_handle, bar, offset, length, &dma_address);
     if (ret != 0) {

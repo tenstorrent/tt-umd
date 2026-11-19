@@ -59,9 +59,9 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr uint64_t tensix_addr = 0;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -111,8 +111,8 @@ TEST_F(TestTlb, TestClusterExportDmabuf) {
         GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
     }
 
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -144,9 +144,9 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr uint64_t tensix_addr = 0;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -196,14 +196,14 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     // Point of the test is to read NOC0 node id register.
     // TLB needs to be aligned to 2MB so these base and offset values are
     // how TLB should be programmed in order to get to addr 0xFFB2002C.
-    const uint64_t tlb_base = 0xFFA00000;
-    const uint64_t noc_node_id_tlb_offset = 0x12002C;
+    constexpr uint64_t tlb_base = 0xFFA00000;
+    constexpr uint64_t noc_node_id_tlb_offset = 0x12002C;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -243,8 +243,8 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -287,8 +287,8 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -325,8 +325,8 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
 
         // Two write16 calls should be equivalent to one write32.
         // Write via two write16 at offset 0, then read back as write32.
-        const uint16_t low16 = 0xBEEF;
-        const uint16_t high16 = 0xDEAD;
+        constexpr uint16_t low16 = 0xBEEF;
+        constexpr uint16_t high16 = 0xDEAD;
         const uint32_t combined32 = (static_cast<uint32_t>(high16) << 16) | low16;
 
         tlb_write->write16(0, low16);
@@ -335,7 +335,7 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         EXPECT_EQ(readback32, combined32);
 
         // Conversely, write32 and read back as two read16.
-        const uint32_t test_val32 = 0xCAFEBABE;
+        constexpr uint32_t test_val32 = 0xCAFEBABE;
         tlb_write->write32(4, test_val32);
         uint16_t low_half = tlb_read->read16(4);
         uint16_t high_half = tlb_read->read16(6);
@@ -356,8 +356,8 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -409,9 +409,9 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb = 1 << 21;
-    const uint64_t one_mb = 1 << 20;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb = 1 << 21;
+    constexpr uint64_t one_mb = 1 << 20;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -471,10 +471,10 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
 // A read that runs off the end of one TLB window has to continue in the next mapping. DRAM is the target because the
 // boundary sits a whole window into the core's address space, beyond the end of Tensix L1.
 TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
-    const ChipId chip = 0;
-    const size_t window_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr size_t window_size = 1 << 21;
     // A multiple of the window size, so the window has to end exactly here.
-    const uint64_t boundary_addr = 0x30000000;
+    constexpr uint64_t boundary_addr = 0x30000000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
@@ -506,9 +506,9 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb = 1 << 21;
-    const uint64_t one_mb = 1 << 20;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb = 1 << 21;
+    constexpr uint64_t one_mb = 1 << 20;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -563,11 +563,11 @@ TEST_F(TestTlb, IoWindowInterface) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     // 2MB is a valid TLB size class on both Wormhole and Blackhole.
-    const size_t window_size = 1 << 21;
+    constexpr size_t window_size = 1 << 21;
     // Unaligned within the window, so get_target_config() has to reconstruct the sub-window offset.
-    const uint64_t l1_addr = 0x100;
+    constexpr uint64_t l1_addr = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
@@ -642,10 +642,10 @@ TEST_F(TestTlb, CreateIoWindow) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_addr = 0x100;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_addr = 0x100;
     // Not a size class on any architecture, so it can only be served by rounding up.
-    const size_t requested_size = 4096;
+    constexpr size_t requested_size = 4096;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     TTDevice* tt_device = cluster->get_tt_device(chip);
@@ -704,9 +704,9 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_addr = 0x100;
-    const uint32_t pattern = 0xc0ffee00;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_addr = 0x100;
+    constexpr uint32_t pattern = 0xc0ffee00;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     if (!cluster->get_soc_descriptor(chip).noc_translation_enabled) {
@@ -731,7 +731,7 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     const CoreCoord grid_end = *right;
 
     // Clear the targets first, so the readback can only be explained by the multicast.
-    const uint32_t zero = 0;
+    constexpr uint32_t zero = 0;
     for (const CoreCoord& core : {grid_start, grid_end}) {
         cluster->write_to_device(&zero, sizeof(zero), chip, core, l1_addr);
     }
@@ -762,7 +762,7 @@ TEST_F(TestTlb, IoWindowTensixRoundTrip) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-    const int num_writes = 1024;
+    constexpr int num_writes = 1024;
     std::vector<uint32_t> zero_out(num_writes, 0);
     std::vector<uint32_t> readback_zeros(num_writes, 0xFFFFFFFF);
     cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
@@ -795,8 +795,8 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_start = 0x100;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_start = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
@@ -804,7 +804,7 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
 
     const size_t num_words = ((1 << 20) + (1 << 17)) / sizeof(uint32_t);
     const size_t test_size = num_words * sizeof(uint32_t);
-    const size_t tlb_size = 1 << 21;
+    constexpr size_t tlb_size = 1 << 21;
 
     std::vector<uint32_t> pattern(num_words);
     std::generate(pattern.begin(), pattern.end(), [i = uint32_t{0}]() mutable { return i++ * 0xDEAD0001; });

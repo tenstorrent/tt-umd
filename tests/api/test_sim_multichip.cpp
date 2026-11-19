@@ -761,7 +761,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
     ASSERT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(1)), nullptr);
 
     const CoreCoord core = cluster.get_soc_descriptor(1).get_cores(CoreType::TENSIX).front();
-    const uint32_t written = 0xC0DE0001;
+    constexpr uint32_t written = 0xC0DE0001;
     cluster.write_to_device(&written, sizeof(written), 1, core, 0x10000);
     uint32_t read = 0;
     cluster.read_from_device(&read, 1, core, 0x10000, sizeof(read));

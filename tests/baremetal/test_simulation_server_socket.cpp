@@ -251,7 +251,7 @@ TEST(SimulationServerSocket, AllocateServerDirectoryClaimsDistinctDirs) {
 // like a server directory (pointing anywhere) must not enumerate as a server.
 TEST(SimulationServerSocket, ListServerDirectoriesIgnoresSymlinks) {
     namespace fs = std::filesystem;
-    const int index = 9042;  // distinctive, unlikely to collide with a live server
+    constexpr int index = 9042;  // distinctive, unlikely to collide with a live server
     const fs::path link = fs::temp_directory_path() / ("tt-umd-sim-server-" + std::to_string(index));
     const fs::path target = fs::temp_directory_path() / ("tt-umd-sim-symlink-target-" + std::to_string(::getpid()));
     fs::remove(link);

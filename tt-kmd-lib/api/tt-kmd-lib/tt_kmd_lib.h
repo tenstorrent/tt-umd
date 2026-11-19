@@ -809,6 +809,36 @@ int tt_device_read_events(
     uint32_t* out_lost,
     int* out_fw_attached);
 
+/**
+ * @brief Waits until any of several devices has event records its handle has not read yet.
+ *
+ * Use it to wait on several devices at once, then read each ready one with `tt_device_read_events()` and a
+ * timeout of 0. A device whose handle a reset or removal invalidated also counts as ready, and that read
+ * then fails with -ENODEV.
+ *
+ * Returns immediately when a device is ready. Otherwise waits up to `timeout_ms` for one to become ready,
+ * and reports a count of 0 if none does. Only records past where each handle left off count, not the
+ * older ones that TT_READ_EVENTS_FLAG_FROM_OLDEST reads.
+ *
+ * @param devices Device handles to wait on. May be NULL if `count` is 0.
+ * @param count Number of handles in `devices`. 0 waits only for `wake_fd` or the timeout.
+ * @param timeout_ms Longest time to wait: 0 does not wait, a negative value waits indefinitely
+ * @param wake_fd A file descriptor, such as an eventfd, that ends the wait early once it is readable; -1 for
+ *                none. It is only polled, never read, so the caller decides when it stops being readable.
+ * @param out_ready Receives `count` entries on success: 1 for each device that is ready, 0 for the others.
+ *                  May be NULL if `count` is 0.
+ * @param out_ready_count Number of ready devices; 0 when the timeout expires or the call fails
+ * @return 0 on success, including when the timeout expires; negative error code on failure. -EINTR if a
+ *         signal interrupted the wait. -ECANCELED if `wake_fd` ended it.
+ */
+int tt_device_wait_events(
+    tt_device_t* const* devices,
+    uint32_t count,
+    int timeout_ms,
+    int wake_fd,
+    uint8_t* out_ready,
+    uint32_t* out_ready_count);
+
 #ifdef __cplusplus
 }
 #endif

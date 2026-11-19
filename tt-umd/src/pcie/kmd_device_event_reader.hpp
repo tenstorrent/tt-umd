@@ -32,6 +32,10 @@ public:
     bool is_firmware_attached() override;
     void cancel() noexcept override;
 
+    // The KMD handle, for waiting on this reader together with others through tt_device_wait_events().
+    // Null once the device is lost. The reader owns it: don't close it or read through it.
+    tt_device_t* kmd_handle() const { return device_; }
+
 private:
     void open_device();
     void close_device() noexcept;

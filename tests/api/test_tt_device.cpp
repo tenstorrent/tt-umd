@@ -24,6 +24,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
@@ -151,6 +152,17 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
             board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    }
+}
+
+TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
+    for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        PcieInterface* pcie_interface = tt_device->get_pcie_interface();
+        if (pcie_interface == nullptr) {
+            continue;
+        }
+        EXPECT_EQ(pcie_interface->get_physical_slot(), device_info.physical_slot);
     }
 }
 

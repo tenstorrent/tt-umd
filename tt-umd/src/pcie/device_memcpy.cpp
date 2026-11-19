@@ -230,18 +230,23 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         size -= 8;
     }
 #elif defined(__GNUC__)
-    // Like the x86 path, these wide stores are not volatile — compiler reordering is
-    // bounded by the Phase 0/4/5 volatile loops. On Clang, __builtin_nontemporal_store
-    // lowers to STNP (weakly ordered on AArch64), so a release fence is inserted after
-    // Phases 1-3 to ensure all NT stores retire before Phase 4/5 volatile writes or any
-    // subsequent caller doorbell write. GCC uses regular STP stores (strongly ordered).
+    // Like the x86 path, these wide stores are not volatile; the opaque steady_clock calls
+    // bracketing each timed op keep the compiler from moving device accesses across them.
+    // Phase 1 checks the timeout once per 256-byte block, keeping the store pipeline intact
+    // within a block.
+    // On Clang, __builtin_nontemporal_store lowers to STNP (weakly ordered on AArch64), so a
+    // release fence is inserted after Phases 1-3 to ensure all NT stores retire before
+    // Phase 4/5 volatile writes or any subsequent caller doorbell write. GCC uses regular
+    // STP stores (strongly ordered).
 
     // Further align destination to 16 bytes: STP Q / STNP Q to Device/UC memory (PCIe BAR)
     // require 16-byte-aligned addresses; Phase 0 only guaranteed 4-byte alignment.
     while (size >= 4 && (reinterpret_cast<std::uintptr_t>(d) % 16) != 0) {
         std::uint32_t tmp;
         std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
         *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        check(t, 4);
         d += 4;
         s += 4;
         size -= 4;
@@ -263,6 +268,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     // cache lines (+2048..+2272 bytes ahead). Hoisting to one prefetch per 256-byte block
     // would fetch only a single cache line ahead, leaving the other 7 uncovered.
     while (size >= 256) {
+        auto t = std::chrono::steady_clock::now();
         for (int j = 0; j < 8; ++j) {
             __builtin_prefetch(s + prefetch_distance, 0, 0);
             v32 chunk;
@@ -275,6 +281,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
             s += 32;
             d_wide += 32;
         }
+        check(t, 256);
         size -= 256;
     }
 
@@ -283,11 +290,13 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __builtin_prefetch(s + prefetch_distance, 0, 0);
         v32 chunk;
         __builtin_memcpy(&chunk, s, 32);
+        auto t = std::chrono::steady_clock::now();
 #if defined(__clang__)
         __builtin_nontemporal_store(chunk, reinterpret_cast<v32*>(d_wide));
 #else
         __builtin_memcpy(d_wide, &chunk, 32);
 #endif
+        check(t, 32);
         s += 32;
         d_wide += 32;
         size -= 32;
@@ -297,11 +306,13 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     if (size >= 16) {
         v16 chunk;
         __builtin_memcpy(&chunk, s, 16);
+        auto t = std::chrono::steady_clock::now();
 #if defined(__clang__)
         __builtin_nontemporal_store(chunk, reinterpret_cast<v16*>(d_wide));
 #else
         __builtin_memcpy(d_wide, &chunk, 16);
 #endif
+        check(t, 16);
         s += 16;
         d_wide += 16;
         size -= 16;
@@ -455,12 +466,15 @@ void memcpy_from_device(
         size -= 8;
     }
 #elif defined(__GNUC__)
-    // GCC/Clang non-x86: vector extensions + __builtin_memcpy (LDP/STP on AArch64).
+    // GCC/Clang non-x86: vector extensions + __builtin_memcpy (LDP/STP on AArch64). See
+    // memcpy_to_device for the ordering and timeout-granularity reasoning.
 
     // Further align source to 16 bytes: LDR Q / LDP Q from Device/UC memory (PCIe BAR)
     // require 16-byte-aligned addresses; Phase 0 only guaranteed 4-byte alignment.
     while (size >= 4 && (reinterpret_cast<std::uintptr_t>(s) % 16) != 0) {
+        auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        check(t, 4);
         std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s += 4;
@@ -477,6 +491,7 @@ void memcpy_from_device(
 
     // Phase 1: 256-byte blocks (8 x 32-byte loads).
     while (size >= 256) {
+        auto t = std::chrono::steady_clock::now();
         for (int j = 0; j < 8; ++j) {
             __builtin_prefetch(s_wide + prefetch_distance, 0, 0);
             v32 chunk;
@@ -485,14 +500,17 @@ void memcpy_from_device(
             s_wide += 32;
             d += 32;
         }
+        check(t, 256);
         size -= 256;
     }
 
     // Phase 2: Remaining 32-byte chunks.
     while (size >= 32) {
         __builtin_prefetch(s_wide + prefetch_distance, 0, 0);
+        auto t = std::chrono::steady_clock::now();
         v32 chunk;
         __builtin_memcpy(&chunk, s_wide, 32);
+        check(t, 32);
         __builtin_memcpy(d, &chunk, 32);
         s_wide += 32;
         d += 32;
@@ -501,8 +519,10 @@ void memcpy_from_device(
 
     // Phase 3: Remaining 16-byte chunk.
     if (size >= 16) {
+        auto t = std::chrono::steady_clock::now();
         v16 chunk;
         __builtin_memcpy(&chunk, s_wide, 16);
+        check(t, 16);
         __builtin_memcpy(d, &chunk, 16);
         s_wide += 16;
         d += 16;

@@ -61,12 +61,14 @@ const std::vector<RtlSimAttProgram::RegisterWrite>& RtlSimAttProgram::get_writes
 void RtlSimAttProgram::apply(IpDeviceId device, RtlSimCommunicator& communicator) const {
     const std::vector<RegisterWrite>& writes = get_writes(device);
     for (const RegisterWrite& write : writes) {
-        communicator.tile_write_bytes(write.core.x, write.core.y, write.address, &write.value, sizeof(write.value));
+        const auto x = static_cast<uint32_t>(write.core.x);
+        const auto y = static_cast<uint32_t>(write.core.y);
+        communicator.tile_write_bytes(x, y, write.address, &write.value, sizeof(write.value));
         // Read each register back: a write to a wrong or unreachable ATT register is dropped silently
         // and would otherwise surface much later, as a hang. The read also completes the write before
         // the next one, so the program lands in order, and all of it before any core starts.
         uint32_t readback = 0;
-        communicator.tile_read_bytes(write.core.x, write.core.y, write.address, &readback, sizeof(readback));
+        communicator.tile_read_bytes(x, y, write.address, &readback, sizeof(readback));
         UMD_ASSERT(
             readback == write.value,
             error::RuntimeError,

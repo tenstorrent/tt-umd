@@ -22,11 +22,11 @@ RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_commu
     remote_communication_(std::move(remote_communication)) {}
 
 void RemoteProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, static_cast<uint32_t>(size));
 }
 
 void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->read_non_mmio(core, mem_ptr, addr, static_cast<uint32_t>(size));
 }
 
 void RemoteProtocol::write_ctrl(
@@ -93,20 +93,26 @@ bool RemoteProtocol::write_to_core_range(
              translated_x < wormhole::translated_coordinate_start_x + wormhole::GRID_SIZE.x;
              ++translated_x) {
             if (translated_x < core_start.x || translated_x > core_end.x) {
-                columns_to_exclude.insert(translated_x);
+                columns_to_exclude.insert(static_cast<uint32_t>(translated_x));
             }
         }
         for (auto translated_y = wormhole::translated_coordinate_start_y;
              translated_y < wormhole::translated_coordinate_start_y + wormhole::GRID_SIZE.y;
              ++translated_y) {
             if (translated_y < core_start.y || translated_y > core_end.y) {
-                rows_to_exclude.insert(translated_y);
+                rows_to_exclude.insert(static_cast<uint32_t>(translated_y));
             }
         }
     }
 
     ethernet_broadcast_->broadcast_write_to_cluster(
-        mem_ptr, size_in_bytes, address, {}, rows_to_exclude, columns_to_exclude, use_translated_coords);
+        mem_ptr,
+        static_cast<uint32_t>(size_in_bytes),
+        address,
+        {},
+        rows_to_exclude,
+        columns_to_exclude,
+        use_translated_coords);
 
     return true;
 }

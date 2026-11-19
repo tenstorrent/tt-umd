@@ -109,7 +109,8 @@ int main(int argc, char* argv[]) {
                     UMD_THROW(error::RuntimeError, "Unsupported device architecture.");
                 }
             } else {
-                uint32_t telemetry_value = tt_device->get_firmware_telemetry_reader()->read_entry(telemetry_tag);
+                uint32_t telemetry_value =
+                    tt_device->get_firmware_telemetry_reader()->read_entry(static_cast<uint8_t>(telemetry_tag));
                 telemetry_message = fmt::format("Chip ID {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {

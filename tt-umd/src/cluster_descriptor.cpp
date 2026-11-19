@@ -677,9 +677,9 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 static std::string generate_mock_bdf(ChipId logical_id) {
     // Use a deterministic formula to generate BDF for mock devices
     // Start from bus 0x04 and increment device number based on logical ID.
-    uint8_t bus = 0x04 + (logical_id / 8);  // 8 devices per bus
-    uint8_t device = logical_id % 8;        // device number within bus
-    uint8_t function = 0;                   // always use function 0
+    uint8_t bus = static_cast<uint8_t>(0x04 + (logical_id / 8));  // 8 devices per bus
+    uint8_t device = static_cast<uint8_t>(logical_id % 8);        // device number within bus
+    uint8_t function = 0;                                         // always use function 0
 
     return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
 }
@@ -986,7 +986,7 @@ void load_harvesting_information(const YAML::Node &yaml, ClusterDescription &des
 void fill_eth_channel_states(ClusterDescription &description) {
     for (auto &[chip_id, chip] : description.chips) {
         const int num_harvested_channels =
-            CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask);
+            static_cast<int>(CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask));
         const int num_channels =
             ArchitectureImplementation::create(chip.arch)->get_num_eth_channels() - num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
@@ -1434,7 +1434,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
                 ? expected_tensix_harvested_units_map.at(board_type)
                 : 0;
 
-        uint32_t actual_tensix_harvested_units =
+        size_t actual_tensix_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
         if (expected_tensix_harvested_units != actual_tensix_harvested_units) {
@@ -1462,7 +1462,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
             expected_dram_harvested_units_map.find(board_type) != expected_dram_harvested_units_map.end()
                 ? expected_dram_harvested_units_map.at(board_type)
                 : 0;
-        uint32_t actual_dram_harvested_units =
+        size_t actual_dram_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask);
 
         if (expected_dram_harvested_units != actual_dram_harvested_units) {
@@ -1481,8 +1481,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
             expected_eth_harvested_units_map.find(board_type) != expected_eth_harvested_units_map.end()
                 ? expected_eth_harvested_units_map.at(board_type)
                 : 0;
-        uint32_t actual_eth_harvested_units =
-            CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
+        size_t actual_eth_harvested_units = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 
         if (expected_eth_harvested_units != actual_eth_harvested_units) {
             log_warning(

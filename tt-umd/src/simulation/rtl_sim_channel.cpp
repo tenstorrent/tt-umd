@@ -23,12 +23,17 @@ namespace {
 
 // As the communicator builds its messages: a size of 0 stands for the payload's size.
 flatbuffers::FlatBufferBuilder create_message(
-    DEVICE_COMMAND command, const std::vector<uint32_t> &data, uint32_t x, uint64_t addr, uint64_t size) {
+    DEVICE_COMMAND command, const std::vector<uint32_t> &data, uint64_t x, uint64_t addr, uint32_t size) {
     flatbuffers::FlatBufferBuilder builder;
     auto payload = builder.CreateVector(data);
     const tt_vcs_core core(x, 0);
     builder.Finish(CreateDeviceRequestResponse(
-        builder, command, payload, &core, addr, size == 0 ? data.size() * sizeof(uint32_t) : size));
+        builder,
+        command,
+        payload,
+        &core,
+        addr,
+        size == 0 ? static_cast<uint32_t>(data.size() * sizeof(uint32_t)) : size));
     return builder;
 }
 

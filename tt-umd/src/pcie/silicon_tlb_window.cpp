@@ -125,7 +125,7 @@ uint64_t SiliconTlbWindow::read64_impl(uint64_t offset) {
 }
 
 void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
+    const auto n = static_cast<uint32_t>(size / sizeof(uint32_t));
     auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
@@ -135,7 +135,7 @@ void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, si
 }
 
 void SiliconTlbWindow::read_register_impl(uint64_t offset, void *data, size_t size) {
-    size_t n = size / sizeof(uint32_t);
+    const auto n = static_cast<uint32_t>(size / sizeof(uint32_t));
     auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
 

@@ -73,7 +73,7 @@ void SocDescriptor::write_core_locations(void *out, const CoreType &core_type) c
 void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
-    const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
+    const auto num_noc_ports = static_cast<uint32_t>(cores.empty() ? 0 : cores[0].size());
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid.
@@ -269,7 +269,7 @@ xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core, 
     return translate_chip_coord_to_translated_coord(core, noc_id).to_pair();
 }
 
-int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
+int SocDescriptor::get_num_dram_channels() const { return static_cast<int>(get_grid_size(CoreType::DRAM).x); }
 
 CoreCoord SocDescriptor::get_dram_core_for_channel(
     int dram_chan, int subchannel, const CoordSystem coord_system) const {
@@ -316,7 +316,7 @@ std::unordered_set<tt_xy_pair> SocDescriptor::get_eth_xy_pairs_for_channels(
 }
 
 uint32_t SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
-    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
+    return static_cast<uint32_t>(translate_coord_to(core_coord, CoordSystem::LOGICAL).y);
 }
 
 std::pair<int, int> SocDescriptor::get_dram_channel_for_core(

@@ -502,14 +502,14 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
                         host_dram_channel,
                         broadcast_header.data(),
                         host_dram_block_addr,
-                        broadcast_header.size() * sizeof(uint32_t));
+                        static_cast<uint32_t>(broadcast_header.size() * sizeof(uint32_t)));
                 }
                 // Write payload to sysmem.
                 sysmem_manager_->write_to_sysmem(
                     host_dram_channel,
                     data_block.data(),
                     host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast,
-                    data_block.size() * DATA_WORD_SIZE);
+                    static_cast<uint32_t>(data_block.size() * DATA_WORD_SIZE));
 
             } else {
                 uint32_t buf_address = eth_interface_params_.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;

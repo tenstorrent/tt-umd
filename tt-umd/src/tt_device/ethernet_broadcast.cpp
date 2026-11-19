@@ -211,10 +211,10 @@ void EthernetBroadcast::adjust_coordinates_for_ethernet_broadcast(
     std::set<uint32_t>& rows_to_exclude_virtual,
     std::set<uint32_t>& cols_to_exclude_virtual) {
     if (use_translated_coords) {
-        const uint32_t translated_row_end =
-            wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size();
-        const uint32_t translated_col_end =
-            wormhole::translated_coordinate_start_x + wormhole::TRANSLATED_TO_VIRTUAL_X.size();
+        const auto translated_row_end =
+            static_cast<uint32_t>(wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size());
+        const auto translated_col_end =
+            static_cast<uint32_t>(wormhole::translated_coordinate_start_x + wormhole::TRANSLATED_TO_VIRTUAL_X.size());
         for (const auto& row : rows_to_exclude) {
             UMD_ASSERT(
                 row >= wormhole::translated_coordinate_start_y && row < translated_row_end,

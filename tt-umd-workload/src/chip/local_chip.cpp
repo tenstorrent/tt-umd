@@ -172,7 +172,7 @@ int LocalChip::get_num_host_channels() {
         return 0;
     }
 
-    return sysmem_manager_->get_num_host_mem_channels();
+    return static_cast<int>(sysmem_manager_->get_num_host_mem_channels());
 }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
@@ -196,7 +196,7 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
         hugepage_map.mapping_size,
         error::RuntimeError,
         "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
+    return static_cast<int>(hugepage_map.mapping_size);
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {

@@ -42,7 +42,7 @@ inline flatbuffers::FlatBufferBuilder create_flatbuffer(
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
+    const auto size = static_cast<uint32_t>(size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size, user_bits_low, user_bits_high);
     builder.Finish(device_cmd);
     return builder;
@@ -62,7 +62,7 @@ inline flatbuffers::FlatBufferBuilder create_global_flatbuffer(
     DEVICE_COMMAND rw, const std::vector<uint32_t> &vec, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
-    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
+    const auto size = static_cast<uint32_t>(size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, nullptr, addr, size);
     builder.Finish(device_cmd);
     return builder;

@@ -808,6 +808,10 @@ int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
 
 int tt_device_map_peer_bar(
     tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr) {
+    if (dev == NULL || peer == NULL || out_dma_addr == NULL) {
+        return -EINVAL;
+    }
+
     struct tenstorrent_map_peer_bar map = {0};
     map.in.peer_fd = peer->fd;
     map.in.peer_bar_index = bar;

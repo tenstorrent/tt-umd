@@ -59,10 +59,10 @@ TEST(PcieDeviceTest, MapPeerBar) {
         GTEST_SKIP() << "Mapping a peer BAR needs two devices.";
     }
     PCIDevice device(device_ids[0]);
-    if (device.get_arch() != ARCH::BLACKHOLE) {
+    const PCIDevice peer(device_ids[1]);
+    if (device.get_arch() != ARCH::BLACKHOLE || peer.get_arch() != ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
     }
-    const PCIDevice peer(device_ids[1]);
 
     const uint64_t address = device.map_peer_bar(peer, 0, 0, getpagesize());
     EXPECT_NE(address, 0);

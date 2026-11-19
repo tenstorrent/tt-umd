@@ -241,7 +241,7 @@ tt_xy_pair format_node(const std::string& str) {
 }
 
 // Trimming helpers for YAML parsing.
-static const char* ws = " \t\n\r\f\v";
+constexpr const char* ws = " \t\n\r\f\v";
 
 static inline std::string& rtrim(std::string& s, const char* t = ws) {
     auto pos = s.find_last_not_of(t);

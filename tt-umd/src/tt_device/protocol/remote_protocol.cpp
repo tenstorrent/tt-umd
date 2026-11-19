@@ -28,12 +28,12 @@ void RemoteProtocol::write_data(
     size_t size,
     NocId noc_id,
     [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, static_cast<uint32_t>(size));
 }
 
 void RemoteProtocol::read_data(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->read_non_mmio(core, mem_ptr, addr, static_cast<uint32_t>(size));
 }
 
 void RemoteProtocol::write_ctrl(

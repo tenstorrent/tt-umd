@@ -96,10 +96,10 @@ TEST(ApiSimulationSysmemManager, BasicIOMultiChannel) {
 
         std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-        sysmem->write_to_sysmem(i, data_write.data(), 0, data_write.size());
+        sysmem->write_to_sysmem(static_cast<uint16_t>(i), data_write.data(), 0, data_write.size());
 
         std::vector<uint8_t> data_read = std::vector<uint8_t>(data_write.size(), 0);
-        sysmem->read_from_sysmem(i, data_read.data(), 0, data_read.size());
+        sysmem->read_from_sysmem(static_cast<uint16_t>(i), data_read.data(), 0, data_read.size());
 
         EXPECT_EQ(data_write, data_read);
 

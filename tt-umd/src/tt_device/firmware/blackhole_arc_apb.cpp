@@ -57,7 +57,8 @@ void BlackholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size,
             RegisterAccessWidth::BITS32);
         return;
     }
-    auto result = pcie_interface_->bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    auto result =
+        pcie_interface_->bar_read32(static_cast<uint32_t>(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset));
     *(reinterpret_cast<uint32_t*>(mem_ptr)) = result;
 }
 
@@ -88,7 +89,8 @@ void BlackholeArcApb::write(
         return;
     }
     pcie_interface_->bar_write32(
-        blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t*>(mem_ptr)));
+        static_cast<uint32_t>(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset),
+        *(reinterpret_cast<const uint32_t*>(mem_ptr)));
 }
 
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:

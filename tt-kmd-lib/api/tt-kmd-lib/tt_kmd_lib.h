@@ -668,11 +668,13 @@ enum tt_power_flags {
  * Opening the device with O_APPEND opts out of legacy mode, allowing the
  * device to enter low-power idle states when no client holds power flags.
  *
- * @param dev        Device handle
+ * @param dev         Device handle
  * @param power_flags Bitmask of TT_POWER_FLAG_* values
+ * @param flags_count Number of low-order bits of power_flags the driver should treat as valid (0-15);
+ *                    bits beyond this count are ignored by the driver
  * @return 0 on success, negative error code on failure
  */
-int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
+int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags, uint8_t flags_count);
 
 /**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.

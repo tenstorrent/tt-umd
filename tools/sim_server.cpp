@@ -184,7 +184,7 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     // the process merely existing -- as the signal that clients may attach.
     std::cout << "server directory: " << server_directory.string() << std::endl;
     if (ready_fd >= 0) {
-        const char ready = 1;
+        constexpr char ready = 1;
         [[maybe_unused]] const ssize_t sent = write(ready_fd, &ready, 1);
         close(ready_fd);
     }

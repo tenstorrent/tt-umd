@@ -70,13 +70,13 @@ TEST_F(TestDmabufRdmaLoopback, ExportedDmabufIsRdmaReadable) {
         GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
     }
 
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     // 2 MiB: a valid tt_tlb_alloc size class on both Wormhole and Blackhole, so the test needs no
     // arch-specific adjustment (see the size class tables in device/arch/architecture_tlbs.cpp).
-    const uint64_t size = 1 << 21;
+    constexpr uint64_t size = 1 << 21;
     const size_t nwords = size / sizeof(uint64_t);
-    const size_t chunk_size = 512 * 1024;
-    const int max_outstanding_reads = 8;
+    constexpr size_t chunk_size = 512 * 1024;
+    constexpr int max_outstanding_reads = 8;
     // Pre-filling the host buffer with a value the pattern never produces means a transfer that
     // silently does nothing fails the comparison instead of matching zero-initialised memory.
     constexpr uint8_t sentinel = 0xAA;

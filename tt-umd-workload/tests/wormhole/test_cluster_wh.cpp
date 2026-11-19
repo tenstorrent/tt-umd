@@ -980,7 +980,7 @@ TEST(ClusterWH, LargeAddressTlb) {
  * that the data read back matches what was written.
  */
 TEST(TestDeviceIO, DMA3) {
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 

@@ -161,7 +161,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     const uint64_t address_thread0 = SAFE_IO_L1_ADDRESS;
     const uint64_t address_thread1 = address_thread0 + data_write.size() * sizeof(uint32_t);
-    const uint32_t num_loops = 1000;
+    constexpr uint32_t num_loops = 1000;
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
@@ -216,7 +216,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
     auto chip_locations = cluster_desc->get_chip_locations();
 
-    const uint32_t buf_size = 1 << 20;
+    constexpr uint32_t buf_size = 1 << 20;
     std::vector<uint8_t> zero_out_buffer(buf_size, 0);
 
     std::vector<uint8_t> pattern_buf(buf_size);
@@ -413,8 +413,8 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         using err = error::UmdException<error::UnresolvableCoordinateError>;
 
-        const uint32_t value = 0xAABB;
-        const uint32_t bad_value = 0xCCDD;
+        constexpr uint32_t value = 0xAABB;
+        constexpr uint32_t bad_value = 0xCCDD;
         EXPECT_NO_THROW(tt_device->write_to_device(&value, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
         EXPECT_THROW(tt_device->write_to_device(&bad_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof bad_value), err);
         uint32_t readback = 0;

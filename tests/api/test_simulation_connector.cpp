@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -574,6 +575,77 @@ TEST(SimulationConnector, KeepsAServerWhoseOwnerIsAliveDespiteStaleSockets) {
 
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
     EXPECT_TRUE(std::filesystem::is_directory(directory.path()));
+}
+
+// Another spelling of a server directory is still that directory: a host that takes over a dead
+// owner's directory through it claims it, so the sweep keeps it and the host's shutdown clears it
+// up. Needs no simulator.
+TEST(SimulationConnector, HostingThroughAnotherSpellingOfTheDirectoryClaimsIt) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+
+    auto host = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path() / ".", 0));
+
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
+    host.reset();
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
+}
+
+// A UMD that predates claims serves without taking one, so a free claim beside a listening socket
+// still means a live host: listing keeps it and the sweep leaves it alone. Needs no simulator.
+TEST(SimulationConnector, KeepsAServerWhoseHostServesWithoutAClaim) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+    ASSERT_TRUE(std::filesystem::exists(directory.path() / "server.lock"));  // left behind, no longer held
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(directory.path(), 0);
+    const test_utils::ListenerWithoutClaim host(socket);
+
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
+    EXPECT_TRUE(std::filesystem::exists(socket));
+
+    std::filesystem::remove_all(directory.path());
+}
+
+// A directory made by a UMD that predates claims has no claim file at all, so a socket its host
+// still listens on is what keeps it: listing reports it and the sweep leaves it alone. Needs no
+// simulator.
+TEST(SimulationConnector, KeepsAnUnclaimedServerWithALiveHost) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    std::filesystem::remove(directory.path() / "server.lock");
+    directory.kill_owner();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(directory.path(), 0);
+    const test_utils::ListenerWithoutClaim host(socket);
+
+    EXPECT_EQ(count_directory(SimulationConnector::list_servers(), directory.path()), 1);
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
+    EXPECT_TRUE(std::filesystem::exists(socket));
+
+    std::filesystem::remove_all(directory.path());
+}
+
+// The temp dir is world-writable, so anyone can leave a FIFO under the claim file's name; the sweep
+// must not block opening it. Run in a child with a deadline, so a hang fails this test rather than
+// stalling the whole run. Needs no simulator.
+TEST(SimulationConnector, AFifoInPlaceOfTheClaimFileDoesNotHangTheSweep) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+    const std::filesystem::path claim_file = directory.path() / "server.lock";
+    std::filesystem::remove(claim_file);
+    ASSERT_EQ(::mkfifo(claim_file.c_str(), 0600), 0);
+
+    EXPECT_EXIT(
+        {
+            ::alarm(10);
+            SimulationConnector::list_servers();
+            SimulationConnector::prune_dead_servers();
+            std::_Exit(0);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
+
+    std::filesystem::remove_all(directory.path());
 }
 
 // The sweep is machine-wide, so the thing it must never do is take a working server with it.

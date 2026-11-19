@@ -45,6 +45,39 @@ inline void leave_stale_socket(const std::filesystem::path& path) {
     ASSERT_TRUE(std::filesystem::exists(path));
 }
 
+// A socket bound and listening at path without UMD's claim on its directory -- what a host from a
+// UMD that predates claims serves. Stops listening on destruction and leaves the socket file behind.
+class ListenerWithoutClaim {
+public:
+    explicit ListenerWithoutClaim(const std::filesystem::path& path) {
+        const std::string path_str = path.string();
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        if (path_str.size() >= sizeof(addr.sun_path)) {
+            throw std::runtime_error("socket path too long for sockaddr_un: " + path_str);
+        }
+        std::memcpy(addr.sun_path, path_str.c_str(), path_str.size() + 1);
+        fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd_ < 0) {
+            throw std::runtime_error("cannot open a listener at " + path_str);
+        }
+        // Nothing ever accepts, so every liveness check's connection stays queued; a short backlog
+        // would make a later check block in connect().
+        if (::bind(fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0 || ::listen(fd_, SOMAXCONN) != 0) {
+            ::close(fd_);
+            throw std::runtime_error("cannot listen at " + path_str);
+        }
+    }
+
+    ListenerWithoutClaim(const ListenerWithoutClaim&) = delete;
+    ListenerWithoutClaim& operator=(const ListenerWithoutClaim&) = delete;
+
+    ~ListenerWithoutClaim() { ::close(fd_); }
+
+private:
+    int fd_ = -1;
+};
+
 // A server directory allocated by a child process, which holds its claim until kill_owner() (or
 // destruction) -- standing in for another host on the machine and, once killed, for one that died
 // without tearing anything down.

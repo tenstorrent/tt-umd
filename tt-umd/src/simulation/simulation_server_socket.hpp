@@ -101,10 +101,13 @@ public:
         Unremovable,  // its owner was gone, but it could not be removed (e.g. another user's)
     };
 
-    // Removes a server directory whose owner is gone: no live process holds its claim. The verdict
-    // and the removal are made holding that claim, so no host can take the directory over in
-    // between. A directory without a claim (made by a UMD that predates claims) is judged by its
-    // sockets instead: gone when it has some and not one has a listener.
+    // Removes a server directory whose owner is gone: no live process holds its claim and none of
+    // its sockets has a listener (a host from a UMD that predates claims takes none). The verdict
+    // and the removal are made holding that claim, taken here for a directory that has no claim
+    // file yet, so no host can take the directory over in between. A directory with neither a claim
+    // file nor a socket is kept, as one still being allocated; one whose claim file cannot be
+    // opened (e.g. another user's) is judged by its sockets alone: gone when it has some and not
+    // one has a listener.
     static SweepResult sweep_server_directory(const std::filesystem::path& directory);
 
     // The simulation server directories present under the system temp dir: {index -> directory},

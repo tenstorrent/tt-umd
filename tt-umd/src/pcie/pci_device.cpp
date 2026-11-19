@@ -1175,7 +1175,8 @@ int PCIDevice::export_tlb_dmabuf(
 }
 
 uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
-    // Other architectures reach PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up.
+    // Wormhole reaches PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up; other
+    // architectures are unverified.
     UMD_ASSERT(
         arch == tt::ARCH::BLACKHOLE,
         error::RuntimeError,

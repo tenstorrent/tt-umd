@@ -58,10 +58,10 @@ TEST(PcieDeviceTest, MapPeerBar) {
     if (device_ids.size() < 2) {
         GTEST_SKIP() << "Mapping a peer BAR needs two devices.";
     }
-    if (PCIDevice(device_ids[0]).get_arch() != ARCH::BLACKHOLE) {
+    PCIDevice device(device_ids[0]);
+    if (device.get_arch() != ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
     }
-    PCIDevice device(device_ids[0]);
     const PCIDevice peer(device_ids[1]);
 
     const uint64_t address = device.map_peer_bar(peer, 0, 0, getpagesize());
@@ -109,6 +109,9 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
         &read_through_device, pcie_core, peer_window_address + SAFE_IO_L1_ADDRESS, sizeof(pattern));
     EXPECT_EQ(read_through_device, pattern);
     EXPECT_EQ(peer_window.read32(SAFE_IO_L1_ADDRESS), pattern);
+
+    // Close the mapping before its window is freed.
+    device.reset();
 }
 
 TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {
@@ -116,10 +119,10 @@ TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {
     if (device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(device_ids[0]).get_arch() != ARCH::BLACKHOLE) {
+    PCIDevice device(device_ids[0]);
+    if (device.get_arch() != ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Peer BAR mapping is supported only on Blackhole.";
     }
-    PCIDevice device(device_ids[0]);
 
     EXPECT_THROW(device.map_peer_bar(device, 0, 0, getpagesize()), error::UmdException<error::RuntimeError>);
 }

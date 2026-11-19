@@ -21,7 +21,7 @@ public:
      * @param tag Telemetry tag identifying the entry to read.
      * @return uint32_t The telemetry value.
      */
-    virtual uint32_t read_entry(uint8_t tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+    virtual uint32_t read_entry(uint16_t tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * @brief Checks whether a telemetry entry is available.
@@ -29,6 +29,6 @@ public:
      * @param noc_id NOC to route through.
      * @return true if the entry exists in the firmware telemetry table.
      */
-    virtual bool is_entry_available(uint8_t tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+    virtual bool is_entry_available(uint16_t tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 }  // namespace tt::umd

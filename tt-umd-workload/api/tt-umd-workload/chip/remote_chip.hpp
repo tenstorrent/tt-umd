@@ -51,6 +51,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
 
+    SystemMemoryAllocator* get_system_memory_allocator() override { return nullptr; }
+
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;

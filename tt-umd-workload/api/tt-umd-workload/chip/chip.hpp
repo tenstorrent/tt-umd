@@ -26,8 +26,11 @@ enum class ARCH;
 
 namespace tt::umd {
 
+class HostMemChannels;
 class TTDevice;
+class SysmemBuffer;
 class SysmemManager;
+class SystemMemoryAllocator;
 struct CoreCoord;
 
 // An abstract class that represents a chip.
@@ -53,6 +56,15 @@ public:
     virtual TTDevice* get_tt_device() = 0;
     virtual SysmemManager* get_sysmem_manager() = 0;
 
+    // Allocates host memory this chip's device can reach, or nullptr for a chip without host memory access.
+    virtual SystemMemoryAllocator* get_system_memory_allocator();
+
+    /**
+     * Returns this chip's host memory channels, or nullptr for a chip that has none. The pointer stays valid for
+     * the chip's lifetime, but a channel may be unmapped while the chip is not started.
+     */
+    virtual HostMemChannels* get_host_mem_channels() { return nullptr; }
+
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
@@ -68,6 +80,21 @@ public:
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_multicast_write(
         void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
+
+    /**
+     * Zero-copy DMA of @p size bytes from @p buffer at @p offset to @p addr on @p core, over the thread's selected
+     * NOC. Throws if the buffer was pinned for another device, the range does not fit in it, or the chip has no
+     * zero-copy DMA.
+     */
+    virtual void dma_write_zero_copy(
+        const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr);
+
+    /**
+     * Zero-copy DMA of @p size bytes from @p addr on @p core into @p buffer at @p offset, over the thread's selected
+     * NOC. Throws as dma_write_zero_copy() does, and also if the buffer is read-only to the device.
+     */
+    virtual void dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr);
+
     virtual void noc_multicast_write(
         const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
     virtual void noc_multicast_write(const void* src, size_t size, uint64_t addr);

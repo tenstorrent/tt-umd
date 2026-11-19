@@ -412,7 +412,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     pci_device_num(pci_device_number),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint16_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {

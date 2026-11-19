@@ -211,9 +211,9 @@ void EthernetBroadcast::adjust_coordinates_for_ethernet_broadcast(
     std::set<uint32_t>& rows_to_exclude_virtual,
     std::set<uint32_t>& cols_to_exclude_virtual) {
     if (use_translated_coords) {
-        const uint32_t translated_row_end =
+        const size_t translated_row_end =
             wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size();
-        const uint32_t translated_col_end =
+        const size_t translated_col_end =
             wormhole::translated_coordinate_start_x + wormhole::TRANSLATED_TO_VIRTUAL_X.size();
         for (const auto& row : rows_to_exclude) {
             UMD_ASSERT(

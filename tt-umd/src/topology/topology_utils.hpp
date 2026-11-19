@@ -38,12 +38,7 @@ void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes
 }
 
 static inline uint64_t get_sys_addr(
-    const DriverNocParams& noc_params,
-    uint32_t chip_x,
-    uint32_t chip_y,
-    uint32_t noc_x,
-    uint32_t noc_y,
-    uint64_t offset) {
+    const DriverNocParams& noc_params, uint32_t chip_x, uint32_t chip_y, size_t noc_x, size_t noc_y, uint64_t offset) {
     uint64_t result = chip_y;
     uint64_t noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
     result <<= noc_params.noc_addr_node_id_bits;

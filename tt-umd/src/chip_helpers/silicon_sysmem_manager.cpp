@@ -217,8 +217,8 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     // application might try to use the channels it asked for.  We should
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
-    uint16_t pcie_device_id = pci_device_->get_pci_device_id();
-    uint32_t pcie_revision = pci_device_->get_pci_revision();
+    const uint16_t pcie_device_id = pci_device_->get_pci_device_id();
+    const uint16_t pcie_revision = pci_device_->get_pci_revision();
     num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
 
     log_debug(
@@ -244,7 +244,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     hugepage_mapping_per_channel.resize(num_host_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
-    for (int ch = 0; ch < num_host_mem_channels; ch++) {
+    for (uint32_t ch = 0; ch < num_host_mem_channels; ch++) {
         int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
         if (hugepage_fd == -1) {
             // Probably a permissions problem.

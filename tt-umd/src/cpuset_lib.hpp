@@ -38,7 +38,7 @@ public:
         return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
     }
 
-    static int get_num_tt_pci_devices() {
+    static size_t get_num_tt_pci_devices() {
         auto &instance = cpuset_allocator::get();
         return instance._get_num_tt_pci_devices();
     }
@@ -57,7 +57,7 @@ private:
     cpuset_allocator();
 
     bool bind_area_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len);
-    int _get_num_tt_pci_devices();
+    size_t _get_num_tt_pci_devices();
     int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
 
     // Series of init functions, must be called in this order. Seperated out to support

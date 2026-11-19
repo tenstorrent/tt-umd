@@ -461,7 +461,7 @@ bool cpuset_allocator::bind_area_memory_nodeset(ChipId physical_device_id, const
     return true;  // Success
 }
 
-int cpuset_allocator::_get_num_tt_pci_devices() {
+size_t cpuset_allocator::_get_num_tt_pci_devices() {
     for (auto &d : m_physical_device_id_to_package_id_map) {
         log_trace(LogUMD, "Found physical_device_id: {} ", d.first);
     }

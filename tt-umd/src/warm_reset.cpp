@@ -566,30 +566,41 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(PRE_RESET_NOTIFICATION_TIMEOUT);
 
-    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
+    // Listeners must be released even when the reset fails or throws, otherwise they stay blocked waiting for it.
+    bool reset_success = false;
+    std::exception_ptr reset_error;
+    try {
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
 
-    static int constexpr UBB_NUM = 0xF;
-    static int constexpr DEV_NUM = 0xFF;
-    static int constexpr OP_MODE = 0x0;
-    static int constexpr RESET_TIME = 0xF;
-    const bool reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+        static int constexpr UBB_NUM = 0xF;
+        static int constexpr DEV_NUM = 0xFF;
+        static int constexpr OP_MODE = 0x0;
+        static int constexpr RESET_TIME = 0xF;
+        const bool ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
 
-    const bool devices_reappeared = std::all_of(pci_bdfs.begin(), pci_bdfs.end(), [&](const auto& pci_bdf) {
-        return wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms) != -1 && wait_for_reset_marker(pci_bdf.second);
-    });
+        const bool devices_reappeared = std::all_of(pci_bdfs.begin(), pci_bdfs.end(), [&](const auto& pci_bdf) {
+            return wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms) != -1 &&
+                   wait_for_reset_marker(pci_bdf.second);
+        });
 
-    if (devices_reappeared) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        PCIDevice::send_reset_ioctl_to_devices(
-            pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
-    } else {
-        log_error(tt::LogUMD, "Reset failed.");
+        if (devices_reappeared) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            PCIDevice::send_reset_ioctl_to_devices(
+                pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
+        } else {
+            log_error(tt::LogUMD, "Reset failed.");
+        }
+        reset_success = ipmi_reset_success && devices_reappeared;
+    } catch (...) {
+        reset_error = std::current_exception();
     }
 
-    // Listeners must be released even when the reset failed, otherwise they stay blocked waiting for it.
     log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
-    return reset_success && devices_reappeared;
+    if (reset_error) {
+        std::rethrow_exception(reset_error);
+    }
+    return reset_success;
 }
 
 // Free helper function for extracting pid.

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/pcie/device_event_reader.hpp"
+#include "pcie/kmd_device_event_reader.hpp"
 
 #include <fcntl.h>  // O_APPEND
 #include <fmt/format.h>
@@ -14,11 +14,10 @@
 #include <climits>
 #include <iterator>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "tt-kmd-lib/tt_kmd_lib.h"
-#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt-umd/utils/kmd_versions.hpp"
 
 namespace tt::umd {
 
@@ -37,17 +36,13 @@ DeviceEvent to_device_event(const tt_event_t& event) {
 
 }  // namespace
 
-DeviceEventReader::DeviceEventReader(int pci_device_num) :
+KmdDeviceEventReader::KmdDeviceEventReader(int pci_device_num) :
     device_path_(fmt::format("/dev/tenstorrent/{}", pci_device_num)), wake_fd_(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) {
     UMD_ASSERT(
         wake_fd_ >= 0, error::RuntimeError, fmt::format("eventfd() failed for device event reader errno: {}", errno));
 
     // The destructor does not run when a constructor throws.
     try {
-        UMD_ASSERT(
-            PCIDevice::is_device_events_supported(),
-            error::RuntimeError,
-            fmt::format("Reading device events requires KMD {} or newer.", KMD_READ_EVENTS.str()));
         open_device();
     } catch (...) {
         close(wake_fd_);
@@ -55,12 +50,12 @@ DeviceEventReader::DeviceEventReader(int pci_device_num) :
     }
 }
 
-DeviceEventReader::~DeviceEventReader() noexcept {
+KmdDeviceEventReader::~KmdDeviceEventReader() noexcept {
     close_device();
     close(wake_fd_);
 }
 
-void DeviceEventReader::open_device() {
+void KmdDeviceEventReader::open_device() {
     // O_APPEND keeps a handle that only reads events from requesting high power on open.
     int result = tt_device_open(device_path_.c_str(), &device_, O_APPEND);
     UMD_ASSERT(
@@ -69,7 +64,7 @@ void DeviceEventReader::open_device() {
         fmt::format("tt_device_open() failed for device event reader {} errno: {}", device_path_, -result));
 }
 
-void DeviceEventReader::close_device() noexcept {
+void KmdDeviceEventReader::close_device() noexcept {
     if (device_ == nullptr) {
         return;
     }
@@ -81,24 +76,28 @@ void DeviceEventReader::close_device() noexcept {
     device_ = nullptr;
 }
 
-void DeviceEventReader::reopen_after_reset() {
-    log_debug(tt::LogUMD, "Device {} was reset; reopening its event reader handle", device_path_);
+void KmdDeviceEventReader::mark_device_lost() {
+    log_debug(tt::LogUMD, "Device {} was reset or removed; its event reader stops reading", device_path_);
     close_device();
-    open_device();
-    post_reset_recovery_pending_ = true;
 }
 
-DeviceEventBatch DeviceEventReader::read(size_t max_events) { return read_events(max_events, -1); }
+DeviceEventBatch KmdDeviceEventReader::read(size_t max_events) { return read_events(max_events, -1); }
 
-DeviceEventBatch DeviceEventReader::read_for(size_t max_events, std::chrono::milliseconds timeout) {
+DeviceEventBatch KmdDeviceEventReader::read_for(size_t max_events, std::chrono::milliseconds timeout) {
     return read_events(max_events, static_cast<int>(std::clamp<int64_t>(timeout.count(), 0, INT_MAX)));
 }
 
-DeviceEventBatch DeviceEventReader::read_events(size_t max_events, int timeout_ms) {
+DeviceEventBatch KmdDeviceEventReader::read_events(size_t max_events, int timeout_ms) {
     UMD_ASSERT(
         max_events > 0 && max_events <= UINT32_MAX,
         error::RuntimeError,
         fmt::format("DeviceEventReader read max_events {} out of range [1, {}]", max_events, UINT32_MAX));
+
+    DeviceEventBatch batch;
+    if (device_ == nullptr) {
+        batch.device_lost = true;
+        return batch;
+    }
 
     std::vector<tt_event_t> events(max_events);
     uint32_t count = 0;
@@ -106,10 +105,11 @@ DeviceEventBatch DeviceEventReader::read_events(size_t max_events, int timeout_m
     int result = tt_device_read_events(
         device_, events.data(), static_cast<uint32_t>(max_events), 0, timeout_ms, wake_fd_, &count, &lost, nullptr);
 
-    // These leave count at 0. A reset already discarded every record, so there is nothing to read on the new
-    // handle yet, while a cancel or a signal interrupted only the wait.
+    // These leave count at 0. A reset or removal leaves nothing more to read, while a cancel or a signal
+    // interrupted only the wait.
     if (result == -ENODEV) {
-        reopen_after_reset();
+        mark_device_lost();
+        batch.device_lost = true;
     } else if (result == -ECANCELED) {
         // Draining the eventfd consumes every cancel made so far, so they end this wait alone.
         uint64_t cancels = 0;
@@ -121,23 +121,24 @@ DeviceEventBatch DeviceEventReader::read_events(size_t max_events, int timeout_m
             fmt::format("tt_device_read_events() failed for {} errno: {}", device_path_, -result));
     }
 
-    DeviceEventBatch batch;
     batch.events.reserve(count);
     std::transform(events.begin(), events.begin() + count, std::back_inserter(batch.events), to_device_event);
     batch.lost = lost;
-    batch.device_reset = post_reset_recovery_pending_;
-    post_reset_recovery_pending_ = false;
     return batch;
 }
 
-bool DeviceEventReader::is_firmware_attached() {
+bool KmdDeviceEventReader::is_firmware_attached() {
+    if (device_ == nullptr) {
+        return false;
+    }
+
     uint32_t count = 0;
     int fw_attached = 0;
     int result = tt_device_read_events(device_, nullptr, 0, 0, 0, -1, &count, nullptr, &fw_attached);
 
     if (result == -ENODEV) {
-        reopen_after_reset();
-        result = tt_device_read_events(device_, nullptr, 0, 0, 0, -1, &count, nullptr, &fw_attached);
+        mark_device_lost();
+        return false;
     }
 
     UMD_ASSERT(
@@ -148,7 +149,7 @@ bool DeviceEventReader::is_firmware_attached() {
     return fw_attached != 0;
 }
 
-void DeviceEventReader::cancel() noexcept {
+void KmdDeviceEventReader::cancel() noexcept {
     // Can fail only if the eventfd counter would overflow, which leaves it readable anyway.
     const uint64_t one = 1;
     [[maybe_unused]] const ssize_t bytes_written = write(wake_fd_, &one, sizeof(one));

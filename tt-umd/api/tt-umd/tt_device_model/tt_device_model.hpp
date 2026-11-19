@@ -9,6 +9,7 @@
 // Complete type, not a forward declaration: unique_ptr<IoWindow> is the public return type, so
 // every implementer and caller needs the definition that instantiates its deleter.
 #include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/tt_device/device_event_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 
@@ -88,6 +89,10 @@ public:
     virtual FirmwareInfoProvider *get_firmware_info_provider() { return nullptr; }
 
     virtual PeerDmaInterface *get_peer_dma_interface() { return nullptr; }
+
+    // A new reader on every call, since each reader keeps its own position in the device's records.
+    // Null when the device or its driver does not deliver events.
+    virtual std::unique_ptr<DeviceEventReader> create_event_reader() { return nullptr; }
 
     // Optional transport interfaces.
     virtual PcieInterface *get_pcie_interface() { return nullptr; }

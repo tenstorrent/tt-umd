@@ -11,8 +11,8 @@
 #include <thread>
 #include <vector>
 
-#include "tt-umd/pcie/device_event_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_device/device_event_reader.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/kmd_versions.hpp"
@@ -38,20 +38,22 @@ protected:
         if (pci_device_ids.empty()) {
             GTEST_SKIP() << "No Tenstorrent devices found.";
         }
-        pci_device_id = pci_device_ids.front();
+        const int pci_device_id = pci_device_ids.front();
 
         if (!PCIDevice::is_device_events_supported()) {
             GTEST_SKIP() << "KMD " << PCIDevice::read_kmd_version().str() << " is below required "
                          << KMD_READ_EVENTS.str();
         }
 
-        // Constructed before anything is published, since a reader sees only records that arrive after it.
-        reader = std::make_unique<DeviceEventReader>(pci_device_id);
+        tt_device = TTDevice::create(pci_device_id);
+
+        // Created before anything is published, since a reader sees only records that arrive after it.
+        reader = tt_device->create_event_reader();
+        ASSERT_NE(reader, nullptr);
         if (!reader->is_firmware_attached()) {
             GTEST_SKIP() << "Firmware does not publish device events.";
         }
 
-        tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
     }
@@ -71,9 +73,8 @@ protected:
         ASSERT_EQ(result.exit_code, 0u);
     }
 
-    int pci_device_id = 0;
-    std::unique_ptr<DeviceEventReader> reader;
     std::unique_ptr<TTDevice> tt_device;
+    std::unique_ptr<DeviceEventReader> reader;
 };
 
 }  // namespace
@@ -89,14 +90,14 @@ TEST_F(DeviceEventReaderBh, ReadReturnsPublishedRecord) {
     EXPECT_EQ(batch.events[0].cause, 7u);
     EXPECT_EQ(batch.events[0].data, (std::array<uint32_t, 4>{1, 2, 3, 0}));
     EXPECT_EQ(batch.lost, 0u);
-    EXPECT_FALSE(batch.device_reset);
+    EXPECT_FALSE(batch.device_lost);
 }
 
 TEST_F(DeviceEventReaderBh, ReadForTimesOutWithoutRecords) {
     DeviceEventBatch batch = reader->read_for(4, std::chrono::milliseconds(100));
 
     EXPECT_TRUE(batch.events.empty());
-    EXPECT_FALSE(batch.device_reset);
+    EXPECT_FALSE(batch.device_lost);
 }
 
 class DeviceEventReaderNoWaitBh : public DeviceEventReaderBh,
@@ -131,12 +132,12 @@ TEST_F(DeviceEventReaderBh, ReadWaitsForRecordPublishedDuringIt) {
 }
 
 TEST_F(DeviceEventReaderBh, ReadersDoNotTakeRecordsFromEachOther) {
-    DeviceEventReader other_reader(pci_device_id);
+    std::unique_ptr<DeviceEventReader> other_reader = tt_device->create_event_reader();
 
     publish_test_event(0, 0, 0, 0, 9);
 
     DeviceEventBatch batch = reader->read_for(4, READ_TIMEOUT);
-    DeviceEventBatch other_batch = other_reader.read_for(4, READ_TIMEOUT);
+    DeviceEventBatch other_batch = other_reader->read_for(4, READ_TIMEOUT);
     ASSERT_EQ(batch.events.size(), 1u);
     ASSERT_EQ(other_batch.events.size(), 1u);
     EXPECT_EQ(batch.events[0].data[2], 9u);

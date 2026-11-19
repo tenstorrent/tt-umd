@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "pcie/kmd_device_event_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -28,6 +29,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     architecture_impl_(std::make_unique<BlackholeImplementation>()) {
     // The protocol takes ownership of the device; the system memory allocator pins through it.
     PCIDevice *pinning_device = pci_device.get();
+    pci_device_num_ = pci_device->get_device_num();
     // The protocol's timeout check looks the detector up only when an op overruns. Until it exists, an
     // overrun is not judged a hang, as when no check is wired.
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api, [this](NocId noc) -> bool {
@@ -98,5 +100,12 @@ JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interf
 RemoteInterface *BlackholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
 SystemMemoryAllocator *BlackholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
+
+std::unique_ptr<DeviceEventReader> BlackholeTTDeviceModel::create_event_reader() {
+    if (!PCIDevice::is_device_events_supported()) {
+        return nullptr;
+    }
+    return std::make_unique<KmdDeviceEventReader>(pci_device_num_);
+}
 
 }  // namespace tt::umd

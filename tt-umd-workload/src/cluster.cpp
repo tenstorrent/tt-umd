@@ -1513,11 +1513,11 @@ void Cluster::close_device() {
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
-std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
+std::size_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     return chips_.at(device_id)->get_num_host_channels();
 }
 
-std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+std::size_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     return chips_.at(device_id)->get_host_channel_size(channel);
 }
 

@@ -49,7 +49,7 @@ uint32_t get_num_hugepages() {
 }
 
 uint32_t get_available_num_host_mem_channels(
-    const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
+    const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint8_t revision_id) {
     // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.
     size_t total_num_tt_mmio_devices = tt::cpuset::cpuset_allocator::get_num_tt_pci_devices();
     uint32_t num_tt_mmio_devices_for_arch =

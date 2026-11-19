@@ -218,7 +218,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
     const uint16_t pcie_device_id = pci_device_->get_pci_device_id();
-    const uint16_t pcie_revision = pci_device_->get_pci_revision();
+    const uint8_t pcie_revision = pci_device_->get_pci_revision();
     num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
 
     log_debug(

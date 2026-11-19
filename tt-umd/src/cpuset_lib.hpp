@@ -43,7 +43,7 @@ public:
         return instance._get_num_tt_pci_devices();
     }
 
-    static int get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id) {
+    static int get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint8_t revision_id) {
         auto &instance = cpuset_allocator::get();
         return instance._get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
     }
@@ -58,7 +58,7 @@ private:
 
     bool bind_area_memory_nodeset(ChipId physical_device_id, const void *addr, size_t len);
     size_t _get_num_tt_pci_devices();
-    int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
+    int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint8_t revision_id);
 
     // Series of init functions, must be called in this order. Seperated out to support
     // early exit in case of errors.
@@ -87,7 +87,7 @@ private:
     // Items calculated by parsing system info, used by allocation algorithm:
     std::map<int, std::vector<int>> m_package_id_to_devices_map;
     std::map<int, std::string> m_physical_device_id_to_pci_bus_id_map;  // Debug/Info
-    std::map<std::pair<uint16_t, uint16_t>, int> m_num_tt_device_by_pci_device_id_map;
+    std::map<std::pair<uint16_t, uint8_t>, int> m_num_tt_device_by_pci_device_id_map;
 
     std::map<ChipId, std::vector<hwloc_cpuset_t>> m_physical_device_id_to_cpusets_map;
     std::map<ChipId, int> m_physical_device_id_to_package_id_map;

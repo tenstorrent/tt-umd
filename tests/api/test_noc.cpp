@@ -203,7 +203,7 @@ public:
 
     // Wormhole-specific: Compute expected translated coordinate for DRAM cores.
     tt_xy_pair compute_wormhole_dram_translated_coord(ChipId chip, const CoreCoord& core) {
-        const uint32_t harvesting_mask =
+        const size_t harvesting_mask =
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
         // Get the base translated coordinate.
@@ -254,7 +254,7 @@ public:
 
     // Wormhole-specific: Compute expected translated coordinate for PCIe core.
     tt_xy_pair compute_wormhole_pcie_translated_coord(ChipId chip, const CoreCoord& core) {
-        const uint32_t harvesting_mask =
+        const size_t harvesting_mask =
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
         // PCIe core at NOC0 (0,3) corresponds to the third tensix row.
@@ -276,7 +276,7 @@ public:
 
     // Wormhole-specific: Compute expected translated coordinate for ARC core.
     tt_xy_pair compute_wormhole_arc_translated_coord(ChipId chip, const CoreCoord& core) {
-        const uint32_t harvesting_mask =
+        const size_t harvesting_mask =
             cluster_->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
 
         // ARC core at NOC0 (0,10) corresponds to ninth tensix row.
@@ -331,7 +331,7 @@ private:
     // NOC0 y values that are being reordered are 1,2,3,4,5,7,8,9,10,11 - skipping 0 and 6 which are ethernet-aligned.
     // Input: harvesting mask for tensix rows
     // Output: reordered rows based on harvesting mask.
-    std::vector<size_t> reorder_noc0_y_for_wormhole_harvesting(uint32_t harvesting_mask) {
+    std::vector<size_t> reorder_noc0_y_for_wormhole_harvesting(size_t harvesting_mask) {
         // NOC0 y-coordinates that can be reordered due to harvesting (skipping 0 and 6 which are ethernet-aligned).
         const std::vector<size_t> noc0_rows_that_can_be_reordered = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
 

@@ -17,7 +17,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -25,38 +24,6 @@
 namespace tt::umd {
 
 namespace grendel {
-
-inline constexpr auto TLB_2M_OFFSET = tlb_offsets{
-    .local_offset = 0,
-    .x_end = 43,
-    .y_end = 49,
-    .x_start = 55,
-    .y_start = 61,
-    .noc_sel = 67,
-    .mcast = 69,
-    .ordering = 70,
-    .linked = 72,
-    .static_vc = 73,
-    // missing .stream_header
-    .static_vc_buddy = 75,
-    .static_vc_class = 76,
-    .static_vc_class_end = 78};
-
-inline constexpr auto TLB_4G_OFFSET = tlb_offsets{
-    .local_offset = 0,
-    .x_end = 32,
-    .y_end = 38,
-    .x_start = 44,
-    .y_start = 50,
-    .noc_sel = 56,
-    .mcast = 58,
-    .ordering = 59,
-    .linked = 61,
-    .static_vc = 62,
-    // missing .stream_header
-    .static_vc_buddy = 64,
-    .static_vc_class = 65,
-    .static_vc_class_end = 67};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing

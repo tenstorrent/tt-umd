@@ -324,15 +324,15 @@ public:
         const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
-     * Configure TLB register in user space by writing directly to BAR0.
+     * Point a TLB window at the target described by tlb_config.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_handle The window's driver handle, used where the architecture's configuration
-     *                   registers are not reachable from the host and the driver has to program
-     *                   the window on our behalf. May be null for architectures that write their
-     *                   own registers.
-     * @param tlb_config The TLB configuration data. local_offset is a byte address; where the
-     *                   registers hold a window index instead, the conversion happens here.
+     * @param tlb_handle The window's driver handle. Required on architectures whose windows only
+     *                   the driver can program; may be null on the others.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
+     *                   window's size. On architectures whose windows only the driver can program,
+     *                   the address is flat and already names its target, so a coordinate or
+     *                   multicast is refused.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not

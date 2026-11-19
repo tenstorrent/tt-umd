@@ -151,12 +151,12 @@ inline bool is_virtual_machine() {
 // `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
 inline std::vector<CoreCoord> broadcast_readback_cores(
     const SocDescriptor& soc_desc,
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& cols_to_exclude,
+    const std::set<size_t>& rows_to_exclude,
+    const std::set<size_t>& cols_to_exclude,
     const CoordSystem exclusion_coord_system) {
-    std::set<uint32_t> target_rows;
-    std::set<uint32_t> target_cols;
-    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
+    std::set<size_t> target_rows;
+    std::set<size_t> target_cols;
+    std::map<std::pair<size_t, size_t>, CoreCoord> targets_by_row_and_col;
     for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
         const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
         if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {

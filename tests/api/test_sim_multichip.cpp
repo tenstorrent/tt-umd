@@ -636,7 +636,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorWithMoreMmioChipsThanEndpointsIsRefused) {
                         "two-MMIO-chip P300 descriptor.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P300_both_mmio.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("blackhole_P300_both_mmio.yaml"));
 
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
@@ -654,7 +654,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
         GTEST_SKIP() << "Needs wh_x2, the N300 image.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N300.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N300.yaml"));
 
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;

@@ -572,6 +572,8 @@ Cluster::Cluster(ClusterOptions options) {
                     is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+                    discovery_options.io_device_type = options.io_device_type;
+                    discovery_options.soc_descriptor_path = options.sdesc_path;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
                     // to produce -- and a simulated device sizes its system memory as it is constructed.
                     // So absent an explicit count, discovery builds with a provisional 1, which the grow

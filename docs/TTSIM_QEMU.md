@@ -49,13 +49,13 @@ Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
 ## Grendel
 
-A Grendel function needs three things a Wormhole or Blackhole one does not, and the runner takes an
+A Grendel function needs two things a Wormhole or Blackhole one does not, and the runner takes an
 option for each:
 
 | Option | Why |
 | --- | --- |
 | `--bar0-size 4G` | tt-kmd reserves inbound TLB entry 164 for its own kernel window, which sits `164 << 24` = 2.56 GB into BAR0. At the default size the driver still binds, then logs `BAR0 (0x20000000) too small for AppIn0 entry 164 window; NOC access disabled` and every ioctl returns `ENODEV`. |
-| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from a branch. The released driver stays the default for every other card. |
+| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from an unreleased commit. The released driver stays the default for every other card. |
 
 ```bash
 curl -L -o libttsim_qsr.so https://github.com/tenstorrent/ttsim/releases/latest/download/libttsim_qsr.so
@@ -96,8 +96,8 @@ says so and exits with 1.
 docker build -f .github/ttsim-qemu.Dockerfile -t ttsim-qemu .github
 ```
 
-The Dockerfile pins the ttsim-qemu commit and the tt-kmd tag as build arguments
-(`TTSIM_QEMU_COMMIT`, `TT_KMD_TAG`).
+The Dockerfile pins the ttsim-qemu commit, the tt-kmd tag and the Keraunos tt-kmd commit as build
+arguments (`TTSIM_QEMU_COMMIT`, `TT_KMD_TAG`, `TT_KMD_KERAUNOS_COMMIT`).
 
 ## Performance
 

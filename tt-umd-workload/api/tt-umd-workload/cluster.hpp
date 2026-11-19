@@ -517,11 +517,11 @@ public:
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
-        uint32_t size_in_bytes,
+        size_t size_in_bytes,
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
-        std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude,
+        std::set<size_t>& rows_to_exclude,
+        std::set<size_t>& columns_to_exclude,
         bool use_translated_coords);
 
     /**

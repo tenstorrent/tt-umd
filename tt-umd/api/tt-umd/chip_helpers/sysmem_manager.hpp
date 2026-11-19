@@ -41,8 +41,8 @@ public:
         bool bind_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
-    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
-    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size);
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size);
 
     /**
      * Further initializes system memory for usage.

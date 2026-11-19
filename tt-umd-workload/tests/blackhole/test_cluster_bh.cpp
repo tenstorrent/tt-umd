@@ -405,13 +405,12 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
     uint32_t address = tt::umd::blackhole::DATA_BUFFER_SPACE_BASE;
     // For BH the broadcast falls back to a per-chip SW loop. Exclude DRAM translated cols (17, 18) plus a couple of
     // tensix rows/cols (translated cols 1..7, 10..16; rows 2..11) for selective filtering.
-    std::set<uint32_t> rows_to_exclude = {4, 6};
-    std::set<uint32_t> cols_to_exclude = {3, 11, 17, 18};
+    std::set<size_t> rows_to_exclude = {4, 6};
+    std::set<size_t> cols_to_exclude = {3, 11, 17, 18};
     // Exclude all tensix translated columns (1..7, 10..16) so only DRAM (translated cols 17..18) receives the
     // broadcast.
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {
-        24, 25};  // Exclude ETH and PCIE rows for the DRAM broadcast
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
+    std::set<size_t> rows_to_exclude_for_dram_broadcast = {24, 25};  // Exclude ETH and PCIE rows for the DRAM broadcast
+    std::set<size_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 
     // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
     // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks

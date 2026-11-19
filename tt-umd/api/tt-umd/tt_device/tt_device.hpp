@@ -99,7 +99,10 @@ public:
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
+
+    // Being removed (#3530): do not add new callers. PCIe queries go through get_pcie_interface().
     PCIDevice *get_pci_device();
+
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();

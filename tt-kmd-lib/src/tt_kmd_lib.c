@@ -987,3 +987,57 @@ int tt_device_read_events(
 
     return 0;
 }
+
+int tt_device_wait_events(
+    tt_device_t* const* devices,
+    uint32_t count,
+    int timeout_ms,
+    int wake_fd,
+    uint8_t* out_ready,
+    uint32_t* out_ready_count) {
+    if ((((devices == NULL) || (out_ready == NULL)) && (count > 0)) || (out_ready_count == NULL)) {
+        return -EINVAL;
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        if (devices[i] == NULL) {
+            return -EINVAL;
+        }
+    }
+
+    *out_ready_count = 0;
+
+    /* wake_fd takes the last entry. poll() ignores an entry with a negative fd, so no wake_fd needs no
+     * special case. */
+    struct pollfd* pfds = calloc((size_t)count + 1, sizeof(*pfds));
+    if (pfds == NULL) {
+        return -ENOMEM;
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        pfds[i].fd = devices[i]->fd;
+        pfds[i].events = POLLIN;
+    }
+    pfds[count].fd = wake_fd;
+    pfds[count].events = POLLIN;
+
+    int ret = 0;
+    int ready = poll(pfds, (nfds_t)count + 1, (timeout_ms < 0) ? -1 : timeout_ms);
+    if (ready < 0) {
+        ret = -errno;
+    } else if ((pfds[count].revents & POLLIN) != 0) {
+        /* Devices that became ready meanwhile stay ready for the next call. */
+        ret = -ECANCELED;
+    } else {
+        /* A reset or removal reports POLLHUP or POLLERR rather than POLLIN, so any event counts. */
+        uint32_t ready_count = 0;
+        for (uint32_t i = 0; i < count; i++) {
+            out_ready[i] = (pfds[i].revents != 0) ? 1 : 0;
+            ready_count += out_ready[i];
+        }
+        *out_ready_count = ready_count;
+    }
+
+    free(pfds);
+    return ret;
+}

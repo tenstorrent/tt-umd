@@ -587,8 +587,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         if (is_marked_unhealthy(current_chip_asic_id)) {
             continue;
         }
-        const uint32_t num_eth_channels =
-            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
+        const uint32_t num_eth_channels = static_cast<uint32_t>(
+            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size());
         ChipDescription& chip = description.chips.at(asic_id_to_chip_id.at(current_chip_asic_id));
         for (int i = 0; i < num_eth_channels; i++) {
             chip.idle_eth_channels.insert(i);

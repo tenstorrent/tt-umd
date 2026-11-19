@@ -199,7 +199,7 @@ void EthernetBroadcast::ethernet_broadcast_write(
                 (static_cast<uint32_t>(header.at(4)) & 0x8000) ? 1 : 0,
                 fmt::join(header, ", "));
             mmio_remote_comms_.at(mmio_group.first)
-                ->write_to_non_mmio({0, 0}, mem_ptr, address, size_in_bytes, true, header);
+                ->write_to_non_mmio({0, 0}, mem_ptr, address, static_cast<uint32_t>(size_in_bytes), true, header);
         }
     }
 }

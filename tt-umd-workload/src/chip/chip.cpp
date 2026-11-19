@@ -80,7 +80,7 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
         if (dram_harvesting_mask & (size_t{1} << dram_channel)) {
             continue;
         }
-        tt_device->wait_dram_channel_training(dram_channel);
+        tt_device->wait_dram_channel_training(static_cast<uint32_t>(dram_channel));
     }
 }
 

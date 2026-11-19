@@ -77,7 +77,7 @@ target_sources(
         src/hugepage.cpp
         src/logging/config.cpp
         src/pcie/pci_device.cpp
-        src/pcie/device_event_reader.cpp
+        src/pcie/kmd_device_event_reader.cpp
         src/types/tlb.cpp
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
@@ -209,7 +209,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/lock_manager.hpp
                 api/tt-umd/utils/kmd_versions.hpp
                 api/tt-umd/driver_atomics.hpp
-                api/tt-umd/pcie/device_event_reader.hpp
                 api/tt-umd/pcie/pci_device.hpp
                 api/tt-umd/pcie/silicon_tlb_window.hpp
                 api/tt-umd/pcie/tlb_window.hpp
@@ -223,6 +222,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/cluster_description.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/tt_device/device_event_reader.hpp
                 api/tt-umd/tt_device/tt_device.hpp
                 api/tt-umd/tt_device/tt_device_factory.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp

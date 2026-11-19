@@ -808,6 +808,10 @@ int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
 }
 
 int tt_device_set_noc_cleanup(tt_device_t* dev, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data) {
+    if (dev == NULL) {
+        return -EINVAL;
+    }
+
     struct tenstorrent_set_noc_cleanup cleanup = {0};
     cleanup.argsz = sizeof(cleanup);
     cleanup.enabled = 1;

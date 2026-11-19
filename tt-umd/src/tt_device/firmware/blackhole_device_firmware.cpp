@@ -44,7 +44,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     ArchitectureImplementation* architecture_impl,
-    bool kmd_lock_available) :
+    bool shared_across_processes) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
@@ -66,7 +66,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     // PCIe device this is the same key BlackholeArcMessenger uses (its device-number argument
     // defaults the type to PCIe), so this path and the messenger - still alive for tests - exclude
     // each other; the messenger never worked over JTAG, where this adds the missing key.
-    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type(), kmd_lock_available);
+    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type(), shared_across_processes);
 
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the
     // device's lifetime and is read over BAR/JTAG, so this does not need the firmware to be up.

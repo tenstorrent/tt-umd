@@ -20,10 +20,14 @@ namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
     local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
+    const IODeviceType gateway_type = local_tt_device->get_communication_device_type();
+    // Remote communication exists only for Wormhole, and a Wormhole gateway with no host transport is only ever one
+    // simulated in this process, which no other process can reach.
     LockManager::initialize_mutex(
         MutexType::NON_MMIO,
         local_tt_device->get_communication_device_id(),
-        local_tt_device->get_communication_device_type());
+        gateway_type,
+        /*shared_across_processes=*/gateway_type != IODeviceType::UNDEFINED);
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(

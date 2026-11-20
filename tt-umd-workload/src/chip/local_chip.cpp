@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
@@ -33,6 +32,7 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -313,7 +313,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
         translated_core,
         reg_dest,
         size,
-        is_selected_noc1() ? NocId::NOC1 : NocId::NOC0,
+        get_selected_noc_id(),
         RegisterAccessWidth::BITS32);
 }
 
@@ -341,7 +341,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         translated_core,
         reg_src,
         size,
-        is_selected_noc1() ? NocId::NOC1 : NocId::NOC0,
+        get_selected_noc_id(),
         RegisterAccessWidth::BITS32);
 }
 

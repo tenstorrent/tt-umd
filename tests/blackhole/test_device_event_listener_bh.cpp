@@ -14,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "tests/test_utils/device_event_test_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/device_event_listener.hpp"
 #include "tt-umd/tt_device/device_event_reader.hpp"
@@ -23,18 +24,17 @@
 #include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
+using test_utils::CANCELLED_READ_BOUND;
+using test_utils::CANCELLED_READ_TIMEOUT;
+using test_utils::EVENT_READ_TIMEOUT;
+using test_utils::EVENT_TYPE_TEST;
+using test_utils::TEST_EVENT_RECORD_MSG;
 
-// Firmware's TT_SMC_MSG_TEST_EVENT_RECORD publishes TEST records with fields the host chooses.
+// The tests publish TEST records through firmware.
 
 namespace {
 
-constexpr uint32_t TEST_EVENT_RECORD_MSG = 0x91;
-constexpr uint16_t EVENT_TYPE_TEST = 0x0000;
 constexpr DeviceEventKey KEY = 42;
-constexpr auto READ_TIMEOUT = std::chrono::milliseconds(1000);
-// Long enough that a read returning well within it was ended by cancel(), not by the timeout.
-constexpr auto CANCELLED_READ_TIMEOUT = std::chrono::seconds(30);
-constexpr auto CANCELLED_READ_BOUND = std::chrono::seconds(10);
 
 std::unique_ptr<TTDevice> create_device(int pci_device_id) {
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
@@ -50,6 +50,9 @@ void publish_test_event(TTDevice& tt_device, uint32_t data2) {
     ASSERT_EQ(result.exit_code, 0u);
 }
 
+}  // namespace
+
+// Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class DeviceEventListenerBh : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -90,12 +93,10 @@ protected:
     std::unique_ptr<DeviceEventListener> listener;
 };
 
-}  // namespace
-
 TEST_F(DeviceEventListenerBh, ReadReturnsPublishedRecordUnderKey) {
     publish_test_event(*tt_device, 3);
 
-    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, READ_TIMEOUT);
+    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, EVENT_READ_TIMEOUT);
 
     ASSERT_EQ(batches.size(), 1u);
     EXPECT_EQ(batches[0].key, KEY);
@@ -135,9 +136,9 @@ TEST_F(DeviceEventListenerBh, DeviceUnderTwoKeysIsReportedUnderEach) {
 
     // The two handles may become ready in separate waits.
     std::vector<DeviceEventKey> keys;
-    const auto deadline = std::chrono::steady_clock::now() + READ_TIMEOUT;
+    const auto deadline = std::chrono::steady_clock::now() + EVENT_READ_TIMEOUT;
     while (keys.size() < 2 && std::chrono::steady_clock::now() < deadline) {
-        for (const KeyedDeviceEventBatch& keyed : listener->read_for(4, READ_TIMEOUT)) {
+        for (const KeyedDeviceEventBatch& keyed : listener->read_for(4, EVENT_READ_TIMEOUT)) {
             ASSERT_EQ(keyed.batch.events.size(), 1u);
             EXPECT_EQ(keyed.batch.events[0].data[2], 9u);
             keys.push_back(keyed.key);
@@ -153,8 +154,8 @@ TEST_F(DeviceEventListenerBh, ListenerAndReaderDoNotTakeRecordsFromEachOther) {
 
     publish_test_event(*tt_device, 11);
 
-    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, READ_TIMEOUT);
-    DeviceEventBatch reader_batch = reader->read_for(4, READ_TIMEOUT);
+    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, EVENT_READ_TIMEOUT);
+    DeviceEventBatch reader_batch = reader->read_for(4, EVENT_READ_TIMEOUT);
     ASSERT_EQ(batches.size(), 1u);
     ASSERT_EQ(batches[0].batch.events.size(), 1u);
     ASSERT_EQ(reader_batch.events.size(), 1u);
@@ -175,7 +176,7 @@ TEST_F(DeviceEventListenerBh, RecordIsReportedUnderItsDevicesKey) {
     ASSERT_TRUE(uncovered_keys.empty());
 
     publish_test_event(*second_device, 13);
-    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, READ_TIMEOUT);
+    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, EVENT_READ_TIMEOUT);
     second_device->set_power_state(TTDevice::PowerState::IDLE);
 
     ASSERT_EQ(batches.size(), 1u);

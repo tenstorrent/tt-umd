@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <cstring>
 #include <optional>
 
 #include "tests/test_utils/protocol_mocks.hpp"
@@ -19,7 +18,7 @@ using ::testing::Invoke;
 using ::testing::NiceMock;
 
 // Named, not anonymous: a unity build merges every anonymous namespace of its batch, and
-// test_risc_reset.cpp has helpers of the same names.
+// test_risc_reset.cpp has constants of the same names.
 namespace tsc_risc_reset_test {
 
 constexpr tt_xy_pair TENSIX_CORE = {1, 0};
@@ -31,18 +30,6 @@ constexpr uint64_t OVERLAY_UNCORE_SOFT_RESET = 0x0300'032C;
 constexpr uint64_t ALL_RELEASED = 0x0000'00F1'0500'FF00;
 // The same with every core and the DM uncore held.
 constexpr uint64_t ALL_HELD = 0x0000'0001'0400'0000;
-
-auto serves_register(uint64_t value) {
-    return Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
-        std::memcpy(dst, &value, sizeof(value));
-    });
-}
-
-auto captures_register(uint64_t* written) {
-    return Invoke([written](const void* src, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
-        std::memcpy(written, src, sizeof(*written));
-    });
-}
 
 class TscRiscResetTest : public ::testing::Test {
 protected:

@@ -40,6 +40,7 @@
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
@@ -69,7 +70,7 @@ protected:
     void SetUp() override {
         for (int device_id : PCIDevice::enumerate_devices()) {
             if (PCIDevice(device_id).get_arch() == tt::ARCH::QUASAR) {
-                device_ = TTDevice::create(device_id, IODeviceType::PCIe);
+                device_ = create_tt_device(device_id, IODeviceType::PCIe);
                 return;
             }
         }

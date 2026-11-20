@@ -24,6 +24,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
@@ -798,8 +799,8 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 }
 
 SemVer PCIDevice::read_kmd_version() {
-    static const std::string path = "/sys/module/tenstorrent/version";
-    std::ifstream file(path);
+    constexpr std::string_view path = "/sys/module/tenstorrent/version";
+    std::ifstream file{std::string(path)};
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);

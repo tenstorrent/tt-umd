@@ -293,7 +293,7 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
     // private in-process (the direct hot path). When requested, serve in a dedicated server
     // directory -- the caller's, or a fresh one -- so two hosts never collide even when they serve
     // the same chip id; create() throws if a live host already owns this chip's socket there.
-    const ChipId chip_id = 0;
+    constexpr ChipId chip_id = 0;
     std::unique_ptr<SimulationServerSocket> socket;
     if (options.serve_over_sockets) {
         const std::filesystem::path server_directory = options.server_directory.empty()

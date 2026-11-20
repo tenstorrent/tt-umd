@@ -27,10 +27,9 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels,
-    std::optional<uint32_t> image_endpoint_count) {
-    auto tt_device = create_simulation_tt_device(
-        simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels, image_endpoint_count);
+    int num_host_mem_channels) {
+    auto tt_device =
+        create_simulation_tt_device(simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels);
     return std::make_unique<SimulationChip>(simulator_directory, soc_descriptor, chip_id, std::move(tt_device));
 }
 

@@ -13,7 +13,7 @@ namespace tt::umd::att {
 /**
  * Two Horizon 2x3 devices behind linked crossbars (aether horizon_x2), split by column: column P of
  * device d is a device of its own, which only its NOC2AXI (P,2) maps, in that NOC2AXI's crossbar
- * range ((d + 1) << 36) + (P << 32). Transcribed from tests/att_maps/horizon_x2_columns.yaml, the
+ * range ((d + 1) << 36) + (P << 32). Transcribed from descriptors/att_maps/horizon_x2_columns.yaml, the
  * tables the testbench programs (AETHER_ATT_CONFIG), and checked against it.
  *
  * A column device's soc descriptor is 1x3 at x = 0, and package_offset_x moves it to column P.

@@ -14,7 +14,6 @@ class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
-class JtagDevice;
 class SocArchDescriptor;
 class RemoteCommunication;
 
@@ -26,10 +25,6 @@ public:
     BlackholeTTDeviceModel(
         std::unique_ptr<PCIDevice> pci_device,
         bool use_safe_api,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    BlackholeTTDeviceModel(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     ~BlackholeTTDeviceModel() override;

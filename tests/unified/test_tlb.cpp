@@ -310,9 +310,9 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Test basic write16/read16.
         tlb_write->write16(0, 0xABCD);
@@ -379,9 +379,9 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
         tlb_write->write32(0, 0xAAAABBBB);
@@ -594,7 +594,7 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_EQ(readback_target.noc, NocId::NOC0);
 
     // The single-argument configure() is documented to apply Strict.
-    EXPECT_EQ(window.get_io_ordering(), IoOrdering::Strict);
+    EXPECT_EQ(window.get_io_ordering(), IoOrdering::STRICT);
 
     window.write32(0, 0xabcd1234);
     EXPECT_EQ(window.read32(0), 0xabcd1234u);
@@ -622,8 +622,8 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_EQ(aligned_readback, aligned_pattern);
 
     // Posted is the mode tt-metal needs for the Blackhole DRAM window; make sure it survives configure().
-    window.configure(target, IoOrdering::Posted);
-    EXPECT_EQ(window.get_io_ordering(), IoOrdering::Posted);
+    window.configure(target, IoOrdering::POSTED);
+    EXPECT_EQ(window.get_io_ordering(), IoOrdering::POSTED);
     EXPECT_EQ(window.get_target_config().addr, l1_addr) << "Ordering change should not disturb the target";
 
     // A silicon TLB can express none of the WindowFlags -- AXI user bits belong to the kernel
@@ -663,7 +663,7 @@ TEST_F(TestTlb, CreateIoWindow) {
     EXPECT_GE(window->get_size(), requested_size);
     EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
     // Ordering defaults to Strict when the caller does not ask for one.
-    EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
+    EXPECT_EQ(window->get_io_ordering(), IoOrdering::STRICT);
 
     const TargetIoWindowConfig readback = window->get_target_config();
     EXPECT_EQ(readback.core_start, target.core_start);
@@ -678,7 +678,7 @@ TEST_F(TestTlb, CreateIoWindow) {
 
     // A caller that needs another ordering mode gets it applied to the mapping it is handed, rather
     // than having to reconfigure the window itself once it has one.
-    for (const IoOrdering ordering : {IoOrdering::Relaxed, IoOrdering::Posted}) {
+    for (const IoOrdering ordering : {IoOrdering::RELAXED, IoOrdering::POSTED}) {
         std::unique_ptr<IoWindow> ordered_window =
             tt_device->create_io_window(target, {.size = requested_size}, ordering);
         EXPECT_EQ(ordered_window->get_io_ordering(), ordering);
@@ -688,11 +688,11 @@ TEST_F(TestTlb, CreateIoWindow) {
     // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
     // TTDevice nor translated coordinates ask for a window.
     std::unique_ptr<IoWindow> chip_window =
-        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::RELAXED);
     ASSERT_NE(chip_window, nullptr);
     EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
     EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
-    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::Relaxed);
+    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::RELAXED);
 
     chip_window->write32(0, 0xa5a5a5a5);
     EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
@@ -741,7 +741,7 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
         grid_start,
         l1_addr,
         {.size = sizeof(pattern)},
-        IoOrdering::Strict,
+        IoOrdering::STRICT,
         grid_end,
         WindowFlags::MulticastWrite);
     ASSERT_NE(window, nullptr);

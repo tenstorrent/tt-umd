@@ -2,6 +2,8 @@ set(API_TESTS_SRCS
     test_cluster_descriptor.cpp
     test_soc_descriptor.cpp
     test_dma_zero_copy_async.cpp
+    test_grendel_device_io.cpp
+    test_grendel_att_fold.cpp
     test_device_memcpy.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
@@ -9,7 +11,6 @@ set(API_TESTS_SRCS
     test_frame_pointer.cpp
     test_tt_device.cpp
     test_noc.cpp
-    test_jtag.cpp
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
@@ -25,6 +26,9 @@ endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
+# tt-umd links tt-kmd-lib privately, so the Grendel DMA loopback test reaches its headers only
+# because libtt-umd.so re-exports them. Depend on it directly instead.
+target_link_libraries(api_tests PRIVATE tt-kmd-lib::tt-kmd-lib)
 set_target_properties(
     api_tests
     PROPERTIES

@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <system_error>
+#include <utility>
 
 #include "simulation/simulation_server_socket.hpp"
 
@@ -136,6 +138,30 @@ public:
 
 private:
     pid_t owner_ = -1;
+    std::filesystem::path directory_;
+};
+
+// Removes a directory and everything left in it when the scope ends, for one no sweep will clear
+// up: not a server directory at all, or one given to another user. A remove_all() on the last line
+// of the test body is exactly what a fatal assertion skips, since GTEST_ASSERT_* returns from the
+// body.
+class ScopedServerDirectory {
+public:
+    explicit ScopedServerDirectory(std::filesystem::path directory) : directory_(std::move(directory)) {}
+
+    ScopedServerDirectory(const ScopedServerDirectory&) = delete;
+    ScopedServerDirectory& operator=(const ScopedServerDirectory&) = delete;
+
+    // Non-throwing overload: a destructor is implicitly noexcept, so a filesystem_error would call
+    // std::terminate. Cleanup is best-effort.
+    ~ScopedServerDirectory() {
+        std::error_code ec;
+        std::filesystem::remove_all(directory_, ec);
+    }
+
+    const std::filesystem::path& path() const { return directory_; }
+
+private:
     std::filesystem::path directory_;
 };
 

@@ -154,18 +154,19 @@ built when the simulation backend is enabled (`-DTT_UMD_BUILD_SIMULATION=ON`, e.
 
 Each host gets its own server directory (`<temp>/tt-umd-sim-server-<index>`), so two hosts on the
 same machine never collide — even when they serve the same chip id — and a client attaches by
-pointing at a specific server's directory. It has four subcommands:
+pointing at a specific server's directory. A server is private to the user who started it: its
+directory and sockets are owner-only, and the subcommands below see only your own servers. It has
+four subcommands:
 
 - `start [-d|--detach] <simulator.so | rtl-dir>` — serves the simulation in a fresh server
   directory and runs until stopped, printing `server directory: <dir>` once the sockets are up.
   Other UMD processes then attach to it as clients (e.g. a `Cluster` pointed at that directory).
-- `list` — lists the currently-open simulation servers, showing each server's index, and for each
+- `list` — lists your currently-open simulation servers, showing each server's index, and for each
   of its chips the chip id, arch/backend, socket path, and which simulator its host is running.
 - `kill <server>` — asks a server (by its index from `list`) to shut down in-band over its socket
   (a `SHUTDOWN` request), which tears the host down gracefully; attached clients then fail their
   next request with a clear "server stopped" error. Shutdown goes over the socket rather than by
-  PID/signal because the socket is world-writable and cross-user, while a signal would be same-uid
-  only.
+  PID/signal because a server is known by its directory, not by a pid.
 - `prune` — the same sweep `list` does, reported: removes the directories, and the logs, of
   servers whose host is gone, and names each one.
 

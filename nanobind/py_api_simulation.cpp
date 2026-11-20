@@ -143,7 +143,7 @@ void bind_simulation(nb::module_ &m) {
             "Claims a fresh directory for one simulation server (the lowest free index) and returns it, so a caller "
             "can report the location before it starts serving there. The claim is atomic, and held until this process "
             "exits: only this process (or a child it forks) can host there, so to host from another process, let this "
-            "one exit first.")
+            "one exit first. The directory is private to the calling user.")
         .def_static(
             "scan_servers",
             []() {
@@ -151,15 +151,15 @@ void bind_simulation(nb::module_ &m) {
                 return std::make_pair(std::move(scan.live), std::move(scan.removed));
             },
             release_gil(),
-            "One pass over every server directory. Returns (live, removed) -- the servers still open, and the ones "
-            "whose host was gone, which this removed. Both come from one scan, so a caller acting on both sees one "
-            "consistent view.")
+            "One pass over the calling user's server directories. Returns (live, removed) -- the servers still open, "
+            "and the ones whose host was gone, which this removed. Both come from one scan, so a caller acting on "
+            "both sees one consistent view.")
         .def_static(
             "list_servers",
             &SimulationConnector::list_servers,
             release_gil(),
-            "The simulation servers currently open on this machine, ordered by index. A server whose claiming "
-            "process has exited is left out, and what it left on disk is cleared up.")
+            "The calling user's simulation servers currently open on this machine, ordered by index. A server whose "
+            "claiming process has exited is left out, and what it left on disk is cleared up.")
         .def_static(
             "prune_dead_servers",
             &SimulationConnector::prune_dead_servers,

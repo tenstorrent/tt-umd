@@ -46,6 +46,11 @@ int count_directory(const std::vector<SimulationServerInfo>& servers, const std:
         }));
 }
 
+// The permission bits of path (setuid/setgid/sticky included), for comparing against octal modes.
+unsigned mode_of(const std::filesystem::path& path) {
+    return static_cast<unsigned>(std::filesystem::status(path).permissions()) & 07777;
+}
+
 }  // namespace
 
 // Integration: with no live host, discovery creates a host device that binds + exposes its
@@ -577,6 +582,25 @@ TEST(SimulationConnector, KeepsAServerWhoseOwnerIsAliveDespiteStaleSockets) {
     EXPECT_TRUE(std::filesystem::is_directory(directory.path()));
 }
 
+// The sweep covers the calling user's servers only: another user's server is left alone even when
+// its host is gone, though root could remove it. Giving a directory another owner needs root, which
+// the CI containers run as; no sweep of ours clears it up afterwards, so the test does. Needs no
+// simulator.
+TEST(SimulationConnector, PruneLeavesAnotherUsersServerAlone) {
+    if (::geteuid() != 0) {
+        GTEST_SKIP() << "needs root to give a directory another owner";
+    }
+    test_utils::ServerDirectoryOfAnotherProcess owner;
+    const test_utils::ScopedServerDirectory directory(owner.path());
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    owner.kill_owner();
+    const uid_t nobody = 65534;
+    ASSERT_EQ(::chown(directory.path().c_str(), nobody, nobody), 0);
+
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 0);
+    EXPECT_TRUE(std::filesystem::is_directory(directory.path()));
+}
+
 // Another spelling of a server directory is still that directory: a host that takes over a dead
 // owner's directory through it claims it, so the sweep keeps it and the host's shutdown clears it
 // up. Needs no simulator.
@@ -668,6 +692,34 @@ TEST(SimulationConnector, KeepsAServerWithALiveHost) {
     EXPECT_EQ(count_directory(SimulationConnector::list_servers(), server_directory), 1);
     EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), server_directory), 0);
     EXPECT_TRUE(std::filesystem::exists(SimulationServerSocket::default_socket_path(server_directory, 0)));
+}
+
+// A server directory handed out for a caller to serve in is private to that caller: other users
+// can neither list the sockets in it nor attach to them. Needs no simulator.
+TEST(SimulationConnector, AllocatesAServerDirectoryOnlyItsUserCanOpen) {
+    const std::filesystem::path directory = SimulationConnector::allocate_server_directory();
+
+    EXPECT_EQ(mode_of(directory), 0700u);
+}
+
+// Serving over sockets shares a simulation with the same user's other processes only: the
+// directory the host allocates and the sockets it serves in it are owner-only. Requires
+// TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ServesOnlyToItsOwnUser) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;
+    // server_directory left empty: the host allocates one.
+    const SimulationConnector::Result host = SimulationConnector::discover(options);
+    ASSERT_EQ(host.connection.sockets.count(0), 1u);
+
+    EXPECT_EQ(mode_of(host.connection.server_directory), 0700u);
+    EXPECT_EQ(mode_of(host.connection.sockets.at(0)), 0600u);
 }
 
 // Opening devices is only half of what a caller needs: how they are wired together is the other

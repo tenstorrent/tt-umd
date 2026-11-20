@@ -119,6 +119,13 @@ ClaimAttempt try_take_claim(const std::filesystem::path& directory, bool create)
             const int error = errno;
             return {error == ENOENT ? ClaimAttempt::Status::Missing : ClaimAttempt::Status::Failed, -1, error};
         }
+        // open's mode is narrowed by the umask; fchmod's is not, so this pins exactly 0600. A claim
+        // file its owner cannot read could never be reopened, leaving its directory unsweepable.
+        if (create && ::fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+            const int error = errno;
+            ::close(fd);
+            return {ClaimAttempt::Status::Failed, -1, error};
+        }
         if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
             const int error = errno;
             ::close(fd);

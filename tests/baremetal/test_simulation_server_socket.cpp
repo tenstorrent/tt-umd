@@ -337,6 +337,15 @@ TEST_P(AllocateServerDirectoryUmaskTest, ClaimsAnOwnerOnlyDirectory) {
     EXPECT_EQ(mode_of(directory), 0700u);
 }
 
+// The claim file is owner read/write (0600) whatever the umask, so its owner can always reopen it.
+TEST_P(AllocateServerDirectoryUmaskTest, ClaimsWithAnOwnerOnlyClaimFile) {
+    const ScopedUmask umask(GetParam());
+
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
+
+    EXPECT_EQ(mode_of(directory / "server.lock"), 0600u);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     SimulationServerSocket,
     AllocateServerDirectoryUmaskTest,

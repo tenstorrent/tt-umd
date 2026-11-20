@@ -300,9 +300,28 @@ TEST(SimulationServerSocket, AllocateServerDirectoryClaimsDistinctDirs) {
     const auto index_a = SimulationServerSocket::server_index_from_directory_path(a);
     ASSERT_TRUE(index_a.has_value());
     EXPECT_EQ(SimulationServerSocket::list_server_directories().count(*index_a), 1u);
+}
 
-    fs::remove(a);
-    fs::remove(b);
+// A server directory belongs to the live process that claimed it, so nobody else may host there.
+TEST(SimulationServerSocket, CreateThrowsInADirectoryAnotherLiveProcessClaimed) {
+    const test_utils::ServerDirectoryOfAnotherProcess directory;
+
+    EXPECT_THROW(
+        SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path(), 0)),
+        std::exception);
+}
+
+// A directory whose owner is gone is taken over, and the new host's clean shutdown removes it.
+TEST(SimulationServerSocket, CreateTakesOverADirectoryWhoseOwnerIsGone) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+
+    auto socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path(), 0));
+    EXPECT_EQ(
+        SimulationServerSocket::sweep_server_directory(directory.path()), SimulationServerSocket::SweepResult::Live);
+
+    socket.reset();
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
 }
 
 // The directory allocate_server_directory() claims is owner-only (0700) whatever umask the caller
@@ -313,9 +332,18 @@ class AllocateServerDirectoryUmaskTest : public ::testing::TestWithParam<mode_t>
 TEST_P(AllocateServerDirectoryUmaskTest, ClaimsAnOwnerOnlyDirectory) {
     const ScopedUmask umask(GetParam());
 
-    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
 
-    EXPECT_EQ(mode_of(directory.path()), 0700u);
+    EXPECT_EQ(mode_of(directory), 0700u);
+}
+
+// The claim file is owner read/write (0600) whatever the umask, so its owner can always reopen it.
+TEST_P(AllocateServerDirectoryUmaskTest, ClaimsWithAnOwnerOnlyClaimFile) {
+    const ScopedUmask umask(GetParam());
+
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
+
+    EXPECT_EQ(mode_of(directory / "server.lock"), 0600u);
 }
 
 INSTANTIATE_TEST_SUITE_P(

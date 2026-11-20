@@ -30,7 +30,7 @@ struct SimulationConnectorOptions {
     // Host path only: the directory this server serves its per-chip sockets in (when
     // serve_over_sockets is set). Empty means allocate a fresh one (allocate_server_directory), so
     // distinct hosts never collide; set it to serve in a specific directory (e.g. one the caller
-    // pre-allocated to report to the user).
+    // pre-allocated to report to the user). Hosting fails if another live process has claimed it.
     std::filesystem::path server_directory;
     // Not used: the simulator is not configured from it, and a host reports (and serves) the
     // simulator build's own topology, so a host logs a warning when it is set. A client takes the
@@ -102,13 +102,17 @@ public:
     // a caller can report the location before it starts serving there (pass it back as
     // SimulationConnectorOptions::server_directory or ClusterOptions::simulator_server_directory).
     // The claim is atomic, so racing starts get distinct directories. The directory is private to
-    // the calling user: only that user can serve in it or attach to the servers in it.
+    // the calling user: only that user can serve in it or attach to the servers in it. The calling
+    // process holds the claim for as long as it lives, and only it (or a child it forks) may host
+    // there; to host from another process, let this one exit first. Once it exits the directory is
+    // swept unless a host has taken it over.
     static std::filesystem::path allocate_server_directory();
 
     // One pass over the calling user's server directories (other users' servers are never seen or
     // touched): the servers still open, and the ones whose host was gone, which this removed. Both
-    // come from a single scan, so a caller acting on both sees one consistent view. A directory
-    // with no socket yet is never removed -- it cannot be told apart from a host still coming up.
+    // come from a single scan, so a caller acting on both sees one consistent view. A directory is
+    // removed only once the process that claimed it has exited, so a host still coming up is never
+    // swept.
     struct ServerScan {
         std::vector<SimulationServerInfo> live;
         std::vector<SimulationServerInfo> removed;

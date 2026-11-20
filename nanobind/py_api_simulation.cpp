@@ -47,7 +47,8 @@ void bind_simulation(nb::module_ &m) {
         .def_rw(
             "server_directory",
             &SimulationConnectorOptions::server_directory,
-            "Host path only: the directory to serve the per-chip sockets in. Empty means allocate a fresh one.")
+            "Host path only: the directory to serve the per-chip sockets in. Empty means allocate a fresh one. "
+            "Hosting fails if another live process has claimed it.")
         .def_rw(
             "cluster_descriptor",
             &SimulationConnectorOptions::cluster_descriptor,
@@ -140,8 +141,9 @@ void bind_simulation(nb::module_ &m) {
             &SimulationConnector::allocate_server_directory,
             release_gil(),
             "Claims a fresh directory for one simulation server (the lowest free index) and returns it, so a caller "
-            "can report the location before it starts serving there. The claim is atomic, and the directory is "
-            "private to the calling user.")
+            "can report the location before it starts serving there. The claim is atomic, and held until this process "
+            "exits: only this process (or a child it forks) can host there, so to host from another process, let this "
+            "one exit first. The directory is private to the calling user.")
         .def_static(
             "scan_servers",
             []() {
@@ -157,13 +159,13 @@ void bind_simulation(nb::module_ &m) {
             &SimulationConnector::list_servers,
             release_gil(),
             "The calling user's simulation servers currently open on this machine, ordered by index. A server whose "
-            "host is gone is left out, and what it left on disk is cleared up.")
+            "claiming process has exited is left out, and what it left on disk is cleared up.")
         .def_static(
             "prune_dead_servers",
             &SimulationConnector::prune_dead_servers,
             release_gil(),
             "The same sweep list_servers() does, reporting the other half: the servers whose host was gone, now "
-            "removed. A directory that has published no socket yet is never swept.");
+            "removed. A directory is swept only once the process that claimed it has exited.");
 }
 
 #else

@@ -321,8 +321,7 @@ bool WarmReset::warm_reset_arch_agnostic(
     // Calculate post-reset wait time: use provided M3 timeout if M3 reset, otherwise scale based on device count
     // (minimum 2 seconds, 0.4 seconds per device)
     auto post_reset_wait =
-        reset_m3 ? reset_m3_timeout
-                 : std::chrono::milliseconds(static_cast<int>(std::max(2.0, 0.4 * pci_devices_info.size()) * 1000));
+        reset_m3 ? reset_m3_timeout : std::chrono::milliseconds(std::max<size_t>(2000, 400 * pci_devices_info.size()));
 
     std::chrono::duration<double> post_reset_wait_seconds = post_reset_wait;
 

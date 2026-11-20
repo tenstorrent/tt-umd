@@ -515,3 +515,132 @@ TEST(ApiSysmemManager, AutoNumChannels) {
         EXPECT_EQ(cluster->get_num_host_channels(device_id), expected_channels);
     }
 }
+
+// Host memory channels are pinned for device DMA and shared with forked processes: after a fork(), the device, the
+// process and its child must all keep seeing the same bytes. A private mapping would leave the parent or the child on
+// a copy the device never sees.
+class ApiSysmemManagerAfterFork : public ::testing::Test {
+protected:
+    void SetUp() override {
+        const std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        if (pci_device_ids.empty()) {
+            GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+        }
+        if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+            GTEST_SKIP() << "Host memory channels are hugepages only without IOMMU.";
+        }
+
+        cluster_ = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+        cluster_->start_device({});
+        chip_ = *cluster_->get_target_mmio_device_ids().begin();
+        pcie_core_ = cluster_->get_soc_descriptor(chip_).get_cores(CoreType::PCIE)[0];
+    }
+
+    void TearDown() override {
+        release_child();
+        if (cluster_) {
+            cluster_->close_device();
+        }
+    }
+
+    // Forks a child that runs in_child, then stays alive until release_child(). in_child runs in the forked
+    // process, so it may only make async-signal-safe calls and plain memory accesses.
+    template <typename InChild>
+    void fork_child(InChild in_child) {
+        int release_pipe[2];
+        ASSERT_EQ(pipe(release_pipe), 0);
+        child_ = fork();
+        ASSERT_NE(child_, -1);
+        if (child_ == 0) {
+            close(release_pipe[1]);
+            in_child();
+            char byte = 0;
+            while (read(release_pipe[0], &byte, 1) > 0) {
+            }
+            _exit(0);
+        }
+        close(release_pipe[0]);
+        release_child_fd_ = release_pipe[1];
+    }
+
+    void fork_child() {
+        fork_child([] {});
+    }
+
+    // Lets the child exit and reaps it, so everything it did is complete when this returns.
+    void release_child() {
+        if (release_child_fd_ != -1) {
+            close(release_child_fd_);
+            release_child_fd_ = -1;
+        }
+        if (child_ > 0) {
+            int status = 0;
+            if (!test_utils::wait_for_child(child_, &status, 30)) {
+                test_utils::terminate_processes({child_});
+            }
+            child_ = -1;
+        }
+    }
+
+    // NOC address of host memory channel 0 at this offset, as seen from the chip's PCIe core.
+    uint64_t channel_0_noc_address(uint64_t offset) const {
+        return cluster_->get_sysmem_window_noc_base(chip_) + offset;
+    }
+
+    std::unique_ptr<Cluster> cluster_;
+    ChipId chip_ = 0;
+    CoreCoord pcie_core_;
+    pid_t child_ = -1;
+    int release_child_fd_ = -1;
+};
+
+TEST_F(ApiSysmemManagerAfterFork, DeviceReadsHostWrite) {
+    const std::vector<uint32_t> data_write = {0x11111111, 0x22222222, 0x33333333, 0x44444444};
+    constexpr uint64_t offset = 0x1000;
+    fork_child();
+
+    cluster_->write_to_sysmem(data_write.data(), data_write.size() * sizeof(uint32_t), offset, 0, chip_);
+
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+    cluster_->read_from_device(
+        data_read.data(), chip_, pcie_core_, channel_0_noc_address(offset), data_read.size() * sizeof(uint32_t));
+    EXPECT_EQ(data_read, data_write);
+}
+
+TEST_F(ApiSysmemManagerAfterFork, HostReadsDeviceWrite) {
+    constexpr uint64_t offset = 0x2000;
+    fork_child();
+    // The host writes before the device does, so a parent left on a private copy would read back its own bytes.
+    const std::vector<uint32_t> host_data = {0xAAAAAAAA, 0xAAAAAAAA, 0xAAAAAAAA, 0xAAAAAAAA};
+    cluster_->write_to_sysmem(host_data.data(), host_data.size() * sizeof(uint32_t), offset, 0, chip_);
+
+    const std::vector<uint32_t> device_data = {0x55555555, 0x66666666, 0x77777777, 0x88888888};
+    cluster_->write_to_device(
+        device_data.data(), device_data.size() * sizeof(uint32_t), chip_, pcie_core_, channel_0_noc_address(offset));
+    // A read over the same path flushes the posted NOC write to host memory.
+    std::vector<uint32_t> flush(device_data.size(), 0);
+    cluster_->read_from_device(
+        flush.data(), chip_, pcie_core_, channel_0_noc_address(offset), flush.size() * sizeof(uint32_t));
+
+    std::vector<uint32_t> data_read(device_data.size(), 0);
+    cluster_->read_from_sysmem(data_read.data(), offset, 0, data_read.size() * sizeof(uint32_t), chip_);
+    EXPECT_EQ(data_read, device_data);
+}
+
+TEST_F(ApiSysmemManagerAfterFork, DeviceReadsChildWrite) {
+    constexpr uint64_t offset = 0x3000;
+    const std::vector<uint32_t> child_data = {0x0A0B0C0D, 0x1A1B1C1D, 0x2A2B2C2D, 0x3A3B3C3D};
+    auto* channel = static_cast<volatile uint32_t*>(cluster_->host_dma_address(offset, chip_, 0));
+    // child_data is allocated before the fork, so the child only reads it and stores plain words.
+    fork_child([channel, &child_data] {
+        for (size_t i = 0; i < child_data.size(); i++) {
+            channel[i] = child_data[i];
+        }
+    });
+    release_child();
+
+    std::vector<uint32_t> data_read(child_data.size(), 0);
+    cluster_->read_from_device(
+        data_read.data(), chip_, pcie_core_, channel_0_noc_address(offset), data_read.size() * sizeof(uint32_t));
+    EXPECT_EQ(data_read, child_data);
+}

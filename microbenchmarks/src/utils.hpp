@@ -4,14 +4,18 @@
 
 #pragma once
 #include <fmt/format.h>
+#include <gtest/gtest.h>
 #include <nanobench.h>
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <tt-umd/types/cluster_descriptor_types.hpp>
 #include <vector>
+
+#include "tt-umd-workload/cluster.hpp"
 
 using namespace ankerl::nanobench;
 
@@ -75,5 +79,21 @@ inline void export_results(
 inline void export_results(const Bench& bench, const std::vector<std::string>& context_variables = {}) {
     export_results(bench.title(), bench.results(), context_variables);
 }
+
+// Opens the cluster for a benchmark, which is skipped on a machine without devices.
+class ClusterBenchmark : public ::testing::Test {
+protected:
+    void SetUp() override {
+        cluster = std::make_unique<Cluster>(ClusterOptions{});
+        if (cluster->get_target_device_ids().empty()) {
+            GTEST_SKIP() << "No devices found in the cluster.";
+        }
+        mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    }
+
+    std::unique_ptr<Cluster> cluster;
+    // The chip the benchmarks target unless they are about remote chips.
+    tt::ChipId mmio_chip = 0;
+};
 
 }  // namespace tt::umd::microbenchmarks

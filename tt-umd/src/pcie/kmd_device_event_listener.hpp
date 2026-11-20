@@ -7,7 +7,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "tt-umd/tt_device/device_event_listener.hpp"
@@ -20,7 +22,9 @@ class KmdDeviceEventReader;
 // then reads the ready ones through their readers.
 class KmdDeviceEventListener final : public DeviceEventListener {
 public:
-    KmdDeviceEventListener();
+    // Reads the devices whose models create a KmdDeviceEventReader; the keys of the others go to
+    // uncovered_keys, if not null.
+    KmdDeviceEventListener(const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys);
     ~KmdDeviceEventListener() noexcept override;
 
     KmdDeviceEventListener(const KmdDeviceEventListener&) = delete;
@@ -28,8 +32,6 @@ public:
     KmdDeviceEventListener(KmdDeviceEventListener&&) = delete;
     KmdDeviceEventListener& operator=(KmdDeviceEventListener&&) = delete;
 
-    // Accepts the devices whose models create a KmdDeviceEventReader.
-    bool add(TTDevice& device, uint64_t key) override;
     std::vector<KeyedDeviceEventBatch> read(size_t max_events_per_device) override;
     std::vector<KeyedDeviceEventBatch> read_for(
         size_t max_events_per_device, std::chrono::milliseconds timeout) override;

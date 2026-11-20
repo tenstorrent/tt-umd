@@ -8,7 +8,9 @@
 #include <chrono>
 #include <cstdint>
 #include <future>
+#include <map>
 #include <memory>
+#include <set>
 #include <thread>
 #include <vector>
 
@@ -68,9 +70,10 @@ protected:
             GTEST_SKIP() << "Firmware does not publish device events.";
         }
 
-        // Added before anything is published, since a listener sees only records that arrive after it.
-        listener = DeviceEventListener::create();
-        ASSERT_TRUE(listener->add(*tt_device, KEY));
+        // Created before anything is published, since a listener sees only records that arrive after it.
+        std::set<uint64_t> uncovered_keys;
+        listener = DeviceEventListener::create({{KEY, tt_device.get()}}, &uncovered_keys);
+        ASSERT_TRUE(uncovered_keys.empty());
 
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
@@ -122,9 +125,11 @@ TEST_F(DeviceEventListenerBh, ReadWaitsForRecordPublishedDuringIt) {
     EXPECT_EQ(batches[0].batch.events[0].data[2], 5u);
 }
 
-TEST_F(DeviceEventListenerBh, DeviceAddedTwiceIsReportedUnderEachKey) {
+TEST_F(DeviceEventListenerBh, DeviceUnderTwoKeysIsReportedUnderEach) {
     constexpr uint64_t other_key = 7;
-    ASSERT_TRUE(listener->add(*tt_device, other_key));
+    std::set<uint64_t> uncovered_keys;
+    listener = DeviceEventListener::create({{KEY, tt_device.get()}, {other_key, tt_device.get()}}, &uncovered_keys);
+    ASSERT_TRUE(uncovered_keys.empty());
 
     publish_test_event(*tt_device, 9);
 
@@ -164,7 +169,10 @@ TEST_F(DeviceEventListenerBh, RecordIsReportedUnderItsDevicesKey) {
 
     constexpr uint64_t second_key = 1;
     std::unique_ptr<TTDevice> second_device = create_device(pci_device_ids[1]);
-    ASSERT_TRUE(listener->add(*second_device, second_key));
+    std::set<uint64_t> uncovered_keys;
+    listener =
+        DeviceEventListener::create({{KEY, tt_device.get()}, {second_key, second_device.get()}}, &uncovered_keys);
+    ASSERT_TRUE(uncovered_keys.empty());
 
     publish_test_event(*second_device, 13);
     std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, READ_TIMEOUT);

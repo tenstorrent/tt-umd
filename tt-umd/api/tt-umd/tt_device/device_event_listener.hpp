@@ -7,7 +7,9 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "tt-umd/tt_device/device_event_reader.hpp"
@@ -18,37 +20,38 @@ class TTDevice;
 
 // What one DeviceEventListener::read() got from one device.
 struct KeyedDeviceEventBatch {
-    uint64_t key;            // The key the device was added under.
+    uint64_t key;            // The device's key, as passed to DeviceEventListener::create().
     DeviceEventBatch batch;  // As a DeviceEventReader of the device would have returned it.
 };
 
 // Pulls the event records of several devices through one wait. Created by DeviceEventListener::create().
 //
-// Each added device is read as by its own DeviceEventReader: the listener sees the records that arrive
-// after the device is added, independently of any other reader or device handle, and learns from
-// DeviceEventBatch::lost how many it missed by falling behind.
+// The devices are set at creation. Each is read as by its own DeviceEventReader: the listener sees the
+// records that arrive after it is created, independently of any other reader or device handle, and
+// learns from DeviceEventBatch::lost how many it missed by falling behind.
 //
 // A reset or removal of a device ends the reading of that device alone. The device's batch with
 // DeviceEventBatch::device_lost set is returned once, after which the listener drops the device and
-// carries on with the others. To read its events after a reset, add the device again once it is back.
+// carries on with the others. To read its events after a reset, create a new listener once it is back.
 //
-// cancel() may be called from any thread while another one is inside read(). Every other member, add()
-// included, must be used by one thread at a time, and the listener must not be destroyed while a read()
-// is in progress: cancel() is the way to make that read() return.
+// cancel() may be called from any thread while another one is inside read(). Every other member must be
+// used by one thread at a time, and the listener must not be destroyed while a read() is in progress:
+// cancel() is the way to make that read() return.
 class DeviceEventListener {
 public:
-    static std::unique_ptr<DeviceEventListener> create();
+    // Creates a listener for the devices, each reported under the key the caller gives it. A device may
+    // appear under several keys. The listener keeps no reference to the devices.
+    //
+    // @param uncovered_keys  If not null, receives the keys of the devices whose model does not support
+    //                        reading events through this listener. Those devices are left out.
+    static std::unique_ptr<DeviceEventListener> create(
+        const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys = nullptr);
 
     virtual ~DeviceEventListener() = default;
 
-    // Starts reading the device's events and reports them under key, which the caller chooses and the
-    // listener does not check for uniqueness. Returns false, adding nothing, if the device's model does
-    // not support reading events through this listener. The listener does not keep a reference to device.
-    virtual bool add(TTDevice& device, uint64_t key) = 0;
-
     // Returns a batch, with up to max_events_per_device records, for each device that has records this
     // listener has not read yet or that was lost. When there are none, waits for one. cancel() or a signal
-    // ends the wait early with no batches. With no devices added, only those end the wait.
+    // ends the wait early with no batches. With no devices, only those end the wait.
     virtual std::vector<KeyedDeviceEventBatch> read(size_t max_events_per_device) = 0;
 
     // Like read(), but waits at most timeout and returns no batches if nothing arrives. A zero or negative

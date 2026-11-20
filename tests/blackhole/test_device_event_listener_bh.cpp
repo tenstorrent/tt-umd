@@ -30,7 +30,7 @@ namespace {
 
 constexpr uint32_t TEST_EVENT_RECORD_MSG = 0x91;
 constexpr uint16_t EVENT_TYPE_TEST = 0x0000;
-constexpr uint64_t KEY = 42;
+constexpr DeviceEventKey KEY = 42;
 constexpr auto READ_TIMEOUT = std::chrono::milliseconds(1000);
 // Long enough that a read returning well within it was ended by cancel(), not by the timeout.
 constexpr auto CANCELLED_READ_TIMEOUT = std::chrono::seconds(30);
@@ -71,7 +71,7 @@ protected:
         }
 
         // Created before anything is published, since a listener sees only records that arrive after it.
-        std::set<uint64_t> uncovered_keys;
+        std::set<DeviceEventKey> uncovered_keys;
         listener = DeviceEventListener::create({{KEY, tt_device.get()}}, &uncovered_keys);
         ASSERT_TRUE(uncovered_keys.empty());
 
@@ -126,15 +126,15 @@ TEST_F(DeviceEventListenerBh, ReadWaitsForRecordPublishedDuringIt) {
 }
 
 TEST_F(DeviceEventListenerBh, DeviceUnderTwoKeysIsReportedUnderEach) {
-    constexpr uint64_t other_key = 7;
-    std::set<uint64_t> uncovered_keys;
+    constexpr DeviceEventKey other_key = 7;
+    std::set<DeviceEventKey> uncovered_keys;
     listener = DeviceEventListener::create({{KEY, tt_device.get()}, {other_key, tt_device.get()}}, &uncovered_keys);
     ASSERT_TRUE(uncovered_keys.empty());
 
     publish_test_event(*tt_device, 9);
 
     // The two handles may become ready in separate waits.
-    std::vector<uint64_t> keys;
+    std::vector<DeviceEventKey> keys;
     const auto deadline = std::chrono::steady_clock::now() + READ_TIMEOUT;
     while (keys.size() < 2 && std::chrono::steady_clock::now() < deadline) {
         for (const KeyedDeviceEventBatch& keyed : listener->read_for(4, READ_TIMEOUT)) {
@@ -145,7 +145,7 @@ TEST_F(DeviceEventListenerBh, DeviceUnderTwoKeysIsReportedUnderEach) {
     }
 
     std::sort(keys.begin(), keys.end());
-    EXPECT_EQ(keys, (std::vector<uint64_t>{other_key, KEY}));
+    EXPECT_EQ(keys, (std::vector<DeviceEventKey>{other_key, KEY}));
 }
 
 TEST_F(DeviceEventListenerBh, ListenerAndReaderDoNotTakeRecordsFromEachOther) {
@@ -167,9 +167,9 @@ TEST_F(DeviceEventListenerBh, RecordIsReportedUnderItsDevicesKey) {
         GTEST_SKIP() << "Needs two Tenstorrent devices.";
     }
 
-    constexpr uint64_t second_key = 1;
+    constexpr DeviceEventKey second_key = 1;
     std::unique_ptr<TTDevice> second_device = create_device(pci_device_ids[1]);
-    std::set<uint64_t> uncovered_keys;
+    std::set<DeviceEventKey> uncovered_keys;
     listener =
         DeviceEventListener::create({{KEY, tt_device.get()}, {second_key, second_device.get()}}, &uncovered_keys);
     ASSERT_TRUE(uncovered_keys.empty());

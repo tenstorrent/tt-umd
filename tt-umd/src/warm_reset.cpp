@@ -44,6 +44,7 @@
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -158,7 +159,7 @@ int wait_for_pci_bdf_to_reappear(
             std::string filename = path.filename().string();
 
             // Remove "tenstorrent!" prefix using find().
-            const std::string prefix = "tenstorrent!";
+            constexpr std::string_view prefix = "tenstorrent!";
             if (filename.find(prefix) == 0) {
                 std::string id_str = filename.substr(prefix.length());
                 interface_id = std::stoi(id_str);
@@ -412,7 +413,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     tt_devices.reserve(pci_device_ids.size());
 
     for (auto& i : pci_device_ids) {
-        auto tt_device = TTDevice::create(i);
+        auto tt_device = create_tt_device(i);
         try {
             tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
         } catch (error::UmdBaseException& err) {
@@ -490,7 +491,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
 }
 
 bool WarmReset::galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
-    const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
+    constexpr std::string_view ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
     log_info(
         tt::LogUMD,
         "Starting reset. Executing command: {}",

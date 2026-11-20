@@ -188,6 +188,8 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          # The UMD tests run from the tt-metal root, not from the UMD checkout that holds the descriptors.
+          echo "UMD_DESCRIPTORS_PATH=$(pwd)/tt_metal/third_party/umd/descriptors" >> $GITHUB_ENV
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 

@@ -112,7 +112,7 @@ bool cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() {
     while ((pci_device_obj = hwloc_get_next_pcidev(m_topology, pci_device_obj))) {
         if (hwloc_obj_type_is_io(pci_device_obj->type) &&
             (pci_device_obj->attr->pcidev.vendor_id == TT_PCI_VENDOR_ID)) {
-            std::pair<uint16_t, uint16_t> device_id_revision =
+            std::pair<uint16_t, uint8_t> device_id_revision =
                 std::make_pair(pci_device_obj->attr->pcidev.device_id, pci_device_obj->attr->pcidev.revision);
             m_num_tt_device_by_pci_device_id_map[device_id_revision] += 1;
 
@@ -461,7 +461,7 @@ bool cpuset_allocator::bind_area_memory_nodeset(ChipId physical_device_id, const
     return true;  // Success
 }
 
-int cpuset_allocator::_get_num_tt_pci_devices() {
+size_t cpuset_allocator::_get_num_tt_pci_devices() {
     for (auto &d : m_physical_device_id_to_package_id_map) {
         log_trace(LogUMD, "Found physical_device_id: {} ", d.first);
     }
@@ -574,8 +574,8 @@ hwloc_nodeset_t cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pci_d
     return nodeset;
 }
 
-int cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision) {
-    std::pair<uint16_t, uint16_t> device_id_revision = std::make_pair(device_id, revision);
+int cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint8_t revision) {
+    std::pair<uint16_t, uint8_t> device_id_revision = std::make_pair(device_id, revision);
 
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
         return m_num_tt_device_by_pci_device_id_map.at(device_id_revision);

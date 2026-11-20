@@ -390,29 +390,39 @@ class TestTTDevice(unittest.TestCase):
         """Every TTDevice I/O method accepts a trailing noc_id."""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
         if len(pci_ids) == 0:
-            print("No PCI devices found. Skipping test.")
+            print("No PCI devices found.")
             return
 
-        dev = tt_umd.TTDevice.create(pci_ids[0])
-        dev.init_tt_device()
-        tensix_core = tt_umd.SocDescriptor(dev).get_cores(
-            tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
-        )[0]
-        x, y = tensix_core.x, tensix_core.y
         noc0 = tt_umd.NocId.NOC0
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.init_tt_device()
+            tensix_core = tt_umd.SocDescriptor(dev).get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+            x, y = tensix_core.x, tensix_core.y
 
-        dev.noc_write32(x, y, 0x100, 0x1234, noc_id=noc0)
-        self.assertEqual(dev.noc_read32(x, y, 0x100, noc_id=noc0), 0x1234)
-        dev.noc_write(x, y, 0x200, b"\x01\x02\x03\x04", noc_id=noc0)
-        self.assertEqual(dev.noc_read(x, y, 0x200, 4, noc_id=noc0), b"\x01\x02\x03\x04")
-        buffer = bytearray(4)
-        dev.noc_read(x, y, 0x200, buffer, noc_id=noc0)
-        self.assertEqual(buffer, b"\x01\x02\x03\x04")
-        dev.write_to_device_reg(x, y, 0x200, b"\x05\x06\x07\x08", noc_id=noc0)
-        self.assertEqual(
-            dev.read_from_device_reg(x, y, 0x200, 4, noc_id=noc0),
-            b"\x05\x06\x07\x08",
-        )
+            # L1 stands in for registers the test can safely overwrite; the original contents are restored.
+            original = dev.noc_read(x, y, 0x1000, 4)
+            try:
+                dev.noc_write32(x, y, 0x1000, 0x1234, noc_id=noc0)
+                self.assertEqual(dev.noc_read32(x, y, 0x1000, noc_id=noc0), 0x1234)
+                dev.noc_write(x, y, 0x1000, b"\x01\x02\x03\x04", noc_id=noc0)
+                self.assertEqual(
+                    dev.noc_read(x, y, 0x1000, 4, noc_id=noc0), b"\x01\x02\x03\x04"
+                )
+                buffer = bytearray(4)
+                dev.noc_read(x, y, 0x1000, buffer, noc_id=noc0)
+                self.assertEqual(buffer, b"\x01\x02\x03\x04")
+                dev.write_to_device_reg(x, y, 0x1000, b"\x05\x06\x07\x08", noc_id=noc0)
+                self.assertEqual(
+                    dev.read_from_device_reg(x, y, 0x1000, 4, noc_id=noc0),
+                    b"\x05\x06\x07\x08",
+                )
+            finally:
+                dev.noc_write(x, y, 0x1000, original)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
     def test_arc_msg_test_increment(self):
         """TEST (0x90) increments arg0 and returns it. Verifies arg passing and return values."""

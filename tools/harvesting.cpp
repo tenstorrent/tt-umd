@@ -30,7 +30,8 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // Reads descriptors only; host memory channels would take 1G hugepages a running workload may need.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
 
     auto print_core_formatted = [&](const CoreCoord& core) {
         std::cout << "| (" << std::setw(2) << std::setfill(' ') << core.x << ", " << std::setw(2) << std::setfill(' ')

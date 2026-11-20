@@ -33,15 +33,16 @@ To determine whether your system requires hugepage configuration, run the provid
 
 ### Wormhole and Blackhole
 If your system IOMMU is enabled, no hugepage setup is required.
-If you don't have IOMMU enabled, than hugepages might be required for some of the driver functionality.
-[1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory.  Techniques for setup:
+If you don't have IOMMU enabled, [1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory. UMD allocates them straight from the kernel's 1G hugepage pool, so no hugetlbfs mount is needed. Each open cluster needs one 1G hugepage per host memory channel of every PCIe-attached device (up to 4 per device), and opening a cluster with host memory channels (the default) fails when the pool cannot supply them; open it with 0 host memory channels if it does not use host memory. Techniques for setup:
   * Recommended: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system
       * `sudo dpkg -i tenstorrent-tools_1.1-5_all.deb`
   * Alternative: Metal project provides instructions and a [script](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md#step-3-hugepages).
   * For experts:
     * Put system IOMMU in passthrough mode or disable it
-    * Allocate 1 or more 1G hugepages
-    * Mount the hugetlbfs at /dev/hugepages-1G (e.g. `mount -t hugetlbfs hugetlbfs /dev/hugepages-1G -o mode=777,pagesize=1024M`)
+    * Reserve the pool with `hugepagesz=1G hugepages=N` on the kernel command line, or at runtime with `echo N | sudo tee /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages`
+    * Check the free pages with `cat /sys/kernel/mm/hugepages/hugepages-1048576kB/free_hugepages`
+
+Older UMD versions kept their hugepages in files under a hugetlbfs mount (usually `/dev/hugepages-1G`), and those files hold pages out of the pool until they are deleted. If UMD reports that it cannot allocate a 1G hugepage, remove the files there once no process is using the devices (`sudo rm /dev/hugepages-1G/*tenstorrent`).
 
 ## Install and use UMD
 

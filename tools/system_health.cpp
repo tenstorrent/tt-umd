@@ -167,7 +167,8 @@ int main(int argc, char* argv[]) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // Reads device registers only; host memory channels would take 1G hugepages a running workload may need.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
     auto cluster_descriptor = cluster->get_cluster_description();
     const auto& eth_connections = cluster_descriptor->get_ethernet_connections();
     auto unique_chip_ids = cluster_descriptor->get_chip_unique_ids();

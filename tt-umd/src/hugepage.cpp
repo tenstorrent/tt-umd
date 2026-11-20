@@ -4,30 +4,31 @@
 
 #include "hugepage.hpp"
 
-#include <fcntl.h>  // for O_RDWR and other constants
 #include <fmt/format.h>
-#include <sys/stat.h>  // for umask
-#include <unistd.h>
+#include <mntent.h>
+#include <sys/vfs.h>  // for statfs
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
-#include <iterator>
-#include <regex>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "cpuset_lib.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
-
-constexpr std::string_view hugepage_dir = "/dev/hugepages-1G";
 
 uint32_t get_num_hugepages() {
     std::string nr_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages";
@@ -112,112 +113,89 @@ uint32_t get_available_num_host_mem_channels(
     return num_channels_per_device_available;
 }
 
-std::string find_hugepage_dir(std::size_t pagesize) {
-    static const std::regex hugetlbfs_mount_re(
-        fmt::format("^(nodev|hugetlbfs) ({}) hugetlbfs ([^ ]+) 0 0$", hugepage_dir));
-    static const std::regex pagesize_re("(?:^|,)pagesize=([0-9]+)([KMGT])(?:,|$)");
+namespace {
 
-    std::ifstream proc_mounts("/proc/mounts");
+constexpr std::string_view hugepage_sysfs_dir = "/sys/kernel/mm/hugepages/hugepages-1048576kB";
 
-    for (std::string line; std::getline(proc_mounts, line);) {
-        if (std::smatch mount_match; std::regex_match(line, mount_match, hugetlbfs_mount_re)) {
-            std::string options = mount_match[3];
-            if (std::smatch pagesize_match; std::regex_search(options, pagesize_match, pagesize_re)) {
-                std::size_t mount_page_size = std::stoull(pagesize_match[1]);
-                switch (pagesize_match[2].str()[0]) {
-                    case 'T':
-                        mount_page_size <<= 10;
-                        [[fallthrough]];
-                    case 'G':
-                        mount_page_size <<= 10;
-                        [[fallthrough]];
-                    case 'M':
-                        mount_page_size <<= 10;
-                        [[fallthrough]];
-                    case 'K':
-                        mount_page_size <<= 10;
-                        break;
-                    default:
-                        // Should never reach here as regex only matches [KMGT].
-                        UMD_THROW(
-                            error::RuntimeError,
-                            fmt::format("Unexpected page size suffix: {}", pagesize_match[2].str()));
-                }
-
-                if (mount_page_size == pagesize) {
-                    return mount_match[2];
-                }
-            }
-        }
+std::optional<uint64_t> read_hugepage_counter(std::string_view counter) {
+    std::ifstream file(fmt::format("{}/{}", hugepage_sysfs_dir, counter));
+    uint64_t value = 0;
+    if (file >> value) {
+        return value;
     }
-
-    log_warning(
-        LogUMD,
-        "ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: {} with hugepage_size: "
-        "{}.",
-        hugepage_dir,
-        pagesize);
-    return std::string();
+    return std::nullopt;
 }
 
-int open_hugepage_file(const std::string& dir, ChipId physical_device_id, uint32_t channel) {
-    std::vector<char> filename;
-    static const char pipeline_name[] = "tenstorrent";
-
-    filename.insert(filename.end(), dir.begin(), dir.end());
-    if (filename.back() != '/') {
-        filename.push_back('/');
+// Files on a hugetlbfs mount keep their hugepages out of the pool until they are removed, even after every process
+// that mapped them has exited. Returns the 1GB mounts that hold any, with the number of non-empty files on each.
+std::vector<std::pair<std::string, size_t>> find_files_on_1g_hugetlbfs_mounts() {
+    std::vector<std::pair<std::string, size_t>> mounts_with_files;
+    FILE* mounts = setmntent("/proc/mounts", "r");
+    if (mounts == nullptr) {
+        return mounts_with_files;
     }
 
-    // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
-    // hugepage per device, will share original/shared hugepage filename with physical device 0.
-    if (physical_device_id != 0 || channel != 0) {
-        std::string device_id_str = fmt::format("device_{}_", physical_device_id);
-        filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
+    mntent entry{};
+    std::array<char, 4096> entry_strings{};
+    while (getmntent_r(mounts, &entry, entry_strings.data(), entry_strings.size()) != nullptr) {
+        if (std::string_view(entry.mnt_type) != "hugetlbfs") {
+            continue;
+        }
+
+        // hugetlbfs reports its page size as the block size, while /proc/mounts omits it for the default page size.
+        struct statfs mount_stats = {};
+        if (statfs(entry.mnt_dir, &mount_stats) != 0 ||
+            static_cast<uint64_t>(mount_stats.f_bsize) != HUGEPAGE_REGION_SIZE) {
+            continue;
+        }
+
+        size_t num_files = 0;
+        std::error_code iteration_error;
+        for (std::filesystem::directory_iterator file(entry.mnt_dir, iteration_error), end;
+             !iteration_error && file != end;
+             file.increment(iteration_error)) {
+            std::error_code stat_error;
+            if (file->is_regular_file(stat_error) && file->file_size(stat_error) > 0 && !stat_error) {
+                num_files++;
+            }
+        }
+        if (num_files > 0) {
+            mounts_with_files.emplace_back(entry.mnt_dir, num_files);
+        }
+    }
+    endmntent(mounts);
+    return mounts_with_files;
+}
+
+}  // namespace
+
+std::string describe_hugepage_pool() {
+    const std::optional<uint64_t> free_hugepages = read_hugepage_counter("free_hugepages");
+    const std::optional<uint64_t> reserved_hugepages = read_hugepage_counter("resv_hugepages");
+    const std::optional<uint64_t> total_hugepages = read_hugepage_counter("nr_hugepages");
+    std::string description;
+    if (free_hugepages && reserved_hugepages && total_hugepages) {
+        // Free pages include those other mappings reserved but have not touched yet; a new mapping cannot take them.
+        const uint64_t available_hugepages =
+            *free_hugepages > *reserved_hugepages ? *free_hugepages - *reserved_hugepages : 0;
+        description = fmt::format(
+            "{} of {} 1GB hugepages are available ({} free, of which {} are reserved by other mappings).",
+            available_hugepages,
+            *total_hugepages,
+            *free_hugepages,
+            *reserved_hugepages);
+    } else {
+        description = fmt::format("The 1GB hugepage pool could not be read from {}.", hugepage_sysfs_dir);
     }
 
-    if (channel != 0) {
-        std::string channel_id_str = fmt::format("channel_{}_", channel);
-        filename.insert(filename.end(), channel_id_str.begin(), channel_id_str.end());
+    for (const auto& [mount, num_files] : find_files_on_1g_hugetlbfs_mounts()) {
+        description += fmt::format(
+            " {} files in {} hold 1GB hugepages (typically left there by older UMD versions); remove them if no "
+            "running process uses them.",
+            num_files,
+            mount);
     }
-
-    filename.insert(filename.end(), std::begin(pipeline_name), std::end(pipeline_name));  // includes NUL terminator
-
-    std::string filename_str(filename.begin(), filename.end());
-    filename_str.erase(
-        std::find(filename_str.begin(), filename_str.end(), '\0'),
-        filename_str.end());  // Erase NULL terminator for printing.
-    log_debug(
-        LogUMD,
-        "ttSiliconDevice::open_hugepage_file: using filename: {} for physical_device_id: {} channel: {}",
-        filename_str.c_str(),
-        physical_device_id,
-        channel);
-
-    // Save original and set umask to unrestricted.
-    auto old_umask = umask(0);
-
-    int fd =
-        open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH);
-    if (fd == -1 && errno == EACCES) {
-        log_warning(
-            LogUMD,
-            "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.",
-            filename_str);
-        unlink(filename.data());
-        fd = open(
-            filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH);
-    }
-
-    // Restore original mask.
-    umask(old_umask);
-
-    if (fd == -1) {
-        log_warning(LogUMD, "open_hugepage_file failed");
-        return -1;
-    }
-
-    return fd;
+    return description;
 }
 
 }  // namespace tt::umd

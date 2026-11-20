@@ -659,6 +659,12 @@ jobs:
           cmake --preset simulation -DTT_UMD_ENABLE_UNITY_BUILD=ON
           cmake --build --preset simulation --target api_tests
 
+      # Off-device tests; this is the only CI job that executes the non-x86 wide copy path of device_memcpy.
+      - name: Run UMD device memcpy tests (aarch64 copy path)
+        timeout-minutes: 1
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="AllPhasesAndAlignments/DeviceMemcpy*"
+
       - name: Run UMD device IO tests on tt-sim wormhole
         timeout-minutes: 1
         env:

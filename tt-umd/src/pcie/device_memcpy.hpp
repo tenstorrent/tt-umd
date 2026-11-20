@@ -20,7 +20,9 @@ namespace tt::umd {
  * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
  * 16-byte (SSE), 4-byte and byte-wide tails.
  *
- * On non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
+ * On riscv64: explicit 8-byte volatile stores, with 4-byte and byte-wide tails.
+ *
+ * On other non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
  * 32/16-byte wide stores; Clang gets non-temporal stores (STNP on AArch64)
  * with 2 KB software prefetch.
  *
@@ -45,7 +47,9 @@ void memcpy_to_device(
  * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
  * 16-byte (SSE), 4-byte and byte-wide tails.
  *
- * On non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
+ * On riscv64: explicit 8-byte volatile loads, with 4-byte and byte-wide tails.
+ *
+ * On other non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
  * 32/16-byte wide loads/stores (LDP/STP on AArch64) with 2 KB prefetch.
  *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.

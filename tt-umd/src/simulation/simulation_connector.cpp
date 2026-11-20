@@ -172,7 +172,7 @@ SimulationConnector::ServerScan SimulationConnector::scan_servers() {
                 scan.removed.push_back(std::move(server));
                 break;
             case SimulationServerSocket::SweepResult::Unremovable:
-                // Not a server anything can attach to, and not ours to clear up: in neither half.
+                // Not a server anything can attach to, and not cleared up either: in neither half.
                 break;
         }
     }

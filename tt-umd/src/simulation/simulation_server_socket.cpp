@@ -108,12 +108,13 @@ ClaimAttempt try_take_claim(const std::filesystem::path& directory, bool create)
         // O_CLOEXEC so an exec'd child (an RTL host's simulator) never inherits the claim and keeps
         // a dead owner's directory looking alive; a plain fork keeps it, which is how a detached
         // sim_server host takes over the directory its parent allocated. O_NOFOLLOW and O_NONBLOCK
-        // because a server directory may be writable by others: a planted symlink must not redirect
-        // the open, and a planted FIFO must not block it forever.
+        // because a directory an older UMD made may still be writable by others: a planted symlink
+        // must not redirect the open, and a planted FIFO must not block it forever. Owner-only, so
+        // no other user can open the claim file and hold it.
         const int fd = ::open(
             claim_path.c_str(),
             O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK | (create ? O_CREAT : 0),
-            S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+            S_IRUSR | S_IWUSR);
         if (fd < 0) {
             const int error = errno;
             return {error == ENOENT ? ClaimAttempt::Status::Missing : ClaimAttempt::Status::Failed, -1, error};
@@ -204,25 +205,11 @@ bool has_live_socket(const std::map<ChipId, std::filesystem::path>& sockets) {
     });
 }
 
-// The sweep's verdict for a directory without a claim it can test (one whose claim file it cannot
-// open, e.g. another user's): gone when it published sockets and not one still has a listener.
-bool unclaimed_server_is_gone(const std::filesystem::path& directory) {
-    const auto sockets = SimulationServerSocket::sockets_in_directory(directory);
-    return !sockets.empty() && !has_live_socket(sockets);
-}
-
-// Best-effort and quiet when removal fails: simulation sockets are cross-user by design, and another
-// user's directory cannot be removed from the temp directory, which every scan would otherwise
-// report.
+// Best-effort and quiet when removal fails: the sweep runs on every scan, so a directory that cannot
+// be removed would otherwise be reported each time.
 SimulationServerSocket::SweepResult unremovable(const std::filesystem::path& path, const std::error_code& ec) {
     log_debug(LogUMD, "Could not remove {}: {}", path.string(), ec.message());
     return SimulationServerSocket::SweepResult::Unremovable;
-}
-
-SimulationServerSocket::SweepResult remove_server_directory(const std::filesystem::path& directory) {
-    std::error_code ec;
-    std::filesystem::remove_all(directory, ec);
-    return ec ? unremovable(directory, ec) : SimulationServerSocket::SweepResult::Removed;
 }
 
 // Removes a server directory whose claim the caller holds. The claim file guards the directory only
@@ -647,6 +634,10 @@ SimulationServerSocket::SweepResult SimulationServerSocket::sweep_server_directo
         case ClaimAttempt::Status::HeldElsewhere:
         case ClaimAttempt::Status::Missing:  // the directory was removed meanwhile
             return SweepResult::Live;
+        case ClaimAttempt::Status::Failed:
+            // Without the claim nothing stops a host from taking the directory over, so it is kept.
+            log_debug(LogUMD, "Could not claim {} to sweep it: {}", directory.string(), std::strerror(claim.error));
+            return SweepResult::Live;
         case ClaimAttempt::Status::Taken: {
             // A listener next to a free claim belongs to a host that takes no claim (an older UMD).
             // Judged and removed while holding the claim, so no host can take the directory over in
@@ -665,10 +656,8 @@ SimulationServerSocket::SweepResult SimulationServerSocket::sweep_server_directo
             ::close(claim.fd);
             return result;
         }
-        case ClaimAttempt::Status::Failed:
-            break;
     }
-    return unclaimed_server_is_gone(directory) ? remove_server_directory(directory) : SweepResult::Live;
+    return SweepResult::Live;
 }
 
 std::map<int, std::filesystem::path> SimulationServerSocket::list_server_directories() {

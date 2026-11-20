@@ -649,9 +649,9 @@ TEST(SimulationConnector, KeepsAnUnclaimedServerWithALiveHost) {
     std::filesystem::remove_all(directory.path());
 }
 
-// The temp dir is world-writable, so anyone can leave a FIFO under the claim file's name; the sweep
-// must not block opening it. Run in a child with a deadline, so a hang fails this test rather than
-// stalling the whole run. Needs no simulator.
+// A server directory an older UMD made may be writable by other users, so anyone can leave a FIFO
+// under the claim file's name there; the sweep must not block opening it. Run in a child with a deadline, so a hang
+// fails this test rather than stalling the whole run. Needs no simulator.
 TEST(SimulationConnector, AFifoInPlaceOfTheClaimFileDoesNotHangTheSweep) {
     test_utils::ServerDirectoryOfAnotherProcess directory;
     directory.kill_owner();
@@ -695,11 +695,13 @@ TEST(SimulationConnector, KeepsAServerWithALiveHost) {
 }
 
 // A server directory handed out for a caller to serve in is private to that caller: other users
-// can neither list the sockets in it nor attach to them. Needs no simulator.
+// can neither list the sockets in it nor attach to them, nor open its claim file to hold the claim.
+// Needs no simulator.
 TEST(SimulationConnector, AllocatesAServerDirectoryOnlyItsUserCanOpen) {
     const std::filesystem::path directory = SimulationConnector::allocate_server_directory();
 
     EXPECT_EQ(mode_of(directory), 0700u);
+    EXPECT_EQ(mode_of(directory / "server.lock"), 0600u);
 }
 
 // Serving over sockets shares a simulation with the same user's other processes only: the

@@ -103,16 +103,15 @@ public:
     enum class SweepResult {
         Live,         // its owner is alive, so it was left alone
         Removed,      // its owner was gone, and it is removed
-        Unremovable,  // its owner was gone, but it could not be removed (e.g. another user's)
+        Unremovable,  // its owner was gone, but it could not be removed
     };
 
     // Removes a server directory whose owner is gone: no live process holds its claim and none of
     // its sockets has a listener (a host from a UMD that predates claims takes none). The verdict
     // and the removal are made holding that claim, taken here for a directory that has no claim
     // file yet, so no host can take the directory over in between. A directory with neither a claim
-    // file nor a socket is kept, as one still being allocated; one whose claim file cannot be
-    // opened (e.g. another user's) is judged by its sockets alone: gone when it has some and not
-    // one has a listener.
+    // file nor a socket is kept, as one still being allocated, and so is one whose claim cannot be
+    // taken.
     static SweepResult sweep_server_directory(const std::filesystem::path& directory);
 
     // The simulation server directories under the system temp dir that belong to this process's

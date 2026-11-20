@@ -288,7 +288,7 @@ ChipInfo BlackholeDeviceFirmware::get_chip_info(NocId noc_id) {
         uint32_t pcie0_usage = pcie_usage & 0x3;
         uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
 
-        const uint32_t pcie_usage_endpoint = 1;
+        constexpr uint32_t pcie_usage_endpoint = 1;
         chip_info.harvesting_masks.pcie_harvesting_mask = 0;
         if (pcie0_usage != pcie_usage_endpoint) {
             chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;

@@ -46,8 +46,8 @@ public:
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
+    std::size_t get_num_host_channels() override;
+    std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
@@ -56,9 +56,9 @@ public:
         const void* src,
         uint64_t l1_dest,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
     void read_from_device(
-        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) override;
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::STRICT) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
 

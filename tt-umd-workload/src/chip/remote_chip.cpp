@@ -137,9 +137,9 @@ void RemoteChip::deassert_risc_resets() {
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
-int RemoteChip::get_num_host_channels() { return 0; }
+size_t RemoteChip::get_num_host_channels() { return 0; }
 
-int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+size_t RemoteChip::get_host_channel_size(std::uint32_t channel) {
     UMD_THROW(error::RuntimeError, "There are no host channels available.");
 }
 

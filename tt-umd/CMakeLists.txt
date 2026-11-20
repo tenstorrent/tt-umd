@@ -182,10 +182,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_registers.hpp
                 api/tt-umd/arch/architecture_tlbs.hpp
                 api/tt-umd/arch/configs/keraunos_address_map.hpp
-                api/tt-umd/arc/arc_telemetry_reader.hpp
-                api/tt-umd/arc/blackhole_arc_message_queue.hpp
-                api/tt-umd/arc/firmware_telemetry_reader.hpp
-                api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/arc_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp
@@ -218,6 +214,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/warm_reset_with_recovery.hpp
                 api/tt-umd/utils/semver.hpp
                 api/tt-umd/utils/kmd_mutex.hpp
+                api/tt-umd/cluster_description.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp

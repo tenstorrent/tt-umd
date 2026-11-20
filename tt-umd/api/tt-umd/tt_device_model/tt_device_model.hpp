@@ -115,8 +115,7 @@ public:
     // SocDescriptor's ownership model is revisited.
     virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
 
-    // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
-    // PcieInterface only.
+    // Being removed along with TTDevice::get_pci_device() (#3530): do not add new callers.
     virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 

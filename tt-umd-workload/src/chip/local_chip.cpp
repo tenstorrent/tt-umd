@@ -160,7 +160,7 @@ void LocalChip::close_device() {
     chip_started_lock_.reset();
 };
 
-int LocalChip::get_num_host_channels() {
+size_t LocalChip::get_num_host_channels() {
     // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
@@ -175,7 +175,7 @@ int LocalChip::get_num_host_channels() {
     return sysmem_manager_->get_num_host_mem_channels();
 }
 
-int LocalChip::get_host_channel_size(std::uint32_t channel) {
+size_t LocalChip::get_host_channel_size(std::uint32_t channel) {
     // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
@@ -476,7 +476,8 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32
 
 void LocalChip::deassert_risc_resets() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
+    // A Wormhole firmware message: other architectures leave their RISCs in reset until a core is deasserted.
+    if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET),
             true,

@@ -64,7 +64,8 @@ public:
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
     // listening, as opposed to the path being free or holding a socket file a crashed owner left
-    // behind, which are indistinguishable on disk. Does not claim the path.
+    // behind, which are indistinguishable on disk. Does not claim the path, and never blocks: a host
+    // that is listening but not accepting (its accept queue full) still reads as live.
     //
     // Note this is liveness of the bind, not of request handling: a host binds before serve()
     // installs its handler (see the split described above), so a host still coming up reads as

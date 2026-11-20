@@ -60,6 +60,7 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<Sysmem
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
     sysmem_manager_(std::move(sysmem_manager)),
     tt_device_(std::move(tt_device)) {
+    l1_address_params = tt_device_->get_architecture_implementation()->get_l1_address_params();
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
 

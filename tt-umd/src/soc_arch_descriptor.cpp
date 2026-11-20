@@ -173,8 +173,8 @@ void SocArchDescriptor::build_derived_data() {
         current_ethernet_channel++;
     }
 
-    std::set<int> worker_routing_coords_x;
-    std::set<int> worker_routing_coords_y;
+    std::set<std::size_t> worker_routing_coords_x;
+    std::set<std::size_t> worker_routing_coords_y;
     for (const auto& tensix_core : tensix_cores_) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = tensix_core;

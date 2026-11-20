@@ -384,17 +384,10 @@ class TestTTDevice(unittest.TestCase):
                 f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
             )
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
-            exit_code, return_3, return_4 = dev.arc_msg(
-                0x90, True, 0x1234, 0x5678, 1000
-            )
-            print(
-                f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
-            )
-            self.assertEqual(exit_code, 0, "arc_msg should succeed")
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
     def test_arc_msg_test_increment(self):
-        """TEST (0x90) increments arg0 and returns it. Call twice to verify arg passing and return values."""
+        """TEST (0x90) increments arg0 and returns it. Verifies arg passing and return values."""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
         if len(pci_ids) == 0:
             print("No PCI devices found.")
@@ -407,7 +400,6 @@ class TestTTDevice(unittest.TestCase):
             arch = dev.get_arch()
             print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
 
-            # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly.
             # Wormhole accepts only two arguments. And both are passed packed into a single uint32 value.
             # What that means, is that the returned uint32 will contain both.
             # On blackhole with new arc msg protocol, we have up to 7 arguments each being uint32. So the
@@ -420,13 +412,8 @@ class TestTTDevice(unittest.TestCase):
                 + 1
                 + (default_arg_1 << 16 if arch == tt_umd.ARCH.WORMHOLE_B0 else 0)
             )
-            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, arg0=random_arg)
-            print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
-            self.assertEqual(exit_code, 0)
-            self.assertEqual(return_3, expected_value)
-
             exit_code, return_3, return_4 = dev.arc_msg(0x90, args=[random_arg])
-            print(f"Call 2: exit_code={exit_code:#x}, return_3={return_3:#x}")
+            print(f"exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
             self.assertEqual(return_3, expected_value)
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)

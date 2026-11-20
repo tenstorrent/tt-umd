@@ -54,7 +54,10 @@ convention for ERISC cores; use higher indices for general coordination.
 the KMD lock is the one that works across containers, and the shared memory lock is kept for as long
 as clients on an older UMD exist, since those take only that one and would otherwise not serialize
 against a process on this one. System wide locks and locks on a JTAG device use `RobustMutex` alone,
-since a KMD resource lock exists only per local PCIe device.
+since a KMD resource lock exists only per local PCIe device. A chip specific lock on a device no other
+process can reach, such as one simulated in-process, needs neither: it is an ordinary mutex private to the
+process, so it leaves no file in `/dev/shm`. The caller declares this, since the device type alone does not say
+whether other processes can reach the device.
 
 ## Benchmark
 

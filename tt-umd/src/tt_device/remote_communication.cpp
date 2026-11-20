@@ -18,19 +18,24 @@
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
-    local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
+RemoteCommunication::RemoteCommunication(
+    TTDevice* local_tt_device, SysmemManager* sysmem_manager, bool shared_across_processes) :
+    local_tt_device_(local_tt_device),
+    sysmem_manager_(sysmem_manager),
+    shared_across_processes_(shared_across_processes) {
     LockManager::initialize_mutex(
         MutexType::NON_MMIO,
         local_tt_device->get_communication_device_id(),
-        local_tt_device->get_communication_device_type());
+        local_tt_device->get_communication_device_type(),
+        shared_across_processes_);
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) {
+    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager, bool shared_across_processes) {
     switch (local_tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
+            return std::make_unique<RemoteCommunicationLegacyFirmware>(
+                local_tt_device, target_chip, sysmem_manager, shared_across_processes);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
@@ -60,6 +65,8 @@ TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 void RemoteCommunication::set_sysmem_manager(SysmemManager* sysmem_manager) { sysmem_manager_ = sysmem_manager; }
 
 bool RemoteCommunication::has_sysmem_manager() const { return sysmem_manager_ != nullptr; }
+
+bool RemoteCommunication::is_shared_across_processes() const { return shared_across_processes_; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

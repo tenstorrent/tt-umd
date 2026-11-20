@@ -28,11 +28,18 @@ class TTDevice;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
+    // shared_across_processes is whether other processes can reach the chips behind local_tt_device, and so have to
+    // be locked out of its non-MMIO traffic. The creator knows: on silicon they can, which is the default; a
+    // simulated chip lives in this process only, so its creator passes false.
+    RemoteCommunication(
+        TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr, bool shared_across_processes = true);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device,
+        EthCoord target_chip,
+        SysmemManager* sysmem_manager = nullptr,
+        bool shared_across_processes = true);
 
     // Target core should be in translated coords.
     virtual void read_non_mmio(
@@ -74,6 +81,9 @@ public:
 
     bool has_sysmem_manager() const;
 
+    // Whether other processes can reach the remote chip, so locks guarding its traffic must exclude them too.
+    bool is_shared_across_processes() const;
+
 protected:
     void update_active_eth_core_idx();
 
@@ -84,6 +94,8 @@ protected:
     TTDevice* local_tt_device_;
 
     SysmemManager* sysmem_manager_;
+
+    bool shared_across_processes_;
 };
 
 }  // namespace tt::umd

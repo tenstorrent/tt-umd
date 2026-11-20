@@ -23,6 +23,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt;
@@ -36,7 +37,7 @@ inline bool has_remote_chips() {
     if (pci_device_ids.empty()) {
         return false;
     }
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
     tt_device->init_tt_device();
 
     auto board_type = tt_device->get_board_type();

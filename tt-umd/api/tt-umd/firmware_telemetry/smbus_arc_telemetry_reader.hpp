@@ -8,7 +8,7 @@
 #include <map>
 #include <unordered_set>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 

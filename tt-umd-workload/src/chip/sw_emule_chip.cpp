@@ -337,9 +337,9 @@ SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get();
 
 // --- Host memory (no-ops) ---
 
-int SWEmuleChip::get_num_host_channels() { return 0; }
+size_t SWEmuleChip::get_num_host_channels() { return 0; }
 
-int SWEmuleChip::get_host_channel_size(std::uint32_t) { return 0; }
+size_t SWEmuleChip::get_host_channel_size(std::uint32_t) { return 0; }
 
 void SWEmuleChip::write_to_sysmem(uint16_t, const void*, uint64_t, uint32_t) {}
 

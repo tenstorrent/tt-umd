@@ -238,8 +238,8 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
 // Spawns multiple child processes, each spawning multiple threads.
 // Threads execute in random-ish order (via scheduling) and randomly crash or succeed.
 TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
-    const int NUM_PROCESSES = 4;
-    const int NUM_THREADS_PER_PROCESS = 10;
+    constexpr int NUM_PROCESSES = 4;
+    constexpr int NUM_THREADS_PER_PROCESS = 10;
     std::vector<pid_t> children;
 
     for (int p = 0; p < NUM_PROCESSES; ++p) {

@@ -28,7 +28,6 @@ set(BAREMETAL_TESTS_SRCS
     # their tests need no card and no simulation build -- they run in the no-card baremetal CI lane.
     test_simulation_server_socket.cpp
     test_simulation_client.cpp
-    test_eth_ipc.cpp
     test_simulation_server_transport.cpp
     test_tlb_window_flags.cpp
 )

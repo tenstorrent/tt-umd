@@ -5,10 +5,13 @@
 #include "simulation/simulation_server_socket.hpp"
 
 #include <fmt/format.h>
-#include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include <asio.hpp>
 #include <atomic>
+#include <cerrno>
 #include <charconv>
 #include <map>
 #include <memory>
@@ -172,18 +175,27 @@ void SimulationServerSocket::do_accept() {
 }
 
 bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
-    // is_live() is a predicate; a path too long to name a reachable listener can't have one,
-    // so report not-live rather than letting make_endpoint() throw.
-    if (socket_path.string().size() >= sizeof(sockaddr_un::sun_path)) {
+    // is_live() is a predicate; a path too long to fit sockaddr_un can't name a reachable
+    // listener, so report not-live rather than throwing.
+    const std::string path = socket_path.string();
+    if (path.size() >= sizeof(sockaddr_un::sun_path)) {
         return false;
     }
-    // A synchronous connect() doesn't run the event loop, so this context exists only to own the
-    // probe socket and never processes anything (cf. warm_reset.cpp).
-    asio::io_context io;
-    stream_protocol::socket probe(io);
-    std::error_code ec;
-    probe.connect(make_endpoint(socket_path), ec);
-    return !ec;
+    // A raw socket rather than asio: asio's connect() either blocks on a full accept queue or, on a
+    // non-blocking socket, reports that EAGAIN as a successful connect, so only a raw connect tells
+    // a busy listener apart.
+    const int probe = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+    if (probe < 0) {
+        return false;
+    }
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    path.copy(address.sun_path, path.size());
+    const bool connected = ::connect(probe, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0;
+    const int connect_errno = errno;
+    ::close(probe);
+    // EAGAIN means a listener holds the path but its accept queue is full: busy, not stale.
+    return connected || connect_errno == EAGAIN;
 }
 
 bool SimulationServerSocket::bind_and_listen() {

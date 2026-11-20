@@ -1,0 +1,40 @@
+@startuml umd_context
+' Context view of the UMD item (Section 3). PlantUML alternative to the Mermaid diagram in the document.
+top to bottom direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+package "User space" {
+  component "Workload applications / tt-metal\n(UMD-BO-01)" as APP
+  component "Tooling: tt-smi, tt-exalens,\ntt-telemetry, tt-reset (UMD-BO-07)" as TOOLS
+  package "UMD item (this element)" {
+    component "Workload Layer\ntt-umd-workload: Cluster / Chip" as WL
+    component "Base Driver Layer\ntt-umd: TTDevice + TTDeviceModel components" as BL
+    component "UMD uAPI\ntt-kmd-lib" as UAPI
+    component "tt-umd-utils" as UT
+  }
+}
+
+package "Kernel space / platform boundary" {
+  component "KMD: ioctl, mmap, scalar access,\nIOMMU, DMA pinning, locks" as KMD
+  component "sysfs / procfs / PCI sysfs" as SYS
+}
+
+package "AI-IP device" {
+  component "L1 / DRAM / registers" as MEM
+  component "Firmware (ARC/CMFW, ETH FW)" as FW
+}
+
+APP --> WL
+WL --> BL
+TOOLS --> BL
+TOOLS --> UAPI
+BL --> UAPI
+BL --> UT
+UAPI --> KMD : ioctl
+BL --> SYS : read, remove / rescan
+KMD --> MEM
+BL ..> MEM : MMIO via mmap'd BAR /\nTLB windows (WH/BH)
+BL ..> FW : firmware messages\nover MMIO
+@enduml

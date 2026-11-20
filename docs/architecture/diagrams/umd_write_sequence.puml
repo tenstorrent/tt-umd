@@ -1,0 +1,25 @@
+@startuml umd_write_sequence
+' Control-path write on WH/BH over PCIe, with its failure outcomes (Section 8.4).
+skinparam shadowing false
+autonumber
+
+participant "Caller" as C
+participant "TTDevice" as TT
+participant "SocDescriptor" as SD
+participant "DeviceProtocol" as DP
+participant "Device" as D
+
+C -> TT : write_ctrl(core, addr, data)
+TT -> SD : translate(core)
+SD --> TT : NOC x, y
+TT -> DP : write_ctrl(x, y, addr, data)
+DP -> D : retarget TLB window
+DP -> D : MMIO store (posted)
+alt budget exceeded and hang confirmed (SM-C01)
+  DP --> C : throw DeviceTimeoutError
+else mapping lost, safe IO mode on (SM-C03)
+  DP --> C : throw SigbusError
+else no failure detected
+  DP --> C : return
+end
+@enduml

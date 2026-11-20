@@ -1,0 +1,22 @@
+@startuml umd_bringup_sequence
+' Device bring-up on WH/BH over PCIe (Section 8.4).
+skinparam shadowing false
+autonumber
+
+participant "Caller" as C
+participant "TopologyDiscovery" as TD
+participant "KMD" as K
+participant "TTDevice" as TT
+participant "DeviceFirmware" as FW
+
+C -> TD : discover(options)
+TD -> K : open device, read KMD version
+note over TD, K : KMD < 2.0.0: throw (SM-C06)
+TD -> TT : construct(TTDeviceModel)
+TT -> FW : init_firmware()
+FW --> TT : ready
+note over TT, FW : not ready after 300 s: throw
+TD -> FW : read firmware versions, ETH heartbeat
+note over TD, FW : mismatch: throw (SM-C04, SM-C05)
+TD --> C : ClusterDescriptor + TTDevices
+@enduml

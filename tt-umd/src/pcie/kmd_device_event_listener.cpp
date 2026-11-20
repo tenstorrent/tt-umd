@@ -20,29 +20,41 @@
 
 namespace tt::umd {
 
-std::unique_ptr<DeviceEventListener> DeviceEventListener::create() {
-    return std::make_unique<KmdDeviceEventListener>();
+std::unique_ptr<DeviceEventListener> DeviceEventListener::create(
+    const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys) {
+    return std::make_unique<KmdDeviceEventListener>(devices, uncovered_keys);
 }
 
-KmdDeviceEventListener::KmdDeviceEventListener() : wake_fd_(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK)) {
+KmdDeviceEventListener::KmdDeviceEventListener(
+    const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys) {
+    std::set<uint64_t> uncovered;
+    for (const auto& [key, device] : devices) {
+        UMD_ASSERT(
+            device != nullptr, error::RuntimeError, fmt::format("DeviceEventListener device for key {} is null", key));
+
+        std::unique_ptr<DeviceEventReader> reader = device->create_event_reader();
+        auto* kmd_reader = dynamic_cast<KmdDeviceEventReader*>(reader.get());
+        if (kmd_reader == nullptr) {
+            uncovered.insert(key);
+            continue;
+        }
+
+        std::unique_ptr<KmdDeviceEventReader> owned_reader(kmd_reader);
+        reader.release();
+        entries_.push_back(Entry{key, std::move(owned_reader)});
+    }
+
+    // Created last, since the destructor that closes it does not run when a constructor throws.
+    wake_fd_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     UMD_ASSERT(
         wake_fd_ >= 0, error::RuntimeError, fmt::format("eventfd() failed for device event listener errno: {}", errno));
+
+    if (uncovered_keys != nullptr) {
+        *uncovered_keys = std::move(uncovered);
+    }
 }
 
 KmdDeviceEventListener::~KmdDeviceEventListener() noexcept { close(wake_fd_); }
-
-bool KmdDeviceEventListener::add(TTDevice& device, uint64_t key) {
-    std::unique_ptr<DeviceEventReader> reader = device.create_event_reader();
-    auto* kmd_reader = dynamic_cast<KmdDeviceEventReader*>(reader.get());
-    if (kmd_reader == nullptr) {
-        return false;
-    }
-
-    std::unique_ptr<KmdDeviceEventReader> owned_reader(kmd_reader);
-    reader.release();
-    entries_.push_back(Entry{key, std::move(owned_reader)});
-    return true;
-}
 
 std::vector<KeyedDeviceEventBatch> KmdDeviceEventListener::read(size_t max_events_per_device) {
     return read_events(max_events_per_device, -1);

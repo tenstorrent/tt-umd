@@ -641,7 +641,7 @@ public:
      *
      * @param device_id Logical device id to target.
      */
-    std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    std::size_t get_num_host_channels(std::uint32_t device_id);
 
     /**
      * Get size for a specific Host channel accessible by the corresponding device.
@@ -649,7 +649,7 @@ public:
      * @param device_id Logical device id to target.
      * @param channel Logical host channel to target.
      */
-    std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    std::size_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
 
     /**
      * Get absolute address corresponding to a zero based offset into a specific host memory channel for a specific

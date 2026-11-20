@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 
+#include "tests/test_utils/device_event_test_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/device_event_reader.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -19,18 +20,15 @@
 #include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
+using test_utils::CANCELLED_READ_BOUND;
+using test_utils::CANCELLED_READ_TIMEOUT;
+using test_utils::EVENT_READ_TIMEOUT;
+using test_utils::EVENT_TYPE_TEST;
+using test_utils::TEST_EVENT_RECORD_MSG;
 
-// Firmware's TT_SMC_MSG_TEST_EVENT_RECORD publishes TEST records with fields the host chooses.
+// The tests publish TEST records through firmware.
 
-namespace {
-
-constexpr uint32_t TEST_EVENT_RECORD_MSG = 0x91;
-constexpr uint16_t EVENT_TYPE_TEST = 0x0000;
-constexpr auto READ_TIMEOUT = std::chrono::milliseconds(1000);
-// Long enough that a read returning well within it was ended by cancel(), not by the timeout.
-constexpr auto CANCELLED_READ_TIMEOUT = std::chrono::seconds(30);
-constexpr auto CANCELLED_READ_BOUND = std::chrono::seconds(10);
-
+// Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class DeviceEventReaderBh : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -77,12 +75,10 @@ protected:
     std::unique_ptr<DeviceEventReader> reader;
 };
 
-}  // namespace
-
 TEST_F(DeviceEventReaderBh, ReadReturnsPublishedRecord) {
     publish_test_event(0x0042, 7, 1, 2, 3);
 
-    DeviceEventBatch batch = reader->read_for(4, READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, EVENT_READ_TIMEOUT);
 
     ASSERT_EQ(batch.events.size(), 1u);
     EXPECT_EQ(batch.events[0].type, EVENT_TYPE_TEST);
@@ -136,8 +132,8 @@ TEST_F(DeviceEventReaderBh, ReadersDoNotTakeRecordsFromEachOther) {
 
     publish_test_event(0, 0, 0, 0, 9);
 
-    DeviceEventBatch batch = reader->read_for(4, READ_TIMEOUT);
-    DeviceEventBatch other_batch = other_reader->read_for(4, READ_TIMEOUT);
+    DeviceEventBatch batch = reader->read_for(4, EVENT_READ_TIMEOUT);
+    DeviceEventBatch other_batch = other_reader->read_for(4, EVENT_READ_TIMEOUT);
     ASSERT_EQ(batch.events.size(), 1u);
     ASSERT_EQ(other_batch.events.size(), 1u);
     EXPECT_EQ(batch.events[0].data[2], 9u);

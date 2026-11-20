@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
         git \
         git-lfs \
         build-essential \
+        gcc-14 \
+        g++-14 \
         cmake \
         ninja-build \
         python3 \

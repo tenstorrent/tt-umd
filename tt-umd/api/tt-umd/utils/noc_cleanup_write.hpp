@@ -1,0 +1,44 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent USA, Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
+struct tt_device_t;
+
+namespace tt::umd {
+
+// A NOC write KMD performs when this object's device handle closes: when the object is destroyed, or
+// when the process dies without destroying it. Lets device-side software learn that its host client
+// is gone, even after a crash.
+//
+// Owns a dedicated, close-on-exec device handle. A child forked without exec shares it, and then KMD
+// writes only once the child has closed it too.
+class NocCleanupWrite {
+public:
+    // Registers a write of `data` to `addr` on tile (x, y) of NOC `noc` (0 or 1) of
+    // /dev/tenstorrent/<pci_device_num>. `addr` must be 4-byte aligned. Throws when the device cannot
+    // be opened, KMD is older than 2.2.0, or KMD rejects the action.
+    NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data);
+    ~NocCleanupWrite() noexcept;
+
+    // Pins `size` bytes at page-aligned `addr` on this object's device handle and returns their DMA address. KMD
+    // unpins them when the handle closes, after the cleanup write. The caller keeps the memory mapped until then.
+    // Needs an IOMMU. Throws when KMD refuses.
+    uint64_t pin(void* addr, size_t size);
+
+    NocCleanupWrite(const NocCleanupWrite&) = delete;
+    NocCleanupWrite& operator=(const NocCleanupWrite&) = delete;
+    NocCleanupWrite(NocCleanupWrite&&) = delete;
+    NocCleanupWrite& operator=(NocCleanupWrite&&) = delete;
+
+private:
+    std::string device_path_;
+    tt_device_t* device_ = nullptr;
+};
+
+}  // namespace tt::umd

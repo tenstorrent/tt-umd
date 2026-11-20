@@ -37,7 +37,7 @@ using namespace tt::umd::test::utils;
 
 TEST(MicrobenchmarkPCIeDMA, DRAM) {
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         4,
         8,
@@ -81,7 +81,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAM) {
 
 TEST(MicrobenchmarkPCIeDMA, Tensix) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
@@ -107,7 +107,7 @@ TEST(MicrobenchmarkPCIeDMA, Tensix) {
 
 TEST(MicrobenchmarkPCIeDMA, Ethernet) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Ethernet").unit("byte");
-    const uint64_t ADDRESS = 0x20000;  // 128 KiB
+    constexpr uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
@@ -133,7 +133,7 @@ TEST(MicrobenchmarkPCIeDMA, Ethernet) {
 
 TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_Sweep").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
     cluster->set_clock_state(DevicePowerState::BUSY);
@@ -157,7 +157,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMSweepSizes) {
 
 TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_Sweep").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
     cluster->set_clock_state(DevicePowerState::BUSY);
@@ -181,7 +181,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 
 TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Ethernet_Sweep").unit("byte");
-    const uint64_t ADDRESS = 0x20000;  // 128 KiB
+    constexpr uint64_t ADDRESS = 0x20000;  // 128 KiB
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
     cluster->set_clock_state(DevicePowerState::BUSY);
@@ -213,7 +213,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
@@ -249,7 +249,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte").epochs(1).epochIterations(1000);
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
@@ -286,7 +286,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
-    const uint64_t ADDRESS = 0x0;
+    constexpr uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,

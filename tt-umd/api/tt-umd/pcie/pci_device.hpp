@@ -142,7 +142,7 @@ class PCIDevice {
     const int pci_device_num;       // N in /dev/tenstorrent/N
     const PciDeviceInfo info;       // PCI device info
     const int numa_node;            // -1 if non-NUMA
-    const int revision;             // PCI revision value from sysfs
+    const uint8_t revision;         // PCI revision value from sysfs
     const tt::ARCH arch;            // e.g. Wormhole, Blackhole
     const SemVer kmd_version;       // KMD version
     int pci_device_file_desc = -1;  // Character device file descriptor, -1 until opened
@@ -222,13 +222,13 @@ public:
     /**
      * @return PCI device id
      */
-    int get_pci_device_id() const { return info.device_id; }
+    uint16_t get_pci_device_id() const { return info.device_id; }
 
     /**
      * @return PCI revision value from sysfs.
      * TODO: target for removal; upper layers should not care about this.
      */
-    int get_pci_revision() const { return revision; }
+    uint8_t get_pci_revision() const { return revision; }
 
     /**
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)

@@ -35,8 +35,8 @@ using namespace tt;
 using namespace tt::umd;
 
 TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
-    const uint64_t address0 = 0x1000;
-    const uint64_t address1 = 0x2000;
+    constexpr uint64_t address0 = 0x1000;
+    constexpr uint64_t address1 = 0x2000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -118,7 +118,7 @@ public:
 // Replacing the gateway set after UMD has rotated off index 0 must not leave a stale index behind.
 // Shrinking to a single core used to make get_remote_transfer_ethernet_core() throw std::out_of_range.
 TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
-    const uint64_t address = 0x1000;
+    constexpr uint64_t address = 0x1000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     if (cluster->get_target_remote_device_ids().empty()) {

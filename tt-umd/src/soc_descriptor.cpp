@@ -73,7 +73,7 @@ void SocDescriptor::write_core_locations(void *out, const CoreType &core_type) c
 void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
-    const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
+    const size_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid.

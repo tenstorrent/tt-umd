@@ -7,22 +7,19 @@
 #include <cstdint>
 #include <utility>
 
-#include "tt-umd/topology/topology_discovery.hpp"
+#include "topology/topology_discovery_base.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 namespace tt::umd {
-enum class IODeviceType;
 struct TopologyDiscoveryOptions;
 
-class TopologyDiscoveryWormhole : public TopologyDiscovery {
+class TopologyDiscoveryWormhole : public TopologyDiscoveryBase {
 public:
     TopologyDiscoveryWormhole(
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
-        const TopologyDiscoveryOptions& options,
-        IODeviceType io_device_type) :
-        TopologyDiscovery(std::move(soc_arch_descriptor), options, io_device_type) {}
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor, const TopologyDiscoveryOptions& options) :
+        TopologyDiscoveryBase(std::move(soc_arch_descriptor), options) {}
 
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }

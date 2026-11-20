@@ -1,5 +1,10 @@
 set(MICROBENCHMARK_SRC_FILES
     src/main.cpp
+    src/benchmark_cluster_open.cpp
+    src/benchmark_dma.cpp
+    src/benchmark_latency.cpp
+    src/benchmark_multicast.cpp
+    src/benchmark_remote_io.cpp
     src/benchmark_tlb.cpp
 )
 add_executable(microbenchmarks ${MICROBENCHMARK_SRC_FILES})

@@ -31,6 +31,7 @@
 #endif  // TT_UMD_BUILD_SIMULATION
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/device_event_listener.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -748,6 +749,23 @@ public:
      * @param device_id Device to target.
      */
     TTDevice* get_tt_device(ChipId device_id) const;
+
+    //---------- Device events.
+
+    /**
+     * Create a listener for the event records of all chips in the cluster, reported with each chip's ChipId as the
+     * batch key. See DeviceEventListener.
+     *
+     * The listener reads through its own device handles, so it doesn't depend on this Cluster at runtime and may
+     * outlive it. Its keys are this Cluster's chip IDs, though, which a later Cluster may number differently, so
+     * stop using it together with this Cluster. Destroying the Cluster doesn't end a read() waiting at that point:
+     * cancel() it.
+     *
+     * @param uncovered_chip_ids If not null, receives the chips whose events can't be read: chips without a device,
+     *                           chips reached over Ethernet, and chips whose device model or KMD doesn't support
+     *                           device events. If null, each such chip is logged as a warning instead.
+     */
+    std::unique_ptr<DeviceEventListener> create_event_listener(std::set<ChipId>* uncovered_chip_ids = nullptr);
 
 private:
     // Helper functions

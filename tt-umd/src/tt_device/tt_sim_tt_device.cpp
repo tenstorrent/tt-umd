@@ -5,12 +5,10 @@
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <limits>
 #include <string>
-#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
@@ -40,23 +38,6 @@
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
-
-namespace {
-
-bool sim_dram_teleport_enabled() {
-    // Cache the result since this is called on every device read/write.
-    static const bool enabled = [] {
-        const char* env = std::getenv("TT_SIMULATOR_DRAM_TELEPORT");
-        if (env == nullptr) {
-            return false;
-        }
-        std::string_view value(env);
-        return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
-    }();
-    return enabled;
-}
-
-}  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
@@ -330,44 +311,6 @@ void TTSimTTDevice::after_read() {
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device.
     communicator_->advance_clock(1);
-}
-
-bool TTSimTTDevice::handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    return special_dram_write(mem_ptr, core, addr, size);
-}
-
-bool TTSimTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    return special_dram_read(mem_ptr, core, addr, size);
-}
-
-bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    if (!sim_dram_teleport_enabled()) {
-        return false;
-    }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-        return false;
-    }
-    if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
-        return true;
-    }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
-    return true;
-}
-
-bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    if (!sim_dram_teleport_enabled()) {
-        return false;
-    }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-        return false;
-    }
-    if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
-    }
-    // Side effect: this path advances the simulation clock by 10 cycles (rather than the single
-    // cycle after_read() applies), and it returns before after_read() would otherwise run.
-    communicator_->advance_clock(10);
-    return true;
 }
 
 void TTSimTTDevice::advance_device_execution() {

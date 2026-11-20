@@ -13,8 +13,7 @@
 // Each one is either rejected before reaching the driver or shows what a driver without
 // TENSTORRENT_IOCTL_READ_EVENTS looks like to the caller.
 
-namespace {
-
+// Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class KmdLibEvents : public ::testing::Test {
 protected:
     void SetUp() override { ASSERT_EQ(tt_device_open("/dev/null", &dev, 0), 0); }
@@ -25,8 +24,6 @@ protected:
     tt_event_t events[4] = {};
     uint32_t count = 0;
 };
-
-}  // namespace
 
 TEST_F(KmdLibEvents, NullDeviceIsRejected) {
     EXPECT_EQ(tt_device_read_events(nullptr, events, 4, 0, 0, -1, &count, nullptr, nullptr), -EINVAL);

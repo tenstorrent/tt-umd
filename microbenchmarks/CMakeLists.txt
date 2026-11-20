@@ -7,7 +7,6 @@ target_link_libraries(
     microbenchmarks
     PRIVATE
         umd::tt-umd
-        gtest_main
         gtest
         fmt::fmt-header-only
         nanobench

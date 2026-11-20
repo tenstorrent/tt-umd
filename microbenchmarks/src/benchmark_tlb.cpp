@@ -71,7 +71,7 @@ protected:
 TEST_F(TLB, IOSpeed) {
     const std::vector<Target> targets = {TENSIX, DRAM, ETH};
     const std::vector<std::string> context_variables = {"api_level", "direction", "core", "coretype", "ordering"};
-    const std::vector<IoOrdering> orderings = {IoOrdering::Relaxed, IoOrdering::Strict};
+    const std::vector<IoOrdering> orderings = {IoOrdering::RELAXED, IoOrdering::STRICT};
     std::vector<uint8_t> data(DRAM.batch_sizes.back());
 
     Bench bench;

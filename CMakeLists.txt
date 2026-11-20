@@ -58,7 +58,11 @@ option(TT_UMD_BUILD_EXAMPLES "Enables build of tt-umd examples" OFF)
 # than auto-detected: with this ON, missing or too-old libibverbs is a configure error rather than
 # a silent skip, so a host that cannot build them says so instead of quietly producing nothing.
 option(TT_UMD_BUILD_RDMA "Enables build of the RDMA dma-buf test and example (requires libibverbs)" OFF)
-option(TT_UMD_BUILD_ALL "Enables build of all tt-umd components (tests, simulation, python, tools, examples)" OFF)
+option(
+    TT_UMD_BUILD_ALL
+    "Enables build of all tt-umd components (tests, simulation, python, microbenchmarks, tools, examples)"
+    OFF
+)
 option(TT_UMD_BUILD_STATIC "Enables build of tt-umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
 option(TT_UMD_BUILD_EMULE "Enable software emulation chip (SWEmuleChip)" OFF)

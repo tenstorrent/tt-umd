@@ -47,6 +47,11 @@ struct ArchitectureTlbs {
     uint32_t static_cfg_addr;
     uint64_t cfg_reg_size_bytes;
 
+    // Whether the host can write a window's configuration registers itself. Where it cannot --
+    // Quasar keeps them behind a control plane only the kernel driver maps -- a window is
+    // configured by asking the driver, and static_cfg_addr/cfg_reg_size_bytes mean nothing.
+    bool cfg_registers_host_writable;
+
     // Configuration of the window at the given index.
     tlb_configuration get_configuration(uint32_t tlb_index) const;
 

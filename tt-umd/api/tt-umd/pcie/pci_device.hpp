@@ -26,6 +26,7 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
+struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -323,17 +324,23 @@ public:
         const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
-     * Configure TLB register in user space by writing directly to BAR0.
+     * Point a TLB window at the target described by tlb_config.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_config The TLB configuration data
+     * @param tlb_handle The window's driver handle. Required on architectures whose windows only
+     *                   the driver can program; may be null on the others.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
+     *                   window's size. On architectures whose windows only the driver can program,
+     *                   the address is flat and already names its target, so a coordinate or
+     *                   multicast is refused.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip.
+     *               PCIe round trip. Ignored where the driver programs the window.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(
+        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.

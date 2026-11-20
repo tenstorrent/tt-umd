@@ -4,7 +4,7 @@
 
 // Tests for the simulation multichip core infrastructure:
 // - TTSimProtocol's process-qualified MMIO id
-// - TTSimCommunicator shared dlopen / select_chip_if_needed patterns
+// - TTSimCommunicator shared dlopen pattern
 //
 // The MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
@@ -32,7 +32,6 @@
 #include "tt-umd/types/xy_pair.hpp"
 
 #ifdef TT_UMD_BUILD_SIMULATION
-#include <dlfcn.h>
 #include <fmt/format.h>
 #include <unistd.h>
 
@@ -57,7 +56,7 @@ using namespace tt;
 using namespace tt::umd;
 
 // ---------------------------------------------------------------------------
-// TTSimCommunicator: shared dlopen and chip selection
+// TTSimCommunicator: shared dlopen
 // These tests require a running simulator (TT_UMD_SIMULATOR env var).
 // ---------------------------------------------------------------------------
 
@@ -131,13 +130,6 @@ constexpr uint8_t BH_GALAXY_BUS_DEVICE[32] = {
 };
 
 uint32_t bdf_of(uint32_t bus, uint32_t device) { return (bus << 8) | (device << 3); }
-
-// An image with the multichip ABI creates its chips by id, so it hosts as many as it is asked for
-// whatever endpoints it exposes.
-bool has_multichip_abi(const std::filesystem::path& simulator_path) {
-    std::unique_ptr<void, int (*)(void*)> handle(dlopen(simulator_path.c_str(), RTLD_LAZY), &dlclose);
-    return handle != nullptr && dlsym(handle.get(), "libttsim_create_device_by_id") != nullptr;
-}
 
 }  // namespace
 
@@ -315,7 +307,7 @@ TEST_F(TTSimCommunicatorTest, WriteAfterCloseIsNoOp) {
 }
 
 // Two TTSimTTDevice instances with distinct chip_ids writing and reading back
-// independently. Exercises select_chip_if_needed for each I/O call.
+// independently.
 TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
     // Enumerate before bringing anything up: the simulator aborts the process rather than throwing
     // when asked to start twice, so a single-endpoint image has to be detected up front.
@@ -629,10 +621,8 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
 // A topology declared by a cluster descriptor still has to be one the image models: every MMIO chip it
 // names is opened on one of the image's PCI endpoints.
 TEST_F(TTSimDiscoveryTest, DescriptorWithMoreMmioChipsThanEndpointsIsRefused) {
-    if (arch_ != ARCH::BLACKHOLE || has_multichip_abi(simulator_path_) ||
-        TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_).size() != 1) {
-        GTEST_SKIP() << "Needs a one-endpoint Blackhole image without the multichip ABI to pair with a "
-                        "two-MMIO-chip P300 descriptor.";
+    if (arch_ != ARCH::BLACKHOLE || TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path_).size() != 1) {
+        GTEST_SKIP() << "Needs a one-endpoint Blackhole image to pair with a two-MMIO-chip P300 descriptor.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("blackhole_P300_both_mmio.yaml"));

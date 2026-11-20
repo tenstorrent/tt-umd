@@ -40,7 +40,6 @@
 #include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "simulation/simulator_paths.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
@@ -704,80 +703,6 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // -------------------------------------------------------------------
-    // Multichip eth-MAC wiring pre-pass.
-    // For SIMULATION ChipType with multichip-aware libttsim, populate the virtual
-    // switch routing table.
-    // -------------------------------------------------------------------
-    if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so") {
-        // Walk chips_ and return the TTSimCommunicator for a given chip.
-        auto get_comm = [&](ChipId cid) -> tt::umd::TTSimCommunicator* {
-            auto it = chips_.find(cid);
-            if (it == chips_.end()) {
-                return nullptr;
-            }
-            auto* sim_chip = dynamic_cast<tt::umd::SimulationChip*>(it->second.get());
-            if (!sim_chip) {
-                return nullptr;
-            }
-            auto* sim_tt = dynamic_cast<tt::umd::TTSimTTDevice*>(sim_chip->get_tt_device());
-            return sim_tt ? sim_tt->get_communicator() : nullptr;
-        };
-        // Deterministic per-(chip, channel) MAC: top byte is OUI, next byte
-        // encodes chip_id, bottom byte encodes channel.
-        auto eth_sim_mac = [](ChipId cid, int chan) -> uint64_t {
-            UMD_ASSERT(
-                cid <= 0xFF && chan <= 0xFF,
-                error::RuntimeError,
-                fmt::format("MAC encoding overflow: chip_id {} channel {}", cid, chan));
-            return 0x021E52000000ULL | (uint64_t(cid & 0xFF) << 8) | uint64_t(chan & 0xFF);
-        };
-        // Reset the virtual switch once (singleton, process-global state).
-        if (!chips_.empty()) {
-            ChipId first_chip_id = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
-            if (auto* first_chip_comm = get_comm(first_chip_id)) {
-                first_chip_comm->switch_reset();
-            }
-        }
-
-        // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
-        // register MACs and peer handles.  Process each undirected edge once
-        // (chip_a < chip_b) to avoid double-registration.
-        const auto& eth_conns = cluster_desc->get_ethernet_connections();
-        for (const auto& [chip_a, chan_map] : eth_conns) {
-            for (const auto& [chan_a, remote] : chan_map) {
-                ChipId chip_b = std::get<0>(remote);
-                int chan_b = std::get<1>(remote);
-                if (chip_a >= chip_b) {
-                    continue;
-                }
-                auto* comm_a = get_comm(chip_a);
-                auto* comm_b = get_comm(chip_b);
-                if (!comm_a || !comm_b) {
-                    continue;
-                }
-                uint64_t mac_a = eth_sim_mac(chip_a, chan_a);
-                uint64_t mac_b = eth_sim_mac(chip_b, chan_b);
-                comm_a->register_eth_endpoint(uint32_t(chan_a), mac_a);
-                comm_b->register_eth_endpoint(uint32_t(chan_b), mac_b);
-                // Wire bidirectional peer info for source-aware routing (BH BCAST/MCAST MAC).
-                comm_a->register_peer(uint32_t(chan_a), comm_b->get_dev_handle(), uint32_t(chan_b));
-                comm_b->register_peer(uint32_t(chan_b), comm_a->get_dev_handle(), uint32_t(chan_a));
-                log_info(
-                    tt::LogEmulationDriver,
-                    "TTSim eth: {}:ch{} mac={:#014x}  <->  {}:ch{} mac={:#014x}",
-                    chip_a,
-                    chan_a,
-                    mac_a,
-                    chip_b,
-                    chan_b,
-                    mac_b);
-            }
-        }
-    }
-#endif  // TT_UMD_BUILD_SIMULATION
-
-#ifdef TT_UMD_BUILD_SIMULATION
     if (options.chip_type == ChipType::SIMULATION) {
         // The client path recorded its connection during discovery, so reaching here without one
         // means this process runs the simulation itself.
@@ -880,44 +805,9 @@ void Cluster::serve_simulation_devices_over_sockets(
     }
 }
 
-// Passthroughs to libttsim_switch_register_fabric_* -- allow tt-metal fabric
-// init to wire mock multichip topologies under craq-sim.
+void Cluster::register_sim_fabric_endpoint_direction(ChipId, uint32_t, uint32_t) {}
 
-void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
-    auto it = chips_.find(chip_id);
-    if (it == chips_.end()) {
-        return;
-    }
-    auto* sim_chip = dynamic_cast<SimulationChip*>(it->second.get());
-    if (!sim_chip) {
-        return;
-    }
-    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
-    if (!sim_tt) {
-        return;
-    }
-    if (auto* communicator = sim_tt->get_communicator()) {
-        communicator->register_fabric_endpoint_direction(eth_tile_id, direction);
-    }
-}
-
-void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id) {
-    auto chip_it = chips_.find(chip_id);
-    if (chip_it == chips_.end()) {
-        return;
-    }
-    auto* sim_chip = dynamic_cast<SimulationChip*>(chip_it->second.get());
-    if (!sim_chip) {
-        return;
-    }
-    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
-    if (!sim_tt) {
-        return;
-    }
-    if (auto* communicator = sim_tt->get_communicator()) {
-        communicator->register_fabric_node_id(mesh_id, fabric_chip_id);
-    }
-}
+void Cluster::register_sim_fabric_node_id(ChipId, uint32_t, uint32_t) {}
 #endif  // TT_UMD_BUILD_SIMULATION
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

@@ -81,7 +81,7 @@ public:
      * @param harvesting_mask Harvesting mask to get number of harvested rows/columns/channels from.
      * @return Number of harvested rows/columns/channels.
      */
-    static size_t get_num_harvested(const size_t harvesting_mask);
+    static uint32_t get_num_harvested(const size_t harvesting_mask);
 
     /**
      * Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
@@ -91,7 +91,7 @@ public:
      * @param tensix_harvesting_physical_layout Harvesting mask in physical layout.
      * @return Harvesting mask in NOC0 layout.
      */
-    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, size_t tensix_harvesting_physical_layout);
 
     // TODO: This function should be removed once the corresponding API is removed from Cluster.
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
@@ -189,7 +189,7 @@ public:
      *
      * @return Number of Ethernet channels.
      */
-    uint32_t get_num_eth_channels() const;
+    size_t get_num_eth_channels() const;
 
     /**
      * Get number of harvested ETH channels.

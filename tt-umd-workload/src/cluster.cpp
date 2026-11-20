@@ -1298,11 +1298,11 @@ void Cluster::wait_for_non_mmio_flush() {
 
 void Cluster::broadcast_write_to_cluster(
     const void* mem_ptr,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude,
+    std::set<size_t>& rows_to_exclude,
+    std::set<size_t>& columns_to_exclude,
     bool use_translated_coords) {
     if (!ethernet_broadcast_) {
         // Broadcast not supported. Implement this at the software level as a for loop.
@@ -1425,8 +1425,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     }
 
     std::set<ChipId> chips_to_exclude = {};
-    std::set<uint32_t> rows_to_exclude;
-    std::set<uint32_t> columns_to_exclude;
+    std::set<size_t> rows_to_exclude;
+    std::set<size_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         if (use_translated_coords_for_eth_broadcast) {
             // PCIE and ETH are on these rows in translated space.

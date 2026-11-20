@@ -69,8 +69,8 @@ public:
     // This keeps the mapped-buffer fast path out of write_to_sysmem /
     // read_from_sysmem so those methods retain the same semantics as the base
     // class (sysmem_dest is a within-channel offset, not an absolute address).
-    bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
-    bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
+    bool write_mapped_buffer(uint64_t device_io_addr, const void* src, size_t size);
+    bool read_mapped_buffer(uint64_t device_io_addr, void* dst, size_t size);
 
     // Zero-copy address→host-pointer lookup (nullptr on a miss). Unlike
     // write/read_mapped_buffer, which copy, this returns the mapping directly for in-place
@@ -124,7 +124,7 @@ private:
     void unmap_system_memory();
 
     // Caller must hold registry_->mutex.
-    std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);
+    std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, size_t size);
 
     // Caller holds registry_->mutex. Assigns an arena address, registers the buffer and wraps it.
     // Shared by the allocate and map

@@ -405,7 +405,7 @@ void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
 
 HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvesting_masks; }
 
-uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
+uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, size_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
         ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
@@ -642,7 +642,7 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
     }
 }
 
-uint32_t CoordinateManager::get_num_eth_channels() const {
+size_t CoordinateManager::get_num_eth_channels() const {
     return num_eth_channels - CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 
@@ -812,13 +812,15 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     }
 }
 
-size_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
+uint32_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
     // Counts the number of 1 bits in harvesting mask, representing
     // the number of harvested tensix rows, tensix columns, DRAM banks...
-    size_t num_harvested = 0;
+    uint32_t num_harvested = 0;
     size_t mask = harvesting_mask;
     while (mask > 0) {
-        num_harvested += mask & 1;
+        if (mask & 1) {
+            num_harvested++;
+        }
         mask >>= 1;
     }
     return num_harvested;

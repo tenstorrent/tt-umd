@@ -24,7 +24,7 @@
 
 namespace tt::umd {
 
-static bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude) {
+static bool tensix_or_eth_in_broadcast(const std::set<size_t>& cols_to_exclude) {
     bool found_tensix_or_eth = false;
     for (const auto& col : wormhole::T6_X_LOCATIONS) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
@@ -33,7 +33,7 @@ static bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude
 }
 
 static bool valid_tensix_broadcast_grid(
-    const std::set<uint32_t>& rows_to_exclude, const std::set<uint32_t>& cols_to_exclude) {
+    const std::set<size_t>& rows_to_exclude, const std::set<size_t>& cols_to_exclude) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
@@ -162,11 +162,11 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& EthernetBroadcast::ge
 
 void EthernetBroadcast::ethernet_broadcast_write(
     const void* mem_ptr,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
-    const std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude,
+    const std::set<size_t>& rows_to_exclude,
+    std::set<size_t>& cols_to_exclude,
     bool use_translated_coords) {
     // Broadcast through ERISC core supported.
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
@@ -205,11 +205,11 @@ void EthernetBroadcast::ethernet_broadcast_write(
 }
 
 void EthernetBroadcast::adjust_coordinates_for_ethernet_broadcast(
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& columns_to_exclude,
+    const std::set<size_t>& rows_to_exclude,
+    const std::set<size_t>& columns_to_exclude,
     bool use_translated_coords,
-    std::set<uint32_t>& rows_to_exclude_virtual,
-    std::set<uint32_t>& cols_to_exclude_virtual) {
+    std::set<size_t>& rows_to_exclude_virtual,
+    std::set<size_t>& cols_to_exclude_virtual) {
     if (use_translated_coords) {
         const size_t translated_row_end =
             wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size();
@@ -267,11 +267,11 @@ void EthernetBroadcast::adjust_coordinates_for_ethernet_broadcast(
 
 void EthernetBroadcast::broadcast_write_to_cluster(
     const void* mem_ptr,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude,
+    std::set<size_t>& rows_to_exclude,
+    std::set<size_t>& columns_to_exclude,
     bool use_translated_coords) {
     // The single-remote variant synthesizes a target with ChipId 0, so excluding any chip here (including 0)
     // would silently turn the broadcast into a no-op. Enforce the documented "chips_to_exclude must be empty"
@@ -281,8 +281,8 @@ void EthernetBroadcast::broadcast_write_to_cluster(
         error::RuntimeError,
         "chips_to_exclude must be empty when EthernetBroadcast is constructed for a single remote chip.");
 
-    std::set<uint32_t> rows_to_exclude_virtual;
-    std::set<uint32_t> cols_to_exclude_virtual;
+    std::set<size_t> rows_to_exclude_virtual;
+    std::set<size_t> cols_to_exclude_virtual;
     adjust_coordinates_for_ethernet_broadcast(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
 
@@ -295,9 +295,9 @@ void EthernetBroadcast::broadcast_write_to_cluster(
         if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end()) {
             // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
             // since writing to these is unsafe ERISC FW does not exclude these.
-            std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
-            std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude_virtual;
-            std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude_virtual;
+            std::set<size_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
+            std::set<size_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude_virtual;
+            std::set<size_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude_virtual;
             cols_to_exclude_for_col_0_bcast.insert(5);
             rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
             ethernet_broadcast_write(
@@ -310,7 +310,7 @@ void EthernetBroadcast::broadcast_write_to_cluster(
                 false);
         }
         if (cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
-            std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude_virtual;
+            std::set<size_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude_virtual;
             cols_to_exclude_for_col_5_bcast.insert(0);
             ethernet_broadcast_write(
                 mem_ptr,

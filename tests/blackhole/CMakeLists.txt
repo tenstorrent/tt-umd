@@ -3,6 +3,7 @@ set(UNIT_TESTS_BH_SRCS
     test_chip_info_bh.cpp
     test_kmd_lib_events_bh.cpp
     test_device_event_reader_bh.cpp
+    test_device_event_listener_bh.cpp
 )
 
 add_executable(unit_tests_blackhole ${UNIT_TESTS_BH_SRCS})

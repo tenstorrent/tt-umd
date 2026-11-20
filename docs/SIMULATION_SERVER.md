@@ -47,8 +47,8 @@ flowchart TB
 
 Each host gets its **own directory** for its sockets, so several servers can run on one machine at
 the same time without stepping on each other — even if they serve the same chip ids. You point a
-client at the directory of whichever server you want to attach to. `sim_server list` shows them all,
-each with an **index** you use to refer to it.
+client at the directory of whichever server you want to attach to. `sim_server list` shows all of
+yours, each with an **index** you use to refer to it.
 
 ```mermaid
 flowchart TB
@@ -226,7 +226,7 @@ and behaves exactly as it does in C++ — including deciding the role from the p
 ```python
 import tt_umd
 
-# What is running on this machine. Listing opens no devices, but it does probe each
+# Your servers running on this machine. Listing opens no devices, but it does probe each
 # socket for a listener, and clears up after the hosts that turn out to be gone.
 for server in tt_umd.SimulationConnector.list_servers():
     print(server.index, server.directory, server.sockets)
@@ -283,7 +283,8 @@ do. Each process is started and stopped on its own.
   it wants (from `sim_server list`).
 - **Clients fail cleanly.** If the server goes away, a client's next operation raises a clear error
   rather than hanging.
-- **Shared on the machine.** The sockets are world-writable (`srw-rw-rw-`), so any user can attach —
-  which is also why `kill` goes over the socket rather than by signal.
+- **Private to its user.** A server's directory (`drwx------`) and sockets (`srw-------`) are
+  owner-only, so only the user who started it can attach, and `sim_server list`, `kill` and `prune`
+  see only your own servers. Another user's server still holds its index, so yours may not start at 0.
 - **Sysmem is not carried over the socket.** Device memory and registers work from a client; sysmem
   access crashes (`TestDeviceIOFixture.SysmemReadWrite` segfaults in client mode).

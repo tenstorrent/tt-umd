@@ -11,8 +11,9 @@
 //   sim_server kill <server>                        -- ask a server to shut down, over its socket.
 //   sim_server prune                                -- remove the directories of servers that are gone.
 //
-// kill goes over the socket rather than by signal because the socket is world-writable, so it also
-// works across users, which a signal would not.
+// A server, and its sockets, are private to the user that started it: list, kill and prune see only
+// that user's servers. kill goes over the socket rather than by signal because a server is known by
+// its directory, not by a pid.
 
 #include <fcntl.h>
 #include <fmt/format.h>

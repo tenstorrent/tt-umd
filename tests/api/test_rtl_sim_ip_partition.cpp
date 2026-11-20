@@ -27,8 +27,8 @@
 
 #include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/topology/ip_block_layout.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/risc_type.hpp"
@@ -214,10 +214,12 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
         checked = true;
         for (size_t writer = 0; writer < addresses.size(); writer++) {
             const auto data = marker(0xC0000000u | (static_cast<uint32_t>(chip) << 20) | (writer << 16));
-            device->get_communicator()->global_write_words(addresses[writer], data.data(), bytes);
+            // A flat address names the tile, so no coordinate travels with it.
+            device->get_rtl_sim_protocol()->write_data(data.data(), {0, 0}, addresses[writer], bytes, NocId::NOC0);
             for (size_t reader = 0; reader < addresses.size(); reader++) {
                 std::vector<uint32_t> readback(data.size());
-                device->get_communicator()->global_read_words(addresses[reader], readback.data(), bytes);
+                device->get_rtl_sim_protocol()->read_data(
+                    readback.data(), {0, 0}, addresses[reader], bytes, NocId::NOC0);
                 EXPECT_EQ(readback, data) << "chip " << chip << ": written through access point " << writer << " at 0x"
                                           << std::hex << addresses[writer] << ", read through " << std::dec << reader
                                           << " at 0x" << std::hex << addresses[reader];

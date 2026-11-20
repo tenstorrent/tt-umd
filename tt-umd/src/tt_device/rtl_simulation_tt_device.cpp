@@ -20,10 +20,10 @@
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
+#include "register_access.hpp"
 #include "simulation/rtl_sim_att_program.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
-#include "simulation/word_access.hpp"
 #include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
@@ -34,7 +34,6 @@
 #include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -44,7 +43,7 @@
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device/protocol/simulation_noc_protocol.hpp"
+#include "tt_device/protocol/rtl_sim_protocol.hpp"
 #include "tt_device/reset/rtl_sim_risc_reset.hpp"
 #include "tt_device/reset/tsc_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
@@ -158,6 +157,57 @@ const RtlSimAccessPoint& io_access_point(const RtlSimDeviceAccess& layout_device
     return layout_device.access_points.front();
 }
 
+// The transport behind an ATT takes flat addresses, so this folds each coordinate into one, as the
+// device's own IO does, for a component that reaches tiles over a DeviceProtocol by coordinate.
+class AttFoldingProtocol final : public DeviceProtocol {
+public:
+    AttFoldingProtocol(
+        DeviceProtocol& transport, const att::EndpointResolver& resolver, const SocDescriptor& soc_descriptor) :
+        transport_(transport), resolver_(resolver), soc_descriptor_(soc_descriptor) {}
+
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        transport_.read_data(dst, core, fold(core, addr, size, noc_id), size, noc_id);
+    }
+
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        transport_.write_data(src, core, fold(core, addr, size, noc_id), size, noc_id);
+    }
+
+    void read_ctrl(
+        void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
+        read_registers_individually(*this, dst, core, addr, size, noc_id, width);
+    }
+
+    void write_ctrl(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
+        override {
+        write_registers_individually(*this, src, core, addr, size, noc_id, width);
+    }
+
+    bool write_to_core_range(
+        const void* /*src*/,
+        tt_xy_pair /*core_start*/,
+        tt_xy_pair /*core_end*/,
+        uint64_t /*addr*/,
+        size_t /*size*/,
+        NocId /*noc_id*/) override {
+        return false;
+    }
+
+    int get_mmio_id() override { return transport_.get_mmio_id(); }
+
+private:
+    // The system NOC reaches a tile by coordinate, outside the ATT.
+    uint64_t fold(tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) const {
+        return noc_id == NocId::SYSTEM_NOC ? addr
+                                           : att::resolve_translated(resolver_, soc_descriptor_, core, addr, size);
+    }
+
+    DeviceProtocol& transport_;
+    const att::EndpointResolver& resolver_;
+    const SocDescriptor& soc_descriptor_;
+};
+
 void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
     if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
         UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
@@ -200,13 +250,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels) :
     RtlSimulationTTDevice(
-        simulator_directory,
-        soc_descriptor,
-        chip_id,
-        num_host_mem_channels,
-        std::nullopt,
-        std::nullopt,
-        std::make_unique<RtlSimCommunicator>(simulator_directory)) {}
+        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, std::nullopt, std::nullopt) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::shared_ptr<RtlSimSession>& session,
@@ -230,39 +274,34 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
-    RtlSimulationTTDevice(
-        simulator_directory,
-        soc_descriptor,
-        chip_id,
-        num_host_mem_channels,
-        socket,
-        layout_device,
-        std::make_unique<RtlSimCommunicator>(socket)) {}
+    RtlSimulationTTDevice(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, socket, layout_device) {}
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels,
-    std::optional<RtlSimSocket> socket,
-    std::optional<RtlSimDeviceAccess> layout_device,
-    std::unique_ptr<RtlSimCommunicator> communicator) :
+    const std::optional<RtlSimSocket>& socket,
+    std::optional<RtlSimDeviceAccess> layout_device) :
     SimulationTTDevice(
         ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
-    session_socket_(std::move(socket)),
-    communicator_(std::move(communicator)),
     layout_device_(std::move(layout_device)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     setup_noc_address_resolver();
-    get_simulation_model()->set_risc_reset(make_risc_reset(chip_id));
+    // The resolver setup decides whether the device's access point is behind an ATT.
+    const auto mmio_id = static_cast<int>(chip_id);
+    protocol_ = socket.has_value()
+                    ? std::make_unique<RtlSimProtocol>(*socket, global_address_mode_, mmio_id)
+                    : std::make_unique<RtlSimProtocol>(simulator_directory, global_address_mode_, mmio_id);
+    get_simulation_model()->set_risc_reset(make_risc_reset());
 
-    // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
+    // Host/local mode: the lifecycle drives the in-process RTL backend (the protocol).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
-    teardown_ = [this] { communicator_->shutdown(); };
+    teardown_ = [this] { protocol_->shutdown(); };
     setup_();
 }
 
@@ -270,9 +309,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
-    // A client-mode device drives no backend of its own, so it has no communicator to reset through.
+    // A client-mode device drives no backend of its own, so it has no protocol to reset through.
     get_simulation_model()->set_risc_reset(
-        std::make_unique<RtlSimRiscReset>(/*communicator=*/nullptr, soc_descriptor.arch, device_lock));
+        std::make_unique<RtlSimRiscReset>(/*protocol=*/nullptr, soc_descriptor.arch, device_lock));
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -319,18 +358,23 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     global_address_mode_ = true;
 }
 
-std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset(ChipId chip_id) {
+std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset() {
     const std::optional<tt::IpVariant> variant = get_soc_descriptor().get_arch_descriptor().get_ip_variant();
     const auto* const known =
         std::find_if(std::begin(TILE_RESETS), std::end(TILE_RESETS), [&](const VariantTileReset& reset) {
             return variant == reset.variant;
         });
     if (known == std::end(TILE_RESETS)) {
-        return std::make_unique<RtlSimRiscReset>(communicator_.get(), get_soc_descriptor().arch, device_lock);
+        return std::make_unique<RtlSimRiscReset>(protocol_.get(), get_soc_descriptor().arch, device_lock);
     }
-    noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, static_cast<int>(chip_id));
-    return std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout);
+    if (!global_address_mode_) {
+        return std::make_unique<TscRiscReset>(protocol_.get(), *known->layout);
+    }
+    reset_protocol_ = std::make_unique<AttFoldingProtocol>(*protocol_, *noc_address_resolver_, get_soc_descriptor());
+    return std::make_unique<TscRiscReset>(reset_protocol_.get(), *known->layout);
 }
+
+DeviceProtocol* RtlSimulationTTDevice::get_rtl_sim_protocol() { return protocol_.get(); }
 
 std::vector<AccessPointId> RtlSimulationTTDevice::get_access_points() const {
     std::vector<AccessPointId> access_points;
@@ -362,7 +406,7 @@ void RtlSimulationTTDevice::apply_att_program(const RtlSimAttProgram& program) {
         layout_device_.has_value(),
         error::RuntimeError,
         "An ATT program lists the devices of an ip_layout.yaml; this device isn't one.");
-    program.apply(layout_device_->device, *communicator_);
+    program.apply(layout_device_->device, *protocol_);
 }
 
 void RtlSimulationTTDevice::check_att_matches_map() {
@@ -382,7 +426,8 @@ void RtlSimulationTTDevice::check_att_matches_map() {
                 const uint64_t address =
                     att::resolve_core(resolver, get_soc_descriptor(), core, HORIZON_NODE_ID, sizeof(uint32_t));
                 uint32_t node_id = 0;
-                communicator_->global_read_words(address, &node_id, sizeof(node_id));
+                // The address names the tile, so no coordinate travels with it.
+                protocol_->read_data(&node_id, tt_xy_pair(0, 0), address, sizeof(node_id), NocId::NOC0);
                 const uint32_t expected =
                     static_cast<uint32_t>(((core.y + map.package_offset_y) << 6) | (core.x + map.package_offset_x));
                 UMD_ASSERT(
@@ -421,7 +466,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
     if (num_host_mem_channels > 0) {
         SimulationSysmemManager* mgr = sysmem_manager_.get();
         size_t num_channels = mgr->get_num_host_mem_channels();
-        communicator_->set_ram_callbacks(
+        protocol_->set_ram_callbacks(
             // Write callback: simulator writes data into host sysmem.
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
@@ -458,7 +503,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             });
     }
 
-    communicator_->initialize();
+    protocol_->initialize();
 
     init_tlb_allocator(/*bar0_base=*/0, /*bar4_base=*/0);
     setup_cached_tlb_window();
@@ -471,7 +516,7 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
     // flat-address mode, as raw coordinates otherwise.
     return std::make_unique<RtlSimTlbWindow>(
         std::move(handle),
-        communicator_.get(),
+        protocol_.get(),
         global_address_mode_ ? noc_address_resolver_.get() : nullptr,
         &get_soc_descriptor(),
         config);
@@ -480,7 +525,7 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     // Stop serving (and remove the socket) before tearing the backend down.
     socket_.reset();
-    // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
+    // teardown_ is protocol_->shutdown() (host) or client_->detach() (client). The
     // destructor is implicitly noexcept, so this is best-effort.
     if (teardown_) {
         try {
@@ -491,33 +536,13 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     }
 }
 
+// Behind an ATT, addr was already folded and names the destination, and the protocol sends it alone.
 void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    if (global_address_mode_) {
-        // The simulator moves whole words; see word_access.hpp. Callers hold device_lock.
-        read_bytes_as_words(addr, mem_ptr, static_cast<uint32_t>(size), [this](uint64_t a, void* d, uint32_t n) {
-            communicator_->global_read_words(a, d, n);
-        });
-        return;
-    }
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    protocol_->read_data(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
-    // In this mode addr already names the destination, so the coordinate is not sent: the
-    // simulator has nothing to translate and cannot resolve a resolved address again.
-    if (global_address_mode_) {
-        // The simulator moves whole words, so a partial first or last word is read, merged and
-        // written back; see word_access.hpp. Callers hold device_lock, so no other host access to
-        // this device runs in between.
-        write_bytes_as_words(
-            addr,
-            mem_ptr,
-            static_cast<uint32_t>(size),
-            [this](uint64_t a, void* d, uint32_t n) { communicator_->global_read_words(a, d, n); },
-            [this](uint64_t a, const void* d, uint32_t n) { communicator_->global_write_words(a, d, n); });
-        return;
-    }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    protocol_->write_data(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 bool RtlSimulationTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
@@ -532,7 +557,7 @@ bool RtlSimulationTTDevice::smn_read(void* mem_ptr, tt_xy_pair core, uint64_t ad
     NocId noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
     if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        protocol_->read_data(mem_ptr, core, addr, size, NocId::SYSTEM_NOC);
         return true;
     }
     return false;
@@ -543,7 +568,7 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     NocId noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
     if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        protocol_->write_data(mem_ptr, core, addr, size, NocId::SYSTEM_NOC);
         return true;
     }
     return false;

@@ -39,9 +39,9 @@ TargetIoWindowConfig make_target() {
     return target;
 }
 
-// RtlSimTlbHandle keeps its config in software and RtlSimTlbWindow only touches the communicator on
-// an actual read/write, so a window can be built for configure()-only tests with no card, no
-// simulator process, and a null communicator.
+// RtlSimTlbHandle keeps its config in software and RtlSimTlbWindow only touches the protocol on an
+// actual read/write, so a window can be built for configure()-only tests with no card, no simulator
+// process, and a null protocol.
 //
 // Parameterized over arch because Quasar takes different branches on the way here: the allocator
 // keeps no pools for it and RtlSimTlbHandle skips the base-address query. Blackhole is the
@@ -56,7 +56,7 @@ protected:
         EXPECT_NE(tlb_id, -1);
         return std::make_unique<RtlSimTlbWindow>(
             RtlSimTlbHandle::create(allocator_, tlb_id, size, TlbMapping::WC),
-            /*communicator=*/nullptr,
+            /*protocol=*/nullptr,
             resolver,
             /*soc_descriptor=*/nullptr);
     }

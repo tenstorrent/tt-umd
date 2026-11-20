@@ -19,7 +19,6 @@
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/rtl_sim_session.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/ip_block_layout.hpp"
@@ -31,10 +30,10 @@
 
 namespace tt::umd {
 
+class DeviceProtocol;
 class RiscReset;
 class RtlSimAttProgram;
-class RtlSimCommunicator;
-class SimulationNocProtocol;
+class RtlSimProtocol;
 class SimulationSysmemManager;
 class SimulationServerSocket;
 class SimulationClient;
@@ -90,7 +89,11 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info);
 
-    RtlSimCommunicator* get_communicator() { return communicator_.get(); }
+    /**
+     * The transport this device's IO runs over, for raw accesses at a flat address or a coordinate: it
+     * folds nothing, so behind an ATT it takes flat addresses. Null for a client-mode device.
+     */
+    DeviceProtocol* get_rtl_sim_protocol();
 
     std::vector<AccessPointId> get_access_points() const override;
 
@@ -134,7 +137,7 @@ protected:
 private:
     // The RiscReset this device gives its model: the tile reset of the IP variant the SoC descriptor
     // names, when this build knows one, and otherwise the testbench's reset commands.
-    std::unique_ptr<RiscReset> make_risc_reset(ChipId chip_id);
+    std::unique_ptr<RiscReset> make_risc_reset();
 
     // Install the flat-address resolvers when the environment names an ATT map: each access point's,
     // and the one this device talks over for its own IO. Host mode only: a client hands the host a
@@ -161,31 +164,28 @@ private:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels);
-    // Host mode over @p communicator; @p socket is empty when the communicator owns its socket.
+    // Host mode over @p socket, or over a session of its own on @p simulator_directory when it is empty.
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels,
-        std::optional<RtlSimSocket> socket,
-        std::optional<RtlSimDeviceAccess> layout_device,
-        std::unique_ptr<RtlSimCommunicator> communicator);
+        const std::optional<RtlSimSocket>& socket,
+        std::optional<RtlSimDeviceAccess> layout_device);
 
-    // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
+    // Host-mode backend bring-up (protocol init, sysmem callbacks, TLB setup). Takes the
     // host-mem channel count because the RAM callbacks need it.
     void initialize_backend(int num_host_mem_channels);
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
-    // difference today: host mode drives the in-process RTL backend (communicator_), client mode
+    // difference today: host mode drives the in-process RTL backend (protocol_), client mode
     // drives the remote host (attach_client()/detach_client()). Note client_ is owned by the
     // SimulationTTDevice base (pulled up there), not declared in this class.
     std::function<void()> setup_;
     std::function<void()> teardown_;
 
-    // Declared before communicator_ so the session outlives the communicator using its socket.
-    std::optional<RtlSimSocket> session_socket_;
-
-    std::unique_ptr<RtlSimCommunicator> communicator_;
+    // Null in client mode.
+    std::unique_ptr<RtlSimProtocol> protocol_;
 
     // This device's place in the build's ip_layout.yaml, when it has one.
     std::optional<RtlSimDeviceAccess> layout_device_;
@@ -196,7 +196,8 @@ private:
     // of its own.
     bool per_access_point_tables_ = false;
 
-    // The IO path of the model's tile reset, when the IP variant has one: the reset points into it.
-    std::unique_ptr<SimulationNocProtocol> noc_protocol_;
+    // The IO path of the model's tile reset behind an ATT, which folds each access as the device does
+    // its own: the reset points into it.
+    std::unique_ptr<DeviceProtocol> reset_protocol_;
 };
 }  // namespace tt::umd

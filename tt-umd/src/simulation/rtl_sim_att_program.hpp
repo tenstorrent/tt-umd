@@ -15,7 +15,7 @@
 
 namespace tt::umd {
 
-class RtlSimCommunicator;
+class RtlSimProtocol;
 
 /**
  * ATT programming of an RTL simulation/emulation build, read from
@@ -46,8 +46,8 @@ public:
     /** @p device's writes, in order; empty if the program doesn't list it. */
     const std::vector<RegisterWrite>& get_writes(IpDeviceId device) const;
 
-    /** Replay @p device's writes through @p communicator, reading each back; throws on a mismatch. */
-    void apply(IpDeviceId device, RtlSimCommunicator& communicator) const;
+    /** Replay @p device's writes through @p protocol by coordinate, reading each back; throws on a mismatch. */
+    void apply(IpDeviceId device, RtlSimProtocol& protocol) const;
 
 private:
     std::map<IpDeviceId, std::vector<RegisterWrite>> writes_;

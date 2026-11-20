@@ -91,8 +91,7 @@ struct ClusterOptions {
     std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
-     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-     * descriptor based on architecture will be used.
+     * Being removed: ignored by Cluster. Use topology_discovery_options.soc_descriptor_path.
      */
     std::string sdesc_path;
 
@@ -137,8 +136,7 @@ struct ClusterOptions {
     std::filesystem::path simulator_server_directory = "";
 
     /**
-     * I/O device type to use for the cluster.
-     * This determines how the cluster will communicate with the underlying hardware.
+     * Being removed: ignored by Cluster. Use topology_discovery_options.io_device_type.
      */
     IODeviceType io_device_type = IODeviceType::PCIe;
 

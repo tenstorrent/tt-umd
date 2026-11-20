@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <cstring>
 #include <memory>
 
 #include "tests/test_utils/protocol_mocks.hpp"
@@ -20,17 +19,9 @@
 using namespace tt::umd;
 using namespace tt::umd::test_utils;
 using ::testing::_;
-using ::testing::Invoke;
 using ::testing::NiceMock;
 
 namespace {
-
-// Serves one 32-bit register read.
-auto serves_register(uint32_t value) {
-    return Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
-        std::memcpy(dst, &value, sizeof(value));
-    });
-}
 
 // The device is opened over JTAG so that every ARC register read on both architectures reaches the
 // protocol's register path, where the counter words are served.

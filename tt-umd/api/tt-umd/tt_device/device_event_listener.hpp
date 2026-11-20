@@ -18,9 +18,13 @@ namespace tt::umd {
 
 class TTDevice;
 
+// The caller's label for a device in a DeviceEventListener, such as an index or a chip ID. It is a plain
+// value rather than a reference to the device, since the listener may outlive the device.
+using DeviceEventKey = uint64_t;
+
 // What one DeviceEventListener::read() got from one device.
 struct KeyedDeviceEventBatch {
-    uint64_t key;            // The device's key, as passed to DeviceEventListener::create().
+    DeviceEventKey key;      // The device's key, as passed to DeviceEventListener::create().
     DeviceEventBatch batch;  // As a DeviceEventReader of the device would have returned it.
 };
 
@@ -45,7 +49,7 @@ public:
     // @param uncovered_keys  If not null, receives the keys of the devices whose model does not support
     //                        reading events through this listener. Those devices are left out.
     static std::unique_ptr<DeviceEventListener> create(
-        const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys = nullptr);
+        const std::map<DeviceEventKey, TTDevice*>& devices, std::set<DeviceEventKey>* uncovered_keys = nullptr);
 
     virtual ~DeviceEventListener() = default;
 

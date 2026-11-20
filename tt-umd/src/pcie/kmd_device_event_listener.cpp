@@ -21,13 +21,13 @@
 namespace tt::umd {
 
 std::unique_ptr<DeviceEventListener> DeviceEventListener::create(
-    const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys) {
+    const std::map<DeviceEventKey, TTDevice*>& devices, std::set<DeviceEventKey>* uncovered_keys) {
     return std::make_unique<KmdDeviceEventListener>(devices, uncovered_keys);
 }
 
 KmdDeviceEventListener::KmdDeviceEventListener(
-    const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys) {
-    std::set<uint64_t> uncovered;
+    const std::map<DeviceEventKey, TTDevice*>& devices, std::set<DeviceEventKey>* uncovered_keys) {
+    std::set<DeviceEventKey> uncovered;
     for (const auto& [key, device] : devices) {
         UMD_ASSERT(
             device != nullptr, error::RuntimeError, fmt::format("DeviceEventListener device for key {} is null", key));

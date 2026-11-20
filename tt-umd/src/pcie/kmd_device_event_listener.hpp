@@ -24,7 +24,8 @@ class KmdDeviceEventListener final : public DeviceEventListener {
 public:
     // Reads the devices whose models create a KmdDeviceEventReader; the keys of the others go to
     // uncovered_keys, if not null.
-    KmdDeviceEventListener(const std::map<uint64_t, TTDevice*>& devices, std::set<uint64_t>* uncovered_keys);
+    KmdDeviceEventListener(
+        const std::map<DeviceEventKey, TTDevice*>& devices, std::set<DeviceEventKey>* uncovered_keys);
     ~KmdDeviceEventListener() noexcept override;
 
     KmdDeviceEventListener(const KmdDeviceEventListener&) = delete;
@@ -39,7 +40,7 @@ public:
 
 private:
     struct Entry {
-        uint64_t key;
+        DeviceEventKey key;
         std::unique_ptr<KmdDeviceEventReader> reader;
     };
 

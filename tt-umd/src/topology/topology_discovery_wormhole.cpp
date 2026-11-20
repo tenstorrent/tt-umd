@@ -117,8 +117,8 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice*
 }
 
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice* tt_device, CoreCoord eth_core) {
-    const uint32_t shelf_offset = 9;
-    const uint32_t rack_offset = 10;
+    constexpr uint32_t shelf_offset = 9;
+    constexpr uint32_t rack_offset = 10;
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;

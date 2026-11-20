@@ -100,7 +100,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
                      << OUTPUT_ENV_VAR;
     }
 
-    const uint64_t HUGEPAGE_SHIFT = 21;
+    constexpr uint64_t HUGEPAGE_SHIFT = 21;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 2 MiB
     PCIDevice pci_device(pci_device_ids.at(0));
 
@@ -155,8 +155,8 @@ TEST(MicrobenchmarkIOMMU, MapHugepages512M) {
                      << OUTPUT_ENV_VAR;
     }
 
-    const uint64_t HUGEPAGE_SHIFT = 29;
-    const uint64_t MAPPING_SIZE = 512ULL << 20;  // 512 MiB
+    constexpr uint64_t HUGEPAGE_SHIFT = 29;
+    constexpr uint64_t MAPPING_SIZE = 512ULL << 20;  // 512 MiB
     PCIDevice pci_device(pci_device_ids.at(0));
 
     auto bench =
@@ -209,7 +209,7 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
                      << OUTPUT_ENV_VAR;
     }
 
-    const uint64_t HUGEPAGE_SHIFT = 30;
+    constexpr uint64_t HUGEPAGE_SHIFT = 30;
     const uint64_t MAPPING_SIZE = 1 << HUGEPAGE_SHIFT;  // 1 GiB
     PCIDevice pci_device(pci_device_ids.at(0));
 

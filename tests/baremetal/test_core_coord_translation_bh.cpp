@@ -56,7 +56,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
 // the logical coordinates (0, 0) if the first column is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
     // This is targeting first column of Tensix cores on NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
         tt::ARCH::BLACKHOLE,
         true,
@@ -74,7 +74,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
 // the logical coordinates (12, 0) if the first column is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
     // This is targeting first column of Tensix cores on NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
         tt::ARCH::BLACKHOLE,
         true,
@@ -98,7 +98,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
 // the logical coordinates (0, 9) if the first column is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeBottomLeftCore) {
     // This is targeting first column of Tensix cores on NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
         tt::ARCH::BLACKHOLE,
         true,
@@ -122,7 +122,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeBottomLeftCore) {
 // For the reverse mapping back of noc0 to logical coordinates we expect that same logical coordinates are returned
 // as from original mapping.
 TEST(CoordinateManager, CoordinateManagerBlackholeLogicalNOC0Mapping) {
-    const size_t max_num_harvested_x = 14;
+    constexpr size_t max_num_harvested_x = 14;
 
     for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
          tensix_harvesting_mask++) {
@@ -167,7 +167,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalNOC0Mapping) {
 // For the reverse mapping back of translated to logical coordinates we expect that same logical coordinates are
 // returned as from original mapping.
 TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
-    const size_t max_num_harvested_x = 14;
+    constexpr size_t max_num_harvested_x = 14;
 
     for (bool noc_translation_enabled : {true, false}) {
         for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
@@ -445,8 +445,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
         tt::ARCH::BLACKHOLE, true, {.eth_harvesting_mask = example_eth_harvesting_mask});
     const size_t num_eth_channels = coordinate_manager->get_cores(CoreType::ETH).size();
 
-    const size_t eth_translated_coordinate_start_x = 20;
-    const size_t eth_translated_coordinate_start_y = 25;
+    constexpr size_t eth_translated_coordinate_start_x = 20;
+    constexpr size_t eth_translated_coordinate_start_y = 25;
 
     // When 2 cores are harvested, we should have 12 ETH channels.
     EXPECT_EQ(num_eth_channels, 12);
@@ -513,7 +513,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
 
 // Test ETH harvesting and coordinate translation for Blackhole.
 TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
-    const size_t num_harvested_cores = 2;
+    constexpr size_t num_harvested_cores = 2;
     const std::vector<tt_xy_pair> eth_cores = blackhole::ETH_CORES_NOC0;
     const size_t num_eth_channels = blackhole::NUM_ETH_CHANNELS;
     for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_channels); eth_harvesting_mask++) {
@@ -552,7 +552,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
 
 // Test that we properly get harvesting mask that is based on the noc0 layout of the chip.
 TEST(CoordinateManager, CoordinateManagerBlackholeNOC0LayoutTensixHarvestingMask) {
-    const size_t max_num_harvested_x = 14;
+    constexpr size_t max_num_harvested_x = 14;
 
     for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
          tensix_harvesting_mask++) {

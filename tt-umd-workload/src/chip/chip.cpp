@@ -71,13 +71,13 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
 void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     TTDevice* tt_device = get_tt_device();
-    const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-    const uint32_t chip_num_dram_channels = std::min(
+    const size_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+    const size_t chip_num_dram_channels = std::min(
         static_cast<size_t>(tt_device->get_architecture_implementation()->get_dram_banks_number()),
         get_soc_descriptor().get_dram_cores().size());
-    for (int dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+    for (size_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
         // Skip the check for harvested channels.
-        if (dram_harvesting_mask & (1 << dram_channel)) {
+        if (dram_harvesting_mask & (size_t{1} << dram_channel)) {
             continue;
         }
         tt_device->wait_dram_channel_training(dram_channel);

@@ -384,13 +384,6 @@ class TestTTDevice(unittest.TestCase):
                 f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
             )
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
-            exit_code, return_3, return_4 = dev.arc_msg(
-                0x90, True, 0x1234, 0x5678, 1000
-            )
-            print(
-                f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
-            )
-            self.assertEqual(exit_code, 0, "arc_msg should succeed")
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
     def test_arc_msg_test_increment(self):

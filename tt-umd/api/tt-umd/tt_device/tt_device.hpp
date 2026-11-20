@@ -187,7 +187,8 @@ public:
      * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.
      *
      * Copies from the user-provided buffer into an internal pinned staging buffer
-     * before issuing the hardware DMA to the device.
+     * before issuing the hardware DMA to the device. Falls back to write_to_device() when the device
+     * has no DMA or DMA is unavailable.
      *
      * @param src Pointer to the user-provided buffer containing the data to send.
      * @param dst_addr Destination address on the target device core.
@@ -202,7 +203,8 @@ public:
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
      *
      * DMAs data into an internal pinned staging buffer and then copies it into the
-     * user-provided buffer.
+     * user-provided buffer. Falls back to read_from_device() when the device has no DMA or DMA is
+     * unavailable.
      *
      * @param dst Pointer to the user-provided buffer where data will be received.
      * @param src_addr Source address on the target device core.
@@ -217,6 +219,7 @@ public:
      *
      * Broadcasts data to a rectangular grid of cores via the internal staging buffer. Cores must be
      * specified in the translated coordinate system so that the write lands on the intended cores.
+     * Falls back to noc_multicast_write() when the device has no DMA or DMA is unavailable.
      *
      * @param src Pointer to the user-provided buffer containing the data to send.
      * @param dst_addr Destination address on the target device cores.

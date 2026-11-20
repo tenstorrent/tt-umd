@@ -89,8 +89,8 @@ protected:
     }
 };
 
-// For the tests that only use UMD's own accessors. Keeping them off TTSimDeviceIOFixture is what
-// makes them runnable at all: they are Blackhole-only, which that fixture skips.
+// For the tests that only use UMD's own accessors, so they run on every arch TTSim models. Keeping
+// them off TTSimDeviceIOFixture is what makes them runnable at all on Wormhole and Blackhole.
 class TTSimTlbWindowFixture : public TTSimDeviceFixtureBase {};
 
 // ---------------------------------------------------------------------------
@@ -413,6 +413,65 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
         tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read_zeros.data(), data_size);
         EXPECT_EQ(zeros, direct_read_zeros) << "Direct read of zeros mismatch at loop " << loop;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Bounce-buffer DMA on a device without DMA falls back to regular I/O
+// ---------------------------------------------------------------------------
+
+// TTSim models no DMA engine, so dma_write must fall back to write_to_device and land the data
+// where read_from_device sees it.
+TEST_F(TTSimTlbWindowFixture, DmaWriteWithoutDmaReadByReadFromDevice) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const CoreCoord core = soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+    constexpr uint64_t addr = 0xA00;
+    const std::vector<uint8_t> write_data = {
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
+
+    tt_device->dma_write(write_data.data(), addr, write_data.size(), core);
+
+    std::vector<uint8_t> read_data(write_data.size(), 0);
+    tt_device->read_from_device(read_data.data(), core.to_pair(), addr, read_data.size());
+    EXPECT_EQ(write_data, read_data);
+}
+
+// TTSim models no DMA engine, so dma_read must fall back to read_from_device and return what
+// write_to_device wrote.
+TEST_F(TTSimTlbWindowFixture, DmaReadWithoutDmaReadsWriteToDevice) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const CoreCoord core = soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+    constexpr uint64_t addr = 0xB00;
+    const std::vector<uint8_t> write_data = {
+        0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0xCA, 0xFE, 0xF0, 0x0D};
+
+    tt_device->write_to_device(write_data.data(), core.to_pair(), addr, write_data.size());
+
+    std::vector<uint8_t> read_data(write_data.size(), 0);
+    tt_device->dma_read(read_data.data(), addr, read_data.size(), core);
+    EXPECT_EQ(write_data, read_data);
+}
+
+// TTSim models no DMA engine, so dma_write_to_core_range must fall back to noc_multicast_write and
+// land the data on every core of the grid, here the two neighbouring cores of the first Tensix row.
+TEST_F(TTSimTlbWindowFixture, DmaWriteToCoreRangeWithoutDmaReachesEveryCore) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const CoreCoord core_start =
+        soc.translate_coord_to(CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL), CoordSystem::TRANSLATED);
+    const CoreCoord core_end =
+        soc.translate_coord_to(CoreCoord(1, 0, CoreType::TENSIX, CoordSystem::LOGICAL), CoordSystem::TRANSLATED);
+    constexpr uint64_t addr = 0xC00;
+    const std::vector<uint8_t> write_data = {
+        0x5A, 0xA5, 0x0F, 0xF0, 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF1, 0x3C, 0xC3, 0x69, 0x96};
+
+    tt_device->dma_write_to_core_range(write_data.data(), addr, write_data.size(), core_start, core_end);
+
+    std::vector<uint8_t> start_read(write_data.size(), 0);
+    tt_device->read_from_device(start_read.data(), core_start.to_pair(), addr, start_read.size());
+    EXPECT_EQ(write_data, start_read) << "multicast missed core_start";
+
+    std::vector<uint8_t> end_read(write_data.size(), 0);
+    tt_device->read_from_device(end_read.data(), core_end.to_pair(), addr, end_read.size());
+    EXPECT_EQ(write_data, end_read) << "multicast missed core_end";
 }
 
 // ---------------------------------------------------------------------------

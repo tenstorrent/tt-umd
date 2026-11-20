@@ -77,6 +77,7 @@ target_sources(
         src/hugepage.cpp
         src/logging/config.cpp
         src/pcie/pci_device.cpp
+        src/pcie/kmd_device_event_reader.cpp
         src/types/tlb.cpp
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
@@ -217,6 +218,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/cluster_description.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/tt_device/device_event_reader.hpp
                 api/tt-umd/tt_device/tt_device.hpp
                 api/tt-umd/tt_device/tt_device_factory.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp

@@ -41,6 +41,8 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() override;
 
+    std::unique_ptr<DeviceEventReader> create_event_reader() override;
+
     ArchitectureImplementation *get_architecture_impl() override;
 
     HangDetector *get_hang_detector() override;
@@ -68,7 +70,7 @@ private:
     DmaInterface *dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
-    // Owned by the PCIe protocol; retained only to serve get_pci_device().
+    // Owned by the PCIe protocol; retained to serve get_pci_device() and to create event readers.
     PCIDevice *pci_device_ = nullptr;
 
     // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "pcie/kmd_device_event_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
@@ -97,5 +98,12 @@ JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interf
 RemoteInterface *BlackholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
 PCIDevice *BlackholeTTDeviceModel::get_pci_device() { return pci_device_; }
+
+std::unique_ptr<DeviceEventReader> BlackholeTTDeviceModel::create_event_reader() {
+    if (!PCIDevice::is_device_events_supported()) {
+        return nullptr;
+    }
+    return std::make_unique<KmdDeviceEventReader>(pci_device_->get_device_num());
+}
 
 }  // namespace tt::umd

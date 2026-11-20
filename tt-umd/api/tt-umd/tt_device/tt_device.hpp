@@ -27,6 +27,7 @@
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/ip_block_layout.hpp"
+#include "tt-umd/tt_device/device_event_reader.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -380,6 +381,13 @@ public:
     tt_xy_pair get_arc_core(const NocId noc_id) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
+
+    /**
+     * @brief Creates a reader for this device's event records.
+     *
+     * @return A new reader, or nullptr if the device or its driver does not deliver events.
+     */
+    std::unique_ptr<DeviceEventReader> create_event_reader();
 
     /**
      * @brief Requests a hardware power domain state change.

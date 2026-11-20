@@ -47,7 +47,6 @@ public:
 
 private:
     static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);
-    static constexpr auto UBB_POST_RESET_WAIT = std::chrono::milliseconds(30'000);
 
     static bool warm_reset_blackhole_legacy(std::vector<int> pci_device_ids);
 

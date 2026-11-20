@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/test_utils/device_event_test_utils.hpp"
 #include "tt-kmd-lib/tt_kmd_lib.h"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -21,17 +22,12 @@
 #include "tt-umd/utils/timeouts.hpp"
 
 using namespace tt::umd;
+using test_utils::EVENT_TYPE_TEST;
+using test_utils::TEST_EVENT_RECORD_MSG;
 
-// Firmware's TT_SMC_MSG_TEST_EVENT_RECORD publishes TEST records with fields the host chooses, so
-// these tests can drive the whole firmware -> KMD -> tt-kmd-lib path without a real error source.
+// The tests publish TEST records through firmware to drive the whole firmware -> KMD -> tt-kmd-lib path.
 
-namespace {
-
-constexpr uint32_t TEST_EVENT_RECORD_MSG = 0x91;
-constexpr uint16_t EVENT_TYPE_TEST = 0x0000;
 constexpr int READ_TIMEOUT_MS = 1000;
-
-}  // namespace
 
 // Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class KmdLibEventsBh : public ::testing::Test {

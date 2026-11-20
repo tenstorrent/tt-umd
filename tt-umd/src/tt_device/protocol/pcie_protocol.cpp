@@ -176,7 +176,7 @@ std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device
 // address at or below addr; the smallest window that still covers [addr, addr + size) is selected.
 // The offset handed to the driver is addr's distance from that base, and both offset and size must
 // be page-aligned.
-int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
+int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
     // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
     // any window is allocated or an ioctl issued, same as the alignment checks below.
     UMD_ASSERT(
@@ -184,11 +184,6 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
         error::RuntimeError,
         "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
         "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
-
-    UMD_ASSERT(
-        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
-        error::RuntimeError,
-        "Invalid ordering specified in PcieProtocol::export_dmabuf");
 
     const uint64_t page_size = static_cast<uint64_t>(getpagesize());
     UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a dma-buf of size 0.");
@@ -226,7 +221,8 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
     config.x_end = core.x;
     config.y_end = core.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
-    config.ordering = ordering;
+    // IoOrdering carries the TLB hardware encoding (asserted in tlb_window.cpp), so this is a cast.
+    config.ordering = static_cast<uint64_t>(ordering);
     config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
 
     log_debug(

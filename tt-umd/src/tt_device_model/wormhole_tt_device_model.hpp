@@ -54,6 +54,8 @@ public:
 
     DmaInterface *get_dma_interface() override;
 
+    PeerDmaInterface *get_peer_dma_interface() override;
+
     JtagInterface *get_jtag_interface() override;
 
     RemoteInterface *get_remote_interface() override;
@@ -69,6 +71,7 @@ private:
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;
     DmaInterface *dma_interface_ = nullptr;
+    PeerDmaInterface *peer_dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().

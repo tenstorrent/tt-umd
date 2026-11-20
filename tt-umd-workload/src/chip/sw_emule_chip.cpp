@@ -435,7 +435,7 @@ public:
 
     void read_aligned(uint64_t offset, void* data, size_t size) override { read(offset, data, size); }
 
-    void configure(const TargetIoWindowConfig& config) override { configure(config, IoOrdering::Strict); }
+    void configure(const TargetIoWindowConfig& config) override { configure(config, IoOrdering::STRICT); }
 
     void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override {
         UMD_ASSERT(
@@ -480,7 +480,7 @@ private:
     SWEmuleChip& chip_;
     HostIoWindowConfig host_;
     TargetIoWindowConfig target_{};
-    IoOrdering ordering_ = IoOrdering::Strict;
+    IoOrdering ordering_ = IoOrdering::STRICT;
     CoreCoord core_;
 };
 

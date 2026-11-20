@@ -74,8 +74,8 @@ private:
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
 
-    // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs
-    // the protocol's PCIDevice alive when it is released.
+    // Must come after protocol_: the detector holds the protocol's NOC probe window, which needs the
+    // protocol's PCIDevice alive when it is released.
     std::unique_ptr<HangDetector> hang_detector_;
 
     // Declared after the transports: it borrows them, so it must be destroyed first.

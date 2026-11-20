@@ -116,8 +116,4 @@ int TTSimProtocol::export_dmabuf(
     UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for simulation devices.");
 }
 
-void TTSimProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {
-    // No bus to time out: an access reaches the simulator in-process or throws outright.
-}
-
 }  // namespace tt::umd

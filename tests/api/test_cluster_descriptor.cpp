@@ -89,7 +89,8 @@ TEST(TestClusterDescriptor, PcieLaneCounts) {
     const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
         ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
-        EXPECT_EQ(lane_counts.at(chip), cluster->get_tt_device(chip)->get_pcie_interface()->get_lane_count());
+        PcieInterface* pcie_interface = cluster->get_tt_device(chip)->get_pcie_interface();
+        EXPECT_EQ(lane_counts.at(chip), pcie_interface != nullptr ? pcie_interface->get_lane_count() : std::nullopt);
     }
 }
 

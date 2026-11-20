@@ -289,12 +289,6 @@ public:
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // No-ops: the simulator has no fabric registration. Kept only so existing callers still build,
-    // and to be removed once they are gone. Only available when the library is built with
-    // TT_UMD_BUILD_SIMULATION=ON.
-    void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
-    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
-
     /**
      * What simulation this cluster is connected to: whether this process hosts the simulation or
      * attached to one another process hosts, which simulator sits behind it, and -- for a host that

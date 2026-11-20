@@ -804,10 +804,6 @@ void Cluster::serve_simulation_devices_over_sockets(
         }
     }
 }
-
-void Cluster::register_sim_fabric_endpoint_direction(ChipId, uint32_t, uint32_t) {}
-
-void Cluster::register_sim_fabric_node_id(ChipId, uint32_t, uint32_t) {}
 #endif  // TT_UMD_BUILD_SIMULATION
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

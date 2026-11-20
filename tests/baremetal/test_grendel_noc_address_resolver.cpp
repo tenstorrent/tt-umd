@@ -247,7 +247,7 @@ TEST(GrendelNocAddressResolver, MimirCceDmriscRemapUsesPackageWindows) {
 // 0x22800000, tiles are 0x4000000 apart, and CCE1 SRAM follows CCE0's 4 MiB. HSIO 2 CCE 0 SRAM is 0x2A800000.
 // Control is the HSIO tile base 0x20000000, not that SRAM window, and CCE1's is 16 MiB above it.
 TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
-    const SocDescriptor mmk(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
+    const SocDescriptor mmk(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mmk.yaml")));
     const GrendelNocAddressResolver resolver(mmk, mimir_local_address_windows(mmk));
     const std::vector<CoreCoord> eth = mmk.get_cores(CoreType::ETH);
     ASSERT_EQ(eth.size(), 8u);
@@ -286,7 +286,7 @@ TEST(GrendelNocAddressResolver, KeraunosSramAndControlFollowTheHsioTile) {
     EXPECT_THROW(resolver.keraunos_sram_address(mmk_mimir_cce, 0), std::exception);
 
     const SocDescriptor mimir(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_2x_package.yaml")));
     const GrendelNocAddressResolver mimir_resolver(mimir, mimir_local_address_windows(mimir));
     const CoreCoord mimir_cce = mimir.get_dram_core_for_channel(0, 0, CoordSystem::NOC0);
     EXPECT_EQ(

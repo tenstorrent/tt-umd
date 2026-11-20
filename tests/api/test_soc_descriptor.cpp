@@ -68,7 +68,7 @@ TEST(TestSocDescriptor, LiteralCoordSystem) {
 // A Mimir chiplet carries DRAM and the SMC, and no compute. These tests need no device: they only
 // exercise the descriptor.
 TEST(TestSocDescriptor, MimirDescriptorEnumeratesDramAndSmcCores) {
-    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
+    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_1x1.yaml")));
 
     EXPECT_EQ(soc_descriptor.get_arch_descriptor().get_arch(), tt::ARCH::QUASAR);
 
@@ -97,7 +97,7 @@ TEST(TestSocDescriptor, MimirDescriptorEnumeratesDramAndSmcCores) {
 }
 
 TEST(TestSocDescriptor, SmcCoresSurviveSerializationRoundTrip) {
-    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
+    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_1x1.yaml")));
 
     std::filesystem::path file_path = soc_descriptor.serialize_to_file();
     SocDescriptor reloaded(std::make_shared<SocArchDescriptor>(file_path.string()));
@@ -108,7 +108,7 @@ TEST(TestSocDescriptor, SmcCoresSurviveSerializationRoundTrip) {
 
 TEST(TestSocDescriptor, DualMimirPackageEnumeratesOnlyManagementCores) {
     SocDescriptor soc_descriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_2x_package.yaml")));
 
     EXPECT_EQ(soc_descriptor.get_arch_descriptor().get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(soc_descriptor.get_num_dram_channels(), 2);
@@ -135,7 +135,7 @@ TEST(TestSocDescriptor, DualMimirPackageEnumeratesOnlyManagementCores) {
 }
 
 TEST(TestSocDescriptor, MmkKeraunosChipletSurvivesSerialization) {
-    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
+    SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mmk.yaml")));
     const KeraunosChiplet& keraunos = soc_descriptor.get_arch_descriptor().get_keraunos();
     EXPECT_EQ(keraunos.chiplet, "k0");
     ASSERT_EQ(soc_descriptor.get_cores(tt::CoreType::ETH).size(), 8u);

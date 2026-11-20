@@ -72,7 +72,7 @@ SocDescriptor mimir_descriptor() {
     if (const char* path = std::getenv("TT_UMD_EMU_SOC_DESC")) {
         return SocDescriptor(std::make_shared<SocArchDescriptor>(path));
     }
-    return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_1x1.yaml")));
+    return SocDescriptor(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_1x1.yaml")));
 }
 
 bool send_init_on_connect() {

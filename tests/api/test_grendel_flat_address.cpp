@@ -24,7 +24,7 @@ namespace tt::umd::test {
 
 TEST(GrendelFlatAddress, MimirLocalTranslatesToChipletAxi) {
     const SocDescriptor soc_descriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mimir_2x_package.yaml")));
     auto mimir0 = std::make_shared<chippy::transport::MockTransportInterface>();
     auto mimir1 = std::make_shared<chippy::transport::MockTransportInterface>();
     auto transport = make_grendel_flat_address_transport(soc_descriptor, {mimir0, mimir1}, "GrendelFlatAddress");
@@ -49,7 +49,7 @@ TEST(GrendelFlatAddress, MimirLocalTranslatesToChipletAxi) {
 }
 
 TEST(GrendelFlatAddress, KeraunosSramAndControlUseTheK0Transport) {
-    const SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("mmk.yaml")));
+    const SocDescriptor soc_descriptor(std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("mmk.yaml")));
     auto mimir0 = std::make_shared<chippy::transport::MockTransportInterface>();
     auto mimir1 = std::make_shared<chippy::transport::MockTransportInterface>();
     auto keraunos = std::make_shared<chippy::transport::MockTransportInterface>();
@@ -108,7 +108,7 @@ TEST(GrendelFlatAddress, KeraunosSramAndControlUseTheK0Transport) {
 TEST(GrendelFlatAddress, FullPackagePassesTheSpaThrough) {
     // Omitting address_space selects full_package. This Quasar descriptor does that.
     const SocDescriptor soc_descriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("quasar_simulation_1x1.yaml")));
     auto mock = std::make_shared<chippy::transport::MockTransportInterface>();
     auto transport = make_grendel_flat_address_transport(soc_descriptor, {mock}, "GrendelFlatAddress");
 
@@ -124,7 +124,7 @@ TEST(GrendelFlatAddress, FullPackagePassesTheSpaThrough) {
 
 TEST(GrendelFlatAddress, FullPackageUsesOneTransport) {
     const SocDescriptor soc_descriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("quasar_simulation_1x1.yaml")));
     auto first = std::make_shared<chippy::transport::MockTransportInterface>();
     auto second = std::make_shared<chippy::transport::MockTransportInterface>();
     EXPECT_THROW(

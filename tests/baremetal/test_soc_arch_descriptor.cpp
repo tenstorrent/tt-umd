@@ -470,7 +470,7 @@ TEST(SocArchDescriptor, UnknownIpVariantThrows) {
 }
 
 TEST(SocArchDescriptor, Mimir1x1RecordsOneChiplet) {
-    const SocArchDescriptor desc(test_utils::GetSocDescAbsPath("mimir_1x1.yaml"));
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mimir_1x1.yaml"));
     ASSERT_EQ(desc.get_mimir_channels().size(), 1u);
     const MimirChannel& channel = desc.get_mimir_channels()[0];
     EXPECT_EQ(channel.channel, 0u);
@@ -480,7 +480,7 @@ TEST(SocArchDescriptor, Mimir1x1RecordsOneChiplet) {
 }
 
 TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
-    const SocArchDescriptor desc(test_utils::GetSocDescAbsPath("mimir_2x_package.yaml"));
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mimir_2x_package.yaml"));
     ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
 
     const MimirChannel& first = desc.get_mimir_channels()[0];
@@ -502,7 +502,7 @@ TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
 }
 
 TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
-    const SocArchDescriptor desc(test_utils::GetSocDescAbsPath("mmk.yaml"));
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mmk.yaml"));
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grendel_address_space(), GrendelAddressSpace::MimirLocal);
     ASSERT_EQ(desc.get_mimir_channels().size(), 2u);

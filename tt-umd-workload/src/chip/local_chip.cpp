@@ -63,9 +63,8 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<Sysmem
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
 
-    if (tt_device_->get_communication_device_type() == IODeviceType::PCIe) {
-        initialize_default_chip_mutexes();
-    }
+    // start_device() and the memory barriers take these locks whatever the transport.
+    initialize_default_chip_mutexes();
 }
 
 LocalChip::~LocalChip() {

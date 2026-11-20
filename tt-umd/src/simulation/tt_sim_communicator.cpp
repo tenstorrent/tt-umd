@@ -196,14 +196,6 @@ void TTSimCommunicator::initialize() {
         // Optional extension symbols -- resolved with raw dlsym and allowed to be
         // nullptr.  These are newer additions to the libttsim ABI that not all .so
         // builds export yet; callers check for nullptr before use.
-        pfn_libttsim_dram_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_rd_bytes_by_id_)>(
-            dlsym(libttsim_handle_, "libttsim_dram_rd_bytes_by_id"));
-        pfn_libttsim_dram_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_wr_bytes_by_id_)>(
-            dlsym(libttsim_handle_, "libttsim_dram_wr_bytes_by_id"));
-        pfn_libttsim_dram_core_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_rd_bytes_by_id_)>(
-            dlsym(libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id"));
-        pfn_libttsim_dram_core_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_wr_bytes_by_id_)>(
-            dlsym(libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id"));
         pfn_libttsim_switch_register_fabric_node_id_ =
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_node_id_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_node_id"));
@@ -338,24 +330,6 @@ void TTSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, v
     std::lock_guard<std::mutex> lock(device_lock_);
     select_chip_if_needed();
     pfn_libttsim_tile_rd_bytes_(x, y, addr, data, size);
-}
-
-bool TTSimCommunicator::dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
-    if (!multichip_mode_ || pfn_libttsim_dram_core_wr_bytes_by_id_ == nullptr) {
-        return false;
-    }
-    std::lock_guard<std::mutex> lock(device_lock_);
-    pfn_libttsim_dram_core_wr_bytes_by_id_(chip_id_, x, y, addr, data, size);
-    return true;
-}
-
-bool TTSimCommunicator::dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
-    if (!multichip_mode_ || pfn_libttsim_dram_core_rd_bytes_by_id_ == nullptr) {
-        return false;
-    }
-    std::lock_guard<std::mutex> lock(device_lock_);
-    pfn_libttsim_dram_core_rd_bytes_by_id_(chip_id_, x, y, addr, data, size);
-    return true;
 }
 
 void TTSimCommunicator::pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size) {

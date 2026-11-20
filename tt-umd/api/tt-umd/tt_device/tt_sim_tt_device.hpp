@@ -124,19 +124,11 @@ protected:
     void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
     bool is_device_closed() override;
-    bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool should_use_cached_tlb_window() override;
     void after_read() override;
 
 private:
     void configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size);
-
-    // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
-    // coordinate; returns true when the access was serviced against the backend DRAM model. These
-    // back handle_special_read/write and can grow to dispatch additional special cases later.
-    bool special_dram_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
-    bool special_dram_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
 
     // Client-mode constructor: this device does not own a simulator (.so); it forwards device
     // operations to a remote host through client. Reached only via create_client(), which

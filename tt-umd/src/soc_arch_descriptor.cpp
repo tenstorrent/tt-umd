@@ -173,8 +173,8 @@ void SocArchDescriptor::build_derived_data() {
         current_ethernet_channel++;
     }
 
-    std::set<int> worker_routing_coords_x;
-    std::set<int> worker_routing_coords_y;
+    std::set<std::size_t> worker_routing_coords_x;
+    std::set<std::size_t> worker_routing_coords_y;
     for (const auto& tensix_core : tensix_cores_) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = tensix_core;
@@ -241,7 +241,7 @@ tt_xy_pair format_node(const std::string& str) {
 }
 
 // Trimming helpers for YAML parsing.
-static const char* ws = " \t\n\r\f\v";
+constexpr const char* ws = " \t\n\r\f\v";
 
 static inline std::string& rtrim(std::string& s, const char* t = ws) {
     auto pos = s.find_last_not_of(t);

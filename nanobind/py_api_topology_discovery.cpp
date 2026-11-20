@@ -38,6 +38,25 @@ using namespace tt::umd;
 std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice* local_chip, ClusterDescriptor* cluster_descriptor, ChipId remote_chip_id);
 
+namespace {
+
+// io_device_type and soc_descriptor_path were discover()'s own arguments before they became option fields. Python
+// callers may still pass them; when given, they override the fields.
+TopologyDiscoveryOptions apply_legacy_discovery_args(
+    TopologyDiscoveryOptions options,
+    std::optional<IODeviceType> io_device_type,
+    std::optional<std::string> soc_descriptor_path) {
+    if (io_device_type.has_value()) {
+        options.io_device_type = *io_device_type;
+    }
+    if (soc_descriptor_path.has_value()) {
+        options.soc_descriptor_path = std::move(*soc_descriptor_path);
+    }
+    return options;
+}
+
+}  // namespace
+
 void bind_topology_discovery(nb::module_& m) {
     nb::class_<ClusterDescriptor>(m, "ClusterDescriptor")
         .def_static(
@@ -168,6 +187,11 @@ void bind_topology_discovery(nb::module_& m) {
         // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
         .def_rw("low_power", &TopologyDiscoveryOptions::low_power)
         .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api)
+        .def_rw("io_device_type", &TopologyDiscoveryOptions::io_device_type)
+        .def_rw(
+            "soc_descriptor_path",
+            &TopologyDiscoveryOptions::soc_descriptor_path,
+            "Path to a custom SoC descriptor YAML file. Empty means auto-detect it from the hardware.")
         .def_rw(
             "cluster_id",
             &TopologyDiscoveryOptions::cluster_id,
@@ -183,21 +207,31 @@ void bind_topology_discovery(nb::module_& m) {
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",
-            [](const TopologyDiscoveryOptions& options = {},
-               IODeviceType io_device_type = IODeviceType::PCIe,
-               const std::string& soc_descriptor_path = "") {
-                return TopologyDiscovery::discover(options, io_device_type, soc_descriptor_path).first;
+            [](const TopologyDiscoveryOptions& options,
+               std::optional<IODeviceType> io_device_type,
+               std::optional<std::string> soc_descriptor_path) {
+                return TopologyDiscovery::discover(
+                           apply_legacy_discovery_args(options, io_device_type, std::move(soc_descriptor_path)))
+                    .first;
             },
             nb::arg("options") = TopologyDiscoveryOptions{},
-            nb::arg("io_device_type") = IODeviceType::PCIe,
-            nb::arg("soc_descriptor_path") = "",
-            release_gil())
+            nb::arg("io_device_type") = nb::none(),
+            nb::arg("soc_descriptor_path") = nb::none(),
+            release_gil(),
+            "Discover topology and return the ClusterDescriptor. io_device_type and soc_descriptor_path are "
+            "deprecated; set them on options instead.")
         .def_static(
             "discover",
-            &TopologyDiscovery::discover,
+            [](const TopologyDiscoveryOptions& options,
+               std::optional<IODeviceType> io_device_type,
+               std::optional<std::string> soc_descriptor_path) {
+                return TopologyDiscovery::discover(
+                    apply_legacy_discovery_args(options, io_device_type, std::move(soc_descriptor_path)));
+            },
             nb::arg("options") = TopologyDiscoveryOptions{},
-            nb::arg("io_device_type") = IODeviceType::PCIe,
-            nb::arg("soc_descriptor_path") = "",
+            nb::arg("io_device_type") = nb::none(),
+            nb::arg("soc_descriptor_path") = nb::none(),
             release_gil(),
-            "Discover topology and return both ClusterDescriptor and TTDevices");
+            "Discover topology and return both ClusterDescriptor and TTDevices. io_device_type and "
+            "soc_descriptor_path are deprecated; set them on options instead.");
 }

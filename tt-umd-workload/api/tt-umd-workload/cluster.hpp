@@ -272,7 +272,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
-        IoOrdering ordering = IoOrdering::Strict,
+        IoOrdering ordering = IoOrdering::STRICT,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -414,7 +414,7 @@ public:
         ChipId chip,
         CoreCoord core,
         uint64_t addr,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -438,7 +438,7 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -641,7 +641,7 @@ public:
      *
      * @param device_id Logical device id to target.
      */
-    std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    std::size_t get_num_host_channels(std::uint32_t device_id);
 
     /**
      * Get size for a specific Host channel accessible by the corresponding device.
@@ -649,7 +649,7 @@ public:
      * @param device_id Logical device id to target.
      * @param channel Logical host channel to target.
      */
-    std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    std::size_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
 
     /**
      * Get absolute address corresponding to a zero based offset into a specific host memory channel for a specific

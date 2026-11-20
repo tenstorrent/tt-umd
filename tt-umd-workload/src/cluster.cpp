@@ -42,6 +42,8 @@
 #include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/tt_device/simulation_device_factory.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -236,7 +238,7 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         remote_communication->set_remote_transfer_ethernet_cores(
             gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-        remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+        remote_tt_device = create_simulation_remote_tt_device(std::move(remote_communication), soc_desc);
     }
     if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
         connect_remote_communication_to_gateway(remote_communication);
@@ -444,8 +446,11 @@ Cluster::Cluster(ClusterOptions options) {
                 UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
-            auto [desc, devices] = TopologyDiscovery::discover(
-                options.topology_discovery_options, options.io_device_type, options.sdesc_path);
+            // ClusterOptions' own transport and SoC descriptor fields decide those for discovery.
+            TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+            discovery_options.io_device_type = options.io_device_type;
+            discovery_options.soc_descriptor_path = options.sdesc_path;
+            auto [desc, devices] = TopologyDiscovery::discover(discovery_options);
             cluster_desc = std::move(desc);
             tt_devices = std::move(devices);
             break;
@@ -569,6 +574,8 @@ Cluster::Cluster(ClusterOptions options) {
                     is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+                    discovery_options.io_device_type = options.io_device_type;
+                    discovery_options.soc_descriptor_path = options.sdesc_path;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
                     // to produce -- and a simulated device sizes its system memory as it is constructed.
                     // So absent an explicit count, discovery builds with a provisional 1, which the grow
@@ -577,8 +584,7 @@ Cluster::Cluster(ClusterOptions options) {
                         .simulator_path = options.simulator_directory.string(),
                         .num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                     };
-                    auto [discovered_desc, discovered_devices] =
-                        TopologyDiscovery::discover(discovery_options, options.io_device_type, options.sdesc_path);
+                    auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
                     // discover() answers with a valid, chipless descriptor when it found nothing --
                     // callers and the Python bindings go through it on an empty machine too -- so
                     // the devices, not the pointer, are what say whether this simulator was
@@ -1507,11 +1513,11 @@ void Cluster::close_device() {
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
-std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
+std::size_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     return chips_.at(device_id)->get_num_host_channels();
 }
 
-std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+std::size_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     return chips_.at(device_id)->get_host_channel_size(channel);
 }
 
@@ -1556,7 +1562,9 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
         log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
         adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
     }
-    return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
+    adjusted_topology_options.io_device_type = device_type;
+    adjusted_topology_options.soc_descriptor_path = sdesc_path;
+    return TopologyDiscovery::discover(adjusted_topology_options).first;
 }
 
 }  // namespace tt::umd

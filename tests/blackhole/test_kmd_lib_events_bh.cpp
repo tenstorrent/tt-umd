@@ -30,6 +30,9 @@ constexpr uint32_t TEST_EVENT_RECORD_MSG = 0x91;
 constexpr uint16_t EVENT_TYPE_TEST = 0x0000;
 constexpr int READ_TIMEOUT_MS = 1000;
 
+}  // namespace
+
+// Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class KmdLibEventsBh : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -104,8 +107,6 @@ protected:
     tt_device_t* dev = nullptr;
     std::unique_ptr<TTDevice> tt_device;
 };
-
-}  // namespace
 
 TEST_F(KmdLibEventsBh, RecordRoundTripsEveryField) {
     publish_test_events(0x0042, 1, 7, 1, 2, 3);

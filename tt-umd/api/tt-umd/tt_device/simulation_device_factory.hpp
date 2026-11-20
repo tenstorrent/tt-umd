@@ -32,7 +32,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
 /**
  * Same as above, but uses a caller-provided SocDescriptor and ChipId instead of deriving them
  * from the simulator path. num_chips is how many chips are opened over PCIe on the image; a TTSim
- * image has to expose at least that many endpoints unless it implements the multichip ABI.
+ * image has to expose at least that many endpoints.
  *
  * Intended for use from SimulationChip::create and Cluster::construct_chip_from_cluster, where
  * the SocDescriptor is already known.

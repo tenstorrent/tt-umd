@@ -98,11 +98,9 @@ TTSimTTDevice::TTSimTTDevice(
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
-    // Pass chip_id and num_chips to the communicator. If the .so supports the multichip
-    // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
-    // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
-    // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
-    // image addressed per-chip by PCI device. Single-chip loads the library on its own.
+    // Pass chip_id and num_chips to the communicator. For a multi-chip cluster (num_chips > 1)
+    // it uses shared-dlopen BDF mode: one libttsim image addressed per-chip by PCI device.
+    // Single-chip loads the library on its own.
     communicator_(std::make_unique<TTSimCommunicator>(
         simulator_directory, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips), pci_bdf)),
     chip_id_(chip_id) {

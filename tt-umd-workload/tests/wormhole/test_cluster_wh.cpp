@@ -332,9 +332,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     for (int i = 0; i < vec1.size(); i++) {
         vec1.at(i) = i;
     }
-    for (int i = 0; i < vec2.size(); i++) {
-        vec2.at(i) = vec1.size() + i;
-    }
+    std::iota(vec2.begin(), vec2.end(), vec1.size());
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
@@ -351,7 +349,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     });
 
     std::thread th2 = std::thread([&] {
-        std::uint32_t address = base_addr + vec1.size() * 4;
+        std::uint64_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -996,9 +994,7 @@ TEST(TestDeviceIO, DMA3) {
                                      << " size=" << std::dec << readback_zeros.size();
 
     std::vector<uint8_t> pattern(buf_size, 0);
-    for (size_t i = 0; i < buf_size; ++i) {
-        pattern[i] = i % 256;
-    }
+    std::iota(pattern.begin(), pattern.end(), uint8_t{0});
 
     cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, eth_core, 254304);
 

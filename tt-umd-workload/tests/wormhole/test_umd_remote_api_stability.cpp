@@ -23,7 +23,7 @@
 namespace tt::umd::test::utils {
 class WormholeNebulaX2TestFixture : public WormholeTestFixture {
 private:
-    static int detected_num_chips;
+    static size_t detected_num_chips;
     static bool skip_tests;
 
 protected:
@@ -41,12 +41,12 @@ protected:
         }
     }
 
-    int get_detected_num_chips() override { return detected_num_chips; }
+    size_t get_detected_num_chips() override { return detected_num_chips; }
 
     bool is_test_skipped() override { return skip_tests; }
 };
 
-int WormholeNebulaX2TestFixture::detected_num_chips = -1;
+size_t WormholeNebulaX2TestFixture::detected_num_chips = 0;
 bool WormholeNebulaX2TestFixture::skip_tests = false;
 uint32_t WormholeNebulaX2TestFixture::scale_number_of_tests = 1;
 

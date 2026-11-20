@@ -476,7 +476,8 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32
 
 void LocalChip::deassert_risc_resets() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
+    // A Wormhole firmware message: other architectures leave their RISCs in reset until a core is deasserted.
+    if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET),
             true,

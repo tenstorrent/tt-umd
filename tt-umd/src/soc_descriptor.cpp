@@ -176,7 +176,8 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         arch_desc_->get_l2cpu_cores(),
         arch_desc_->get_dispatch_cores(),
         arch_desc_->get_noc0_x_to_noc1_x(),
-        arch_desc_->get_noc0_y_to_noc1_y());
+        arch_desc_->get_noc0_y_to_noc1_y(),
+        arch_desc_->get_smc_cores());
 }
 
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
@@ -376,11 +377,65 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::DISPATCH);
     out << YAML::EndSeq;
 
+    out << YAML::Key << "smc" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::SMC);
+    out << YAML::EndSeq;
+
     // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
     out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
     out << YAML::Key << "arch_name" << YAML::Value << tt::arch_to_str(arch);
+
+    const auto &mimir_channels = get_arch_descriptor().get_mimir_channels();
+    if (!mimir_channels.empty()) {
+        out << YAML::Key << "mimir_channels" << YAML::Value << YAML::BeginSeq;
+        for (const auto &channel : mimir_channels) {
+            out << YAML::BeginMap;
+            out << YAML::Key << "channel" << YAML::Value << channel.channel;
+            out << YAML::Key << "instance" << YAML::Value << channel.instance;
+            out << YAML::Key << "chiplet" << YAML::Value << channel.chiplet;
+            if (!channel.routes.empty()) {
+                out << YAML::Key << "routes" << YAML::Value << YAML::BeginSeq;
+                for (const auto &route : channel.routes) {
+                    out << YAML::BeginMap;
+                    out << YAML::Key << "peer" << YAML::Value << route.peer_instance;
+                    out << YAML::Key << "d2d" << YAML::Value << route.d2d;
+                    out << YAML::EndMap;
+                }
+                out << YAML::EndSeq;
+            }
+            out << YAML::EndMap;
+        }
+        out << YAML::EndSeq;
+    }
+
+    const auto &keraunos = get_arch_descriptor().get_keraunos();
+    if (!keraunos.chiplet.empty()) {
+        out << YAML::Key << "keraunos" << YAML::Value << YAML::BeginMap;
+        out << YAML::Key << "chiplet" << YAML::Value << keraunos.chiplet;
+        if (keraunos.tap.has_value()) {
+            out << YAML::Key << "tap" << YAML::Value << *keraunos.tap;
+        }
+        if (keraunos.local_window.has_value()) {
+            out << YAML::Key << "local_window" << YAML::Value << *keraunos.local_window;
+        }
+        if (keraunos.tile_stride.has_value()) {
+            out << YAML::Key << "tile_stride" << YAML::Value << *keraunos.tile_stride;
+        }
+        if (!keraunos.cores.empty()) {
+            out << YAML::Key << "cores" << YAML::Value << YAML::BeginSeq;
+            for (const auto &core : keraunos.cores) {
+                out << YAML::BeginMap;
+                out << YAML::Key << "core" << YAML::Value << fmt::format("{}-{}", core.coord.x, core.coord.y);
+                out << YAML::Key << "hsio" << YAML::Value << core.hsio;
+                out << YAML::Key << "eth_cce" << YAML::Value << core.eth_cce;
+                out << YAML::EndMap;
+            }
+            out << YAML::EndSeq;
+        }
+        out << YAML::EndMap;
+    }
 
     out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;
 
@@ -496,7 +551,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_syst
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
           CoreType::L2CPU,
-          CoreType::DISPATCH}) {
+          CoreType::DISPATCH,
+          CoreType::SMC}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -514,7 +570,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
           CoreType::L2CPU,
-          CoreType::DISPATCH}) {
+          CoreType::DISPATCH,
+          CoreType::SMC}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

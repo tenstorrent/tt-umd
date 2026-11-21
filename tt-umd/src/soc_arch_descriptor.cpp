@@ -7,6 +7,8 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <set>
@@ -22,6 +24,179 @@
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+tt_xy_pair format_node(const std::string& str);
+
+namespace {
+
+bool is_mimir_chiplet_id(const std::string& chiplet) {
+    if (chiplet.size() < 2 || chiplet.size() > 3 || chiplet.front() != 'm') {
+        return false;
+    }
+    return std::all_of(chiplet.begin() + 1, chiplet.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+std::vector<MimirChannel> parse_mimir_channels(const YAML::Node& node, std::size_t channel_count) {
+    UMD_ASSERT(
+        node.IsSequence(), error::RuntimeError, "mimir_channels must be a sequence, one entry per DRAM channel.");
+    UMD_ASSERT(
+        channel_count > 0, error::RuntimeError, "mimir_channels is set but the descriptor has no DRAM channels.");
+    UMD_ASSERT(
+        node.size() == channel_count,
+        error::RuntimeError,
+        fmt::format("mimir_channels has {} entries; the descriptor has {} DRAM channels.", node.size(), channel_count));
+
+    std::vector<MimirChannel> channels(channel_count);
+    std::vector<char> seen(channel_count, 0);
+    std::unordered_set<uint32_t> instances;
+    for (const auto& entry : node) {
+        UMD_ASSERT(
+            entry["channel"] && entry["instance"] && entry["chiplet"],
+            error::RuntimeError,
+            "Each mimir_channels entry needs channel, instance, and chiplet.");
+        const auto channel = entry["channel"].as<uint32_t>();
+        UMD_ASSERT(
+            channel < channel_count && seen[channel] == 0,
+            error::RuntimeError,
+            fmt::format("mimir_channels channel {} is missing, repeated, or out of range.", channel));
+        seen[channel] = 1;
+        MimirChannel parsed;
+        parsed.channel = channel;
+        parsed.instance = entry["instance"].as<uint32_t>();
+        parsed.chiplet = entry["chiplet"].as<std::string>();
+        UMD_ASSERT(
+            instances.insert(parsed.instance).second,
+            error::RuntimeError,
+            fmt::format("mimir_channels instance {} is listed more than once.", parsed.instance));
+        UMD_ASSERT(
+            is_mimir_chiplet_id(parsed.chiplet),
+            error::RuntimeError,
+            fmt::format("mimir_channels chiplet '{}' is not a Mimir id such as m0.", parsed.chiplet));
+        if (entry["routes"]) {
+            UMD_ASSERT(entry["routes"].IsSequence(), error::RuntimeError, "mimir_channels routes must be a sequence.");
+            for (const auto& route : entry["routes"]) {
+                UMD_ASSERT(
+                    route["peer"] && route["d2d"],
+                    error::RuntimeError,
+                    "Each mimir_channels route needs peer and d2d.");
+                parsed.routes.push_back(MimirD2dRoute{route["peer"].as<uint32_t>(), route["d2d"].as<uint32_t>()});
+            }
+        }
+        channels[channel] = std::move(parsed);
+    }
+
+    for (const auto& channel : channels) {
+        for (const auto& route : channel.routes) {
+            UMD_ASSERT(
+                route.peer_instance != channel.instance && instances.count(route.peer_instance) == 1,
+                error::RuntimeError,
+                fmt::format(
+                    "mimir_channels instance {} route peer {} is not another Mimir in this descriptor.",
+                    channel.instance,
+                    route.peer_instance));
+        }
+    }
+    return channels;
+}
+
+bool is_keraunos_chiplet_id(const std::string& chiplet) {
+    if (chiplet.size() < 2 || chiplet.size() > 3 || chiplet.front() != 'k') {
+        return false;
+    }
+    return std::all_of(chiplet.begin() + 1, chiplet.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+}
+
+// The local map is one fact. A chiplet id alone names k0 before that map exists.
+KeraunosChiplet parse_keraunos(
+    const YAML::Node& node,
+    const std::vector<tt_xy_pair>& eth_cores,
+    uint32_t eth_l1_size,
+    const std::unordered_set<tt_xy_pair>& occupied) {
+    UMD_ASSERT(node.IsMap(), error::RuntimeError, "keraunos must be a map.");
+    UMD_ASSERT(node["chiplet"], error::RuntimeError, "keraunos needs a chiplet id.");
+
+    KeraunosChiplet parsed;
+    parsed.chiplet = node["chiplet"].as<std::string>();
+    UMD_ASSERT(
+        is_keraunos_chiplet_id(parsed.chiplet),
+        error::RuntimeError,
+        fmt::format("keraunos chiplet '{}' is not a Keraunos id such as k0.", parsed.chiplet));
+
+    const bool has_tap = node["tap"].IsDefined();
+    const bool has_window = node["local_window"].IsDefined();
+    const bool has_stride = node["tile_stride"].IsDefined();
+    const bool has_cores = node["cores"].IsDefined();
+    if (!has_tap && !has_window && !has_stride && !has_cores) {
+        UMD_ASSERT(eth_cores.empty(), error::RuntimeError, "keraunos has no cores, so eth must be empty.");
+        return parsed;
+    }
+    UMD_ASSERT(
+        has_tap && has_window && has_stride && has_cores,
+        error::RuntimeError,
+        "keraunos tap, local_window, tile_stride, and cores are recorded together.");
+    UMD_ASSERT(
+        node["cores"].IsSequence() && node["cores"].size() > 0,
+        error::RuntimeError,
+        "keraunos cores must list the ethernet cores.");
+    UMD_ASSERT(eth_l1_size > 0, error::RuntimeError, "keraunos cores need a non-zero eth_l1_size.");
+
+    parsed.tap = node["tap"].as<uint32_t>();
+    parsed.local_window = node["local_window"].as<uint64_t>();
+    parsed.tile_stride = node["tile_stride"].as<uint64_t>();
+    UMD_ASSERT(
+        *parsed.tile_stride >= eth_l1_size,
+        error::RuntimeError,
+        "keraunos tile_stride must cover one core's eth_l1_size.");
+    std::unordered_set<tt_xy_pair> seen_coords;
+    std::unordered_set<uint64_t> seen_regions;
+    for (const auto& entry : node["cores"]) {
+        UMD_ASSERT(
+            entry["core"] && entry["hsio"] && entry["eth_cce"],
+            error::RuntimeError,
+            "Each keraunos core needs core, hsio, and eth_cce.");
+        KeraunosCore core;
+        core.coord = format_node(entry["core"].as<std::string>());
+        core.hsio = entry["hsio"].as<uint32_t>();
+        core.eth_cce = entry["eth_cce"].as<uint32_t>();
+        const uint64_t region = static_cast<uint64_t>(core.eth_cce) * eth_l1_size;
+        UMD_ASSERT(
+            region + eth_l1_size <= *parsed.tile_stride,
+            error::RuntimeError,
+            fmt::format(
+                "keraunos eth_cce {} does not fit in a tile of 0x{:x} with eth_l1_size 0x{:x}.",
+                core.eth_cce,
+                *parsed.tile_stride,
+                eth_l1_size));
+        UMD_ASSERT(
+            seen_coords.insert(core.coord).second,
+            error::RuntimeError,
+            fmt::format("keraunos core {}-{} is listed more than once.", core.coord.x, core.coord.y));
+        const uint64_t region_key = (static_cast<uint64_t>(core.hsio) << 32) | core.eth_cce;
+        UMD_ASSERT(
+            seen_regions.insert(region_key).second,
+            error::RuntimeError,
+            fmt::format("keraunos HSIO {} CCE {} is listed more than once.", core.hsio, core.eth_cce));
+        UMD_ASSERT(
+            occupied.count(core.coord) == 0,
+            error::RuntimeError,
+            fmt::format("keraunos core {}-{} is already a DRAM, SMC, or other core.", core.coord.x, core.coord.y));
+        parsed.cores.push_back(core);
+    }
+
+    UMD_ASSERT(
+        parsed.cores.size() == eth_cores.size(),
+        error::RuntimeError,
+        fmt::format("keraunos lists {} cores and eth lists {}.", parsed.cores.size(), eth_cores.size()));
+    for (std::size_t i = 0; i < eth_cores.size(); ++i) {
+        UMD_ASSERT(
+            parsed.cores[i].coord == eth_cores[i],
+            error::RuntimeError,
+            "keraunos cores must be the eth list, in the same order.");
+    }
+    return parsed;
+}
+
+}  // namespace
 
 SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
     arch_ = arch_enum;
@@ -101,6 +276,13 @@ void SocArchDescriptor::init() {
             noc0_x_to_noc1_x_ = grendel::NOC0_X_TO_NOC1_X;
             noc0_y_to_noc1_y_ = grendel::NOC0_Y_TO_NOC1_Y;
             break;
+        case tt::ARCH::GRENDEL:
+            // A Grendel package's floorplan depends on which chiplets it holds, so there are no
+            // architecture constants to select here.
+            UMD_THROW(
+                error::RuntimeError,
+                "Grendel packages have no fixed floorplan; construct SocArchDescriptor from a YAML SoC descriptor "
+                "instead.");
         default:
             UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocArchDescriptor.");
     }
@@ -214,6 +396,13 @@ void SocArchDescriptor::build_derived_data() {
         core_descriptor.type = CoreType::DISPATCH;
         cores_.insert({core_descriptor.coord, core_descriptor});
     }
+
+    for (const auto& smc_core : smc_cores_) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = smc_core;
+        core_descriptor.type = CoreType::SMC;
+        cores_.insert({core_descriptor.coord, core_descriptor});
+    }
 }
 
 tt_xy_pair format_node(const std::string& str) {
@@ -309,6 +498,15 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
         ip_variant_ = it->second;
     }
 
+    if (device_descriptor_yaml["smc"].IsDefined()) {
+        smc_cores_ =
+            SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["smc"].as<std::vector<std::string>>());
+    }
+
+    if (device_descriptor_yaml["mimir_channels"].IsDefined()) {
+        mimir_channels_ = parse_mimir_channels(device_descriptor_yaml["mimir_channels"], dram_cores_.size());
+    }
+
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {
         noc0_x_to_noc1_x_ = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
         noc0_y_to_noc1_y_ = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();
@@ -317,6 +515,25 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     worker_l1_size_ = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     eth_l1_size_ = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     dram_bank_size_ = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
+
+    if (device_descriptor_yaml["keraunos"].IsDefined()) {
+        std::unordered_set<tt_xy_pair> occupied;
+        auto occupy = [&occupied](const std::vector<tt_xy_pair>& cores) {
+            occupied.insert(cores.begin(), cores.end());
+        };
+        occupy(tensix_cores_);
+        occupy(firmware_cores_);
+        occupy(pcie_cores_);
+        occupy(router_cores_);
+        occupy(security_cores_);
+        occupy(l2cpu_cores_);
+        occupy(dispatch_cores_);
+        occupy(smc_cores_);
+        for (const auto& channel : dram_cores_) {
+            occupy(channel);
+        }
+        keraunos_ = parse_keraunos(device_descriptor_yaml["keraunos"], eth_cores_, eth_l1_size_, occupied);
+    }
 
     if (device_descriptor_yaml["features"].IsDefined()) {
         auto features = device_descriptor_yaml["features"];

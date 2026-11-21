@@ -26,6 +26,44 @@ class Node;
 
 namespace tt::umd {
 
+// D2D port on one Mimir that reaches another Mimir's SPA instance.
+struct MimirD2dRoute {
+    uint32_t peer_instance = 0;
+    uint32_t d2d = 0;
+};
+
+// One DRAM channel's place in the package. channel is the UMD DRAM channel, instance is the SPA
+// Mimir number, and chiplet is the chippy id ("m0"). These are not implied by the channel index.
+struct MimirChannel {
+    uint32_t channel = 0;
+    uint32_t instance = 0;
+    std::string chiplet;
+    std::vector<MimirD2dRoute> routes;
+};
+
+// One ethernet core on Keraunos. coord is a package-local UMD handle, the same kind a Mimir core
+// uses. hsio is the HSIO tile, and eth_cce is which CCE region on that tile. The handle is not a
+// package NOC coordinate, and neither index is a package SPA address.
+struct KeraunosCore {
+    tt_xy_pair coord = tt_xy_pair(0, 0);
+    uint32_t hsio = 0;
+    uint32_t eth_cce = 0;
+};
+
+// Keraunos on an MMK package. An empty chiplet means the descriptor has no Keraunos.
+// tap is the JTAG chain index from the chippy package config, not the digits of the chiplet id.
+// A core's chiplet-local SRAM is local_window + hsio * tile_stride + eth_cce * eth_l1_size.
+// tap, local_window, tile_stride, and cores are recorded together, and cores is the eth list
+// in the same order.
+// Each CCE of an HSIO tile is its own ethernet core: eth_cce 0 and 1 are two cores with the same hsio.
+struct KeraunosChiplet {
+    std::string chiplet;
+    std::optional<uint32_t> tap;
+    std::optional<uint64_t> local_window;
+    std::optional<uint64_t> tile_stride;
+    std::vector<KeraunosCore> cores;
+};
+
 //! CoreDescriptor contains information regarding a single core on the SOC.
 struct CoreDescriptor {
     tt_xy_pair coord = tt_xy_pair(0, 0);
@@ -86,6 +124,15 @@ public:
     const std::vector<tt_xy_pair>& get_l2cpu_cores() const { return l2cpu_cores_; }
 
     const std::vector<tt_xy_pair>& get_dispatch_cores() const { return dispatch_cores_; }
+
+    const std::vector<tt_xy_pair>& get_smc_cores() const { return smc_cores_; }
+
+    // Empty when the descriptor omits mimir_channels (Quasar simulation). Otherwise one entry per
+    // DRAM channel, stored so index == channel.
+    const std::vector<MimirChannel>& get_mimir_channels() const { return mimir_channels_; }
+
+    // Empty chiplet when the descriptor omits keraunos.
+    const KeraunosChiplet& get_keraunos() const { return keraunos_; }
 
     // Memory sizes.
     uint32_t get_worker_l1_size() const { return worker_l1_size_; }
@@ -159,6 +206,9 @@ private:
     std::vector<tt_xy_pair> security_cores_;
     std::vector<tt_xy_pair> l2cpu_cores_;
     std::vector<tt_xy_pair> dispatch_cores_;
+    std::vector<tt_xy_pair> smc_cores_;
+    std::vector<MimirChannel> mimir_channels_;
+    KeraunosChiplet keraunos_;
     uint32_t worker_l1_size_ = 0;
     uint32_t eth_l1_size_ = 0;
     uint64_t dram_bank_size_ = 0;

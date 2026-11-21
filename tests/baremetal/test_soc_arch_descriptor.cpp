@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -358,6 +359,7 @@ TEST(SocArchDescriptor, QuasarSimulation1x1) {
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(1, 3));
+    EXPECT_TRUE(desc.get_mimir_channels().empty());
 
     // 1 tensix core: (0,1).
     ASSERT_EQ(desc.get_tensix_cores().size(), 1);
@@ -464,6 +466,113 @@ TEST(SocArchDescriptor, IpVariant) {
 
 TEST(SocArchDescriptor, UnknownIpVariantThrows) {
     const std::filesystem::path path = write_quasar_with_ip_variant("unknown");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, Mimir1x1RecordsOneChiplet) {
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mimir_1x1.yaml"));
+    ASSERT_EQ(desc.get_mimir_channels().size(), 1u);
+    const MimirChannel& channel = desc.get_mimir_channels()[0];
+    EXPECT_EQ(channel.channel, 0u);
+    EXPECT_EQ(channel.instance, 0u);
+    EXPECT_EQ(channel.chiplet, "m0");
+    EXPECT_TRUE(channel.routes.empty());
+}
+
+TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mimir_2x_package.yaml"));
+    ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
+
+    const MimirChannel& first = desc.get_mimir_channels()[0];
+    EXPECT_EQ(first.channel, 0u);
+    EXPECT_EQ(first.instance, 0u);
+    EXPECT_EQ(first.chiplet, "m0");
+    ASSERT_EQ(first.routes.size(), 1u);
+    EXPECT_EQ(first.routes[0].peer_instance, 1u);
+    EXPECT_EQ(first.routes[0].d2d, 1u);
+
+    const MimirChannel& second = desc.get_mimir_channels()[1];
+    EXPECT_EQ(second.channel, 1u);
+    EXPECT_EQ(second.instance, 1u);
+    EXPECT_EQ(second.chiplet, "m1");
+    ASSERT_EQ(second.routes.size(), 1u);
+    EXPECT_EQ(second.routes[0].peer_instance, 0u);
+    EXPECT_EQ(second.routes[0].d2d, 0u);
+    EXPECT_TRUE(desc.get_keraunos().chiplet.empty());
+}
+
+TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
+    const SocArchDescriptor desc(test_utils::get_soc_desc_path("mmk.yaml"));
+    EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
+    ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
+    EXPECT_EQ(desc.get_mimir_channels()[0].chiplet, "m0");
+    EXPECT_EQ(desc.get_mimir_channels()[1].chiplet, "m1");
+    EXPECT_EQ(desc.get_eth_l1_size(), 0x400000u);
+
+    const KeraunosChiplet& keraunos = desc.get_keraunos();
+    EXPECT_EQ(keraunos.chiplet, "k0");
+    ASSERT_TRUE(keraunos.tap.has_value());
+    EXPECT_EQ(*keraunos.tap, 0u);
+    ASSERT_TRUE(keraunos.local_window.has_value());
+    EXPECT_EQ(*keraunos.local_window, 0x22800000u);
+    ASSERT_TRUE(keraunos.tile_stride.has_value());
+    EXPECT_EQ(*keraunos.tile_stride, 0x4000000u);
+    // One core per CCE: column 4 is CCE0 and column 5 is CCE1 of HSIO tiles 0-3.
+    ASSERT_EQ(keraunos.cores.size(), 8u);
+    for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {
+        const uint32_t eth_cce = i / 4;
+        EXPECT_EQ(keraunos.cores[i].coord, tt_xy_pair(4 + eth_cce, i % 4));
+        EXPECT_EQ(keraunos.cores[i].hsio, i % 4);
+        EXPECT_EQ(keraunos.cores[i].eth_cce, eth_cce);
+    }
+    ASSERT_EQ(desc.get_eth_cores().size(), keraunos.cores.size());
+    for (uint32_t i = 0; i < keraunos.cores.size(); ++i) {
+        EXPECT_EQ(desc.get_eth_cores()[i], keraunos.cores[i].coord);
+    }
+}
+
+// The numbers here are a parser fixture. They are not the Keraunos local map.
+static std::filesystem::path write_keraunos_descriptor(const std::string& keraunos_yaml, const std::string& eth) {
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "keraunos_descriptor.yaml";
+    std::ofstream(path) << "grid:\n  x_size: 2\n  y_size: 2\narc: []\npcie: []\ndram:\n  [[0-0]]\neth: [" << eth
+                        << "]\nfunctional_workers: []\nrouter_only: []\nworker_l1_size: 0\ndram_bank_size: 1024\n"
+                        << "eth_l1_size: 4096\narch_name: QUASAR\n"
+                        << keraunos_yaml;
+    return path;
+}
+
+TEST(SocArchDescriptor, KeraunosCoresFollowTheEthList) {
+    const std::filesystem::path path = write_keraunos_descriptor(
+        "keraunos:\n  chiplet: k0\n  tap: 3\n  local_window: 1073741824\n  tile_stride: 8192\n"
+        "  cores:\n    - core: 1-0\n      hsio: 2\n      eth_cce: 1\n",
+        "1-0");
+    const SocArchDescriptor desc(path.string());
+    const KeraunosChiplet& keraunos = desc.get_keraunos();
+    EXPECT_EQ(keraunos.chiplet, "k0");
+    ASSERT_TRUE(keraunos.tap.has_value());
+    EXPECT_EQ(*keraunos.tap, 3u);
+    ASSERT_TRUE(keraunos.local_window.has_value());
+    EXPECT_EQ(*keraunos.local_window, 1073741824u);
+    ASSERT_TRUE(keraunos.tile_stride.has_value());
+    EXPECT_EQ(*keraunos.tile_stride, 8192u);
+    ASSERT_EQ(keraunos.cores.size(), 1u);
+    EXPECT_EQ(keraunos.cores[0].coord, tt_xy_pair(1, 0));
+    EXPECT_EQ(keraunos.cores[0].hsio, 2u);
+    EXPECT_EQ(keraunos.cores[0].eth_cce, 1u);
+    ASSERT_EQ(desc.get_eth_cores().size(), 1u);
+    EXPECT_EQ(desc.get_eth_cores()[0], tt_xy_pair(1, 0));
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, KeraunosRejectsAPartialMap) {
+    const std::filesystem::path path = write_keraunos_descriptor("keraunos:\n  chiplet: k0\n  tap: 3\n", "");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, KeraunosRejectsAMimirChipletId) {
+    const std::filesystem::path path = write_keraunos_descriptor("keraunos:\n  chiplet: m0\n", "");
     EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
     std::filesystem::remove(path);
 }

@@ -19,7 +19,6 @@ required:
   - dram_bank_size
   - eth_l1_size
   - arch_name
-  - features
 
 properties:
   grid:
@@ -114,6 +113,103 @@ properties:
       pattern: ^[0-9]+-[0-9]+$
       description: Coordinate in format "x-y"
 
+  smc:
+    type: array
+    description: List of SMC (System Management Complex) core coordinates
+    items:
+      type: string
+      pattern: ^[0-9]+-[0-9]+$
+      description: Coordinate in format "x-y"
+
+  mimir_channels:
+    type: array
+    description: >
+      One entry per DRAM channel on a Grendel package, each naming the Mimir behind it.
+    items:
+      type: object
+      required:
+        - channel
+        - instance
+        - chiplet
+      properties:
+        channel:
+          type: integer
+          minimum: 0
+          description: UMD DRAM channel.
+        instance:
+          type: integer
+          minimum: 0
+          description: SPA Mimir number.
+        chiplet:
+          type: string
+          pattern: ^m[0-9]+$
+          description: chippy chiplet id.
+        routes:
+          type: array
+          description: D2D ports that reach another Mimir in this descriptor.
+          items:
+            type: object
+            required:
+              - peer
+              - d2d
+            properties:
+              peer:
+                type: integer
+                minimum: 0
+                description: instance of the peer Mimir.
+              d2d:
+                type: integer
+                minimum: 0
+                description: D2D port on this Mimir.
+
+  keraunos:
+    type: object
+    description: >
+      Keraunos chiplet on an MMK package. chiplet is the chippy id. tap, local_window,
+      tile_stride, and cores are omitted together until the chiplet-local map is known.
+      When present, cores is the eth list in the same order. A core's SRAM is
+      local_window + hsio * tile_stride + eth_cce * eth_l1_size.
+    required:
+      - chiplet
+    properties:
+      chiplet:
+        type: string
+        pattern: ^k[0-9]+$
+      tap:
+        type: integer
+        minimum: 0
+        description: JTAG chain index. Not the digits of the chiplet id.
+      local_window:
+        type: integer
+        minimum: 0
+        description: Chiplet-local AXI base of HSIO tile 0 SRAM.
+      tile_stride:
+        type: integer
+        minimum: 1
+        description: Bytes from one HSIO tile's SRAM to the next.
+      cores:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+            - core
+            - hsio
+            - eth_cce
+          properties:
+            core:
+              type: string
+              pattern: ^[0-9]+-[0-9]+$
+            hsio:
+              type: integer
+              minimum: 0
+            eth_cce:
+              type: integer
+              minimum: 0
+              description: CCE region on that HSIO tile. Region size is eth_l1_size.
+          additionalProperties: false
+    additionalProperties: false
+
   noc0_x_to_noc1_x:
     type: array
     description: Mapping from NOC0 X coordinates to NOC1 X coordinates
@@ -150,6 +246,7 @@ properties:
       - WORMHOLE_B0
       - wormhole_b0
       - QUASAR
+      - GRENDEL
     description: Architecture name of the chip
 
   features:
@@ -223,5 +320,19 @@ properties:
         additionalProperties: false
 
     additionalProperties: false
+
+# The compute-unit feature block describes unpacker/math/packer/overlay, which only exist on a
+# chiplet with compute. A Grendel package need not have any: Mimir is DRAM plus the SMC. So features
+# is required for every other architecture, and optional for GRENDEL.
+if:
+  required:
+    - arch_name
+  properties:
+    arch_name:
+      not:
+        const: GRENDEL
+then:
+  required:
+    - features
 
 additionalProperties: true

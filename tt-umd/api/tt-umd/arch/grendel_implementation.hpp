@@ -320,6 +320,36 @@ inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 13;
 inline constexpr uint32_t SOFT_RESET_TRISC3 = 1 << 14;
 // inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
+// CCE reset vectors live in each CCE's tt_cluster_ctrl register plane. Hart reset control lives
+// in that CCE's PF_CTRL_RESET: bit 0 is the uncore and bits 1-8 are harts 0-7 (1 = released).
+// That polarity is the inverse of Tensix.
+inline constexpr uint64_t CCE_RESET_VECTOR_BASE = 0x02000000;
+inline constexpr uint64_t CCE_PF_CTRL_RESET_BASE = 0x02200000;
+// SMC view of one CCE's dmrisc_addr_remap. The DRAM-core coordinate selects which CCE; these
+// offsets are not folded by CCE index. CCE1 sits one 16 MiB tile above CCE0 inside the Mimir
+// config window. Each of the 16 entries is 0x20 bytes: start, end, remap start, attrs.
+inline constexpr uint64_t CCE_DMRISC_REMAP_BASE = 0x02202000;
+inline constexpr uint64_t CCE_DMRISC_REMAP_ENTRY_STRIDE = 0x20;
+inline constexpr uint64_t CCE_DMRISC_REMAP_ADDR_SHIFT = 6;
+inline constexpr uint64_t MIMIR_CCE_WITHIN_TILE_STRIDE = 0x01000000;
+inline constexpr uint32_t CCE_NUM_HARTS = 8;
+inline constexpr uint64_t CCE_UNCORE_RELEASED = 0x1;
+inline constexpr uint64_t CCE_HART_RESET_VECTOR_STRIDE = sizeof(uint64_t);
+
+// Keraunos HSIO CCE control is chiplet-local, at the HSIO tile base rather than inside the SRAM
+// window. CCE 1 is one 16 MiB slot above CCE 0. PF_CTRL reset is 0x200000 above the CCE's
+// tt_cluster_ctrl. Bit 0 is the uncore and bits 1-8 are the harts, the same polarity as a Mimir
+// CCE. The tile stride comes from the descriptor. Bring-up owns the uncore.
+inline constexpr uint64_t KERAUNOS_HSIO0_LOCAL_BASE = 0x20000000;
+inline constexpr uint64_t KERAUNOS_CCE_PF_CTRL_RESET_OFFSET = 0x00200000;
+// One CCE's SRAM. A core spanning both CCEs of a tile holds CCE1's SRAM at this offset, and a
+// register-width write at the start of either CCE's SRAM programs that CCE's reset vectors.
+inline constexpr uint64_t KERAUNOS_CCE_SRAM_SIZE = 0x00400000;
+
+inline constexpr bool is_mimir_cce_reset_vector_addr(uint64_t addr) {
+    return addr >= CCE_RESET_VECTOR_BASE && addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
+}
+
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);

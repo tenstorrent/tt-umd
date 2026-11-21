@@ -106,6 +106,7 @@ target_sources(
         src/coordinates/wormhole_coordinate_manager.cpp
         src/coordinates/blackhole_coordinate_manager.cpp
         src/coordinates/quasar_coordinate_manager.cpp
+        src/coordinates/grendel_noc_address_resolver.cpp
         src/coordinates/att/att_resolver.cpp
         src/firmware_telemetry/arc_telemetry_reader.cpp
         src/firmware_telemetry/wormhole_arc_telemetry_reader.cpp
@@ -205,6 +206,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/chip_helpers/simulation_tlb_allocator.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/coordinates/noc_address_resolver.hpp
+                api/tt-umd/coordinates/grendel_noc_address_resolver.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp
                 api/tt-umd/utils/kmd_versions.hpp
@@ -292,6 +294,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/grendel_implementation.hpp
                 # Backward-compat forwarding header for the pre-rename "umd/device/..." include path.
                 api/umd/device/coordinates/noc_address_resolver.hpp
+                api/umd/device/coordinates/grendel_noc_address_resolver.hpp
     )
 endif()
 

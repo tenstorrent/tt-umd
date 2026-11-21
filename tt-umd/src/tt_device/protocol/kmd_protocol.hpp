@@ -41,8 +41,9 @@ public:
     KmdProtocol(std::unique_ptr<PCIDevice> pci_device, int mmio_id);
     ~KmdProtocol() override;
 
-    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
+    void write_data(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override;
     void write_ctrl(

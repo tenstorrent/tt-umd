@@ -1184,6 +1184,30 @@ int PCIDevice::export_tlb_dmabuf(
     return fd;
 }
 
+uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
+    // Wormhole reaches PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up; other
+    // architectures are unverified.
+    UMD_ASSERT(
+        arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format("Peer BAR mapping is supported only on Blackhole, not on {}.", arch));
+    uint64_t dma_address = 0;
+    const int ret = tt_device_map_peer_bar(tt_device_handle, peer.tt_device_handle, bar, offset, length, &dma_address);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to map {} bytes at {:#x} of BAR{} of device {} for device {}: {}",
+                length,
+                offset,
+                bar,
+                peer.get_device_num(),
+                get_device_num(),
+                strerror(-ret)));
+    }
+    return dma_address;
+}
+
 /**
  * The library's flag is the driver's flag under another name; translating rather than handing a
  * value through keeps this interface from inheriting the driver's numbering. A closed set of

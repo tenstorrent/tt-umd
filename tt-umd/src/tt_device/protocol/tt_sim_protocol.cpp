@@ -30,7 +30,8 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     }
 }
 
-void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimProtocol::read_data(
+    void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     // The device's path already picks between the cached TLB window and direct tile access by
     // architecture -- Wormhole and Blackhole reach the NOC through the window, and tile access is
     // fatal on them; Quasar has no TLBs and uses tile access. Reaching that path rather than
@@ -43,7 +44,8 @@ void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t 
     device_->noc_read_translated(core, addr, dst, size);
 }
 
-void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimProtocol::write_data(
+    const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     UMD_ASSERT(device_ != nullptr, error::RuntimeError, "TTSimProtocol used before it was attached to a device.");
     NocIdSwitcher noc_switcher(noc_id);
     device_->noc_write_translated(core, addr, src, size);

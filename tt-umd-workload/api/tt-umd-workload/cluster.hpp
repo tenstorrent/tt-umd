@@ -91,12 +91,6 @@ struct ClusterOptions {
     std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
-     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-     * descriptor based on architecture will be used.
-     */
-    std::string sdesc_path;
-
-    /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
@@ -136,14 +130,9 @@ struct ClusterOptions {
      */
     std::filesystem::path simulator_server_directory = "";
 
-    /**
-     * I/O device type to use for the cluster.
-     * This determines how the cluster will communicate with the underlying hardware.
-     */
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     /*
-     * Options related to topology discovery. Only applicable for SILICON chip type.
+     * Options related to topology discovery. Its transport (io_device_type) and SoC descriptor path
+     * (soc_descriptor_path) apply to every chip type; the rest only to SILICON.
      */
     TopologyDiscoveryOptions topology_discovery_options = {};
 };

@@ -393,6 +393,21 @@ public:
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
+    /**
+     * Map @p length bytes at @p offset of BAR @p bar of @p peer for this device to reach by
+     * peer-to-peer PCIe DMA. The mapping lasts until this device is closed. Supported only on Blackhole.
+     *
+     * The mapping covers BAR bytes only. Where a write to a TLB window's range lands is set by that
+     * window on @p peer, and nothing ties the window to this mapping: keep the window allocated and
+     * aimed for as long as this device uses the range, or its writes reach the window's next owner.
+     * Re-aiming the window redirects this device's writes without remapping, but writes still in
+     * flight land at whichever target the window has when they arrive, so drain them first.
+     *
+     * @return The address this device uses to reach the range.
+     * @throws error::RuntimeError if this device is not a Blackhole, or KMD refuses the mapping.
+     */
+    uint64_t map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length);
+
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
 

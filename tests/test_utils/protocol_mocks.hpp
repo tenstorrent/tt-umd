@@ -62,6 +62,7 @@ public:
     MOCK_METHOD(int, get_numa_node, (), (const, override));
     MOCK_METHOD(std::optional<uint32_t>, get_lane_count, (), (const, override));
     MOCK_METHOD(void, set_power_state, (PowerState), (override));
+    MOCK_METHOD(bool, set_power_state, (uint16_t, uint8_t), (override));
     MOCK_METHOD(int, export_dmabuf, (tt_xy_pair, uint64_t, size_t, uint64_t, NocId), (override));
     MOCK_METHOD(void, set_io_timeout_callback, (const std::function<bool(NocId)>&), (override));
 };

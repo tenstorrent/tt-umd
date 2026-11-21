@@ -64,6 +64,7 @@ public:
 
     // PcieInterface.
     void set_power_state(PowerState state) override;
+    bool set_power_state(uint16_t power_flags_bitfield, uint8_t power_flags_valid) override;
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;

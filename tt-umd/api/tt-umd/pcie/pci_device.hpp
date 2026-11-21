@@ -442,13 +442,15 @@ public:
 
     /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
-     * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
-     * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.
+     * Flags that are set request the matching power domain; clearing all flags releases them, allowing the device
+     * to enter a low-power idle state.
      * Has no effect on KMD versions older than 2.6.0. Has no effect on non-Blackhole devices.
      *
-     * @param busy true to request full power, false to release power flags.
+     * @param power_flags_bitfield Bitmask of power domain requests (TT_POWER_FLAG_* values).
+     * @param power_flags_valid Number of low-order bits of power_flags_bitfield (0-15) the driver treats as valid.
+     * @returns False if the request is unsupported or malformed, otherwise true.
      */
-    void set_power_state(bool busy);
+    bool set_power_state(uint16_t power_flags_bitfield, uint8_t power_flags_valid);
 
     /**
      * Get the tt_device handle for low-level operations.

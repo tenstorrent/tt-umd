@@ -792,11 +792,16 @@ int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint6
     return 0;
 }
 
-int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
+int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags, uint8_t flags_count) {
+    // The validity field has only 4 bits for the flags count.
+    if (flags_count > 0xF) {
+        return -EINVAL;
+    }
+
     struct tenstorrent_power_state ps = {0};
     ps.argsz = sizeof(ps);
     ps.flags = 0;
-    ps.validity = TT_POWER_VALIDITY(4, 0);
+    ps.validity = TT_POWER_VALIDITY(flags_count, 0);
     ps.power_flags = power_flags;
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_SET_POWER_STATE, &ps) != 0) {

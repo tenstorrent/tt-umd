@@ -16,13 +16,20 @@
 #include <utility>
 #include <vector>
 
+#include "register_access.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device_model/simulation_tt_device_model.hpp"
+#include "tt_device/firmware/simulation_device_firmware.hpp"
+#include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
@@ -120,6 +127,43 @@ auto notify_host_write_begin(Core&, long) -> decltype(Core::notify_host_write_be
 template <typename Core>
 void notify_host_write_begin(Core&, ...) {}
 
+// A tt-emule core that models its register window takes the whole access (an address past its memory reaches the
+// register model); an older one has memory only, so the access is a copy within it.
+template <typename Core>
+auto core_write(Core& core, uint64_t addr, const void* src, size_t size, int)
+    -> decltype(core.access(addr, std::declval<void*>(), size, true)) {
+    // access() takes one buffer type for both directions and only reads it on a write.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    return core.access(addr, const_cast<void*>(src), size, /*is_write=*/true);
+}
+
+template <typename Core>
+auto core_read(Core& core, uint64_t addr, void* dst, size_t size, int)
+    -> decltype(core.access(addr, dst, size, false)) {
+    return core.access(addr, dst, size, /*is_write=*/false);
+}
+
+template <typename Core>
+void check_in_memory(Core& core, uint64_t addr, size_t size) {
+    UMD_ASSERT(
+        addr <= core.l1_size() && size <= core.l1_size() - addr,
+        error::RuntimeError,
+        "SWEmuleChip: access at " + std::to_string(addr) + " of " + std::to_string(size) +
+            " bytes is outside the core's memory, and this tt-emule has no register window");
+}
+
+template <typename Core>
+void core_write(Core& core, uint64_t addr, const void* src, size_t size, long) {
+    check_in_memory(core, addr, size);
+    std::memcpy(core.l1_ptr(addr), src, size);
+}
+
+template <typename Core>
+void core_read(Core& core, uint64_t addr, void* dst, size_t size, long) {
+    check_in_memory(core, addr, size);
+    std::memcpy(dst, core.l1_ptr(addr), size);
+}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -152,11 +196,76 @@ std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor
 
 namespace {
 
-// The simulation device model (no management firmware behind it), with the chip's own windows onto its cores.
-class SWEmuleTTDeviceModel final : public SimulationTTDeviceModel {
+// The chip's NOC naming of a core back to the core: the inverse of the translation the caller ran
+// (SocDescriptor::translate_chip_coord_to_translated), which yields NOC0/NOC1 coordinates when translation is off
+// and for the cores an architecture leaves untranslated. A coordinate the descriptor does not name stays LITERAL.
+CoreCoord core_at_noc_xy(const SocDescriptor& soc, tt_xy_pair xy, NocId noc) {
+    const CoordSystem system = soc.noc_translation_enabled ? CoordSystem::TRANSLATED
+                               : (noc == NocId::NOC1)      ? CoordSystem::NOC1
+                                                           : CoordSystem::NOC0;
+    try {
+        return soc.get_coord_at(xy, system);
+    } catch (const std::exception&) {
+        return CoreCoord(xy, CoreType::TENSIX, CoordSystem::LITERAL);
+    }
+}
+
+// Every TTDevice access reaches the chip's own memory. Register accesses go one register at a time, as on
+// any other protocol; there is no hardware multicast.
+class SWEmuleProtocol final : public DeviceProtocol {
+public:
+    explicit SWEmuleProtocol(SWEmuleChip& chip) : chip_(chip) {}
+
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        chip_.read_from_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), dst, addr, size);
+    }
+
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        chip_.write_to_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), src, addr, size);
+    }
+
+    void read_ctrl(
+        void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
+        read_registers_individually(*this, dst, core, addr, size, noc_id, width);
+    }
+
+    void write_ctrl(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
+        override {
+        write_registers_individually(*this, src, core, addr, size, noc_id, width);
+    }
+
+    [[nodiscard]] bool write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId) override {
+        return false;
+    }
+
+    int get_mmio_id() override { return -1; }
+
+private:
+    SWEmuleChip& chip_;
+};
+
+// The device model of an emulated chip: no management firmware behind it (the simulation firmware that reports
+// nothing), the architecture's constants, and the chip's own protocol and windows. Built only from sources every
+// UMD build has, so an emule build does not need TT_UMD_BUILD_SIMULATION.
+class SWEmuleTTDeviceModel final : public TTDeviceModel {
 public:
     explicit SWEmuleTTDeviceModel(SWEmuleChip& chip) :
-        SimulationTTDeviceModel(chip.get_soc_descriptor()), chip_(chip) {}
+        chip_(chip),
+        protocol_(chip),
+        device_firmware_(chip.get_soc_descriptor().arch),
+        architecture_impl_(ArchitectureImplementation::create(chip.get_soc_descriptor().arch)),
+        soc_arch_descriptor_(resolve_soc_arch_descriptor(chip.get_soc_descriptor().arch, nullptr)) {}
+
+    DeviceProtocol* get_device_protocol() override { return &protocol_; }
+
+    DeviceFirmware* get_device_firmware() override { return &device_firmware_; }
+
+    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
+
+    SocArchDescriptor* get_soc_arch_descriptor() override { return soc_arch_descriptor_.get(); }
+
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return soc_arch_descriptor_; }
 
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override {
         return chip_.create_io_window(target, host);
@@ -164,27 +273,20 @@ public:
 
 private:
     SWEmuleChip& chip_;
+    SWEmuleProtocol protocol_;
+    SimulationDeviceFirmware device_firmware_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
 };
 
 // A simulated chip's TTDevice, as TTSim chips have one, with the chip's own memory for every access.
 class SWEmuleTTDevice final : public TTDevice {
 public:
-    explicit SWEmuleTTDevice(SWEmuleChip& chip) : TTDevice(std::make_unique<SWEmuleTTDeviceModel>(chip)), chip_(chip) {
+    explicit SWEmuleTTDevice(SWEmuleChip& chip) : TTDevice(std::make_unique<SWEmuleTTDeviceModel>(chip)) {
         set_soc_descriptor(chip.get_soc_descriptor());
     }
 
-    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId) override {
-        chip_.read_from_device(core, mem_ptr, addr, size);
-    }
-
-    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId) override {
-        chip_.write_to_device(core, mem_ptr, addr, size);
-    }
-
     void advance_device_execution() override { notify_host_poll<tt_emule::Core>(0); }
-
-private:
-    SWEmuleChip& chip_;
 };
 
 }  // namespace
@@ -270,6 +372,9 @@ SWEmuleChip::SWEmuleChip(
             "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
                 std::to_string(pool_slot_size(*worker_pool_)) + " — adjacent cores' L1 would overlap");
     }
+    // Built here, not on first use: get_tt_device() is called from several threads (each IoWindow a host
+    // thread creates), and a lazy build there would race.
+    tt_device_ = std::make_unique<SWEmuleTTDevice>(*this);
 }
 
 std::optional<size_t> SWEmuleChip::slot_of(tt_xy_pair translated_core_xy) const {
@@ -370,7 +475,7 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
     // The device first catches up with the work it can already do, so the store does not overtake it.
     notify_host_write_begin(*target_core, 0);
-    target_core->access(l1_dest, const_cast<void*>(src), size, /*is_write=*/true);
+    core_write(*target_core, l1_dest, src, size, 0);
     if (l1_dest < target_core->l1_size()) {
         notify_host_write(*target_core, l1_dest, size, 0);
     }
@@ -384,7 +489,7 @@ void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, 
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
     // The read first lets work the device is still running reach the state silicon would have by now.
     notify_host_read(*target_core, l1_src, size, 0);
-    target_core->access(l1_src, dest, size, /*is_write=*/false);
+    core_read(*target_core, l1_src, dest, size, 0);
 }
 
 // Register I/O takes the same path: an address past the core's memory reaches tt-emule's register model.
@@ -412,6 +517,11 @@ class SWEmuleIoWindow final : public IoWindow {
 public:
     SWEmuleIoWindow(SWEmuleChip& chip, const TargetIoWindowConfig& target, const HostIoWindowConfig& host) :
         chip_(chip), host_(host) {
+        // A request of 0 leaves the size to the window. Nothing maps behind it, so any span works; a TLB
+        // window's common 2 MiB keeps chunked transfers (which step by get_size()) moving.
+        if (host_.size == 0) {
+            host_.size = DEFAULT_WINDOW_SIZE;
+        }
         configure(target);
     }
 
@@ -442,7 +552,9 @@ public:
             !config.core_end.has_value(), error::RuntimeError, "SWEmuleChip: multicast IoWindows are not supported");
         target_ = config;
         ordering_ = ordering;
-        core_ = chip_.get_soc_descriptor().get_coord_at(config.core_start, CoordSystem::TRANSLATED);
+        // The target names its core in the NOC the window routes over, as make_io_window_target resolved it.
+        core_ =
+            core_at_noc_xy(chip_.get_soc_descriptor(), config.core_start, config.noc.value_or(get_selected_noc_id()));
     }
 
     TargetIoWindowConfig get_target_config() const override { return target_; }
@@ -456,10 +568,12 @@ public:
 private:
     // As a TLB window: an access past the window's end faults instead of reaching the memory beyond it.
     void validate(uint64_t offset, size_t size) const {
-        if (offset + size > host_.size) {
+        // Written so that a huge offset or size cannot wrap past the check.
+        if (offset > host_.size || size > host_.size - offset) {
             throw std::out_of_range("Out of bounds access");
         }
     }
+
     void write(uint64_t offset, const void* data, size_t size) {
         validate(offset, size);
         chip_.write_to_device(core_, data, target_.addr + offset, size);
@@ -476,6 +590,8 @@ private:
         read(offset, &value, sizeof(value));
         return value;
     }
+
+    static constexpr size_t DEFAULT_WINDOW_SIZE = size_t{1} << 21;
 
     SWEmuleChip& chip_;
     HostIoWindowConfig host_;
@@ -499,12 +615,7 @@ void SWEmuleChip::start_device(uint32_t) {}
 
 void SWEmuleChip::close_device() {}
 
-TTDevice* SWEmuleChip::get_tt_device() {
-    if (!tt_device_) {
-        tt_device_ = std::make_unique<SWEmuleTTDevice>(*this);
-    }
-    return tt_device_.get();
-}
+TTDevice* SWEmuleChip::get_tt_device() { return tt_device_.get(); }
 
 SystemMemoryAllocator* SWEmuleChip::get_system_memory_allocator() { return sysmem_manager_.get(); }
 

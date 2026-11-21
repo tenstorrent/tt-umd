@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "tt-umd-workload/chip/chip.hpp"
-#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
 namespace tt_emule {
 class Core;
@@ -165,8 +165,8 @@ private:
     // cluster's host-memory channel count.
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
-    // The device surface a simulated chip has: a simulation device model (no management firmware), with its
-    // memory accesses served by this chip.
+    // The device surface a simulated chip has: a device model with no management firmware, with its memory
+    // accesses served by this chip. Built in the constructor, so concurrent get_tt_device() calls only read it.
     std::unique_ptr<TTDevice> tt_device_;
 };
 

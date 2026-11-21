@@ -70,6 +70,7 @@ enum ChipType {
     SIMULATION,
     MOCK,
     SWEMULE,
+    EMU_AXI,
 };
 
 /**
@@ -113,6 +114,18 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+
+    /**
+     * Chippy emu_axi endpoint. Used only for EMU_AXI chip type.
+     */
+    std::string emu_host;
+    uint32_t emu_port = 0;
+
+    /**
+     * EMU_AXI only: attach without sending INIT. The SiVal servers implement INIT as a full reset,
+     * so a client that attaches after another client has brought the model up must not send it.
+     */
+    bool emu_skip_init = false;
 
     /**
      * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other

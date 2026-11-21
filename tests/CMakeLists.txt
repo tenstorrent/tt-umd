@@ -38,6 +38,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 if(TT_UMD_BUILD_RDMA)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/rdma)
 endif()
+# Opt-in with TT_UMD_BUILD_GRENDEL_JTAG; the tests need a live emulator server, so they are left out
+# of the umd_tests aggregate target as well.
+if(TT_UMD_BUILD_GRENDEL_JTAG)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/emu)
+endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)

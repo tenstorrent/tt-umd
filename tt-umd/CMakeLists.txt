@@ -234,6 +234,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
+                api/tt-umd/tt_device/emu_tt_device.hpp
                 api/tt-umd/tt_device/grendel_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
@@ -296,6 +297,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 # Backward-compat forwarding header for the pre-rename "umd/device/..." include path.
                 api/umd/device/coordinates/noc_address_resolver.hpp
                 api/umd/device/coordinates/grendel_noc_address_resolver.hpp
+                api/umd/device/tt_device/emu_tt_device.hpp
                 api/umd/device/tt_device/grendel_tt_device.hpp
     )
 endif()
@@ -341,6 +343,7 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         src/tt_device/grendel_tt_device.cpp
         src/tt_device/grendel_flat_address.cpp
         src/tt_device/chippy_memory.cpp
+        src/tt_device/emu_tt_device.cpp
     )
     target_sources(tt-umd-base PRIVATE ${GRENDEL_CHIPPY_SRCS})
 

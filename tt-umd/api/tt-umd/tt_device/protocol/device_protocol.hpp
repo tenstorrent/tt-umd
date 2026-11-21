@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -28,23 +29,43 @@ public:
 
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
+     *
+     * A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
+     *
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
      * @param size Number of bytes to read.
      * @param noc_id NOC to route through.
+     * @param ordering Transaction ordering mode of the transfer.
      */
-    virtual void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void read_data(
+        void* dst,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        IoOrdering ordering = IoOrdering::STRICT) = 0;
 
     /**
      * @brief Writes a block of host data to a device core, suited for bulk data transfers.
+     *
+     * A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
+     *
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
      * @param size Number of bytes to write.
      * @param noc_id NOC to route through.
+     * @param ordering Transaction ordering mode of the transfer.
      */
-    virtual void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void write_data(
+        const void* src,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        IoOrdering ordering = IoOrdering::STRICT) = 0;
 
     /**
      * @brief Reads data from a device core into a host buffer, suited for register and control transactions.

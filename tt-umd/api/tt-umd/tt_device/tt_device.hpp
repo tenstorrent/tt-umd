@@ -161,10 +161,21 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
+    // A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
     virtual void read_from_device(
-        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
     virtual void write_to_device(
-        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
 
     // Register reads/writes reach the device as one access of the given width per register; addr and size must
     // be multiples of that width. 64-bit accesses are supported only on Quasar.
@@ -473,7 +484,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -483,7 +494,7 @@ public:
      * @param staggered_start Whether to use staggered start
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void deassert_risc_reset(
+    void deassert_risc_reset(
         CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }

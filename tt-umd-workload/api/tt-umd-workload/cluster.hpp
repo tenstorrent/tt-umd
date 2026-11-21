@@ -91,11 +91,6 @@ struct ClusterOptions {
     std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
-     * Being removed: ignored by Cluster. Use topology_discovery_options.soc_descriptor_path.
-     */
-    std::string sdesc_path;
-
-    /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
@@ -135,13 +130,9 @@ struct ClusterOptions {
      */
     std::filesystem::path simulator_server_directory = "";
 
-    /**
-     * Being removed: ignored by Cluster. Use topology_discovery_options.io_device_type.
-     */
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     /*
-     * Options related to topology discovery. Only applicable for SILICON chip type.
+     * Options related to topology discovery. Its transport (io_device_type) and SoC descriptor path
+     * (soc_descriptor_path) apply to every chip type; the rest only to SILICON.
      */
     TopologyDiscoveryOptions topology_discovery_options = {};
 };

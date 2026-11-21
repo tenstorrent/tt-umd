@@ -356,16 +356,18 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
     return window;
 }
 
-void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void TTDevice::read_from_device(
+    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
     const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id);
+    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id, ordering);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void TTDevice::write_to_device(
+    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
     const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id);
+    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id, ordering);
 }
 
 void TTDevice::read_from_device_reg(

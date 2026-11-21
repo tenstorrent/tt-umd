@@ -588,6 +588,14 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
+    // Mimir-local CCE control uses this resolver. Null on devices that are not a Mimir package.
+    void set_grendel_address_resolver(class GrendelNocAddressResolver *resolver);
+
+    // Flat-address read/write used after the resolver. Mimir-local devices implement it with the
+    // chippy memory map. The default rejects the access.
+    virtual void read_flat_address(uint64_t addr, void *dst, size_t size);
+    virtual void write_flat_address(uint64_t addr, const void *src, size_t size);
+
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
@@ -622,6 +630,7 @@ private:
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    class GrendelNocAddressResolver *grendel_address_resolver_ = nullptr;
 };
 
 }  // namespace tt::umd

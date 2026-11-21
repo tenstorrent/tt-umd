@@ -58,6 +58,22 @@
 namespace tt::umd {
 enum class RiscType : std::uint64_t;
 
+void TTDevice::set_grendel_address_resolver(GrendelNocAddressResolver *resolver) {
+    grendel_address_resolver_ = resolver;
+}
+
+void TTDevice::read_flat_address(uint64_t addr, void * /*dst*/, size_t size) {
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("Flat read of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
+}
+
+void TTDevice::write_flat_address(uint64_t addr, const void * /*src*/, size_t size) {
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("Flat write of {} bytes at 0x{:x} is not implemented for this device.", size, addr));
+}
+
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }

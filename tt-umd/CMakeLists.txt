@@ -234,6 +234,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
+                api/tt-umd/tt_device/grendel_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
                 api/tt-umd/simulation/simulation_host.hpp
@@ -295,6 +296,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 # Backward-compat forwarding header for the pre-rename "umd/device/..." include path.
                 api/umd/device/coordinates/noc_address_resolver.hpp
                 api/umd/device/coordinates/grendel_noc_address_resolver.hpp
+                api/umd/device/tt_device/grendel_tt_device.hpp
     )
 endif()
 
@@ -323,6 +325,46 @@ target_link_libraries(
 target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
+
+# Grendel (chippy) JTAG. Empty INTERFACE lib when TT_UMD_BUILD_GRENDEL_JTAG=OFF,
+# so this link is a no-op for normal builds. The final tt-umd library does not
+# exist yet; it is created in tt-umd-workload and consumes this object library.
+target_link_libraries(tt-umd-base PRIVATE umd_grendel_jtag)
+
+if(TT_UMD_BUILD_GRENDEL_JTAG)
+    target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_GRENDEL_JTAG)
+    # These translation units include chippy headers and must compile as C++20.
+    # Confine the bump to them (the -std override comes after the target's
+    # -std=c++17, so it wins); UMD's public standard stays C++17.
+    set(
+        GRENDEL_CHIPPY_SRCS
+        src/tt_device/grendel_tt_device.cpp
+        src/tt_device/grendel_flat_address.cpp
+        src/tt_device/chippy_memory.cpp
+    )
+    target_sources(tt-umd-base PRIVATE ${GRENDEL_CHIPPY_SRCS})
+
+    set(GRENDEL_CHIPPY_COMPILE_OPTIONS "-std=c++20")
+    # Chippy's JTAG2AXI headers use C++20 std::format and require GCC/libstdc++ >= 13. Metal's
+    # Clang toolchain may otherwise select the GCC 12 installation even when g++-13 is present.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(GRENDEL_GCC13_ROOT "/usr/lib/gcc/${CMAKE_LIBRARY_ARCHITECTURE}/13")
+        if(NOT EXISTS "${GRENDEL_GCC13_ROOT}")
+            message(
+                FATAL_ERROR
+                "TT_UMD_BUILD_GRENDEL_JTAG with Clang requires libstdc++ 13 at ${GRENDEL_GCC13_ROOT}"
+            )
+        endif()
+        list(APPEND GRENDEL_CHIPPY_COMPILE_OPTIONS "--gcc-install-dir=${GRENDEL_GCC13_ROOT}")
+        target_link_directories(tt-umd-base BEFORE PUBLIC "${GRENDEL_GCC13_ROOT}")
+    endif()
+    set_source_files_properties(
+        ${GRENDEL_CHIPPY_SRCS}
+        PROPERTIES
+            COMPILE_OPTIONS
+                "${GRENDEL_CHIPPY_COMPILE_OPTIONS}"
+    )
+endif()
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
 target_link_libraries(

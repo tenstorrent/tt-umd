@@ -78,8 +78,8 @@ RdmaLoopback::RdmaLoopback(int max_outstanding_reads) : max_outstanding_reads_(s
     qp_requester_ = create_qp(sq_depth);
     qp_responder_ = create_qp(sq_depth);
 
-    const uint32_t psn_requester = 0x111111;
-    const uint32_t psn_responder = 0x222222;
+    constexpr uint32_t psn_requester = 0x111111;
+    constexpr uint32_t psn_responder = 0x222222;
     connect_qp(qp_requester_, qp_responder_->qp_num, psn_responder, psn_requester);
     connect_qp(qp_responder_, qp_requester_->qp_num, psn_requester, psn_responder);
 }

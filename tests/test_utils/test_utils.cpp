@@ -69,7 +69,7 @@ TEST(MultiProcessPipeTest, ParentTimesOutIfChildIsSilent) {
 }
 
 TEST(MultiProcessPipeTest, PartialSuccessIsFailure) {
-    const int num_children = 3;
+    constexpr int num_children = 3;
     MultiProcessPipe pipe(num_children);
     std::vector<pid_t> child_pids;
 

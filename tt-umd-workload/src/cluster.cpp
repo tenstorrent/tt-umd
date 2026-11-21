@@ -437,7 +437,7 @@ Cluster::Cluster(ClusterOptions options) {
     log_info(LogUMD, "Cluster constructor started.");
     // Store options early so that options_ is populated if the constructor throws.
     // A second assignment at the end captures any mutations made during construction
-    // (sdesc_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
+    // (soc_descriptor_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
@@ -548,7 +548,7 @@ Cluster::Cluster(ClusterOptions options) {
                 if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
                     // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
                     // below are populated from the simulator-provided data when it ships one (matches the
-                    // fallback path's sdesc_path resolution).
+                    // fallback path's soc_descriptor_path resolution).
                     if (options.topology_discovery_options.soc_descriptor_path.empty()) {
                         options.topology_discovery_options.soc_descriptor_path =
                             find_simulator_soc_descriptor_path(options.simulator_directory);
@@ -893,7 +893,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
-    // Overwrite with the final (possibly mutated) options: sdesc_path may have been
+    // Overwrite with the final (possibly mutated) options: soc_descriptor_path may have been
     // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
@@ -1514,11 +1514,11 @@ void Cluster::close_device() {
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
-std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
+std::size_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     return chips_.at(device_id)->get_num_host_channels();
 }
 
-std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+std::size_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     return chips_.at(device_id)->get_host_channel_size(channel);
 }
 

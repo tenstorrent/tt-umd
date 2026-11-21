@@ -41,8 +41,7 @@ const AccessPointMap ACCESS_POINT_MAPS[] = {
 
 // Device @p device's tables in the snapshot the testbench programs.
 YAML::Node device_tables(int device) {
-    const YAML::Node tables =
-        YAML::LoadFile(test_utils::GetAbsPath("../descriptors/att_maps/horizon_x2_per_noc2axi.yaml"));
+    const YAML::Node tables = YAML::LoadFile(test_utils::get_descriptor_path("att_maps/horizon_x2_per_noc2axi.yaml"));
     for (const auto& entry : tables["devices"]) {
         if (entry["id"].as<int>() == device) {
             return entry["defaults"];
@@ -69,7 +68,7 @@ const ColumnMap COLUMN_MAPS[] = {
 
 // The tables of NOC2AXI (@p column, 2) of device @p device in the column snapshot.
 YAML::Node column_noc2axi_tables(int device, int column) {
-    const YAML::Node tables = YAML::LoadFile(test_utils::GetAbsPath("../descriptors/att_maps/horizon_x2_columns.yaml"));
+    const YAML::Node tables = YAML::LoadFile(test_utils::get_descriptor_path("att_maps/horizon_x2_columns.yaml"));
     for (const auto& entry : tables["devices"]) {
         if (entry["id"].as<int>() != device) {
             continue;

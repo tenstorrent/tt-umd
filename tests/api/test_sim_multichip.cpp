@@ -730,7 +730,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorWithMoreMmioChipsThanEndpointsIsRefused) {
                         "two-MMIO-chip P300 descriptor.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P300_both_mmio.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("blackhole_P300_both_mmio.yaml"));
 
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
@@ -748,7 +748,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
         GTEST_SKIP() << "Needs wh_x2, the N300 image.";
     }
     const std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N300.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N300.yaml"));
 
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
@@ -761,7 +761,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
     ASSERT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(1)), nullptr);
 
     const CoreCoord core = cluster.get_soc_descriptor(1).get_cores(CoreType::TENSIX).front();
-    const uint32_t written = 0xC0DE0001;
+    constexpr uint32_t written = 0xC0DE0001;
     cluster.write_to_device(&written, sizeof(written), 1, core, 0x10000);
     uint32_t read = 0;
     cluster.read_from_device(&read, 1, core, 0x10000, sizeof(read));

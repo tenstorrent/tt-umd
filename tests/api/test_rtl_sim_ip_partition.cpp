@@ -203,7 +203,7 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
         std::vector<uint64_t> addresses;
         for (const AccessPointId access_point : device->get_access_points()) {
             const std::optional<uint64_t> address = device->get_flat_address(
-                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::Strict, L1_ADDR);
+                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::STRICT, L1_ADDR);
             if (address.has_value()) {
                 addresses.push_back(*address);
             }

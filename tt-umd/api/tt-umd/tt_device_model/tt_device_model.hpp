@@ -94,7 +94,7 @@ public:
     // coordinate out of band. Null for every architecture that routes by coordinate, which is why
     // this is an optional component rather than a step in the I/O path: a model that returns null
     // is saying "my addresses already name their target", and TTDevice leaves them alone.
-    virtual const att::EndpointResolver *get_endpoint_resolver() { return nullptr; }
+    virtual const att::EndpointResolver *get_endpoint_resolver() const { return nullptr; }
 
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
@@ -114,8 +114,7 @@ public:
     // SocDescriptor's ownership model is revisited.
     virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
 
-    // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
-    // PcieInterface only.
+    // Being removed along with TTDevice::get_pci_device() (#3530): do not add new callers.
     virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 

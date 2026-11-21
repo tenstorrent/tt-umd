@@ -31,7 +31,7 @@ TEST(SimulationDeviceIdentity, DescribeThenRebuildMatches) {
     chip_info.harvesting_masks.l2cpu_harvesting_mask = 0x4;
     chip_info.harvesting_masks.pcie_harvesting_mask = 0x1;
     SocDescriptor original(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml")), chip_info);
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("blackhole_140_arch.yaml")), chip_info);
 
     const SimulationServerDeviceInfo info =
         describe_device(original, SimulationBackendType::TTSIM, "/opt/sim_bh/libttsim.so");

@@ -15,27 +15,23 @@
 
 namespace tt::umd::test_utils {
 
-inline std::string GetAbsPath(const std::string& relative_path) {
-#ifndef UMD_TESTS_ROOT_PATH
-#error "UMD_TESTS_ROOT_PATH not defined. The UMD tests project cannot find cluster and SoC descriptors."
-#endif
-    // Allow overriding at runtime when test binaries are deployed away from the source tree.
-    const char* env_root = std::getenv("UMD_TESTS_ROOT_PATH");
-    std::filesystem::path umd_test_root = env_root ? env_root : UMD_TESTS_ROOT_PATH;
-    std::filesystem::path abs_path = umd_test_root / relative_path;
-
-    return abs_path.string();
+// Descriptors are located relative to the working directory (the repo root), which keeps test binaries relocatable.
+// UMD_DESCRIPTORS_PATH overrides the descriptors directory when the binaries run away from a checkout.
+inline std::string get_descriptor_path(const std::string& relative_path) {
+    const char* env_root = std::getenv("UMD_DESCRIPTORS_PATH");
+    const std::filesystem::path descriptors_root = env_root ? env_root : "descriptors";
+    return (descriptors_root / relative_path).string();
 }
 
-inline std::string GetSocDescAbsPath(const std::string& soc_desc_name) {
-    return GetAbsPath("../descriptors/soc_descs/" + soc_desc_name);
+inline std::string get_soc_desc_path(const std::string& soc_desc_name) {
+    return get_descriptor_path("soc_descs/" + soc_desc_name);
 }
 
-inline std::string GetClusterDescAbsPath(const std::string& cluster_desc_name) {
-    return GetAbsPath("../descriptors/cluster_descriptor_examples/" + cluster_desc_name);
+inline std::string get_cluster_desc_path(const std::string& cluster_desc_name) {
+    return get_descriptor_path("cluster_descriptor_examples/" + cluster_desc_name);
 }
 
-inline std::vector<std::string> GetAllClusterDescs() {
+inline std::vector<std::string> get_all_cluster_descs() {
     std::vector<std::string> cluster_desc_names;
     for (const auto& cluster_desc_name : {
              "2x2_n300_cluster_desc.yaml",
@@ -60,12 +56,12 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300_pci_bdf.yaml",
              "quasar_Q1.yaml",
          }) {
-        cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));
+        cluster_desc_names.push_back(get_cluster_desc_path(cluster_desc_name));
     }
     return cluster_desc_names;
 }
 
-inline std::vector<std::string> GetAllSocDescs() {
+inline std::vector<std::string> get_all_soc_descs() {
     std::vector<std::string> soc_desc_names;
     for (const auto& soc_desc_name : {
              "blackhole_140_arch_no_eth.yaml",
@@ -81,7 +77,7 @@ inline std::vector<std::string> GetAllSocDescs() {
              "quasar_simulation_2x3.yaml",
              "quasar_simulation_9x4.yaml",
          }) {
-        soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
+        soc_desc_names.push_back(get_soc_desc_path(soc_desc_name));
     }
     return soc_desc_names;
 }
@@ -89,11 +85,11 @@ inline std::vector<std::string> GetAllSocDescs() {
 inline std::string get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return GetAbsPath("../descriptors/soc_descs/wormhole_b0_8x10.yaml");
+            return get_descriptor_path("soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE:
-            return GetAbsPath("../descriptors/soc_descs/blackhole_140_arch.yaml");
+            return get_descriptor_path("soc_descs/blackhole_140_arch.yaml");
         case tt::ARCH::QUASAR:
-            return GetAbsPath("../descriptors/soc_descs/quasar_simulation_1x1.yaml");
+            return get_descriptor_path("soc_descs/quasar_simulation_1x1.yaml");
         default:
             throw std::runtime_error("Invalid architecture");
     }

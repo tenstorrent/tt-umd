@@ -94,7 +94,7 @@ TEST(WormholeArcMessages, WormholeFirmwareInfoProviderAiclkParity) {
 }
 
 TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
-    const uint32_t ms_sleep = 2000;
+    constexpr uint32_t ms_sleep = 2000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -142,7 +142,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    const uint32_t num_loops = 1000;
+    constexpr uint32_t num_loops = 1000;
 
     for (uint32_t chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);

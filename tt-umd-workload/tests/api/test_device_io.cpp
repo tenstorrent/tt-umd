@@ -207,7 +207,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = zeros;
 
-    static const uint32_t num_loops = 100;
+    static constexpr uint32_t num_loops = 100;
 
     for (const ChipId chip : cluster->get_target_device_ids()) {
         std::uint32_t address = SAFE_IO_L1_ADDRESS;
@@ -253,8 +253,8 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    const uint64_t address = 0;
-    const size_t data_size = 256;
+    constexpr uint64_t address = 0;
+    constexpr size_t data_size = 256;
     std::vector<uint8_t> write_data(data_size, 0);
     for (std::size_t i = 0; i < data_size; i++) {
         write_data[i] = (uint8_t)i;
@@ -941,7 +941,7 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  * to 0x0 in several DRAM cores, then reading them back and verifying.
  */
 TEST(TestDeviceIO, DMA1) {
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 
@@ -990,7 +990,7 @@ TEST(TestDeviceIO, DMA1) {
  * MMIO instead of DMA.
  */
 TEST(TestDeviceIO, DMA2) {
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 
@@ -1003,8 +1003,8 @@ TEST(TestDeviceIO, DMA2) {
     }
 
     // Constraints for random size generation.
-    const size_t MIN_BUF_SIZE = 4;
-    const size_t MAX_BUF_SIZE = 0x2000000;
+    constexpr size_t MIN_BUF_SIZE = 4;
+    constexpr size_t MAX_BUF_SIZE = 0x2000000;
 
     // Setup random number generation.
     std::random_device rd;
@@ -1018,7 +1018,7 @@ TEST(TestDeviceIO, DMA2) {
         std::vector<uint8_t> data;  // Store the actual data written for verification.
     };
 
-    const size_t ITERATIONS = 25;
+    constexpr size_t ITERATIONS = 25;
     for (size_t i = 0; i < ITERATIONS; ++i) {
         std::vector<DmaOpInfo> write_ops;
         write_ops.reserve(dram_cores.size());

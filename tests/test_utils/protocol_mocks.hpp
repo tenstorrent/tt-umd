@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <optional>
 
@@ -38,6 +39,22 @@ public:
     MOCK_METHOD(bool, write_to_core_range, (const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId), (override));
     MOCK_METHOD(int, get_mmio_id, (), (override));
 };
+
+// Read action for MockDeviceProtocol that serves `value` at whatever width the read asks for.
+inline auto serves_register(uint64_t value) {
+    return ::testing::Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t size, NocId, RegisterAccessWidth) {
+        ASSERT_LE(size, sizeof(value));
+        std::memcpy(dst, &value, size);
+    });
+}
+
+// Write action for MockDeviceProtocol that stores the written register value into `written`.
+template <typename T>
+auto captures_register(T* written) {
+    return ::testing::Invoke([written](const void* src, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
+        std::memcpy(written, src, sizeof(*written));
+    });
+}
 
 class MockPcieInterface : public PcieInterface {
 public:

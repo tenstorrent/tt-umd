@@ -13,7 +13,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 ####################################################################################################################
 # google test
 ####################################################################################################################
-if(TT_UMD_BUILD_TESTS)
+if(TT_UMD_BUILD_TESTS OR TT_UMD_BUILD_MICROBENCHMARKS)
     CPMAddPackage(
         NAME GTest
         GITHUB_REPOSITORY google/googletest
@@ -123,12 +123,11 @@ endif()
 CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
-# nanobench (for uBenchmarking)
+# nanobench (for microbenchmarks)
 ###################################################################################################################
-if(MASTER_PROJECT)
+if(TT_UMD_BUILD_TESTS OR TT_UMD_BUILD_MICROBENCHMARKS)
     CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.6.0 SYSTEM YES)
 endif()
-
 ####################################################################################################################
 # spdlog
 ####################################################################################################################

@@ -68,7 +68,8 @@ public:
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
 
-    // Controls the reset state of the device's RISC cores.
+    // Controls the reset state of the device's RISC cores. Every model has to state its choice;
+    // null means the device has no RISC reset control.
     virtual RiscReset *get_risc_reset() = 0;
 
     // Optional components.

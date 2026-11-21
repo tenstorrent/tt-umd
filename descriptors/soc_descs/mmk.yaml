@@ -102,6 +102,9 @@ eth_l1_size:
 
 arch_name: QUASAR
 
+# Chiplet-local AXI behind chippy. Omitting this selects full_package.
+address_space: mimir_local
+
 # Channel is not the SPA instance or the chippy id; both are recorded here.
 # MMK wires M0 D2D1 to M1 D2D0. M0 D2D0 has no Mimir peer.
 mimir_channels:

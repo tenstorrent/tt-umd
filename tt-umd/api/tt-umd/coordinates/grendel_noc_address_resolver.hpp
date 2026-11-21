@@ -172,6 +172,12 @@ inline std::array<MimirCceDmriscRemapEntry, 3> mimir_cce_dmrisc_remap_entries(
 GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descriptor);
 
 /**
+ * Windows selected by the descriptor's address_space. mimir_local keeps the 0x2000000000 CCE SRAM
+ * tag. full_package, and a descriptor that omits the key, use the qsr.s1 table.
+ */
+GrendelAddressWindows address_windows_for(const SocDescriptor& soc_descriptor);
+
+/**
  * Grendel/Quasar NocAddressResolver: selects an ATT global window from the core's CoreType and
  * flattens its coordinate into that window's index.
  *

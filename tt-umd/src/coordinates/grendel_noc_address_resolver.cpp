@@ -92,6 +92,15 @@ GrendelAddressWindows mimir_local_address_windows(const SocDescriptor& soc_descr
     return windows;
 }
 
+GrendelAddressWindows address_windows_for(const SocDescriptor& soc_descriptor) {
+    if (soc_descriptor.get_arch_descriptor().get_grendel_address_space() == GrendelAddressSpace::MimirLocal) {
+        return mimir_local_address_windows(soc_descriptor);
+    }
+    // The package table is the qsr.s1 default, including CCE SRAM, Mimir config and SMC. DRAM bank
+    // size stays the table's 8 GiB stride; the descriptor's dram_bank_size is the Mimir-local one.
+    return GrendelAddressWindows{};
+}
+
 bool GrendelAddressWindows::is_in_neo_grid(uint32_t noc0_x, uint32_t noc0_y) const {
     return noc0_x >= neo_x_start && noc0_x < neo_x_start + neo_x_count && noc0_y >= neo_y_start &&
            noc0_y < neo_y_start + neo_y_count;

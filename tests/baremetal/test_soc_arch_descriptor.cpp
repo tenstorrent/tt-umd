@@ -505,6 +505,7 @@ TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
 TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
     const SocArchDescriptor desc(test_utils::get_soc_desc_path("mmk.yaml"));
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
+    EXPECT_EQ(desc.get_grendel_address_space(), GrendelAddressSpace::MimirLocal);
     ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
     EXPECT_EQ(desc.get_mimir_channels()[0].chiplet, "m0");
     EXPECT_EQ(desc.get_mimir_channels()[1].chiplet, "m1");

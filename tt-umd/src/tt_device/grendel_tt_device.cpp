@@ -78,6 +78,9 @@ void GrendelTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t a
 
 void GrendelTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (apply_cce_reset_vector_write(mem_ptr, core, addr, size)) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(io_mutex_);
     address_transport_->write(flat_address(core, addr, noc_id), mem_ptr, size);
 }

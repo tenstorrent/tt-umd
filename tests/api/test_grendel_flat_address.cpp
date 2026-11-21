@@ -131,4 +131,12 @@ TEST(GrendelFlatAddress, FullPackageUsesOneTransport) {
         make_grendel_flat_address_transport(soc_descriptor, {first, second}, "GrendelFlatAddress"), std::exception);
 }
 
+TEST(GrendelImplementation, CceHartMaskHoldsOnlyTheSelectedHart) {
+    // ALL_NEO_DMS is DM0|..|DM7. A single DM must not take the all-hart path.
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::DM0), 1ULL << 1);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::DM7), 1ULL << 8);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL) >> 1, 0xFFULL);
+    EXPECT_EQ(grendel::cce_hart_release_bits(RiscType::ALL_NEO_DMS) >> 1, 0xFFULL);
+}
+
 }  // namespace tt::umd::test

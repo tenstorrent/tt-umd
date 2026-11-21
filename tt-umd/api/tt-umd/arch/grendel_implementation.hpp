@@ -17,6 +17,7 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
@@ -349,6 +350,9 @@ inline constexpr uint64_t KERAUNOS_CCE_SRAM_SIZE = 0x00400000;
 inline constexpr bool is_mimir_cce_reset_vector_addr(uint64_t addr) {
     return addr >= CCE_RESET_VECTOR_BASE && addr < CCE_RESET_VECTOR_BASE + CCE_NUM_HARTS * CCE_HART_RESET_VECTOR_STRIDE;
 }
+
+// Bits 1-8 of PF_CTRL_RESET corresponding to the selected CCE harts. 0 if nothing maps.
+uint64_t cce_hart_release_bits(RiscType risc_type);
 
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.

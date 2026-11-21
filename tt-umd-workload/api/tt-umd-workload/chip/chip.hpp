@@ -98,6 +98,12 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     /**
+    Quasar CCE only. Releases the uncore with the harts still held and programs the DMRISC remap.
+    No-op on any other core. Call after a full CCE reset assert and before loading firmware.
+    */
+    virtual void release_cce_uncore_for_firmware_load(CoreCoord core);
+
+    /**
     Assert the soft reset signal for specified riscs on all cores.
     Raising this signal will put those riscs in the reset state and stop their execution.
     */

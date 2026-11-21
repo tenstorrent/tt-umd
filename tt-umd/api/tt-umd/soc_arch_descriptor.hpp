@@ -46,10 +46,13 @@ struct MimirD2dRoute {
 
 // One DRAM channel's place in the package. channel is the UMD DRAM channel, instance is the SPA
 // Mimir number, and chiplet is the chippy id ("m0"). These are not implied by the channel index.
+// tap is the JTAG chain index from the chippy package config, not the digits of the chiplet id.
+// Either every channel has a tap or none does.
 struct MimirChannel {
     uint32_t channel = 0;
     uint32_t instance = 0;
     std::string chiplet;
+    std::optional<uint32_t> tap;
     std::vector<MimirD2dRoute> routes;
 };
 

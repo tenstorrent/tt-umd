@@ -125,6 +125,8 @@ properties:
     type: array
     description: >
       One entry per DRAM channel on a Grendel package, each naming the Mimir behind it.
+      tap is set on every entry or on none. Mimir and Keraunos taps are unique within the package.
+      A JTAG device with one Mimir and no tap uses the caller's chiplet number.
     items:
       type: object
       required:
@@ -144,6 +146,10 @@ properties:
           type: string
           pattern: ^m[0-9]+$
           description: chippy chiplet id.
+        tap:
+          type: integer
+          minimum: 0
+          description: JTAG chain index. Not the digits of the chiplet id.
         routes:
           type: array
           description: D2D ports that reach another Mimir in this descriptor.

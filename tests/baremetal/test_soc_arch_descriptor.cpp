@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -477,6 +478,7 @@ TEST(SocArchDescriptor, Mimir1x1RecordsOneChiplet) {
     EXPECT_EQ(channel.channel, 0u);
     EXPECT_EQ(channel.instance, 0u);
     EXPECT_EQ(channel.chiplet, "m0");
+    EXPECT_FALSE(channel.tap.has_value());
     EXPECT_TRUE(channel.routes.empty());
 }
 
@@ -488,6 +490,7 @@ TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
     EXPECT_EQ(first.channel, 0u);
     EXPECT_EQ(first.instance, 0u);
     EXPECT_EQ(first.chiplet, "m0");
+    EXPECT_EQ(first.tap, std::optional<uint32_t>(0));
     ASSERT_EQ(first.routes.size(), 1u);
     EXPECT_EQ(first.routes[0].peer_instance, 1u);
     EXPECT_EQ(first.routes[0].d2d, 1u);
@@ -496,6 +499,7 @@ TEST(SocArchDescriptor, Mimir2xRecordsMmKRoutes) {
     EXPECT_EQ(second.channel, 1u);
     EXPECT_EQ(second.instance, 1u);
     EXPECT_EQ(second.chiplet, "m1");
+    EXPECT_EQ(second.tap, std::optional<uint32_t>(1));
     ASSERT_EQ(second.routes.size(), 1u);
     EXPECT_EQ(second.routes[0].peer_instance, 0u);
     EXPECT_EQ(second.routes[0].d2d, 0u);
@@ -509,6 +513,9 @@ TEST(SocArchDescriptor, MmkRecordsKeraunosHsioTile) {
     ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
     EXPECT_EQ(desc.get_mimir_channels()[0].chiplet, "m0");
     EXPECT_EQ(desc.get_mimir_channels()[1].chiplet, "m1");
+    // chippy's MMK chain is k0, m0, m1.
+    EXPECT_EQ(desc.get_mimir_channels()[0].tap, std::optional<uint32_t>(1));
+    EXPECT_EQ(desc.get_mimir_channels()[1].tap, std::optional<uint32_t>(2));
     EXPECT_EQ(desc.get_eth_l1_size(), 0x400000u);
 
     const KeraunosChiplet& keraunos = desc.get_keraunos();
@@ -574,6 +581,63 @@ TEST(SocArchDescriptor, KeraunosRejectsAPartialMap) {
 
 TEST(SocArchDescriptor, KeraunosRejectsAMimirChipletId) {
     const std::filesystem::path path = write_keraunos_descriptor("keraunos:\n  chiplet: m0\n", "");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
+}
+
+// The numbers here are a parser fixture: two Mimir channels and, optionally, a one-core Keraunos.
+static std::filesystem::path write_package_descriptor(
+    const std::string& m0_tap, const std::string& m1_tap, const std::string& keraunos_tap) {
+    const std::filesystem::path path = std::filesystem::temp_directory_path() / "package_tap_descriptor.yaml";
+    std::ofstream out(path);
+    out << "grid:\n  x_size: 2\n  y_size: 2\narc: []\npcie: []\ndram:\n  [[0-0], [1-0]]\n"
+        << "functional_workers: []\nrouter_only: []\nworker_l1_size: 0\ndram_bank_size: 1024\n"
+        << "eth_l1_size: 4096\narch_name: QUASAR\nmimir_channels:\n"
+        << "  - channel: 0\n    instance: 0\n    chiplet: m0\n" << m0_tap
+        << "  - channel: 1\n    instance: 1\n    chiplet: m1\n" << m1_tap;
+    if (keraunos_tap.empty()) {
+        out << "eth: []\n";
+    } else {
+        out << "eth: [0-1]\nkeraunos:\n  chiplet: k0\n" << keraunos_tap
+            << "  local_window: 1073741824\n  tile_stride: 8192\n"
+            << "  cores:\n    - core: 0-1\n      hsio: 0\n      eth_cce: 0\n";
+    }
+    return path;
+}
+
+TEST(SocArchDescriptor, MimirTapsAreRecordedPerChannel) {
+    const std::filesystem::path path = write_package_descriptor("    tap: 2\n", "    tap: 0\n", "  tap: 1\n");
+    const SocArchDescriptor desc(path.string());
+    ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
+    EXPECT_EQ(desc.get_mimir_channels()[0].tap, std::optional<uint32_t>(2));
+    EXPECT_EQ(desc.get_mimir_channels()[1].tap, std::optional<uint32_t>(0));
+    EXPECT_EQ(desc.get_keraunos().tap, std::optional<uint32_t>(1));
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, MimirTapsMayBeOmittedTogether) {
+    const std::filesystem::path path = write_package_descriptor("", "", "");
+    const SocArchDescriptor desc(path.string());
+    ASSERT_EQ(desc.get_mimir_channels().size(), 2u);
+    EXPECT_FALSE(desc.get_mimir_channels()[0].tap.has_value());
+    EXPECT_FALSE(desc.get_mimir_channels()[1].tap.has_value());
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, MimirTapsRejectAPartialList) {
+    const std::filesystem::path path = write_package_descriptor("    tap: 1\n", "", "");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, MimirTapsRejectARepeatedTap) {
+    const std::filesystem::path path = write_package_descriptor("    tap: 1\n", "    tap: 1\n", "");
+    EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
+    std::filesystem::remove(path);
+}
+
+TEST(SocArchDescriptor, MimirTapRejectsTheKeraunosTap) {
+    const std::filesystem::path path = write_package_descriptor("    tap: 1\n", "    tap: 2\n", "  tap: 2\n");
     EXPECT_THROW(SocArchDescriptor(path.string()), error::UmdException<error::RuntimeError>);
     std::filesystem::remove(path);
 }

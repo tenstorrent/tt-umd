@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -146,6 +147,10 @@ TEST(TestSocDescriptor, MmkKeraunosChipletSurvivesSerialization) {
     const KeraunosChiplet& reloaded_keraunos = reloaded.get_arch_descriptor().get_keraunos();
     EXPECT_EQ(reloaded_keraunos.chiplet, keraunos.chiplet);
     EXPECT_EQ(reloaded_keraunos.tap, keraunos.tap);
+    const auto& reloaded_channels = reloaded.get_arch_descriptor().get_mimir_channels();
+    ASSERT_EQ(reloaded_channels.size(), 2u);
+    EXPECT_EQ(reloaded_channels[0].tap, std::optional<uint32_t>(1));
+    EXPECT_EQ(reloaded_channels[1].tap, std::optional<uint32_t>(2));
     EXPECT_EQ(reloaded_keraunos.local_window, keraunos.local_window);
     EXPECT_EQ(reloaded_keraunos.tile_stride, keraunos.tile_stride);
     ASSERT_EQ(reloaded_keraunos.cores.size(), keraunos.cores.size());

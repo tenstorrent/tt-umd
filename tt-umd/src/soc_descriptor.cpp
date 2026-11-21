@@ -399,6 +399,9 @@ std::string SocDescriptor::serialize() const {
             out << YAML::Key << "channel" << YAML::Value << channel.channel;
             out << YAML::Key << "instance" << YAML::Value << channel.instance;
             out << YAML::Key << "chiplet" << YAML::Value << channel.chiplet;
+            if (channel.tap.has_value()) {
+                out << YAML::Key << "tap" << YAML::Value << *channel.tap;
+            }
             if (!channel.routes.empty()) {
                 out << YAML::Key << "routes" << YAML::Value << YAML::BeginSeq;
                 for (const auto &route : channel.routes) {

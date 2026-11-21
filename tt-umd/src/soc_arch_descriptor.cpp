@@ -49,6 +49,7 @@ std::vector<MimirChannel> parse_mimir_channels(const YAML::Node& node, std::size
     std::vector<MimirChannel> channels(channel_count);
     std::vector<char> seen(channel_count, 0);
     std::unordered_set<uint32_t> instances;
+    std::unordered_set<uint32_t> taps;
     for (const auto& entry : node) {
         UMD_ASSERT(
             entry["channel"] && entry["instance"] && entry["chiplet"],
@@ -72,6 +73,13 @@ std::vector<MimirChannel> parse_mimir_channels(const YAML::Node& node, std::size
             is_mimir_chiplet_id(parsed.chiplet),
             error::RuntimeError,
             fmt::format("mimir_channels chiplet '{}' is not a Mimir id such as m0.", parsed.chiplet));
+        if (entry["tap"]) {
+            parsed.tap = entry["tap"].as<uint32_t>();
+            UMD_ASSERT(
+                taps.insert(*parsed.tap).second,
+                error::RuntimeError,
+                fmt::format("mimir_channels tap {} is listed more than once.", *parsed.tap));
+        }
         if (entry["routes"]) {
             UMD_ASSERT(entry["routes"].IsSequence(), error::RuntimeError, "mimir_channels routes must be a sequence.");
             for (const auto& route : entry["routes"]) {
@@ -84,6 +92,10 @@ std::vector<MimirChannel> parse_mimir_channels(const YAML::Node& node, std::size
         }
         channels[channel] = std::move(parsed);
     }
+    UMD_ASSERT(
+        taps.empty() || taps.size() == channels.size(),
+        error::RuntimeError,
+        "mimir_channels tap is set on every entry or on none.");
 
     for (const auto& channel : channels) {
         for (const auto& route : channel.routes) {
@@ -546,6 +558,12 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
             occupy(channel);
         }
         keraunos_ = parse_keraunos(device_descriptor_yaml["keraunos"], eth_cores_, eth_l1_size_, occupied);
+        for (const auto& channel : mimir_channels_) {
+            UMD_ASSERT(
+                !keraunos_.tap.has_value() || channel.tap != keraunos_.tap,
+                error::RuntimeError,
+                fmt::format("keraunos tap {} is also the tap of Mimir {}.", keraunos_.tap.value_or(0), channel.chiplet));
+        }
     }
 
     if (device_descriptor_yaml["features"].IsDefined()) {

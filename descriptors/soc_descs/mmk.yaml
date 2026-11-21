@@ -111,12 +111,14 @@ mimir_channels:
   - channel: 0
     instance: 0
     chiplet: m0
+    tap: 1
     routes:
       - peer: 1
         d2d: 1
   - channel: 1
     instance: 1
     chiplet: m1
+    tap: 2
     routes:
       - peer: 0
         d2d: 0

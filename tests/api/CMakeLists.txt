@@ -25,7 +25,7 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_GRENDEL_JTAG)
-    set(GRENDEL_CHIPPY_TEST_SRCS test_grendel_flat_address.cpp)
+    set(GRENDEL_CHIPPY_TEST_SRCS test_grendel_jtag_protocol.cpp test_grendel_flat_address.cpp)
     list(APPEND API_TESTS_SRCS ${GRENDEL_CHIPPY_TEST_SRCS})
 endif()
 
@@ -43,6 +43,7 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
         api_tests
         PRIVATE
             ${PROJECT_SOURCE_DIR}/tt-umd/src/tt_device
+            ${PROJECT_SOURCE_DIR}/tt-umd/src/tt_device/protocol
     )
     set_source_files_properties(
         ${GRENDEL_CHIPPY_TEST_SRCS}

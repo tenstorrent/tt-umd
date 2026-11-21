@@ -235,6 +235,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/tt_sim_tt_device.hpp
                 api/tt-umd/tt_device/simulation_tt_device.hpp
                 api/tt-umd/tt_device/emu_tt_device.hpp
+                api/tt-umd/tt_device/grendel_jtag_tt_device.hpp
                 api/tt-umd/tt_device/grendel_tt_device.hpp
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/rtl_sim_session.hpp
@@ -243,6 +244,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
+                api/tt-umd/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp
@@ -295,9 +297,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/wormhole_implementation.hpp
                 api/tt-umd/arch/grendel_implementation.hpp
                 # Backward-compat forwarding header for the pre-rename "umd/device/..." include path.
+                api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/umd/device/coordinates/noc_address_resolver.hpp
                 api/umd/device/coordinates/grendel_noc_address_resolver.hpp
                 api/umd/device/tt_device/emu_tt_device.hpp
+                api/umd/device/tt_device/grendel_jtag_tt_device.hpp
                 api/umd/device/tt_device/grendel_tt_device.hpp
     )
 endif()
@@ -340,6 +344,8 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
     # -std=c++17, so it wins); UMD's public standard stays C++17.
     set(
         GRENDEL_CHIPPY_SRCS
+        src/tt_device/protocol/grendel_jtag_protocol.cpp
+        src/tt_device/grendel_jtag_tt_device.cpp
         src/tt_device/grendel_tt_device.cpp
         src/tt_device/grendel_flat_address.cpp
         src/tt_device/chippy_memory.cpp

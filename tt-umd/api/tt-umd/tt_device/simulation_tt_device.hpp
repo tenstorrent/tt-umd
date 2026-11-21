@@ -66,14 +66,14 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
     void write_to_device(
         const void* mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
         NocId noc_id = NocId::DEFAULT_NOC,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
 
     // A simulation backend has no separate ordered-register transport: every access reaches the
     // simulator through the same entry points, clocked synchronously from the calling thread under

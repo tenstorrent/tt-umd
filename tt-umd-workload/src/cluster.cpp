@@ -1304,7 +1304,8 @@ void Cluster::broadcast_write_to_cluster(
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude,
-    bool use_translated_coords) {
+    bool use_translated_coords,
+    bool is_reg_write) {
     if (!ethernet_broadcast_) {
         // Broadcast not supported. Implement this at the software level as a for loop.
         // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
@@ -1330,7 +1331,14 @@ void Cluster::broadcast_write_to_cluster(
                          core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
                     if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
                         rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        if (is_reg_write) {
+                            // Registers go through the uncached path: the CPU may speculatively read a
+                            // write-combined mapping, and a read landing in the unmapped space around a register
+                            // never completes, which drops the device off PCIe.
+                            write_to_device_reg(mem_ptr, size_in_bytes, chip, core, address);
+                        } else {
+                            write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        }
                     }
                 }
             }
@@ -1454,7 +1462,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         chips_to_exclude,
         rows_to_exclude,
         columns_to_exclude,
-        use_translated_coords_for_eth_broadcast);
+        use_translated_coords_for_eth_broadcast,
+        /*is_reg_write=*/true);
     // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }

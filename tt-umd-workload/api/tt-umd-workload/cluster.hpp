@@ -523,6 +523,9 @@ public:
      *                           @p use_translated_coords is false, or in translated-index space when true.
      * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
      *                              @p columns_to_exclude; callers must supply values in the matching space.
+     * @param is_reg_write Write a register: without ethernet broadcast, each core is written through the uncached
+     *                     register path (write_to_device_reg) instead of write_to_device. @p size_in_bytes and
+     *                     @p address must then be multiples of 4. Ignored with ethernet broadcast.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -531,7 +534,8 @@ public:
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude,
-        bool use_translated_coords);
+        bool use_translated_coords,
+        bool is_reg_write = false);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return

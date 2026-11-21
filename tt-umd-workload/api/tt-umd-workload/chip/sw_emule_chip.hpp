@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 
 namespace tt_emule {
@@ -24,6 +25,7 @@ class L1Pool;
 namespace tt::umd {
 
 class SimulationSysmemManager;
+class IoWindow;
 
 // TRANSLATED Tensix core -> worker-pool slot, in the SoC descriptor's deterministic order.
 //
@@ -47,7 +49,10 @@ public:
     // chips would both call theirs chip 0 and collide on one segment. std::nullopt means "no stable
     // identity", which is why the caller must not substitute a synthesized id: an id the descriptor
     // invented per-process is not shareable, and passing one would name a colliding segment.
-    explicit SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid = std::nullopt);
+    explicit SWEmuleChip(
+        const SocDescriptor& soc_descriptor,
+        std::optional<uint64_t> chip_uid = std::nullopt,
+        uint32_t num_host_mem_channels = 0);
     ~SWEmuleChip() override;
 
     // Chip lifecycle — no-ops.
@@ -61,7 +66,7 @@ public:
 
     const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
-    // Host memory — no-ops.
+    // Host memory — the host channels the cluster asked for, in the sysmem manager.
     std::size_t get_num_host_channels() override;
     std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
@@ -102,6 +107,10 @@ public:
     int get_numa_node() override;
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+
+    // A host window onto one core's emulated memory: every access goes through write_to_device /
+    // read_from_device, so a store through it is a host write the core observes.
+    std::unique_ptr<IoWindow> create_io_window(const TargetIoWindowConfig& target, const HostIoWindowConfig& host);
 
     // Public accessors.
     uint32_t l1_size() const { return l1_size_; }
@@ -152,10 +161,13 @@ private:
 
     SocDescriptor soc_descriptor_;
 
-    // Host-facing (PCIe) address resolution — an existing, already-upstream UMD class (also used
-    // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
-    // has no hugepage concept), so 0.
+    // Host memory and host-facing (PCIe) address resolution — the same UMD class TTSimTTDevice uses, with the
+    // cluster's host-memory channel count.
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    // The device surface a simulated chip has: a simulation device model (no management firmware), with its
+    // memory accesses served by this chip.
+    std::unique_ptr<TTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

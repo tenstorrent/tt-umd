@@ -107,6 +107,8 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
+namespace {
+
 // The page-aligned extent covering a buffer. Pinning works on whole pages, so an unaligned start is
 // rounded down and the size grown to cover the user's whole range.
 struct AlignedRange {
@@ -115,7 +117,7 @@ struct AlignedRange {
     uint64_t offset_from_base = 0;  // Distance from base to the user's virtual address.
 };
 
-static AlignedRange page_align(void *buffer_va, size_t buffer_size) {
+AlignedRange page_align(void *buffer_va, size_t buffer_size) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t va = reinterpret_cast<uint64_t>(buffer_va);
     const uint64_t base = va & ~(page_size - 1);
@@ -125,6 +127,8 @@ static AlignedRange page_align(void *buffer_va, size_t buffer_size) {
     range.mapped_size = (buffer_size + range.offset_from_base + page_size - 1) & ~(page_size - 1);
     return range;
 }
+
+}  // namespace
 
 // Unpins the pages on destruction unless disarmed.
 //
@@ -495,8 +499,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     const bool map_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory) {
-    // Pinning covers whole pages, but the buffer sees only the user's range: it gets the IOVA of the user's
-    // start, and the deleter keeps the aligned range to unpin.
+    // Pinning covers whole pages, but the buffer sees only the user's range: it gets the device addresses of
+    // the user's first byte, and the deleter keeps the aligned range to unpin.
     const AlignedRange range = page_align(buffer_va, buffer_size);
 
     uint64_t aligned_iova = 0;
@@ -527,21 +531,16 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
         }
     };
 
-    // Both device addresses must name the user's start, like the IOVA.
+    // The KMD maps the NOC window linearly onto the IOVA, so the user's offset into its first page
+    // applies to both device addresses.
+    const uint64_t iova = aligned_iova + range.offset_from_base;
     if (noc_addr.has_value()) {
         *noc_addr += range.offset_from_base;
     }
 
     // The KMD assigns the NOC address at pin time, so this manager supplies no binder.
     std::unique_ptr<SysmemBuffer> buffer = create_buffer(
-        tt_device_,
-        buffer_va,
-        buffer_size,
-        aligned_iova + range.offset_from_base,
-        communication_id_,
-        std::move(deleter),
-        noc_addr,
-        device_access);
+        tt_device_, buffer_va, buffer_size, iova, communication_id_, std::move(deleter), noc_addr, device_access);
 
     // The buffer owns the pin now.
     unpin_guard.disarm();

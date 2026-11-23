@@ -101,8 +101,8 @@ public:
     }
 
     /**
-     * Returns the NOC address through which every tile on the device can reach this buffer, or std::nullopt
-     * until the buffer is bound, either at pin time or by bind_noc_address().
+     * Returns the NOC address through which every tile on the device can reach this buffer's first byte, or
+     * std::nullopt until the buffer is bound, either at pin time or by bind_noc_address().
      */
     std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
 
@@ -170,7 +170,7 @@ private:
      * @param device_io_addr IOVA of buffer_va.
      * @param communication_id Identifier of the device this buffer's IOVA is valid for.
      * @param deleter Cleanup callable invoked on destruction with buffer_va.
-     * @param noc_addr NOC address, if the pages were pinned with NOC access.
+     * @param noc_addr NOC address of buffer_va, if the pages were pinned with NOC access.
      * @param device_access Whether the device may write the mapping or only read it.
      * @param noc_binder Optional callable for deferred NOC binding.
      */

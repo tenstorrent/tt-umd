@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -149,12 +150,21 @@ public:
     using SystemMemoryAllocator::create_buffer;
 };
 
+// Returns an address 64 bytes into the first whole page of backing, so a buffer starting there is
+// distinguishable from its page start. backing must span at least two pages.
+void* address_64_bytes_into_a_page(std::vector<uint8_t>& backing) {
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const uintptr_t raw = reinterpret_cast<uintptr_t>(backing.data());
+    return reinterpret_cast<void*>(((raw + page_size - 1) & ~(page_size - 1)) + 64);
+}
+
 }  // namespace
 
 // A buffer owns its memory through a deleter composed at construction. The deleter must run exactly
 // once, at destruction, and receive the buffer's own start.
 TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceAtDestruction) {
-    std::vector<uint8_t> backing(4096, 0);
+    std::vector<uint8_t> backing(2 * static_cast<size_t>(sysconf(_SC_PAGESIZE)), 0);
+    void* buffer_va = address_64_bytes_into_a_page(backing);
 
     MockFunction<void(void*)> deleter;
     // Checkpoint reached while the buffer is still alive, sequenced before the deleter so that running
@@ -163,15 +173,15 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceAtDestruction) {
     {
         InSequence sequence;
         EXPECT_CALL(buffer_still_alive, Call());
-        EXPECT_CALL(deleter, Call(backing.data()));
+        EXPECT_CALL(deleter, Call(buffer_va));
     }
 
     {
         auto buffer = TestBufferFactory::create_buffer(
             /*tt_device=*/nullptr,
-            backing.data(),
-            backing.size(),
-            /*device_io_addr=*/0x1000,
+            buffer_va,
+            128,
+            /*device_io_addr=*/0x1040,
             /*communication_id=*/7,
             deleter.AsStdFunction());
         buffer_still_alive.Call();
@@ -181,10 +191,8 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceAtDestruction) {
 // Page alignment is the allocator's concern: a buffer starting mid-page reports the address and IOVA
 // it was given for its own start, not those of the page around it.
 TEST(ApiSimulationSysmemManager, UnalignedBufferReportsIovaOfItsOwnStart) {
-    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
-    std::vector<uint8_t> backing(2 * page_size, 0);
-    const uintptr_t raw = reinterpret_cast<uintptr_t>(backing.data());
-    void* user_va = reinterpret_cast<void*>(((raw + page_size - 1) & ~(page_size - 1)) + 64);
+    std::vector<uint8_t> backing(2 * static_cast<size_t>(sysconf(_SC_PAGESIZE)), 0);
+    void* user_va = address_64_bytes_into_a_page(backing);
 
     auto buffer = TestBufferFactory::create_buffer(
         /*tt_device=*/nullptr,

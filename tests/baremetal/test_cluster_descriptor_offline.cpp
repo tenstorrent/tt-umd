@@ -540,3 +540,8 @@ INSTANTIATE_TEST_SUITE_P(
             name.begin(), name.end(), [](char c) { return !std::isalnum(c); }, '_');
         return name;
     });
+
+// Galaxy 2 firmware reports its 20-digit board ID squeezed into the legacy 64-bit layout, with the UPI kept in place.
+TEST(ApiClusterDescriptorOfflineTest, BoardTypeFromBlackholeGalaxy2BoardId) {
+    EXPECT_EQ(get_board_type_from_board_id(0x78000000000), BoardType::UBB_BLACKHOLE_2);
+}

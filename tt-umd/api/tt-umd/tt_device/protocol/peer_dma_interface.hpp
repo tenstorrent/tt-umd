@@ -37,21 +37,15 @@ public:
     virtual int export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) = 0;
 
     /**
-     * @brief Makes a device memory window reachable by another Tenstorrent device's DMA over peer-to-peer PCIe.
+     * @brief Maps a peer's exported window, a dma-buf from its export_window(), for this device to DMA into.
      *
-     * The window and its mapping stay in place until this device is closed. Stop the peer's DMA before then:
-     * once the window is released, it can be handed to another client.
+     * The mapping holds its own reference on the buffer, so the caller keeps ownership of @p dmabuf_fd and
+     * may close it right away. The mapping, and the peer's window behind it, last until this device is closed.
      *
-     * @param device_id PCIe device number of the device that issues the DMA; must be another device.
-     * @param core Core to target.
-     * @param addr Address within the core the window starts at; must be host-page-aligned.
-     * @param size Number of bytes to map; must be host-page-aligned and non-zero.
-     * @param ordering Ordering of the peer's transactions through the window.
-     * @param noc_id NOC to route the peer's traffic over.
-     * @return uint64_t The address at which device @p device_id reaches @p addr.
+     * @param dmabuf_fd The peer's dma-buf; must not be one this device exported.
+     * @return uint64_t The address at which this device reaches the start of the buffer.
      */
-    virtual uint64_t export_window_to_device(
-        int device_id, tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) = 0;
+    virtual uint64_t import_window(int dmabuf_fd) = 0;
 };
 
 }  // namespace tt::umd

@@ -806,6 +806,23 @@ int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
     return 0;
 }
 
+int tt_dmabuf_import(tt_device_t* dev, int dmabuf_fd, uint64_t* out_dma_addr) {
+    if (dev == NULL || out_dma_addr == NULL) {
+        return -EINVAL;
+    }
+
+    struct tenstorrent_import_dmabuf import = {0};
+    import.argsz = sizeof(import);
+    import.dmabuf_fd = dmabuf_fd;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_IMPORT_DMABUF, &import) != 0) {
+        return -errno;
+    }
+
+    *out_dma_addr = import.dma_address;
+    return 0;
+}
+
 int tt_device_map_peer_bar(
     tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr) {
     if (dev == NULL || peer == NULL || out_dma_addr == NULL) {

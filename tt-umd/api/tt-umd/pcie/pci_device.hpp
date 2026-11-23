@@ -11,7 +11,6 @@
 #include <iterator>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -27,7 +26,6 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
-struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -396,25 +394,15 @@ public:
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
     /**
-     * Allocate a dedicated TLB window, configure it per @p config, and map a range of it for another
-     * device to reach by peer-to-peer PCIe DMA. Supported only on Blackhole.
+     * Map a peer device's dma-buf, such as a TLB window it exported with export_tlb_dmabuf(), for this
+     * device to reach by peer-to-peer PCIe DMA. The mapping holds its own reference on the buffer, so the
+     * caller keeps ownership of @p dmabuf_fd and may close it right away; the mapping lasts until this
+     * device is closed. Supported only on Blackhole.
      *
-     * This device keeps the window and the mapping until it is closed, and removes the mapping
-     * before releasing the window, so the window is not handed to another client while mapped.
-     *
-     * @param device_id PCIe device number of the device that issues the DMA; must be another device.
-     * @param window_size Size of the TLB window to allocate; must be a size this architecture
-     *                    supports, and must be large enough to cover @p offset + @p size.
-     * @param config NOC configuration for the window. config.local_offset must be aligned to
-     *               @p window_size, since a window's NOC base is size-aligned.
-     * @param offset Page-aligned byte offset within the window at which the mapping begins.
-     * @param size Page-aligned byte count to map; must be nonzero.
-     * @return The address at which device @p device_id reaches the start of the range.
-     * @throws error::RuntimeError if this device is not a Blackhole, the window lies beyond the
-     *         32-bit BAR offsets KMD takes, or KMD refuses the mapping.
+     * @return The address this device uses to reach the start of the buffer.
+     * @throws error::RuntimeError if this device is not a Blackhole, or KMD refuses the import.
      */
-    uint64_t map_tlb_window_for_device(
-        int device_id, size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
+    uint64_t import_dmabuf(int dmabuf_fd);
 
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
@@ -540,16 +528,6 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
-
-    // A window mapped by map_tlb_window_for_device. The mapping belongs to a handle opened on the
-    // issuing device just for it, so closing that handle removes exactly this mapping.
-    struct PeerMappedWindow {
-        tt_tlb_t *window;
-        tt_device_t *issuer;
-    };
-
-    std::vector<PeerMappedWindow> peer_mapped_windows;
-    std::mutex peer_mapped_windows_mutex;
 
     // TLB configuration registers mapped space.
     void *tlb_config_space = nullptr;

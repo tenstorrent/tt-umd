@@ -675,6 +675,20 @@ enum tt_power_flags {
 int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
 
 /**
+ * @brief Map a peer device's dma-buf so this device can reach it by peer-to-peer PCIe DMA.
+ *
+ * The typical buffer is a TLB window another device exported with `tt_tlb_export_dmabuf()`. The import keeps
+ * its own reference on the buffer, so the caller may close @p dmabuf_fd right away; the mapping lasts until
+ * this device handle closes.
+ *
+ * @param dev          Device that will issue the DMA
+ * @param dmabuf_fd    dma-buf to import; must not be one this device exported
+ * @param out_dma_addr On success, the address `dev` uses to reach the buffer
+ * @return 0 on success, negative error code on failure
+ */
+int tt_dmabuf_import(tt_device_t* dev, int dmabuf_fd, uint64_t* out_dma_addr);
+
+/**
  * @brief Map part of another device's BAR so this device can reach it by peer-to-peer PCIe DMA.
  *
  * The mapping lasts until this device handle closes; KMD has no call to undo it.

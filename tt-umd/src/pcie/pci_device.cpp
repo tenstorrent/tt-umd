@@ -10,7 +10,6 @@
 #include <sys/utsname.h>  // for uname
 #include <unistd.h>       // for ::close
 
-#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdint>
@@ -22,7 +21,6 @@
 #include <limits>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -582,14 +580,6 @@ void PCIDevice::construct_resources() {
 void PCIDevice::release_resources() {
     // Closes the tt_device handle, the device file descriptor and every BAR mapping. Safe to call
     // on a partially constructed device: every member is default-initialized to a null/empty state.
-
-    // Each mapping goes before its window, so the window cannot be handed out while still mapped.
-    for (const PeerMappedWindow &mapped : peer_mapped_windows) {
-        tt_device_close(mapped.issuer);
-        tt_tlb_free(tt_device_handle, mapped.window);
-    }
-    peer_mapped_windows.clear();
-
     if (tt_device_handle != nullptr) {
         int ret_code = tt_device_close(tt_device_handle);
         if (ret_code != 0) {
@@ -1128,44 +1118,6 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
            PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
 }
 
-// Allocates a dedicated TLB window and aims it per config through the driver (ALLOCATE_TLB,
-// CONFIGURE_TLB), freeing it again if configuring fails. No TlbHandle owns the window: the caller
-// releases it with tt_tlb_free.
-static tt_tlb_t *allocate_configured_tlb(tt_device_t *dev, const size_t window_size, const tlb_data &config) {
-    tt_tlb_t *tlb = nullptr;
-    int ret = tt_tlb_alloc(dev, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
-    if (ret != 0) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to allocate a dedicated {} byte TLB window: {}", window_size, strerror(-ret)));
-    }
-
-    tt_noc_addr_config_t noc_config{};
-    noc_config.addr = config.local_offset;
-    noc_config.x_end = static_cast<uint16_t>(config.x_end);
-    noc_config.y_end = static_cast<uint16_t>(config.y_end);
-    noc_config.x_start = static_cast<uint16_t>(config.x_start);
-    noc_config.y_start = static_cast<uint16_t>(config.y_start);
-    noc_config.noc = static_cast<uint8_t>(config.noc_sel);
-    noc_config.mcast = static_cast<uint8_t>(config.mcast);
-    noc_config.ordering = static_cast<uint8_t>(config.ordering);
-    noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
-
-    ret = tt_tlb_map(dev, tlb, &noc_config);
-    if (ret != 0) {
-        tt_tlb_free(dev, tlb);
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Failed to configure a dedicated TLB window at NOC address {:#x} on core ({}, {}): {}",
-                config.local_offset,
-                config.x_end,
-                config.y_end,
-                strerror(-ret)));
-    }
-    return tlb;
-}
-
 // Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
 // EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
 int PCIDevice::export_tlb_dmabuf(
@@ -1181,96 +1133,74 @@ int PCIDevice::export_tlb_dmabuf(
             read_kmd_version().str(),
             read_kernel_version().str()));
 
-    tt_tlb_t *tlb = allocate_configured_tlb(tt_device_handle, window_size, config);
+    tt_tlb_t *tlb = nullptr;
+    int ret = tt_tlb_alloc(tt_device_handle, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to allocate a {} byte TLB window to export as a dma-buf: {}", window_size, strerror(-ret)));
+    }
+
+    // No TlbHandle owns this window, so every path below releases it explicitly. Any new exit added
+    // here must do the same, or the window leaks out of the allocation pool until the process exits.
+    tt_noc_addr_config_t noc_config{};
+    noc_config.addr = config.local_offset;
+    noc_config.x_end = static_cast<uint16_t>(config.x_end);
+    noc_config.y_end = static_cast<uint16_t>(config.y_end);
+    noc_config.x_start = static_cast<uint16_t>(config.x_start);
+    noc_config.y_start = static_cast<uint16_t>(config.y_start);
+    noc_config.noc = static_cast<uint8_t>(config.noc_sel);
+    noc_config.mcast = static_cast<uint8_t>(config.mcast);
+    noc_config.ordering = static_cast<uint8_t>(config.ordering);
+    noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+
+    ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB window for a dma-buf export at NOC address {:#x} on core ({}, {}): {}",
+                config.local_offset,
+                config.x_end,
+                config.y_end,
+                strerror(-ret)));
+    }
 
     int fd = -1;
-    const int ret = tt_tlb_export_dmabuf(tt_device_handle, tlb, offset, size, &fd);
-    // Released on success as well: the driver keeps the window pinned for as long as the fd is open.
-    tt_tlb_free(tt_device_handle, tlb);
+    ret = tt_tlb_export_dmabuf(tt_device_handle, tlb, offset, size, &fd);
     if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to export TLB window as a dma-buf (offset {:#x}, size {}): {}", offset, size, strerror(-ret)));
     }
 
+    // Released on success as well: the driver keeps the window pinned for as long as the fd is open.
+    tt_tlb_free(tt_device_handle, tlb);
+
     return fd;
 }
 
-uint64_t PCIDevice::map_tlb_window_for_device(
-    const int device_id, const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
-    // Wormhole reaches PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up; other
+uint64_t PCIDevice::import_dmabuf(const int dmabuf_fd) {
+    // Wormhole reaches PCIe addresses only through iATU regions, which an import does not set up; other
     // architectures are unverified.
     UMD_ASSERT(
         arch == tt::ARCH::BLACKHOLE,
         error::RuntimeError,
-        fmt::format("Mapping a TLB window for another device is supported only on Blackhole, not on {}.", arch));
-
-    const std::vector<TlbSizeClass> &size_classes = get_architecture_tlbs(arch).size_classes;
-    const auto size_class =
-        std::find_if(size_classes.begin(), size_classes.end(), [window_size](const TlbSizeClass &candidate) {
-            return candidate.size == window_size;
-        });
-    UMD_ASSERT(
-        size_class != size_classes.end(),
-        error::RuntimeError,
-        fmt::format("{} bytes is not a TLB window size of {}.", window_size, arch));
-
-    tt_tlb_t *tlb = allocate_configured_tlb(tt_device_handle, window_size, config);
-    uint32_t tlb_id = 0;
-    tt_tlb_get_id(tlb, &tlb_id);
-    const uint32_t bar = size_class->in_bar4 ? 4 : 0;
-    const uint64_t bar_offset = size_class->bar_offset + (tlb_id - size_class->base_index) * window_size + offset;
-
-    // MAP_PEER_BAR takes the offset and length as 32-bit values.
-    constexpr uint64_t max_peer_bar_value = std::numeric_limits<uint32_t>::max();
-    if (bar_offset > max_peer_bar_value || size > max_peer_bar_value) {
-        tt_tlb_free(tt_device_handle, tlb);
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Cannot map {} bytes at offset {:#x} of BAR{} for device {}: KMD takes 32-bit BAR offsets and lengths.",
-                size,
-                bar_offset,
-                bar,
-                device_id));
-    }
-
-    // Opened power aware, so the handle does not keep the issuing device out of low power.
-    tt_device_t *issuer = nullptr;
-    const std::string issuer_path = fmt::format("/dev/tenstorrent/{}", device_id);
-    int ret = tt_device_open(issuer_path.c_str(), &issuer, O_APPEND);
-    if (ret != 0) {
-        tt_tlb_free(tt_device_handle, tlb);
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Failed to open device {} to map a TLB window of device {} for it: {}",
-                device_id,
-                get_device_num(),
-                strerror(-ret)));
-    }
-
+        fmt::format("Importing a peer's dma-buf is supported only on Blackhole, not on {}.", arch));
     uint64_t dma_address = 0;
-    ret = tt_device_map_peer_bar(
-        issuer, tt_device_handle, bar, static_cast<uint32_t>(bar_offset), static_cast<uint32_t>(size), &dma_address);
+    const int ret = tt_dmabuf_import(tt_device_handle, dmabuf_fd, &dma_address);
     if (ret != 0) {
-        tt_device_close(issuer);
-        tt_tlb_free(tt_device_handle, tlb);
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Failed to map {} bytes at {:#x} of BAR{} of device {} for device {}: {}",
-                size,
-                bar_offset,
-                bar,
+                "Failed to import a dma-buf for device {}: {}. Importing needs a KMD with IMPORT_DMABUF.",
                 get_device_num(),
-                device_id,
                 strerror(-ret)));
     }
-
-    const std::lock_guard<std::mutex> lock(peer_mapped_windows_mutex);
-    peer_mapped_windows.push_back({tlb, issuer});
     return dma_address;
 }
 

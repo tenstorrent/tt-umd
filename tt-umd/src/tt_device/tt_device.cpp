@@ -5,6 +5,7 @@
 #include "tt-umd/tt_device/tt_device.hpp"
 
 #include <fmt/format.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <chrono>
@@ -19,6 +20,7 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
+#include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
@@ -601,22 +603,38 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrderi
     if (!peer_dma_interface) {
         UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for this device.");
     }
+    // Nothing but an RDMA NIC consumes this fd, so check for one before any window is allocated or an ioctl
+    // issued. map_peer_window exports through the interface directly, as its consumer is another device.
+    UMD_ASSERT(
+        utils::has_any_active_rdma_port(),
+        error::RuntimeError,
+        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
+        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
     return peer_dma_interface->export_window(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
 uint64_t TTDevice::map_peer_window(
     TTDevice &peer, CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
-    // This device is named to the peer by its communication device id, which is its own only when it has its own
-    // PCIe link; a remote device's id is the device it is reached through.
-    if (!model_->get_peer_dma_interface()) {
+    PeerDmaInterface *peer_dma_interface = model_->get_peer_dma_interface();
+    if (!peer_dma_interface) {
         UMD_THROW(error::RuntimeError, "Mapping a peer window is not supported for this device.");
     }
-    PeerDmaInterface *peer_dma_interface = peer.model_->get_peer_dma_interface();
-    if (!peer_dma_interface) {
+    PeerDmaInterface *exporter = peer.model_->get_peer_dma_interface();
+    if (!exporter) {
         UMD_THROW(error::RuntimeError, "Mapping a window of the peer device is not supported for that device.");
     }
-    return peer_dma_interface->export_window_to_device(
-        get_communication_device_id(), peer.resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+
+    // The import keeps its own reference on the dma-buf, so the fd is closed either way.
+    const int dmabuf_fd = exporter->export_window(peer.resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+    uint64_t address = 0;
+    try {
+        address = peer_dma_interface->import_window(dmabuf_fd);
+    } catch (...) {
+        close(dmabuf_fd);
+        throw;
+    }
+    close(dmabuf_fd);
+    return address;
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {

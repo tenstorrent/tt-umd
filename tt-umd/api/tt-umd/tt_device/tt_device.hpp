@@ -584,8 +584,9 @@ public:
 
     /**
      * Make a NOC-addressable region of @p peer reachable by this device's DMA over peer-to-peer PCIe,
-     * for example for this device's cores to write into @p peer through this device's PCIe core. See
-     * PeerDmaInterface::export_window_to_device for the full contract.
+     * for example for this device's cores to write into @p peer through this device's PCIe core. The
+     * window is exported on @p peer and imported here; see PeerDmaInterface::export_window and
+     * PeerDmaInterface::import_window for the full contract. The mapping lasts until this device is closed.
      *
      * @return The address at which this device reaches @p addr on @p peer.
      * @throws if this device or @p peer has no PeerDmaInterface.

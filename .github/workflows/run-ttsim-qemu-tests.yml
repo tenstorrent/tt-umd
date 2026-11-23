@@ -18,88 +18,67 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # One job per card and test binary keeps each well inside the timeout. The Wormhole rows run
-        # every test except those listed under excluded: tests that need silicon, tests that reach
-        # something ttsim does not model, and tests that need hugepages, which the guest does not
-        # have. Exclude rather than let fail: a test that reaches an unmodelled part of ttsim ends
-        # QEMU, and every test after it in the job goes down with it.
+        # One job per card and test binary keeps each well inside the timeout. The filters leave out the
+        # tests that cannot pass in the VM; one that reaches an unmodelled part of ttsim ends QEMU and every
+        # test after it, so it has to be filtered out rather than left to fail.
         include:
           - card: n150
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: api/api_tests
-            excluded:
-              # silicon only: warm reset
-              - "*ClusterWarmResetScratch*"
-              # silicon only: ARC telemetry, AICLK, Ethernet firmware
-              - "TestFirmwareInfoProvider.ClockFrequencies"
-              - "TestFirmwareInfoProvider.EthFirmwareVersion"
-              - "TestFirmwareInfoProvider.GddrTelemetry"
-              - "TestFirmwareInfoProvider.TdpLimit"
-              - "TestCluster.GetEthernetFirmware"
-              - "TestCluster.TestClusterAICLKControl"
-              # silicon only: an N150's Ethernet coordinates
-              - "TestClusterDescriptor.BasicFunctionality"
-              # ttsim: TLBs on NOC1
-              - "*VerifyNocIdTranslatedCoordinatesMatch/*_via_NOC1"
-              - "*VerifyNocTranslationHostSide/*_NOC1_Normal"
-              - "*VerifyNocTranslationHostSide/TENSIX_NOC1_Harvested"
-              - "*VerifyTranslatedRegisterMatchesCoordinate/*_NOC1"
-              # ttsim: NOC ID registers of DRAM, PCIe, ARC and router-only tiles
-              - "*VerifyNocIdTranslatedCoordinatesMatch/DRAM_*"
-              - "*VerifyNocIdTranslatedCoordinatesMatch/PCIE_*"
-              - "*VerifyNocIdTranslatedCoordinatesMatch/ARC_*"
-              - "*VerifyTranslatedRegisterMatchesCoordinate/*_NOC0"
-              - "*VerifyNocTranslationHostSide/ARC_NOC0_Normal"
-              - "*VerifyNocTranslationHostSide/PCIE_NOC0_Normal"
-              - "*VerifyNocTranslationHostSide/ROUTER_ONLY_NOC0_Normal"
-              # ttsim: multicast
-              - "*TestMulticastWrite/*_SingleCore_*"
-              - "ApiTTDeviceTest.MulticastIO"
-              # ttsim: DMA
-              - "TestDeviceIO.DMA*"
-              - "TestDeviceIOFixture.TestDmaMulticastWrite"
-              # ttsim: RISC-V debug and ARC reset unit registers
-              - "ApiTTDeviceTest.TTDeviceRegIO"
-              - "ApiTTDeviceTest.UninitializedError"
-              # guest: no hugepages
-              - "ApiSysmemManager.BasicIO"
-              - "ApiSysmemManager.AutoNumChannels"
-              - "TestDeviceIOFixture.SysmemReadWrite"
-              # unexplained: RISC counters do not advance, no ARC heartbeat
-              - "TestRiscProgram.DeassertResetWithCounterBrisc"
-              - "*TriscNcriscAssertDeassertTest*"
-              - "TestFirmwareInfoProvider.Heartbeat"
+            tests: "*-*ClusterWarmResetScratch*:\
+              TestFirmwareInfoProvider.ClockFrequencies:\
+              TestFirmwareInfoProvider.EthFirmwareVersion:\
+              TestFirmwareInfoProvider.GddrTelemetry:\
+              TestFirmwareInfoProvider.TdpLimit:\
+              TestCluster.GetEthernetFirmware:\
+              TestCluster.TestClusterAICLKControl:\
+              TestClusterDescriptor.BasicFunctionality:\
+              *VerifyNocIdTranslatedCoordinatesMatch/*_via_NOC1:\
+              *VerifyNocTranslationHostSide/*_NOC1_Normal:\
+              *VerifyNocTranslationHostSide/TENSIX_NOC1_Harvested:\
+              *VerifyTranslatedRegisterMatchesCoordinate/*_NOC1:\
+              *VerifyNocIdTranslatedCoordinatesMatch/DRAM_*:\
+              *VerifyNocIdTranslatedCoordinatesMatch/PCIE_*:\
+              *VerifyNocIdTranslatedCoordinatesMatch/ARC_*:\
+              *VerifyTranslatedRegisterMatchesCoordinate/*_NOC0:\
+              *VerifyNocTranslationHostSide/ARC_NOC0_Normal:\
+              *VerifyNocTranslationHostSide/PCIE_NOC0_Normal:\
+              *VerifyNocTranslationHostSide/ROUTER_ONLY_NOC0_Normal:\
+              *TestMulticastWrite/*_SingleCore_*:\
+              ApiTTDeviceTest.MulticastIO:\
+              TestDeviceIO.DMA*:\
+              TestDeviceIOFixture.TestDmaMulticastWrite:\
+              ApiTTDeviceTest.TTDeviceRegIO:\
+              ApiTTDeviceTest.UninitializedError:\
+              ApiSysmemManager.BasicIO:\
+              ApiSysmemManager.AutoNumChannels:\
+              TestDeviceIOFixture.SysmemReadWrite:\
+              TestRiscProgram.DeassertResetWithCounterBrisc:\
+              *TriscNcriscAssertDeassertTest*:\
+              TestFirmwareInfoProvider.Heartbeat"
           - card: n150
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: wormhole_b0/unit_tests
-            excluded:
-              # silicon only: AICLK
-              - "WormholeArcMessages.WormholeArcMessagesAICLK"
-              # ttsim: 64-bit Tensix register writes
-              - "ClusterWH.HarvestingRuntime"
-              # ttsim: DMA
-              - "TestDeviceIO.DMA3"
-              # guest: no hugepages
-              - "ClusterWH.UnalignedTLB_RW"
-              # unexplained: the memory barrier readback stays 0
-              - "ClusterWH.MultiThreadedMemBar"
+            tests: "*-WormholeArcMessages.WormholeArcMessagesAICLK:\
+              ClusterWH.HarvestingRuntime:\
+              TestDeviceIO.DMA3:\
+              ClusterWH.UnalignedTLB_RW:\
+              ClusterWH.MultiThreadedMemBar"
           - card: n150
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: unified/unified_tests
-            excluded:
-              # ttsim: DMA
-              - "DmaReadMixedCoreReproTest.DmaReadMixedCoreRepro"
-              - "Multiprocess.DMAWriteReadRaceCondition"
-              # ttsim: ARC telemetry reads the monitor makes
-              - "Multiprocess.LongLivedMonitor"
-              - "Multiprocess.WorkloadVSMonitor"
+            tests: "*-DmaReadMixedCoreReproTest.DmaReadMixedCoreRepro:\
+              Multiprocess.DMAWriteReadRaceCondition:\
+              Multiprocess.LongLivedMonitor:\
+              Multiprocess.WorkloadVSMonitor"
           - card: n150
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: test_pcie_device/test_pcie_device
+            tests: "*"
           - {card: p150, binary: api/api_tests, lib: libttsim_bh.so, bar4-size: 32G,
              tests: ApiClusterTest.OpenAllSiliconChips}
           # Grendel wants two things the other cards do not: a BAR0 big enough to hold tt-kmd's own
@@ -152,11 +131,9 @@ jobs:
               bash -c '
                   # A gtest filter that selects nothing still exits 0, so a build missing the suites
                   # this row names would report green having run no test at all, and one missing only
-                  # some of them would quietly run fewer. Require every pattern to select something
-                  # once the exclusions are applied.
+                  # some of them would quietly run fewer. Require every pattern to select something.
                   export LD_LIBRARY_PATH=build/lib
                   tests=build/test/umd/$1
-                  excluded=${3:+-$3}
                   missing=
                   # The patterns hold "*", and the loop below splits them out of an unquoted
                   # substitution, so without this the shell expands them against the working
@@ -165,14 +142,13 @@ jobs:
                   # should have passed.
                   set -f
                   for pattern in $(echo "$2" | tr ":" " "); do
-                      selected=$("$tests" --gtest_filter="$pattern$excluded" --gtest_list_tests | grep -c "^  ")
+                      selected=$("$tests" --gtest_filter="$pattern" --gtest_list_tests | grep -c "^  ")
                       echo "$pattern selects $selected test(s)"
                       [ "$selected" -eq 0 ] && missing="$missing $pattern"
                   done
                   if [ -n "$missing" ]; then
-                      echo "no test is left to run for:$missing" >&2
+                      echo "this build carries no test matching:$missing" >&2
                       exit 1
                   fi
-                  exec "$tests" --gtest_filter="$2$excluded"
-              ' run-ttsim-qemu-tests '${{ matrix.binary }}' '${{ matrix.tests || '*' }}' \
-              '${{ join(matrix.excluded, ':') }}'
+                  exec "$tests" --gtest_filter="$2"
+              ' run-ttsim-qemu-tests '${{ matrix.binary }}' '${{ matrix.tests }}'

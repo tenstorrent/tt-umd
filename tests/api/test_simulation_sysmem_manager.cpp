@@ -524,6 +524,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     EXPECT_FALSE(allocated->get_noc_address().has_value());
 
     std::vector<uint8_t> external(8192, 0);
+    EXPECT_TRUE(allocator->is_user_buffer_mapping_supported());
     auto mapped = allocator->map_user_buffer(external.data(), external.size());
     ASSERT_NE(mapped, nullptr);
     EXPECT_EQ(mapped->get_va(), external.data());

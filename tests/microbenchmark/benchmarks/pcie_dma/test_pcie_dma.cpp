@@ -274,21 +274,19 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 // and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
-
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     constexpr uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-    const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
-    cluster->set_clock_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
+    const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
+    cluster->set_clock_state(DevicePowerState::BUSY);
     void* mapping =
         mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];

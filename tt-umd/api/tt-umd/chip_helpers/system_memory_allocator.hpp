@@ -45,8 +45,7 @@ public:
      *
      * The caller retains ownership of the underlying memory. The allocator pins the pages and creates an
      * IOMMU mapping so the device can reach it; destroying the buffer unpins the pages but does not free
-     * the memory. Requires an IOMMU, since without one arbitrary user pointers cannot be made
-     * device-visible.
+     * the memory. Requires is_user_buffer_mapping_supported().
      *
      * @param user_ptr Pointer to the caller-allocated host memory.
      * @param size Size of the caller's buffer in bytes.
@@ -54,6 +53,7 @@ public:
      * @param device_access What the device is allowed to do with the mapping. READ_ONLY pins the pages so the
      * device cannot write through them, and needs is_read_only_page_pinning_supported().
      * @return An exclusively owned handle to the mapped buffer.
+     * @throws std::runtime_error if the allocator cannot map user memory, or cannot pin with the requested access.
      */
     virtual std::unique_ptr<SysmemBuffer> map_user_buffer(
         void* user_ptr,

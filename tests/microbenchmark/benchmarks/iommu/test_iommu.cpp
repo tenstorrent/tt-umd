@@ -374,9 +374,6 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
     if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
         GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
                      << OUTPUT_ENV_VAR;
@@ -388,6 +385,9 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
         .num_host_mem_ch_per_mmio_device = 0,
     });
     SystemMemoryAllocator* allocator = cluster->get_chip(CHIP_ID)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
 
     std::array<void*, NUM_PAGES> mappings{};
     for (size_t page = 0; page < NUM_PAGES; page++) {

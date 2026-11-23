@@ -243,15 +243,12 @@ void LockManager::initialize_mutex(
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(MutexType mutex_type) {
-    return acquire_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
+    return std::unique_lock(get_initialized_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type)));
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    if (device_type == IODeviceType::PCIe) {
-        return acquire_kmd_mutex(mutex_type, device_id);
-    }
-    return acquire_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
+    return std::unique_lock(get_initialized_mutex(get_mutex_name(mutex_type, device_id, device_type)));
 }
 
 std::unique_lock<MutexInterface> LockManager::try_acquire_mutex(
@@ -266,15 +263,12 @@ std::unique_lock<MutexInterface> LockManager::try_acquire_mutex(
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(MutexType mutex_type) {
-    return probe_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
+    return probe_and_release(get_initialized_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type)));
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    if (device_type == IODeviceType::PCIe) {
-        return probe_kmd_mutex(mutex_type, device_id);
-    }
-    return probe_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
+    return probe_and_release(get_initialized_mutex(get_mutex_name(mutex_type, device_id, device_type)));
 }
 
 void LockManager::initialize_in_process_mutex(const std::string& mutex_name) {
@@ -283,14 +277,6 @@ void LockManager::initialize_in_process_mutex(const std::string& mutex_name) {
 
 void LockManager::initialize_robust_mutex(const std::string& mutex_name) {
     add_mutex(mutex_name, std::make_unique<RobustMutex>(mutex_name));
-}
-
-std::unique_lock<MutexInterface> LockManager::acquire_robust_mutex(const std::string& mutex_name) {
-    return std::unique_lock(get_initialized_mutex(mutex_name));
-}
-
-std::optional<std::pair<pid_t, pid_t>> LockManager::probe_robust_mutex(const std::string& mutex_name) {
-    return probe_and_release(get_initialized_mutex(mutex_name));
 }
 
 void LockManager::initialize_kmd_mutex(MutexType mutex_type, int pci_device_num) {
@@ -302,14 +288,6 @@ void LockManager::initialize_kmd_mutex(MutexType mutex_type, int pci_device_num)
         std::make_unique<CompositeMutex>(
             std::make_unique<RobustMutex>(mutex_name),
             std::make_unique<KmdMutex>(pci_device_num, get_kmd_lock_index(mutex_type))));
-}
-
-std::unique_lock<MutexInterface> LockManager::acquire_kmd_mutex(MutexType mutex_type, int pci_device_num) {
-    return std::unique_lock(get_initialized_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe)));
-}
-
-std::optional<std::pair<pid_t, pid_t>> LockManager::probe_kmd_mutex(MutexType mutex_type, int pci_device_num) {
-    return probe_and_release(get_initialized_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe)));
 }
 
 }  // namespace tt::umd

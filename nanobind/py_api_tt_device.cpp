@@ -104,11 +104,15 @@ using namespace tt::umd;
 
 // Helper function for easy creation of a remote TTDevice.
 std::unique_ptr<TTDevice> create_remote_tt_device(
-    TTDevice *local_tt_device, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
+    TTDevice *local_tt_device,
+    ClusterDescriptor *cluster_descriptor,
+    ChipId remote_chip_id,
+    bool shared_across_processes) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
-    auto remote_communication = RemoteCommunication::create_remote_communication(local_tt_device, target_chip);
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_tt_device, target_chip, /*sysmem_manager=*/nullptr, shared_across_processes);
     if (!remote_communication) {
         UMD_THROW(
             error::RuntimeError,
@@ -123,9 +127,11 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
 
 // Create remote TTDevice from explicit EthCoord (rack, shelf, x, y). Does not set
 // remote transfer ethernet cores; caller must call set_remote_transfer_ethernet_cores.
-std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chip, int rack, int shelf, int x, int y) {
+std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(
+    TTDevice *local_chip, int rack, int shelf, int x, int y, bool shared_across_processes) {
     EthCoord target_chip{0, x, y, rack, shelf};
-    auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip, target_chip, /*sysmem_manager=*/nullptr, shared_across_processes);
     if (!remote_communication) {
         UMD_THROW(
             error::RuntimeError,
@@ -890,9 +896,12 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("local_chip"),
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
+        nb::arg("shared_across_processes") = true,
         nb::rv_policy::take_ownership,
         release_gil(),
-        "Creates a remote TTDevice for communication with a remote chip.");
+        "Creates a remote TTDevice for communication with a remote chip. "
+        "Pass shared_across_processes=False when local_chip is a simulated device living in this process, so the "
+        "remote chip's locks stay private to the process; the default True is right for silicon.");
 
     // Keep the old name as an alias for backwards compatibility.
     m.def(
@@ -901,6 +910,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("local_chip"),
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
+        nb::arg("shared_across_processes") = true,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Deprecated: use create_remote_tt_device instead.");
@@ -913,10 +923,13 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("shelf"),
         nb::arg("x"),
         nb::arg("y"),
+        nb::arg("shared_across_processes") = true,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Creates a remote TTDevice for communication with a remote chip at (rack, shelf, x, y). "
-        "Does not set remote transfer ethernet cores; caller must set them explicitly.");
+        "Does not set remote transfer ethernet cores; caller must set them explicitly. "
+        "Pass shared_across_processes=False when local_chip is a simulated device living in this process, so the "
+        "remote chip's locks stay private to the process; the default True is right for silicon.");
 
     // Keep the old name as an alias for backwards compatibility.
     m.def(
@@ -927,6 +940,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("shelf"),
         nb::arg("x"),
         nb::arg("y"),
+        nb::arg("shared_across_processes") = true,
         nb::rv_policy::take_ownership,
         release_gil(),
         "Deprecated: use create_remote_tt_device_from_coord instead.");

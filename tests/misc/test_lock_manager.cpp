@@ -9,9 +9,11 @@
 #include <chrono>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "tt-umd-utils/robust_mutex.hpp"
@@ -171,6 +173,25 @@ INSTANTIATE_TEST_SUITE_P(
             292,
             "/dev/shm/TT_UMD_LOCK.MEM_BARRIER_272_Undefined"}),
     [](const ::testing::TestParamInfo<PrivateDeviceLockCase>& info) { return info.param.name; });
+
+// A private PCIe lock is backed by this process alone, so taking and probing it must work with no KMD device behind
+// the id: a simulated device has none.
+TEST(TestLockManager, PrivatePcieLockNeedsNoKmdDevice) {
+    // No hardware has this id, so anything that opened its KMD node would throw.
+    ASSERT_FALSE(std::filesystem::exists("/dev/tenstorrent/273"));
+    ASSERT_NO_THROW(
+        LockManager::initialize_mutex(MutexType::ARC_MSG, 273, IODeviceType::PCIe, /*shared_across_processes=*/false));
+
+    {
+        std::unique_lock<MutexInterface> lock;
+        ASSERT_NO_THROW(lock = LockManager::acquire_mutex(MutexType::ARC_MSG, 273, IODeviceType::PCIe));
+        EXPECT_TRUE(lock.owns_lock());
+    }
+
+    std::optional<std::pair<pid_t, pid_t>> owner;
+    ASSERT_NO_THROW(owner = LockManager::probe_mutex(MutexType::ARC_MSG, 273, IODeviceType::PCIe));
+    EXPECT_FALSE(owner.has_value()) << "The released lock should be reported as free";
+}
 
 // try_acquire_mutex() takes the lock when it is free and hands back a lock owning it, so that a
 // caller can tell the two apart with owns_lock() and does not have to wait to find out. A lock on a

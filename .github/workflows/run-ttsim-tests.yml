@@ -307,6 +307,16 @@ jobs:
           cd tt-metal/tt_metal/third_party/umd/nanobind/tests
           python3 -m unittest -v test_py_simulation_connector
 
+      # wh_x2's chip 1 is reachable only over simulated Ethernet, which is what a remote device
+      # built from Python talks to.
+      - name: Run UMD Python bindings remote device test on tt-sim wormhole x2
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_wh_x2/libttsim.so
+          export PYTHONPATH=$(pwd)/tt-metal/tt_metal/third_party/umd/build/nanobind
+          cd tt-metal/tt_metal/third_party/umd/nanobind/tests
+          python3 -m unittest -v test_py_simulation_remote_device
+
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
       - name: Run tt-sim wormhole tests

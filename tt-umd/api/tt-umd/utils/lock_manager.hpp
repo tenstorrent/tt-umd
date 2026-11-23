@@ -108,22 +108,15 @@ public:
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
-    // Locks on a device no other process can reach, backed by a mutex private to this process and addressed by their
-    // name.
+    // Locks on a device no other process can reach, backed by a mutex private to this process.
     static void initialize_in_process_mutex(const std::string& mutex_name);
 
-    // Locks backed by a shared memory RobustMutex. Acquiring and probing look a lock up by its name, so they also serve
-    // one initialize_mutex() made process-private.
+    // Locks backed by a shared memory RobustMutex.
     static void initialize_robust_mutex(const std::string& mutex_name);
-    static std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
-    static std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
 
     // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
-    // well, for as long as clients on an older UMD exist which know only about that one. Acquiring and probing find a
-    // PCIe device's lock by its name, so they also serve one initialize_mutex() made process-private.
+    // well, for as long as clients on an older UMD exist which know only about that one.
     static void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
-    static std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
-    static std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);
 };
 
 }  // namespace tt::umd

@@ -17,8 +17,8 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -27,6 +27,7 @@
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -117,7 +118,7 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_tt_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
-    return TTDevice::create(std::move(remote_communication));
+    return create_tt_device(std::move(remote_communication));
 }
 
 // Create remote TTDevice from explicit EthCoord (rack, shelf, x, y). Does not set
@@ -131,13 +132,14 @@ std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chi
             std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
                 " architecture.");
     }
-    return TTDevice::create(std::move(remote_communication));
+    return create_tt_device(std::move(remote_communication));
 }
 
 void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType")
         .value("PCIe", IODeviceType::PCIe)
         .value("JTAG", IODeviceType::JTAG)
+        .value("AXI", IODeviceType::AXI)
         .value("Undefined", IODeviceType::UNDEFINED);
 
     nb::exception<error::SigbusError>(m, "SigbusError");
@@ -247,7 +249,7 @@ void bind_tt_device(nb::module_ &m) {
                const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
                 // None enables the safe API wherever it is supported, which is PCIe only.
                 bool resolved_use_safe_api = use_safe_api.value_or(device_type == IODeviceType::PCIe);
-                return TTDevice::create(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
+                return create_tt_device(device_number, device_type, resolved_use_safe_api, soc_arch_descriptor);
             },
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
@@ -394,76 +396,6 @@ void bind_tt_device(nb::module_ &m) {
             "Write registers to a core at the specified address with one 32-bit access per register. addr and the data "
             "size must be multiples of 4. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
-            "noc_broadcast",
-            [](TTDevice &self, uint64_t addr, nb::handle data) -> void {
-                PyBufferView buffer(data);
-                {
-                    nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
-                }
-            },
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::sig("def noc_broadcast(self, addr: int, data: bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address. data may be any "
-            "buffer-protocol object (bytes, bytearray, memoryview, ...).")
-        .def(
-            "noc_broadcast32",
-            [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
-            },
-            nb::arg("addr"),
-            nb::arg("value"),
-            "Broadcast a 32-bit value to all tensix cores on the chip at the specified address")
-        .def(
-            "noc_multicast",
-            [](TTDevice &self,
-               uint32_t start_x,
-               uint32_t start_y,
-               uint32_t end_x,
-               uint32_t end_y,
-               uint64_t addr,
-               nb::handle data) -> void {
-                PyBufferView buffer(data);
-                tt_xy_pair core_start = {start_x, start_y};
-                tt_xy_pair core_end = {end_x, end_y};
-                {
-                    nb::gil_scoped_release release;
-                    self.noc_multicast_write(
-                        buffer.readable_data(), buffer.size(), core_start, core_end, addr, get_selected_noc_id());
-                }
-            },
-            nb::arg("start_x"),
-            nb::arg("start_y"),
-            nb::arg("end_x"),
-            nb::arg("end_y"),
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::sig("def noc_multicast(self, start_x: int, start_y: int, end_x: int, end_y: int, addr: int, data: "
-                    "bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address. data "
-            "may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
-        .def(
-            "noc_multicast32",
-            [](TTDevice &self,
-               uint32_t start_x,
-               uint32_t start_y,
-               uint32_t end_x,
-               uint32_t end_y,
-               uint64_t addr,
-               uint32_t value) -> void {
-                tt_xy_pair core_start = {start_x, start_y};
-                tt_xy_pair core_end = {end_x, end_y};
-                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr, get_selected_noc_id());
-            },
-            nb::arg("start_x"),
-            nb::arg("start_y"),
-            nb::arg("end_x"),
-            nb::arg("end_y"),
-            nb::arg("addr"),
-            nb::arg("value"),
-            "Broadcast a 32-bit value to all cores in the rectangle [start, end] at the specified address")
-        .def(
             "bar_read32",
             &TTDevice::bar_read32,
             nb::arg("addr"),
@@ -583,83 +515,8 @@ void bind_tt_device(nb::module_ &m) {
             "Send ARC message and return (exit_code, return_3, return_4). "
             "Args is a list of uint32_t arguments. For Wormhole, max 2 args (each <= 0xFFFF). For Blackhole, max 7 "
             "args. Timeout is in milliseconds.")
-        .def(
-            "arc_msg",
-            [](TTDevice &self,
-               uint32_t msg_code,
-               bool wait_for_done,
-               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
-               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
-               uint32_t arg0,
-               uint32_t arg1 = 0xffff,
-               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
-                // Warn if wait_for_done is False.
-                if (!wait_for_done) {
-                    log_warning(
-                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
-                }
-                // For Wormhole, prepend 0xaa00 to the msg_code.
-                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
-                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
-                }
-                std::vector<uint32_t> args = {arg0, arg1};
-                DeviceCommandResult result;
-                {
-                    nb::gil_scoped_release release;
-                    result = self.get_device_firmware()->send_device_command(
-                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
-                }
-                return std::make_tuple(
-                    result.exit_code,
-                    result.return_values.size() > 0 ? result.return_values[0] : 0,
-                    result.return_values.size() > 1 ? result.return_values[1] : 0);
-            },
-            nb::arg("msg_code"),
-            nb::arg("wait_for_done") = true,
-            nb::arg("arg0") = 0xffff,
-            nb::arg("arg1") = 0xffff,
-            nb::arg("timeout_ms") = 1000,
-            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
-            "milliseconds.")
-        .def(
-            "arc_msg",
-            [](TTDevice &self,
-               uint32_t msg_code,
-               bool wait_for_done = true,
-               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
-               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
-               uint32_t arg0 = 0xffff,
-               uint32_t arg1 = 0xffff,
-               uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
-                // Warn if wait_for_done is False.
-                if (!wait_for_done) {
-                    log_warning(
-                        tt::LogUMD, "arc_msg: wait_for_done=False is not respected. Message will wait for completion.");
-                }
-                // For Wormhole, prepend 0xaa00 to the msg_code.
-                if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
-                    msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
-                }
-                std::vector<uint32_t> args = {arg0, arg1};
-                DeviceCommandResult result;
-                {
-                    nb::gil_scoped_release release;
-                    result = self.get_device_firmware()->send_device_command(
-                        msg_code, args, std::chrono::milliseconds(timeout * 1000), get_selected_noc_id());
-                }
-                return std::make_tuple(
-                    result.exit_code,
-                    result.return_values.size() > 0 ? result.return_values[0] : 0,
-                    result.return_values.size() > 1 ? result.return_values[1] : 0);
-            },
-            nb::arg("msg_code"),
-            nb::arg("wait_for_done") = true,
-            nb::arg("arg0") = 0xffff,
-            nb::arg("arg1") = 0xffff,
-            nb::arg("timeout") = 1,
-            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.")
         // ---------------------------------------------------------------------------
-        // noc_id variants — temporary until noc_id is added to the main read/write
+        // noc_id read variants — temporary until noc_id is added to the main read
         // interface in TTDevice. All functions below accept noc_id as the first
         // argument and throw if it is not 0.
         // ---------------------------------------------------------------------------
@@ -714,91 +571,7 @@ void bind_tt_device(nb::module_ &m) {
                 "def dma_read_from_device(self, noc_id: int, core_x: int, core_y: int, addr: int, buffer: bytearray "
                 "| memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
-            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
-        .def(
-            "noc_read32",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                tt_xy_pair core = {core_x, core_y};
-                uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
-                return value;
-            },
-            nb::arg("noc_id"),
-            nb::arg("core_x"),
-            nb::arg("core_y"),
-            nb::arg("addr"),
-            "Read a 32-bit value from a core at the specified address. noc_id must be 0 for now.")
-        .def(
-            "noc_write",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data)
-                -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                PyBufferView buffer(data);
-                tt_xy_pair core = {core_x, core_y};
-                {
-                    nb::gil_scoped_release release;
-                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
-                }
-            },
-            nb::arg("noc_id"),
-            nb::arg("core_x"),
-            nb::arg("core_y"),
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::sig("def noc_write(self, noc_id: int, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
-                    "memoryview) -> None"),
-            "Write arbitrary-length data to a core at the specified address. noc_id must be 0 for now.")
-        .def(
-            "noc_write32",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value)
-                -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
-            },
-            nb::arg("noc_id"),
-            nb::arg("core_x"),
-            nb::arg("core_y"),
-            nb::arg("addr"),
-            nb::arg("value"),
-            "Write a 32-bit value to a core at the specified address. noc_id must be 0 for now.")
-        .def(
-            "noc_broadcast",
-            [](TTDevice &self, uint32_t noc_id, uint64_t addr, nb::handle data) -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                PyBufferView buffer(data);
-                {
-                    nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
-                }
-            },
-            nb::arg("noc_id"),
-            nb::arg("addr"),
-            nb::arg("data"),
-            nb::sig("def noc_broadcast(self, noc_id: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all cores on the chip at the specified address. noc_id must be 0 for "
-            "now. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
-        .def(
-            "noc_broadcast32",
-            [](TTDevice &self, uint32_t noc_id, uint64_t addr, uint32_t value) -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
-            },
-            nb::arg("noc_id"),
-            nb::arg("addr"),
-            nb::arg("value"),
-            "Broadcast a 32-bit value to all cores on the chip at the specified address. noc_id must be 0 for now.");
+            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).");
 
 #ifdef TT_UMD_BUILD_SIMULATION
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.

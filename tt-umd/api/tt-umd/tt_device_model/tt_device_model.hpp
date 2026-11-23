@@ -68,12 +68,12 @@ public:
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
 
+    // Controls the reset state of the device's RISC cores. Every model has to state its choice;
+    // null means the device has no RISC reset control.
+    virtual RiscReset *get_risc_reset() = 0;
+
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
-
-    // Controls the reset state of the device's RISC cores. Null only while a model has not migrated
-    // to it, in which case reset is unavailable on every device built from that model.
-    virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware
     // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the
@@ -95,7 +95,7 @@ public:
     // coordinate out of band. Null for every architecture that routes by coordinate, which is why
     // this is an optional component rather than a step in the I/O path: a model that returns null
     // is saying "my addresses already name their target", and TTDevice leaves them alone.
-    virtual const att::EndpointResolver *get_endpoint_resolver() { return nullptr; }
+    virtual const att::EndpointResolver *get_endpoint_resolver() const { return nullptr; }
 
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
@@ -115,8 +115,7 @@ public:
     // SocDescriptor's ownership model is revisited.
     virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
 
-    // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
-    // PcieInterface only.
+    // Being removed along with TTDevice::get_pci_device() (#3530): do not add new callers.
     virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 

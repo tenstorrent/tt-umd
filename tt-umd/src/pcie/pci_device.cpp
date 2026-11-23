@@ -18,12 +18,14 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
@@ -56,7 +58,9 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         attribute_name);
     std::ifstream attribute_file(sysfs_path);
     std::string value_str;
-    T value;
+    // operator>> reads single-byte types as characters, so those are parsed as numbers and range-checked.
+    using ParsedT = std::conditional_t<sizeof(T) == 1, unsigned int, T>;
+    ParsedT value;
 
     if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
         return std::nullopt;
@@ -75,7 +79,13 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         return std::nullopt;
     }
 
-    return value;
+    if constexpr (sizeof(T) == 1) {
+        if (value > std::numeric_limits<T>::max()) {
+            return std::nullopt;
+        }
+    }
+
+    return static_cast<T>(value);
 }
 
 template <typename T>
@@ -411,11 +421,21 @@ PCIDevice::PCIDevice(int pci_device_number) :
     pci_device_num(pci_device_number),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint8_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    pci_device_file_desc(open_pci_device(device_path, arch, kmd_version)),
     iommu_enabled(detect_iommu(info)) {
+    // The destructor does not run for a constructor that throws, so release whatever was acquired before the throw.
+    try {
+        construct_resources();
+    } catch (...) {
+        release_resources();
+        throw;
+    }
+}
+
+void PCIDevice::construct_resources() {
+    pci_device_file_desc = open_pci_device(device_path, arch, kmd_version);
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
@@ -426,15 +446,13 @@ PCIDevice::PCIDevice(int pci_device_number) :
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
-        if (tt_device_handle != nullptr) {
-            tt_device_close(tt_device_handle);
-        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "tt_device_open failed with error code {} for PCI device with device ID {}.",
+                "tt_device_open failed with error code {} for PCI device with device ID {} ({}).",
                 ret_code,
-                pci_device_number));
+                pci_device_num,
+                info.pci_bdf));
     }
 
     uint64_t driver_api_version = 0;
@@ -460,7 +478,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     if (mappings_ret != 0) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Query mappings failed on device {}: {}", pci_device_num, strerror(-mappings_ret)));
+            fmt::format(
+                "Query mappings failed on device {} ({}): {}", pci_device_num, info.pci_bdf, strerror(-mappings_ret)));
     }
 
     const tt_bar_mapping_t &bar0_uc_mapping = bar_mappings.resource0_uc;
@@ -536,11 +555,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
+        // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
         }
 
-        // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
@@ -558,18 +577,24 @@ PCIDevice::PCIDevice(int pci_device_number) :
     allocate_pcie_dma_buffer();
 }
 
-PCIDevice::~PCIDevice() {
-    int ret_code = tt_device_close(tt_device_handle);
-
-    if (ret_code != 0) {
-        log_warning(
-            LogUMD,
-            "tt_device_close failed with error code {} for PCI device with device ID {}.",
-            ret_code,
-            pci_device_num);
+void PCIDevice::release_resources() {
+    // Closes the tt_device handle, the device file descriptor and every BAR mapping. Safe to call
+    // on a partially constructed device: every member is default-initialized to a null/empty state.
+    if (tt_device_handle != nullptr) {
+        int ret_code = tt_device_close(tt_device_handle);
+        if (ret_code != 0) {
+            log_warning(
+                LogUMD,
+                "tt_device_close failed with error code {} for PCI device with device ID {}.",
+                ret_code,
+                pci_device_num);
+        }
+        tt_device_handle = nullptr;
     }
 
-    close(pci_device_file_desc);
+    if (pci_device_file_desc >= 0) {
+        close(pci_device_file_desc);
+    }
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
@@ -588,6 +613,8 @@ PCIDevice::~PCIDevice() {
         munmap(dma_buffer.buffer, dma_buffer.size + static_cast<size_t>(sysconf(_SC_PAGESIZE)));
     }
 }
+
+PCIDevice::~PCIDevice() { release_resources(); }
 
 uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     const uint64_t virtual_address = reinterpret_cast<std::uintptr_t>(buffer);
@@ -781,8 +808,8 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 }
 
 SemVer PCIDevice::read_kmd_version() {
-    static const std::string path = "/sys/module/tenstorrent/version";
-    std::ifstream file(path);
+    constexpr std::string_view path = "/sys/module/tenstorrent/version";
+    std::ifstream file{std::string(path)};
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);
@@ -872,97 +899,15 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     }
 }
 
-void PCIDevice::configure_tlb(
-    const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify) {
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    const ArchitectureTlbs &arch_tlbs = get_architecture_tlbs(arch);
-    auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
-
-    // Where the configuration registers are not reachable from the host, the driver owns them and
-    // programs the window for us. The address stays a byte address: the driver aligns it to the
-    // window itself, and it refuses a coordinate, because on such an architecture the address is
-    // flat and already carries its target. Nothing is posted, so there is no read-back to do.
-    if (!arch_tlbs.cfg_registers_host_writable) {
-        UMD_ASSERT(
-            tlb_handle != nullptr,
-            error::RuntimeError,
-            fmt::format(
-                "TLB index {} has no driver handle, and {} cannot configure a window without one.",
-                tlb_index,
-                arch_to_str(arch)));
-
-        // A window the driver programs is flat over system physical address space: the entry is a
-        // target address plus an attribute field reaching only the NOC security header. It has no
-        // coordinate, no multicast group, no NOC selector, no ordering and no virtual channel, so a
-        // caller that set one asked for something this window cannot do.
-        const auto refuse = [&](const char *name, const uint64_t value) {
-            UMD_ASSERT(
-                value == 0,
-                error::RuntimeError,
-                fmt::format(
-                    "TLB index {}: a window the driver programs is flat over system physical address "
-                    "space and cannot carry {} (got {:#x}).",
-                    tlb_index,
-                    name,
-                    value));
-        };
-        refuse("x_end", tlb_config.x_end);
-        refuse("y_end", tlb_config.y_end);
-        refuse("x_start", tlb_config.x_start);
-        refuse("y_start", tlb_config.y_start);
-        refuse("noc_sel", tlb_config.noc_sel);
-        refuse("mcast", tlb_config.mcast);
-        refuse("ordering", tlb_config.ordering);
-        refuse("linked", tlb_config.linked);
-        refuse("static_vc", tlb_config.static_vc);
-        refuse("static_vc_buddy", tlb_config.static_vc_buddy);
-        refuse("static_vc_class", tlb_config.static_vc_class);
-
-        // These two the entry does carry, but only in the width the security header gives them.
-        // Range-check before narrowing, so an out-of-range value is reported rather than silently
-        // becoming a different, valid-looking attribute.
-        const auto narrow = [&](const char *name, const uint64_t value, const uint64_t limit) {
-            UMD_ASSERT(
-                value <= limit,
-                error::RuntimeError,
-                fmt::format(
-                    "TLB index {}: {} is {:#x}, but the NOC security header allows at most {:#x}.",
-                    tlb_index,
-                    name,
-                    value,
-                    limit));
-            return static_cast<uint8_t>(value);
-        };
-
-        tt_noc_addr_config_t config = {};
-        config.addr = tlb_config.local_offset;
-        config.noncacheable = narrow("noncacheable", tlb_config.noncacheable, 1);
-        config.qos_id = narrow("qos_id", tlb_config.qos_id, 0xF);
-
-        const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
-        UMD_ASSERT(
-            ret == 0,
-            error::RuntimeError,
-            fmt::format(
-                "Failed to configure TLB index {} at address {:#x} through the driver: {}.",
-                tlb_index,
-                tlb_config.local_offset,
-                strerror(-ret)));
-
-        log_trace(LogUMD, "Configured TLB index {} via the driver at address 0x{:x}", tlb_index, config.addr);
-        return;
-    }
-
-    // The registers hold the window's index within its size class, not a byte address, so the
-    // offset is divided down before it is packed.
-    tlb_data register_config = tlb_config;
-    register_config.local_offset = tlb_config.local_offset / tlb_configuration.size;
+    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
-    auto [lower_64, upper_64] = register_config.apply_offset(tlb_configuration.offset);
+    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = arch_tlbs.cfg_reg_size_bytes;
+    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
@@ -1237,6 +1182,30 @@ int PCIDevice::export_tlb_dmabuf(
     tt_tlb_free(tt_device_handle, tlb);
 
     return fd;
+}
+
+uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
+    // Wormhole reaches PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up; other
+    // architectures are unverified.
+    UMD_ASSERT(
+        arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format("Peer BAR mapping is supported only on Blackhole, not on {}.", arch));
+    uint64_t dma_address = 0;
+    const int ret = tt_device_map_peer_bar(tt_device_handle, peer.tt_device_handle, bar, offset, length, &dma_address);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to map {} bytes at {:#x} of BAR{} of device {} for device {}: {}",
+                length,
+                offset,
+                bar,
+                peer.get_device_num(),
+                get_device_num(),
+                strerror(-ret)));
+    }
+    return dma_address;
 }
 
 /**

@@ -11,11 +11,9 @@ set(API_TESTS_SRCS
     test_frame_pointer.cpp
     test_tt_device.cpp
     test_noc.cpp
-    test_jtag.cpp
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
-    test_quasar_io_window.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

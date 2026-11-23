@@ -33,19 +33,24 @@ enum class HostMemoryCaching {
  * translating between the two is a cast rather than a switch.
  */
 enum class IoOrdering : uint8_t {
-    Relaxed = 0,  ///< No ordering guarantees between transactions.
-    Strict = 1,   ///< Transactions complete in issue order.
-    Posted = 2,   ///< Writes are posted; no completion acknowledgement.
+    RELAXED = 0,  ///< No ordering guarantees between transactions.
+    STRICT = 1,   ///< Transactions complete in issue order.
+    POSTED = 2,   ///< Writes are posted; no completion acknowledgement.
+
+    // Pre-spec spellings, kept until external users migrate.
+    Relaxed [[deprecated("Use IoOrdering::RELAXED")]] = RELAXED,
+    Strict [[deprecated("Use IoOrdering::STRICT")]] = STRICT,
+    Posted [[deprecated("Use IoOrdering::POSTED")]] = POSTED,
 };
 
 inline std::string to_str(IoOrdering ordering) {
     switch (ordering) {
-        case IoOrdering::Relaxed:
-            return "Relaxed";
-        case IoOrdering::Strict:
-            return "Strict";
-        case IoOrdering::Posted:
-            return "Posted";
+        case IoOrdering::RELAXED:
+            return "RELAXED";
+        case IoOrdering::STRICT:
+            return "STRICT";
+        case IoOrdering::POSTED:
+            return "POSTED";
     }
     return "Unknown";
 }
@@ -62,9 +67,8 @@ inline std::string to_str(IoOrdering ordering) {
  */
 enum class WindowFlags : uint32_t {
     None = 0,
-    Atomic = 1 << 0,        ///< Issue transaction as atomic on the target interconnect.
-    Snoop = 1 << 1,         ///< Mark transaction as snoopable for cache coherency.
-    NonCacheable = 1 << 4,  ///< Drive AxCACHE to 0 instead of 0xF on the window's accesses.
+    Atomic = 1 << 0,  ///< Issue transaction as atomic on the target interconnect.
+    Snoop = 1 << 1,   ///< Mark transaction as snoopable for cache coherency.
 
     Bidirectional = 0 << 2,   ///< Mapping serves both reads and writes. Default.
     UnicastWrite = 1 << 2,    ///< Mapping serves writes to a single core.

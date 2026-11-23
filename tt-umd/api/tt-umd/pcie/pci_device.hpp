@@ -26,7 +26,6 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
-struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -139,15 +138,15 @@ enum class NocAddressSpace {
 };
 
 class PCIDevice {
-    const std::string device_path;   // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;        // N in /dev/tenstorrent/N
-    const PciDeviceInfo info;        // PCI device info
-    const int numa_node;             // -1 if non-NUMA
-    const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
-    const SemVer kmd_version;        // KMD version
-    const int pci_device_file_desc;  // Character device file descriptor; opened after arch/kmd_version are known
-    const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;       // N in /dev/tenstorrent/N
+    const PciDeviceInfo info;       // PCI device info
+    const int numa_node;            // -1 if non-NUMA
+    const uint8_t revision;         // PCI revision value from sysfs
+    const tt::ARCH arch;            // e.g. Wormhole, Blackhole
+    const SemVer kmd_version;       // KMD version
+    int pci_device_file_desc = -1;  // Character device file descriptor, -1 until opened
+    const bool iommu_enabled;       // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
 public:
@@ -223,13 +222,13 @@ public:
     /**
      * @return PCI device id
      */
-    int get_pci_device_id() const { return info.device_id; }
+    uint16_t get_pci_device_id() const { return info.device_id; }
 
     /**
      * @return PCI revision value from sysfs.
      * TODO: target for removal; upper layers should not care about this.
      */
-    int get_pci_revision() const { return revision; }
+    uint8_t get_pci_revision() const { return revision; }
 
     /**
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
@@ -327,20 +326,14 @@ public:
      * Configure TLB register in user space by writing directly to BAR0.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_handle The window's driver handle, used where the architecture's configuration
-     *                   registers are not reachable from the host and the driver has to program
-     *                   the window on our behalf. May be null for architectures that write their
-     *                   own registers.
-     * @param tlb_config The TLB configuration data. local_offset is a byte address; where the
-     *                   registers hold a window index instead, the conversion happens here.
+     * @param tlb_config The TLB configuration data
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip. Ignored where the driver programs the window.
+     *               PCIe round trip.
      */
-    void configure_tlb(
-        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.
@@ -399,6 +392,21 @@ public:
      * @param size Page-aligned byte count to export; must be nonzero.
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
+
+    /**
+     * Map @p length bytes at @p offset of BAR @p bar of @p peer for this device to reach by
+     * peer-to-peer PCIe DMA. The mapping lasts until this device is closed. Supported only on Blackhole.
+     *
+     * The mapping covers BAR bytes only. Where a write to a TLB window's range lands is set by that
+     * window on @p peer, and nothing ties the window to this mapping: keep the window allocated and
+     * aimed for as long as this device uses the range, or its writes reach the window's next owner.
+     * Re-aiming the window redirects this device's writes without remapping, but writes still in
+     * flight land at whichever target the window has when they arrive, so drain them first.
+     *
+     * @return The address this device uses to reach the range.
+     * @throws error::RuntimeError if this device is not a Blackhole, or KMD refuses the mapping.
+     */
+    uint64_t map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length);
 
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
@@ -467,6 +475,18 @@ public:
     uint32_t read_checking_offset;
 
 private:
+    /**
+     * Closes the tt_device handle, the device file descriptor and every BAR mapping. Called by the
+     * destructor, and by the constructor when it throws, so a partially constructed device leaks nothing.
+     */
+    void release_resources();
+
+    /**
+     * Runs everything after the constructor's member initializers: opening the tt_device handle
+     * and mapping the BARs. Called only by the constructor.
+     */
+    void construct_resources();
+
     /**
      * Function will allocate PCIe DMA buffer that UMD uses for PCIe DMA transfers. To make the process of allocation
      * robust, allocation tries to allocate larger DMA buffers first and then shrinks the size until it reaches the

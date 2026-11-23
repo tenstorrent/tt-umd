@@ -59,8 +59,8 @@ public:
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     // Common interface methods - most have simple implementations.
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
+    std::size_t get_num_host_channels() override;
+    std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
@@ -106,9 +106,9 @@ public:
         const void* src,
         uint64_t l1_dest,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
     void read_from_device(
-        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) override;
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::STRICT) override;
 
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;

@@ -188,8 +188,7 @@ jobs:
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
             'pull_request|*|BH-Quietbox-2' \
-            'merge_group|ASan|BH-Quietbox-2' \
-            'merge_group|TSan|BH-Quietbox-2' \
+            'merge_group|*|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             '*|*|wh-glx-6u' \

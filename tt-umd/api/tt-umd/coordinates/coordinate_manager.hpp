@@ -81,7 +81,7 @@ public:
      * @param harvesting_mask Harvesting mask to get number of harvested rows/columns/channels from.
      * @return Number of harvested rows/columns/channels.
      */
-    static uint32_t get_num_harvested(const size_t harvesting_mask);
+    static size_t get_num_harvested(const size_t harvesting_mask);
 
     /**
      * Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
@@ -196,7 +196,7 @@ public:
      *
      * @return Number of harvested ETH channels.
      */
-    uint32_t get_num_harvested_eth_channels() const;
+    size_t get_num_harvested_eth_channels() const;
 
 private:
     const std::vector<tt_xy_pair>& get_noc0_pairs(const CoreType core_type) const;

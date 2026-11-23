@@ -646,7 +646,7 @@ size_t CoordinateManager::get_num_eth_channels() const {
     return num_eth_channels - CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 
-uint32_t CoordinateManager::get_num_harvested_eth_channels() const {
+size_t CoordinateManager::get_num_harvested_eth_channels() const {
     return CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 
@@ -812,15 +812,13 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     }
 }
 
-uint32_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
+size_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
     // Counts the number of 1 bits in harvesting mask, representing
     // the number of harvested tensix rows, tensix columns, DRAM banks...
-    uint32_t num_harvested = 0;
+    size_t num_harvested = 0;
     size_t mask = harvesting_mask;
     while (mask > 0) {
-        if (mask & 1) {
-            num_harvested++;
-        }
+        num_harvested += mask & 1;
         mask >>= 1;
     }
     return num_harvested;

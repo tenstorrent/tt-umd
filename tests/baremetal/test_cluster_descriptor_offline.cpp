@@ -542,6 +542,17 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 // Galaxy 2 firmware reports its 20-digit board ID squeezed into the legacy 64-bit layout, with the UPI kept in place.
-TEST(ApiClusterDescriptorOfflineTest, BoardTypeFromBlackholeGalaxy2BoardId) {
-    EXPECT_EQ(get_board_type_from_board_id(0x78000000000), BoardType::UBB_BLACKHOLE_2);
+class BlackholeGalaxy2BoardIdTest : public ::testing::TestWithParam<uint64_t> {};
+
+TEST_P(BlackholeGalaxy2BoardIdTest, MapsToGalaxy2BoardType) {
+    EXPECT_EQ(get_board_type_from_board_id(GetParam()), BoardType::UBB_BLACKHOLE_2);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    BoardIds,
+    BlackholeGalaxy2BoardIdTest,
+    ::testing::Values(
+        // Template ID flashed on bring-up boards, as seen in the bring-up log.
+        0x78000000000,
+        // Firmware's own extended board ID test vector (0x0100, 0x0781DC0F26410001) packed into the legacy layout.
+        0x01000781F2641001));

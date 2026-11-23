@@ -62,9 +62,11 @@ protected:
 
         // Galaxy (UBB) boards are reset over IPMI, not by the PCIe-level warm_reset() that
         // recover_device() drives on TearDown. On these boards that reset doesn't clear the hang, so
-        // the board stays wedged for the rest of the test binary.
+        // the board stays wedged for the rest of the test binary. Galaxy 2 is skipped as well until a warm reset
+        // is shown to clear the hang on it.
         const BoardType board_type = tt_device_->get_board_type();
-        if (board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE) {
+        if (board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
+            board_type == tt::BoardType::UBB_BLACKHOLE_2) {
             GTEST_SKIP() << "Skipping test that hangs the NOC on Galaxy configurations.";
         }
     }

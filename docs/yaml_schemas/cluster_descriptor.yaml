@@ -229,6 +229,7 @@ properties:
                   - ubb
                   - ubb_blackhole
                   - ubb_blackhole_cf
+                  - ubb_blackhole_2
                   - ubb_wormhole
                   - quasar
                 description: Type of the board

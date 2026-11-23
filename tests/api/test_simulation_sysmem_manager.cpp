@@ -142,7 +142,9 @@ class TestBufferFactory : public SystemMemoryAllocator {
 public:
     std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
 
-    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override { return nullptr; }
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override {
+        throw std::runtime_error("TestBufferFactory cannot map user buffers.");
+    }
 
     int get_communication_id() const override { return 0; }
 

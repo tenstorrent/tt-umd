@@ -91,8 +91,8 @@ public:
     virtual bool is_read_only_page_pinning_supported() const = 0;
 
     /**
-     * Returns whether map_user_buffer() can make caller-provided memory device-visible. An allocator that cannot
-     * returns false and refuses map_user_buffer().
+     * Returns whether map_user_buffer() can make caller-provided memory device-visible. An allocator that cannot do
+     * so returns false and refuses map_user_buffer().
      */
     virtual bool is_user_buffer_mapping_supported() const = 0;
 

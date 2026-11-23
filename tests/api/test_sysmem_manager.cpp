@@ -190,7 +190,8 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     EXPECT_EQ(sysmem_buffer->get_va(), mapped_buffer);
 }
 
-// An allocator that cannot map caller memory refuses ordinary pageable memory.
+// An allocator that cannot map caller memory refuses all of it, even one page, which is physically contiguous and so
+// reachable by the device without an IOMMU.
 TEST(ApiSysmemManager, MapUserBufferThrowsWhenUnsupported) {
     if (PCIDevice::enumerate_devices().empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
@@ -202,17 +203,13 @@ TEST(ApiSysmemManager, MapUserBufferThrowsWhenUnsupported) {
         GTEST_SKIP() << "The allocator can map user buffers.";
     }
 
-    constexpr size_t two_mib = 2 << 20;
-    void* mapping = mmap(nullptr, two_mib, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    ASSERT_NE(mapping, MAP_FAILED);
-    // A transparent huge page would make the range physically contiguous, which a device can reach without an
-    // IOMMU. Kernels without THP reject the advice, and then there is nothing to defend against.
-    madvise(mapping, two_mib, MADV_NOHUGEPAGE);
-    std::memset(mapping, 0xA5, two_mib);
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    void* page = mmap(nullptr, page_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    ASSERT_NE(page, MAP_FAILED);
 
-    EXPECT_THROW(allocator->map_user_buffer(mapping, two_mib), std::runtime_error);
+    EXPECT_THROW(allocator->map_user_buffer(page, page_size), std::runtime_error);
 
-    munmap(mapping, two_mib);
+    munmap(page, page_size);
 }
 
 // allocate_buffer() mmaps the backing memory, so the buffer has to free it on destruction.

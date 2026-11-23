@@ -33,6 +33,7 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -471,6 +472,22 @@ TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
     const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, std::nullopt}};
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
 }
+
+class ClusterDescriptorRejectedIoDeviceTypeTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(ClusterDescriptorRejectedIoDeviceTypeTest, YamlIsRejected) {
+    std::ifstream fdesc(test_utils::get_cluster_desc_path("blackhole_P150.yaml"));
+    ASSERT_FALSE(fdesc.fail());
+    std::stringstream buffer;
+    buffer << fdesc.rdbuf();
+
+    EXPECT_THROW(
+        ClusterDescriptor::create_from_yaml_content("io_device_type: " + GetParam() + "\n" + buffer.str()),
+        error::UmdException<error::RuntimeError>);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    UndefinedAndUnknownNames, ClusterDescriptorRejectedIoDeviceTypeTest, ::testing::Values("Undefined", "Bogus"));
 
 TEST(ApiClusterDescriptorOfflineTest, CreateFromDescription) {
     ClusterDescription description;

@@ -1010,7 +1010,8 @@ void fill_eth_channel_states(ClusterDescription &description) {
 
 IODeviceType parse_io_device_type(const std::string &name) {
     for (const auto &[type, type_name] : DeviceTypeToString) {
-        if (type_name == name) {
+        // UNDEFINED is not a real device type, so a descriptor naming it is as invalid as an unknown name.
+        if (type != IODeviceType::UNDEFINED && type_name == name) {
             return type;
         }
     }

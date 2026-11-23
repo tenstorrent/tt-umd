@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
@@ -58,8 +59,8 @@ size_t get_host_mem_channel_size(tt::ARCH arch, size_t channel) {
 
 struct HostMemChannelPlan {
     uint32_t num_channels = 0;
-    // One buffer for all channels when the allocator has no limit; otherwise one per channel, so a channel that
-    // cannot be allocated leaves the others usable.
+    // One buffer for all channels when the allocator has no limit. A limited allocator backs each channel with its own
+    // hugepage, so it gets one buffer per channel.
     bool single_buffer = false;
 };
 
@@ -115,6 +116,27 @@ void check_zero_copy_buffer(const SysmemBuffer& buffer, int device_id, size_t of
             offset,
             size,
             buffer.get_size()));
+}
+
+// Device code reaches channel N at noc_base + N * CHANNEL_STRIDE, and the NOC-to-host window is shared by every
+// process on the device, so a channel bound anywhere else would let the device reach another process's memory.
+void check_channel_noc_address(
+    const std::optional<uint64_t>& noc_address, uint64_t expected_noc_address, size_t channel, int device_id) {
+    UMD_ASSERT(
+        noc_address.has_value(),
+        error::RuntimeError,
+        fmt::format("Host memory channel {} of device {} is not bound to the NOC.", channel, device_id));
+    UMD_ASSERT(
+        *noc_address == expected_noc_address,
+        error::RuntimeError,
+        fmt::format(
+            "Host memory channel {} of device {} was mapped at NOC address {:#x} instead of {:#x}. This usually means "
+            "another process (often a stale or crashed one from a previous run) holds the sysmem NOC address space UMD "
+            "requires; find and kill the other processes using the Tenstorrent device(s), then retry.",
+            channel,
+            device_id,
+            *noc_address,
+            expected_noc_address));
 }
 
 }  // namespace
@@ -256,6 +278,7 @@ void LocalChip::map_host_mem_channels() {
     }
     const tt::ARCH arch = tt_device_->get_arch();
     const uint64_t noc_base = system_memory_allocator_->get_noc_base();
+    const int device_id = tt_device_->get_communication_device_id();
 
     if (host_mem_in_single_buffer_) {
         // One buffer bound to the NOC places channel N at its expected NOC address, as long as the buffer itself
@@ -263,33 +286,9 @@ void LocalChip::map_host_mem_channels() {
         const size_t size =
             (num_channels - 1) * HostMemChannels::CHANNEL_STRIDE + get_host_mem_channel_size(arch, num_channels - 1);
         std::unique_ptr<SysmemBuffer> buffer = system_memory_allocator_->allocate_buffer(size, /*bind_to_noc=*/true);
-        const std::optional<uint64_t> noc_address = buffer->get_noc_address();
-        if (!noc_address.has_value()) {
-            UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
-        }
-        if (*noc_address != noc_base) {
-            // If this happens, it means that something else is using the address
-            // space that UMD typically uses.  Historically, this would have crashed
-            // or done something inscrutable.  Now it is just an error.
-            //
-            // The usual cause is a stale process (a leftover/crashed run) that still
-            // holds a sysmem mapping at the NOC base address, so this process gets
-            // bumped to a different address. The fix is to find and kill those
-            // processes, then retry.
-            log_error(
-                LogUMD,
-                "Expected sysmem to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This usually means "
-                "another process is already holding the sysmem NOC address space UMD requires (often a stale or "
-                "crashed process from a previous run). To fix this, find and kill the other processes using the "
-                "Tenstorrent device(s), then retry.",
-                noc_base,
-                *noc_address);
-            UMD_THROW(
-                error::RuntimeError,
-                "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
-                "lead to undefined behavior");
-        }
-        log_debug(LogUMD, "Mapped sysmem to IOVA {:#x}; NOC address {:#x}", buffer->get_iova(), *noc_address);
+        check_channel_noc_address(buffer->get_noc_address(), noc_base, 0, device_id);
+        log_debug(
+            LogUMD, "Mapped sysmem to IOVA {:#x}; NOC address {:#x}", buffer->get_iova(), *buffer->get_noc_address());
 
         auto* base = static_cast<uint8_t*>(buffer->get_va());
         for (size_t channel = 0; channel < num_channels; channel++) {
@@ -317,39 +316,18 @@ void LocalChip::map_host_mem_channels() {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
-                    "Failed to allocate host memory channel {} for device {}: {}",
-                    channel,
-                    tt_device_->get_communication_device_id(),
-                    e.what()));
+                    "Failed to allocate host memory channel {} for device {}: {}", channel, device_id, e.what()));
         }
 
-        const std::optional<uint64_t> noc_address = buffer->get_noc_address();
-        if (!noc_address.has_value()) {
-            UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
-        }
+        // The truncated channel is the final one, so the channels before it all sit on the CHANNEL_STRIDE grid.
+        check_channel_noc_address(
+            buffer->get_noc_address(), noc_base + channel * HostMemChannels::CHANNEL_STRIDE, channel, device_id);
         log_debug(
             LogUMD,
             "Mapped host memory channel {} at IOVA {:#x} to NOC address {:#x}",
             channel,
             buffer->get_iova(),
-            *noc_address);
-        // The truncated channel is the final one, so the channels before it all sit on the CHANNEL_STRIDE grid.
-        const uint64_t expected_noc_address = noc_base + channel * HostMemChannels::CHANNEL_STRIDE;
-        if (*noc_address != expected_noc_address) {
-            log_error(
-                LogUMD,
-                "Expected host memory channel {} to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This "
-                "usually means another process is already holding the sysmem NOC address space UMD requires (often a "
-                "stale or crashed process from a previous run). To fix this, find and kill the other processes using "
-                "the Tenstorrent device(s), then retry.",
-                channel,
-                expected_noc_address,
-                *noc_address);
-            UMD_THROW(
-                error::RuntimeError,
-                "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
-                "lead to undefined behavior");
-        }
+            *buffer->get_noc_address());
 
         host_mem_channels_.map_channel(channel, buffer->get_va(), channel_size);
         host_mem_channel_buffers_.push_back(std::move(buffer));

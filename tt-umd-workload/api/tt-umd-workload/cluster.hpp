@@ -306,6 +306,9 @@ public:
      * - Set power state to busy (ramp up AICLK)
      *
      * @param device_params Object specifying initialization configuration.
+     * @throws error::RuntimeError if a chip's host memory channels cannot be allocated or are not bound at their
+     * expected NOC addresses. The chip that failed is left as if it was never started; chips started before it stay
+     * started until close_device().
      */
     void start_device(const DeviceParams& device_params);
 

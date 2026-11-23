@@ -30,6 +30,7 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -427,4 +428,45 @@ TEST(ApiClusterHostMemChannelSetup, ChannelMapsItsHugepageFileAfterAnUnrelatedBu
 
     munmap(channel_file, one_gib);
     cluster->close_device();
+}
+
+// A cluster whose channel 0 cannot sit at its NOC address. Every handle on a device shares one NOC-to-host window,
+// filled from the bottom, so a NOC-bound buffer taken before start_device occupies the address channel 0 must use.
+// Every MMIO chip is blocked so that start_device fails on the first chip it starts, whatever the start order.
+class ApiClusterFailedStart : public ::testing::Test {
+protected:
+    void SetUp() override {
+        if (PCIDevice::enumerate_devices().empty()) {
+            GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+        }
+        cluster_ = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+        try {
+            for (const ChipId chip : cluster_->get_target_mmio_device_ids()) {
+                channel_zero_blockers_.push_back(
+                    cluster_->get_chip(chip)->get_system_memory_allocator()->allocate_buffer(
+                        4096, /*bind_to_noc=*/true));
+            }
+        } catch (const std::exception& e) {
+            GTEST_SKIP() << "Cannot take a NOC-bound buffer to occupy channel 0's NOC address: " << e.what();
+        }
+    }
+
+    std::unique_ptr<Cluster> cluster_;
+    // Declared after cluster_ so the buffers are freed before the allocators that own their mappings.
+    std::vector<std::unique_ptr<SysmemBuffer>> channel_zero_blockers_;
+};
+
+TEST_F(ApiClusterFailedStart, StartThrowsWhileChannelZerosNocAddressIsTaken) {
+    EXPECT_THROW(cluster_->start_device({}), std::runtime_error);
+}
+
+// A failed start leaves the chip as if it was never started, so it starts again without close_device in between.
+// If that regresses, the retry blocks on the chip lock until the CI job times out.
+TEST_F(ApiClusterFailedStart, FailedStartCanBeRetriedOnceChannelZeroIsFree) {
+    ASSERT_THROW(cluster_->start_device({}), std::runtime_error);
+
+    channel_zero_blockers_.clear();
+
+    EXPECT_NO_THROW(test_utils::safe_test_cluster_start(cluster_.get()));
+    cluster_->close_device();
 }

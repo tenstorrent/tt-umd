@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <set>
@@ -459,6 +460,128 @@ TEST(ApiSysmemManager, UnalignedBufferNocAddressNamesItsFirstByte) {
 
     sysmem_buffer.reset();
     munmap(mapping, 2 * page_size);
+}
+
+// allocate_buffer returns exclusively owned memory, so buffers from two allocators on one device never
+// alias, whatever backs them (a hugepage without an IOMMU, IOMMU-mapped pages with one). The allocators
+// have no host memory channels, so only the buffers themselves are involved.
+TEST(ApiSysmemManager, BuffersFromTwoAllocatorsOnOneDeviceAreDistinct) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager first_allocator(tt_device.get(), 0);
+    SiliconSysmemManager second_allocator(tt_device.get(), 0);
+
+    std::unique_ptr<SysmemBuffer> first_buffer = first_allocator.allocate_buffer(4096);
+    std::unique_ptr<SysmemBuffer> second_buffer = second_allocator.allocate_buffer(4096);
+
+    const std::vector<uint8_t> first_pattern(64, 0xAA);
+    const std::vector<uint8_t> second_pattern(64, 0x55);
+    first_buffer->write_to_sysmem(first_pattern.data(), first_pattern.size(), 0);
+    second_buffer->write_to_sysmem(second_pattern.data(), second_pattern.size(), 0);
+
+    std::vector<uint8_t> first_readback(64, 0);
+    std::vector<uint8_t> second_readback(64, 0);
+    first_buffer->read_from_sysmem(first_readback.data(), first_readback.size(), 0);
+    second_buffer->read_from_sysmem(second_readback.data(), second_readback.size(), 0);
+    EXPECT_EQ(first_readback, std::vector<uint8_t>(64, 0xAA));
+    EXPECT_EQ(second_readback, std::vector<uint8_t>(64, 0x55));
+}
+
+// NOC binding is opt-in: a buffer allocated without bind_to_noc has no NOC address.
+TEST(ApiSysmemManager, AllocatedBufferIsNotNocBoundByDefault) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get(), 0);
+
+    std::unique_ptr<SysmemBuffer> buffer = allocator.allocate_buffer(4096);
+
+    EXPECT_FALSE(buffer->get_noc_address().has_value());
+}
+
+// A buffer allocated with bind_to_noc is reachable from the device: a NOC write to its address lands at
+// get_va(). Runs with and without an IOMMU.
+TEST(ApiSysmemManager, AllocatedBufferBoundToNocIsReachableOverNoc) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_buffer(1 << 20, /*bind_to_noc=*/true);
+    ASSERT_TRUE(sysmem_buffer->get_noc_address().has_value());
+
+    const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04};
+    const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
+    const uint64_t noc_address = sysmem_buffer->get_noc_address().value();
+    cluster->write_to_device(pattern.data(), pattern.size(), mmio_chip, pcie_core, noc_address);
+    // Read back over the same path so the write is flushed before the host checks memory.
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, noc_address, readback.size());
+
+    const uint8_t* buffer_start = static_cast<uint8_t*>(sysmem_buffer->get_va());
+    EXPECT_EQ(std::vector<uint8_t>(buffer_start, buffer_start + pattern.size()), pattern);
+}
+
+// Without an IOMMU the device reaches only physically contiguous memory, so each buffer is one 1 GB
+// hugepage and 1 GB is the largest size allocate_buffer accepts.
+TEST(ApiSysmemManager, AllocationAboveOneGibThrowsWithoutIommu) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get(), 0);
+
+    EXPECT_THROW(allocator.allocate_buffer((1ULL << 30) + 4096), std::runtime_error);
+}
+
+// Without an IOMMU a buffer of exactly 1 GB fills one hugepage, the largest allocation allowed.
+TEST(ApiSysmemManager, OneGibAllocationSucceedsWithoutIommu) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get(), 0);
+
+    EXPECT_NO_THROW(allocator.allocate_buffer(1ULL << 30));
+}
+
+// Without an IOMMU each buffer takes a whole 1 GB hugepage, so destroying it must give the page back:
+// allocating more buffers one after another than the host has 1 GB hugepages succeeds only if none leaks.
+TEST(ApiSysmemManager, DestroyedBufferReturnsItsHugepage) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Buffers are hugepage-backed only without an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get(), 0);
+
+    // A loop bound, not an expected value: one more cycle than the pool has pages.
+    size_t nr_hugepages = 0;
+    std::ifstream("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages") >> nr_hugepages;
+
+    for (size_t i = 0; i <= nr_hugepages; i++) {
+        ASSERT_NO_THROW(allocator.allocate_buffer(4096)) << "allocation " << i << " of " << nr_hugepages + 1;
+    }
 }
 
 TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {

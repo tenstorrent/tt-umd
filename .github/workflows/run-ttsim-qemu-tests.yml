@@ -13,16 +13,165 @@ on:
 
 jobs:
   test:
-    name: Test in ttsim VM (${{ matrix.card }})
+    name: Test in ttsim VM (${{ matrix.card }}, ${{ matrix.binary }})
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
+        # One job per card and test binary keeps each well inside the timeout. The Wormhole and
+        # Blackhole rows run every test except those listed under excluded: tests that need silicon,
+        # tests that reach something ttsim does not model, and tests that need hugepages, which the
+        # guest does not have. Exclude rather than let fail: a test that reaches an unmodelled part of
+        # ttsim ends QEMU, and every test after it in the job goes down with it.
         include:
-          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M, vm-opts: "",
-             tests: ApiClusterTest.OpenAllSiliconChips}
-          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G, vm-opts: "",
-             tests: ApiClusterTest.OpenAllSiliconChips}
+          - card: n150
+            lib: libttsim_wh.so
+            bar4-size: 32M
+            binary: api/api_tests
+            excluded:
+              # silicon only: warm reset
+              - "*ClusterWarmResetScratch*"
+              # silicon only: ARC telemetry, AICLK, Ethernet firmware
+              - "TestFirmwareInfoProvider.ClockFrequencies"
+              - "TestFirmwareInfoProvider.EthFirmwareVersion"
+              - "TestFirmwareInfoProvider.GddrTelemetry"
+              - "TestFirmwareInfoProvider.TdpLimit"
+              - "TestCluster.GetEthernetFirmware"
+              - "TestCluster.TestClusterAICLKControl"
+              # silicon only: an N150's Ethernet coordinates
+              - "TestClusterDescriptor.BasicFunctionality"
+              # ttsim: TLBs on NOC1
+              - "*VerifyNocIdTranslatedCoordinatesMatch/*_via_NOC1"
+              - "*VerifyNocTranslationHostSide/*_NOC1_Normal"
+              - "*VerifyNocTranslationHostSide/TENSIX_NOC1_Harvested"
+              - "*VerifyTranslatedRegisterMatchesCoordinate/*_NOC1"
+              # ttsim: NOC ID registers of DRAM, PCIe, ARC and router-only tiles
+              - "*VerifyNocIdTranslatedCoordinatesMatch/DRAM_*"
+              - "*VerifyNocIdTranslatedCoordinatesMatch/PCIE_*"
+              - "*VerifyNocIdTranslatedCoordinatesMatch/ARC_*"
+              - "*VerifyTranslatedRegisterMatchesCoordinate/*_NOC0"
+              - "*VerifyNocTranslationHostSide/ARC_NOC0_Normal"
+              - "*VerifyNocTranslationHostSide/PCIE_NOC0_Normal"
+              - "*VerifyNocTranslationHostSide/ROUTER_ONLY_NOC0_Normal"
+              # ttsim: multicast
+              - "*TestMulticastWrite/*_SingleCore_*"
+              - "ApiTTDeviceTest.MulticastIO"
+              # ttsim: DMA
+              - "TestDeviceIO.DMA*"
+              - "TestDeviceIOFixture.TestDmaMulticastWrite"
+              # ttsim: RISC-V debug and ARC reset unit registers
+              - "ApiTTDeviceTest.TTDeviceRegIO"
+              - "ApiTTDeviceTest.UninitializedError"
+              # guest: no hugepages
+              - "ApiSysmemManager.BasicIO"
+              - "ApiSysmemManager.AutoNumChannels"
+              - "TestDeviceIOFixture.SysmemReadWrite"
+              # unexplained: RISC counters do not advance, no ARC heartbeat
+              - "TestRiscProgram.DeassertResetWithCounterBrisc"
+              - "*TriscNcriscAssertDeassertTest*"
+              - "TestFirmwareInfoProvider.Heartbeat"
+          - card: n150
+            lib: libttsim_wh.so
+            bar4-size: 32M
+            binary: wormhole_b0/unit_tests
+            excluded:
+              # silicon only: AICLK
+              - "WormholeArcMessages.WormholeArcMessagesAICLK"
+              # ttsim: 64-bit Tensix register writes
+              - "ClusterWH.HarvestingRuntime"
+              # ttsim: DMA
+              - "TestDeviceIO.DMA3"
+              # guest: no hugepages
+              - "ClusterWH.UnalignedTLB_RW"
+              # unexplained: the memory barrier readback stays 0
+              - "ClusterWH.MultiThreadedMemBar"
+          - card: n150
+            lib: libttsim_wh.so
+            bar4-size: 32M
+            binary: unified/unified_tests
+            excluded:
+              # ttsim: DMA
+              - "DmaReadMixedCoreReproTest.DmaReadMixedCoreRepro"
+              - "Multiprocess.DMAWriteReadRaceCondition"
+              # ttsim: ARC telemetry reads the monitor makes
+              - "Multiprocess.LongLivedMonitor"
+              - "Multiprocess.WorkloadVSMonitor"
+          - card: n150
+            lib: libttsim_wh.so
+            bar4-size: 32M
+            binary: test_pcie_device/test_pcie_device
+          - card: p150
+            lib: libttsim_bh.so
+            bar4-size: 32G
+            binary: api/api_tests
+            excluded:
+              # silicon only: warm reset
+              - "WarmResetTest.ClusterWarmReset"
+              - "*ClusterWarmResetScratch*"
+              # silicon only: ARC telemetry, AICLK, Ethernet firmware
+              - "TestFirmwareInfoProvider.BoardPowerLimit"
+              - "TestFirmwareInfoProvider.GddrTelemetry"
+              - "TestFirmwareInfoProvider.L2cpuClocks"
+              - "TestFirmwareInfoProvider.Temperature"
+              - "TestFirmwareInfoProvider.ThermTripCount"
+              - "TestFirmwareInfoProvider.VddLimits"
+              - "TestCluster.GetEthernetFirmware"
+              - "TestCluster.TestClusterAICLKControl"
+              - "TestCluster.TestDifferentPowerModes"
+              # ttsim: TLBs on NOC1
+              - "*VerifyNocIdTranslatedCoordinatesMatch/*_via_NOC1"
+              - "*VerifyNocTranslationHostSide/*_NOC1_Normal"
+              - "*VerifyNocTranslationHostSide/TENSIX_NOC1_Harvested"
+              - "*VerifyNocTranslationHostSide/ETH_NOC1_Harvested"
+              - "TestNoc.BlackholeRouterOnlyNoc1*"
+              # ttsim: NOC ID registers of DRAM, ARC and security tiles
+              - "*VerifyNocIdTranslatedCoordinatesMatch/ARC_*"
+              - "*VerifyNocTranslationHostSide/ARC_NOC0_Normal"
+              - "*VerifyNocTranslationHostSide/DRAM_NOC0_Normal"
+              - "*VerifyNocTranslationHostSide/PCIE_NOC0_Normal"
+              - "*VerifyNocTranslationHostSide/SECURITY_NOC0_Normal"
+              # ttsim: multicast
+              - "*TestMulticastWrite/*_SingleCore_*"
+              # ttsim: DMA
+              - "TestDeviceIO.DMA*"
+              - "TestDeviceIOFixture.TestDmaMulticastWrite"
+              # ttsim: RISC-V debug and ARC reset unit registers
+              - "ApiTTDeviceTest.TTDeviceRegIO"
+              - "ApiTTDeviceTest.UninitializedError"
+              # guest: no hugepages
+              - "ApiSysmemManager.BasicIO"
+              - "ApiSysmemManager.AutoNumChannels"
+              - "TestDeviceIOFixture.SysmemReadWrite"
+              # unexplained: RISC counters do not advance, no ARC heartbeat
+              - "TestRiscProgram.DeassertResetBrisc"
+              - "TestFirmwareInfoProvider.Heartbeat"
+          - card: p150
+            lib: libttsim_bh.so
+            bar4-size: 32G
+            binary: blackhole/unit_tests
+            excluded:
+              # silicon only: AICLK, L2CPU cores
+              - "BlackholeArcMessages.BlackholeArcMessageHigherAIClock"
+              - "ClusterBH.L2CPUCores"
+              # ttsim: ARC TEST message and NOC write counter registers
+              - "BlackholeArcMessages.BlackholeArcMessageArgPassing"
+              - "BlackholeArcMessages.BlackholeArcMessageReturnValues"
+              - "ClusterBH.WriteCountMatchesPostedWrites"
+              # guest: no hugepages
+              - "ClusterBH.UnalignedTLB_RW"
+              # unexplained: the memory barrier readback stays 0
+              - "ClusterBH.MultiThreadedMemBar"
+          - card: p150
+            lib: libttsim_bh.so
+            bar4-size: 32G
+            binary: unified/unified_tests
+            excluded:
+              # ttsim: DMA
+              - "Multiprocess.DMAWriteReadRaceCondition"
+          - card: p150
+            lib: libttsim_bh.so
+            bar4-size: 32G
+            binary: test_pcie_device/test_pcie_device
           # Grendel wants two things the other cards do not: a BAR0 big enough to hold tt-kmd's own
           # TLB window (entry 164, 2.56 GB in) and a driver that knows Keraunos.
           # GrendelDmaLoopbackTest is left out on purpose: nothing in the model routes the host
@@ -36,7 +185,7 @@ jobs:
           # tell that an access landed in BAR4. Anything <= 128G clears 6<<36. Nothing here uses
           # BAR4, so a smaller aperture costs this row nothing -- but on silicon with a real 512 GiB
           # BAR4 the per-BAR mmap budget has to grow, and that is a tt-kmd fix, not a test artifact.
-          - {card: grendel, lib: libttsim_qsr.so, bar4-size: 32G,
+          - {card: grendel, binary: api/api_tests, lib: libttsim_qsr.so, bar4-size: 32G,
              vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko",
              tests: "GrendelAttFoldTest.*:GrendelDeviceIOTest.*"}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
@@ -73,24 +222,27 @@ jobs:
               bash -c '
                   # A gtest filter that selects nothing still exits 0, so a build missing the suites
                   # this row names would report green having run no test at all, and one missing only
-                  # some of them would quietly run fewer. Require every pattern to select something.
+                  # some of them would quietly run fewer. Require every pattern to select something
+                  # once the exclusions are applied.
                   export LD_LIBRARY_PATH=build/lib
-                  tests=build/test/umd/api/api_tests
+                  tests=build/test/umd/$1
+                  excluded=${3:+-$3}
                   missing=
-                  # Every pattern ends in "*", and the loop below splits them out of an unquoted
+                  # The patterns hold "*", and the loop below splits them out of an unquoted
                   # substitution, so without this the shell expands them against the working
                   # directory: one stray GrendelAttFoldTest.xml next to the untarred artifact turns
                   # the pattern into that filename, which then selects no test and fails a step that
                   # should have passed.
                   set -f
-                  for pattern in $(echo "$1" | tr ":" " "); do
-                      selected=$("$tests" --gtest_filter="$pattern" --gtest_list_tests | grep -c "^  ")
+                  for pattern in $(echo "$2" | tr ":" " "); do
+                      selected=$("$tests" --gtest_filter="$pattern$excluded" --gtest_list_tests | grep -c "^  ")
                       echo "$pattern selects $selected test(s)"
                       [ "$selected" -eq 0 ] && missing="$missing $pattern"
                   done
                   if [ -n "$missing" ]; then
-                      echo "this build carries no test matching:$missing" >&2
+                      echo "no test is left to run for:$missing" >&2
                       exit 1
                   fi
-                  exec "$tests" --gtest_filter="$1"
-              ' run-ttsim-qemu-tests '${{ matrix.tests }}'
+                  exec "$tests" --gtest_filter="$2$excluded"
+              ' run-ttsim-qemu-tests '${{ matrix.binary }}' '${{ matrix.tests || '*' }}' \
+              '${{ join(matrix.excluded, ':') }}'

@@ -52,7 +52,13 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
     const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
     const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
-        communicator_->tile_write_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size), user_bits);
+        communicator_->tile_write_bytes(
+            static_cast<uint32_t>(core.x),
+            static_cast<uint32_t>(core.y),
+            device_addr,
+            data,
+            static_cast<uint32_t>(size),
+            user_bits);
         return;
     }
     // In flat-address mode the address alone names the destination, and the simulator moves whole
@@ -73,7 +79,13 @@ void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t siz
     const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
     const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
-        communicator_->tile_read_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size), user_bits);
+        communicator_->tile_read_bytes(
+            static_cast<uint32_t>(core.x),
+            static_cast<uint32_t>(core.y),
+            device_addr,
+            data,
+            static_cast<uint32_t>(size),
+            user_bits);
         return;
     }
     const uint64_t flat_addr = att::resolve_translated(*resolver_, *soc_descriptor_, core, device_addr, size);

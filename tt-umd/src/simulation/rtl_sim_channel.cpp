@@ -28,7 +28,12 @@ flatbuffers::FlatBufferBuilder create_message(
     auto payload = builder.CreateVector(data);
     const tt_vcs_core core(x, 0);
     builder.Finish(CreateDeviceRequestResponse(
-        builder, command, payload, &core, addr, size == 0 ? data.size() * sizeof(uint32_t) : size));
+        builder,
+        command,
+        payload,
+        &core,
+        addr,
+        static_cast<uint32_t>(size == 0 ? data.size() * sizeof(uint32_t) : size)));
     return builder;
 }
 

@@ -42,7 +42,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
+constexpr uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 TEST(ApiSysmemManager, BasicIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -99,7 +99,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const uint32_t one_mb = 1 << 20;
+    constexpr uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
@@ -159,11 +159,11 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const uint32_t one_mb = 1 << 20;
+    constexpr uint32_t one_mb = 1 << 20;
     void* mapping =
         mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     // It's important that this offset is not a multiple of the page size.
-    const size_t unaligned_offset = 100;
+    constexpr size_t unaligned_offset = 100;
     void* mapping_buffer = static_cast<uint8_t*>(mapping) + unaligned_offset;  // Offset by 1MB
 
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
@@ -221,8 +221,8 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const size_t mmap_size = 20;
-    const size_t buf_size = 10;
+    constexpr size_t mmap_size = 20;
+    constexpr size_t buf_size = 10;
 
     // Size is not multiple of page size.
     void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -251,9 +251,9 @@ TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const size_t buf_size = 64ULL << 20;
+    constexpr size_t buf_size = 64ULL << 20;
     const size_t buf_size_kib = buf_size >> 10;
-    const int iterations = 8;
+    constexpr int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
     { std::unique_ptr<SysmemBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
@@ -303,7 +303,7 @@ TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
 
         EXPECT_EQ(sysmem_manager->get_communication_id(), expected_id);
 
-        const size_t buf_size = 1 << 20;
+        constexpr size_t buf_size = 1 << 20;
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
         ASSERT_NE(sysmem_buffer, nullptr);
         EXPECT_EQ(sysmem_buffer->get_communication_id(), expected_id);
@@ -328,8 +328,8 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const size_t mmap_size = 2 * sysconf(_SC_PAGESIZE);
-    const size_t buf_offset = 10;  // Deliberately not page aligned.
-    const size_t buf_size = 128;
+    constexpr size_t buf_offset = 10;  // Deliberately not page aligned.
+    constexpr size_t buf_size = 128;
 
     void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     ASSERT_NE(mapping, MAP_FAILED);
@@ -348,7 +348,7 @@ TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
     sysmem_buffer->read_from_sysmem(readback.data(), readback.size(), 0);
     EXPECT_EQ(pattern, readback);
 
-    const size_t offset = 64;
+    constexpr size_t offset = 64;
     sysmem_buffer->write_to_sysmem(pattern.data(), pattern.size(), offset);
     std::fill(readback.begin(), readback.end(), 0);
     sysmem_buffer->read_from_sysmem(readback.data(), readback.size(), offset);
@@ -374,7 +374,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const uint32_t one_mb = 1 << 20;
+    constexpr uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
 
     EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());

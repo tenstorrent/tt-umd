@@ -161,7 +161,7 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-int SimulationChip::get_num_host_channels() {
+size_t SimulationChip::get_num_host_channels() {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
         log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
@@ -170,7 +170,7 @@ int SimulationChip::get_num_host_channels() {
     return mgr->get_num_host_mem_channels();
 }
 
-int SimulationChip::get_host_channel_size(std::uint32_t channel) {
+size_t SimulationChip::get_host_channel_size(std::uint32_t channel) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
         log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");

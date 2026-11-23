@@ -73,7 +73,7 @@ void SocDescriptor::write_core_locations(void *out, const CoreType &core_type) c
 void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
-    const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
+    const size_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid.
@@ -438,11 +438,6 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
     return translated_cores;
-}
-
-bool SocDescriptor::is_core_of_type(const tt_xy_pair &core, CoreType core_type, CoordSystem coord_system) const {
-    const auto &cores = get_cores(core_type, coord_system);
-    return std::any_of(cores.begin(), cores.end(), [&core](const auto &c) { return c.x == core.x && c.y == core.y; });
 }
 
 std::vector<CoreCoord> SocDescriptor::get_cores(

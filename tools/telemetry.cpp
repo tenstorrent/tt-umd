@@ -64,10 +64,10 @@ int main(int argc, char* argv[]) {
 
     options.add_options()(
         "t,tag",
-        "Telemetry tag to read. If set to -1, will run default telemetry mode which reads aiclk, "
+        "Telemetry tag to read. If omitted, will run default telemetry mode which reads aiclk, "
         "power, temperature and vcore. See tt-umd/api/tt-umd/types/telemetry.hpp "
         "for all available tags.",
-        cxxopts::value<int>()->default_value("-1"))(
+        cxxopts::value<uint8_t>())(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
         "n,count",
         "Number of polling iterations. If set to 0, will poll indefinitely.",
@@ -84,7 +84,10 @@ int main(int argc, char* argv[]) {
     }
 
     int frequency_us = result["freq"].as<int>();
-    int telemetry_tag = result["tag"].as<int>();
+    std::optional<uint8_t> telemetry_tag;
+    if (result.count("tag")) {
+        telemetry_tag = result["tag"].as<uint8_t>();
+    }
     int max_count = result["count"].as<int>();
 
     auto [cluster_desc, tt_devices_map] = TopologyDiscovery::discover();
@@ -101,7 +104,7 @@ int main(int argc, char* argv[]) {
         auto start_time = std::chrono::steady_clock::now();
         for (auto& [chip_id, tt_device] : tt_devices_map) {
             std::string telemetry_message;
-            if (telemetry_tag == -1) {
+            if (!telemetry_tag.has_value()) {
                 auto arch = tt_device->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
                     telemetry_message = run_default_telemetry(chip_id, tt_device->get_firmware_info_provider());
@@ -109,7 +112,8 @@ int main(int argc, char* argv[]) {
                     UMD_THROW(error::RuntimeError, "Unsupported device architecture.");
                 }
             } else {
-                uint32_t telemetry_value = tt_device->get_firmware_telemetry_reader()->read_entry(telemetry_tag);
+                uint32_t telemetry_value =
+                    tt_device->get_firmware_telemetry_reader()->read_entry(telemetry_tag.value());
                 telemetry_message = fmt::format("Chip ID {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {

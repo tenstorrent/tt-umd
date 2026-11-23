@@ -175,12 +175,12 @@ host leaves your terminal's session and writes to its own log, and the command r
 the sockets are actually serving — so a zero exit status means clients may attach. It reports the
 host's pid, its server directory, and where its log went.
 
-A host removes its own server directory when it shuts down gracefully, so a host that was killed or
-crashed leaves one behind. You do not have to clean up after it: enumerating the servers is also
-what clears up after the ones that are gone, so `list` neither reports such a server nor leaves its
-directory and log lying around. `sim_server prune` runs the same sweep and names what it removed.
-A directory whose host has not bound a socket yet shows as `empty`, and both leave it be: it cannot
-be told apart from a host that is still coming up.
+A host removes its own server directory, and its log if detached, when it shuts down gracefully,
+so a host that was killed or crashed leaves them behind. You do not have to clean up after it:
+enumerating the servers is also what clears up after the ones that are gone, so `list` neither
+reports such a server nor leaves its directory and log lying around. `sim_server prune` runs the
+same sweep and names what it removed. A directory whose host has not bound a socket yet shows as
+`empty`, and both leave it be: it cannot be told apart from a host that is still coming up.
 
 You can run the following for more information:
 ```

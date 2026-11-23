@@ -53,15 +53,14 @@ public:
     // never applied.
     bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return false; }
 
-    // There is no FirmwareInfoProvider on a simulator, so the defaults mirror the ones
-    // TTSimTTDevice::create() uses. Blackhole SocDescriptor construction rejects an empty
-    // eth_harvesting_mask ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so
-    // the same 0x3000 default is applied here -- what TTSim's own ENABLED_ETH telemetry works out
-    // to, ETH tiles 12 and 13 being the ones it models as harvested. Keep in sync with create().
+    // There is no FirmwareInfoProvider on a simulator, so this reports defaults. A Blackhole
+    // SocDescriptor needs exactly 2 or 14 ETH channels harvested, so the default is what a healthy
+    // chip's firmware reports: channels 5 and 8 off. A device that publishes its own harvesting is
+    // read through its architecture's firmware instead.
     ChipInfo get_chip_info([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
         ChipInfo chip_info{};
         if (arch_ == tt::ARCH::BLACKHOLE) {
-            chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
+            chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
         }
         return chip_info;
     }

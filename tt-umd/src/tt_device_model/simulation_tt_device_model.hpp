@@ -29,6 +29,11 @@ public:
     explicit SimulationTTDeviceModel(
         const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
+    // For a device whose SoC descriptor is built only once it can be read, so there is none to take
+    // the architecture from yet. The architecture descriptor is the caller's, or the architecture's
+    // constants when null.
+    SimulationTTDeviceModel(tt::ARCH arch, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
     ~SimulationTTDeviceModel() override;
 
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;

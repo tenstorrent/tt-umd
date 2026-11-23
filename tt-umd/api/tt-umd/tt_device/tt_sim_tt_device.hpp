@@ -54,6 +54,8 @@ public:
     // Named distinctly from create() because ChipId is an alias for int, which
     // would otherwise produce a duplicate signature. pci_bdf is the chip's endpoint as
     // TTSimCommunicator::enumerate_mmio_device_bdfs() reported it; unset, the communicator finds it.
+    // A Blackhole device comes back initialized (init_tt_device()), its SoC descriptor built from the
+    // harvesting the device reports, as on silicon.
     static std::unique_ptr<TTSimTTDevice> create_for_chip(
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
@@ -137,6 +139,19 @@ private:
     // back handle_special_read/write and can grow to dispatch additional special cases later.
     bool special_dram_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     bool special_dram_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    bool is_dram_core(tt_xy_pair core) const;
+
+    // Host-mode constructor the public one delegates to. Without a soc_descriptor the device brings
+    // its backend up with none, for the caller to build one from what the device reports.
+    TTSimTTDevice(
+        std::unique_ptr<SimulationTTDeviceModel> model,
+        tt::ARCH arch,
+        const std::optional<SocDescriptor> &soc_descriptor,
+        const std::filesystem::path &simulator_directory,
+        ChipId chip_id,
+        int num_host_mem_channels,
+        size_t num_chips,
+        std::optional<uint32_t> pci_bdf);
 
     // Client-mode constructor: this device does not own a simulator (.so); it forwards device
     // operations to a remote host through client. Reached only via create_client(), which
@@ -147,7 +162,7 @@ private:
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
 
-    // Gives the model this device's RiscReset; both constructors call it once the SoC descriptor is set.
+    // Gives the model this device's RiscReset; every constructor calls it before the backend comes up.
     void install_risc_reset();
 
     // Host-mode backend bring-up (.so init, PCI read, TLB setup).

@@ -66,12 +66,16 @@ protected:
 
 SimulationTTDeviceModel::SimulationTTDeviceModel(
     const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    arch_(soc_descriptor.arch),
-    soc_arch_descriptor_(resolve(soc_descriptor, soc_arch_descriptor)),
-    architecture_impl_(ArchitectureImplementation::create(soc_descriptor.arch)),
+    SimulationTTDeviceModel(soc_descriptor.arch, resolve(soc_descriptor, soc_arch_descriptor)) {}
+
+SimulationTTDeviceModel::SimulationTTDeviceModel(
+    tt::ARCH arch, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    arch_(arch),
+    soc_arch_descriptor_(resolve_soc_arch_descriptor(arch, soc_arch_descriptor)),
+    architecture_impl_(ArchitectureImplementation::create(arch)),
     tt_sim_protocol_(std::make_unique<TTSimProtocol>(this)),
     hang_detector_(std::make_unique<SimulationHangDetector>()),
-    device_firmware_(std::make_unique<SimulationDeviceFirmware>(soc_descriptor.arch)) {}
+    device_firmware_(std::make_unique<SimulationDeviceFirmware>(arch)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.

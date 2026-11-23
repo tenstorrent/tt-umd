@@ -48,10 +48,12 @@
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
 #endif
 
@@ -546,11 +548,17 @@ TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
     ASSERT_FALSE(cluster_desc->get_all_chips().empty());
 
     for (const ChipId chip : cluster_desc->get_all_chips()) {
-        // TTSim models ETH tiles 12 and 13 as harvested, so its ENABLED_ETH telemetry reads 0x0FFF
-        // and the mask UMD derives from it is 0x3000. Asserting the derived value is what keeps
-        // discovery honest about reading harvesting from the device instead of assuming it.
-        EXPECT_EQ(cluster_desc->get_harvesting_masks(chip).eth_harvesting_mask, 0x3000u)
+        // ENABLED_ETH has a bit set per live ETH channel, so the harvested ones are its clear bits
+        // within Blackhole's 14 channels. Which channels the image harvests is its own choice;
+        // matching the descriptor to the telemetry is what keeps discovery honest about reading
+        // harvesting from the device instead of assuming it.
+        FirmwareTelemetryReader* telemetry = cluster.get_chip(chip)->get_tt_device()->get_firmware_telemetry_reader();
+        ASSERT_NE(telemetry, nullptr) << "chip " << chip;
+        const uint32_t eth_harvested_on_device = ~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF;
+        EXPECT_EQ(cluster_desc->get_harvesting_masks(chip).eth_harvesting_mask, eth_harvested_on_device)
             << "chip " << chip << " ETH harvesting did not come from telemetry";
+        EXPECT_EQ(cluster.get_soc_descriptor(chip).harvesting_masks.eth_harvesting_mask, eth_harvested_on_device)
+            << "chip " << chip << " SoC descriptor ETH harvesting did not come from telemetry";
 
         // Whatever the image harvests, the descriptor and the SoC descriptor built from it have to
         // tell the same story about how many Tensix columns survived. The mask is what discovery

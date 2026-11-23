@@ -613,6 +613,10 @@ protected:
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
+    // False until the descriptor is set or built, e.g. while a device that builds it from what the
+    // device reports is still bringing itself up.
+    bool has_soc_descriptor() const { return soc_descriptor_.has_value(); }
+
 private:
     // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
     // check, and gives the detector a separately-locked window to probe through.

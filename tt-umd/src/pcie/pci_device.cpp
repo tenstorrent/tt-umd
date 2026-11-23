@@ -18,12 +18,14 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
@@ -56,7 +58,9 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         attribute_name);
     std::ifstream attribute_file(sysfs_path);
     std::string value_str;
-    T value;
+    // operator>> reads single-byte types as characters, so those are parsed as numbers and range-checked.
+    using ParsedT = std::conditional_t<sizeof(T) == 1, unsigned int, T>;
+    ParsedT value;
 
     if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
         return std::nullopt;
@@ -75,7 +79,13 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         return std::nullopt;
     }
 
-    return value;
+    if constexpr (sizeof(T) == 1) {
+        if (value > std::numeric_limits<T>::max()) {
+            return std::nullopt;
+        }
+    }
+
+    return static_cast<T>(value);
 }
 
 template <typename T>
@@ -411,7 +421,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     pci_device_num(pci_device_number),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint8_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
@@ -798,8 +808,8 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 }
 
 SemVer PCIDevice::read_kmd_version() {
-    static const std::string path = "/sys/module/tenstorrent/version";
-    std::ifstream file(path);
+    constexpr std::string_view path = "/sys/module/tenstorrent/version";
+    std::ifstream file{std::string(path)};
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);
@@ -1172,6 +1182,30 @@ int PCIDevice::export_tlb_dmabuf(
     tt_tlb_free(tt_device_handle, tlb);
 
     return fd;
+}
+
+uint64_t PCIDevice::map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length) {
+    // Wormhole reaches PCIe addresses only through iATU regions, which MAP_PEER_BAR does not set up; other
+    // architectures are unverified.
+    UMD_ASSERT(
+        arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format("Peer BAR mapping is supported only on Blackhole, not on {}.", arch));
+    uint64_t dma_address = 0;
+    const int ret = tt_device_map_peer_bar(tt_device_handle, peer.tt_device_handle, bar, offset, length, &dma_address);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to map {} bytes at {:#x} of BAR{} of device {} for device {}: {}",
+                length,
+                offset,
+                bar,
+                peer.get_device_num(),
+                get_device_num(),
+                strerror(-ret)));
+    }
+    return dma_address;
 }
 
 /**

@@ -50,7 +50,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
         error::RuntimeError,
         "RemoteTTDevice passed to RemoteChip::create_for_simulation must have a RemoteCommunication.");
     // A remote TTDevice that topology discovery reached was initialized there; one built from a declared topology
-    // never runs through init_tt_device(), so its SocDescriptor is supplied to TTDevice::create_simulation_remote()
+    // never runs through init_tt_device(), so its SocDescriptor is supplied to create_simulation_remote_tt_device()
     // instead. Either way the TTDevice carries one, so get_soc_descriptor() can keep delegating to it like every
     // other chip.
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device), chip_info));
@@ -137,9 +137,9 @@ void RemoteChip::deassert_risc_resets() {
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
-int RemoteChip::get_num_host_channels() { return 0; }
+size_t RemoteChip::get_num_host_channels() { return 0; }
 
-int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+size_t RemoteChip::get_host_channel_size(std::uint32_t channel) {
     UMD_THROW(error::RuntimeError, "There are no host channels available.");
 }
 

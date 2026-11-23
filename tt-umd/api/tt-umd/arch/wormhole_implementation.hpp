@@ -410,9 +410,7 @@ public:
 
     uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
 
-    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
-        return wormhole::HARVESTING_NOC_LOCATIONS;
-    }
+    std::vector<uint32_t> get_harvesting_noc_locations() const override { return wormhole::HARVESTING_NOC_LOCATIONS; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
 };

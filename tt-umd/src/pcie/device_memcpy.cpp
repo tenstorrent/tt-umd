@@ -36,7 +36,7 @@ auto make_mmio_timeout_guard(
     return OpTimeoutGuard(
         budget,
         on_timeout,
-        [op_verb, budget, total_bytes, &bytes_remaining](std::chrono::nanoseconds delta, std::uint32_t op_bytes) {
+        [op_verb, budget, total_bytes, &bytes_remaining](std::chrono::nanoseconds delta, std::size_t op_bytes) {
             UMD_THROW(error::DeviceTimeoutError, op_verb, op_bytes, delta, budget, bytes_remaining, total_bytes);
         });
 }

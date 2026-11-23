@@ -91,12 +91,6 @@ struct ClusterOptions {
     std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
-     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-     * descriptor based on architecture will be used.
-     */
-    std::string sdesc_path;
-
-    /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
@@ -136,14 +130,9 @@ struct ClusterOptions {
      */
     std::filesystem::path simulator_server_directory = "";
 
-    /**
-     * I/O device type to use for the cluster.
-     * This determines how the cluster will communicate with the underlying hardware.
-     */
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     /*
-     * Options related to topology discovery. Only applicable for SILICON chip type.
+     * Options related to topology discovery. Its transport (io_device_type) and SoC descriptor path
+     * (soc_descriptor_path) apply to every chip type; the rest only to SILICON.
      */
     TopologyDiscoveryOptions topology_discovery_options = {};
 };
@@ -272,7 +261,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
-        IoOrdering ordering = IoOrdering::Strict,
+        IoOrdering ordering = IoOrdering::STRICT,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -414,7 +403,7 @@ public:
         ChipId chip,
         CoreCoord core,
         uint64_t addr,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -438,7 +427,7 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -641,7 +630,7 @@ public:
      *
      * @param device_id Logical device id to target.
      */
-    std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    std::size_t get_num_host_channels(std::uint32_t device_id);
 
     /**
      * Get size for a specific Host channel accessible by the corresponding device.
@@ -649,7 +638,7 @@ public:
      * @param device_id Logical device id to target.
      * @param channel Logical host channel to target.
      */
-    std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    std::size_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
 
     /**
      * Get absolute address corresponding to a zero based offset into a specific host memory channel for a specific

@@ -47,13 +47,12 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
-CI runs `api_tests`, the architecture's `unit_tests`, `unified_tests` and `test_pcie_device` on an N150
-and a P150, one job per card and binary. Each job excludes, with a negative gtest filter, the tests
-that cannot pass in the VM: those that need silicon (warm reset, ARC telemetry, AICLK), those that
-reach something ttsim does not model (TLBs on NOC1, NOC ID registers, multicast, DMA), and those that
-need hugepages, which the guest does not have. A test that reaches an unmodelled part of ttsim does
-not fail; it ends QEMU and with it every test after it, so such a test must be excluded rather than
-left to fail.
+CI runs `api_tests`, the architecture's `unit_tests`, `unified_tests` and `test_pcie_device` on an
+N150, one job per binary. Each job excludes, with a negative gtest filter, the tests that cannot pass
+in the VM: those that need silicon (warm reset, ARC telemetry, AICLK), those that reach something ttsim
+does not model (TLBs on NOC1, NOC ID registers, multicast, DMA), and those that need hugepages, which
+the guest does not have. A test that reaches an unmodelled part of ttsim does not fail; it ends QEMU
+and with it every test after it, so such a test must be excluded rather than left to fail.
 
 ## Grendel
 

@@ -95,6 +95,8 @@ public:
 
     // PeerDmaInterface.
     int export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
+    uint64_t export_window_to_device(
+        int device_id, tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
 
 private:
     TlbWindow* get_cached_tlb_window();

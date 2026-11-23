@@ -604,6 +604,21 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrderi
     return peer_dma_interface->export_window(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
+uint64_t TTDevice::map_peer_window(
+    TTDevice &peer, CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    // This device is named to the peer by its communication device id, which is its own only when it has its own
+    // PCIe link; a remote device's id is the device it is reached through.
+    if (!model_->get_peer_dma_interface()) {
+        UMD_THROW(error::RuntimeError, "Mapping a peer window is not supported for this device.");
+    }
+    PeerDmaInterface *peer_dma_interface = peer.model_->get_peer_dma_interface();
+    if (!peer_dma_interface) {
+        UMD_THROW(error::RuntimeError, "Mapping a window of the peer device is not supported for that device.");
+    }
+    return peer_dma_interface->export_window_to_device(
+        get_communication_device_id(), peer.resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+}
+
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {

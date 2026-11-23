@@ -36,9 +36,9 @@ public:
     std::optional<size_t> get_max_buffer_count(size_t size) const override;
 
     /**
-     * Allocates the memory of host memory channel `channel`, bound to the NOC. Without an IOMMU it is the device's
-     * hugepage for that channel, the same page every process using the device maps for that channel, so size must
-     * be at most 1 GB.
+     * Allocates the memory of host memory channel `channel`, bound to the NOC. With an IOMMU, size may also cover the
+     * channels after it, so one buffer can back several channels. Without an IOMMU it is the device's hugepage for
+     * that channel, the same page every process using the device maps for that channel, so size must be at most 1 GB.
      */
     std::unique_ptr<SysmemBuffer> allocate_channel_buffer(uint32_t channel, size_t size);
 

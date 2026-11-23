@@ -10,7 +10,6 @@
 
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/system_memory_allocator.hpp"
-#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 
 namespace tt {

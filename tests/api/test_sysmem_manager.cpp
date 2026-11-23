@@ -13,6 +13,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -29,15 +30,13 @@
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
-#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/noc_id.hpp"
-#include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/kmd_versions.hpp"
 
 using namespace tt;
@@ -66,8 +65,6 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    const xy_pair tensix_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     // Zero out 1MB of Tensix L1.
     std::vector<uint8_t> data_write(one_mb, 0);
@@ -80,7 +77,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -98,7 +95,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Read data back from Tensix L1 to sysmem_data_readback.
-    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, one_mb, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, one_mb, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], sysmem_data_readback[i]);
@@ -132,8 +129,6 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    const xy_pair tensix_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     // Zero out 1MB of Tensix L1.
     std::vector<uint8_t> data_write(one_mb, 0);
@@ -149,7 +144,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -165,7 +160,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Read data back from Tensix L1 to sysmem_data.
-    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], readback[i]);
@@ -432,9 +427,9 @@ TEST(ApiSysmemManager, BuffersFromTwoAllocatorsOnOneDeviceAreDistinct) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager first_allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
-    SiliconSysmemManager second_allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    PCIDevice pci_device(pci_device_ids[0]);
+    SiliconSysmemManager first_allocator(&pci_device, pci_device_ids[0]);
+    SiliconSysmemManager second_allocator(&pci_device, pci_device_ids[0]);
 
     std::unique_ptr<SysmemBuffer> first_buffer = first_allocator.allocate_buffer(4096);
     std::unique_ptr<SysmemBuffer> second_buffer = second_allocator.allocate_buffer(4096);
@@ -458,8 +453,8 @@ TEST(ApiSysmemManager, AllocatedBufferIsNotNocBoundByDefault) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    PCIDevice pci_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     std::unique_ptr<SysmemBuffer> buffer = allocator.allocate_buffer(4096);
 
@@ -500,11 +495,11 @@ TEST(ApiSysmemManager, AllocationAboveOneGibThrowsWithoutIommu) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     EXPECT_THROW(allocator.allocate_buffer((1ULL << 30) + 4096), std::runtime_error);
 }
@@ -515,11 +510,11 @@ TEST(ApiSysmemManager, OneGibAllocationSucceedsWithoutIommu) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     EXPECT_NO_THROW(allocator.allocate_buffer(1ULL << 30));
 }
@@ -531,11 +526,11 @@ TEST(ApiSysmemManager, DestroyedBufferReturnsItsHugepage) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "Buffers are hugepage-backed only without an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     // A loop bound, not an expected value: one more cycle than the pool has pages.
     size_t nr_hugepages = 0;
@@ -552,11 +547,11 @@ TEST(ApiSysmemManager, MaxBufferCountHasNoLimitWithIommu) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (!pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "Buffers are unlimited only with an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     EXPECT_EQ(allocator.get_max_buffer_count(1ULL << 30), std::nullopt);
 }
@@ -567,11 +562,11 @@ TEST(ApiSysmemManager, MaxBufferCountRejectsBuffersAboveOneGibWithoutIommu) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     EXPECT_EQ(allocator.get_max_buffer_count(2ULL << 30), std::optional<size_t>(0));
 }
@@ -582,11 +577,11 @@ TEST(ApiSysmemManager, MaxBufferCountAllowsOneGibBufferWithoutIommu) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (pci_device.is_iommu_enabled()) {
         GTEST_SKIP() << "The count is bounded only without an IOMMU.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
     const std::optional<size_t> max_buffer_count = allocator.get_max_buffer_count(1ULL << 30);
 
@@ -601,11 +596,10 @@ TEST(ApiSysmemManager, NocBaseIsTheSysmemWindowStart) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
-    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device->get_pci_device(), tt_device->get_communication_device_id());
+    PCIDevice pci_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(&pci_device, pci_device_ids[0]);
 
-    // The PCI device knows its architecture without the TTDevice being initialised.
-    switch (PCIDevice(pci_device_ids[0]).get_arch()) {
+    switch (pci_device.get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             EXPECT_EQ(allocator.get_noc_base(), 0x800000000ULL);
             break;
@@ -681,11 +675,9 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     // Device reads the read-only mapping and writes it into Tensix L1 -- the direction read-only pinning exists to
     // serve. Reading it back independently confirms the mapping is genuinely usable, not merely accepted.
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    const xy_pair tensix_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
     std::vector<uint8_t> zeros(mapping_size, 0);
     cluster->write_to_device(zeros.data(), mapping_size, mmio_chip, tensix_core, 0);
-    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core_xy, 0);
+    cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core, 0);
 
     // Read back over MMIO rather than DMA: D2H DMA is unsupported on Blackhole, and the direction under test here
     // is the device-side read of the pinned mapping, not how the host retrieves the result.
@@ -695,12 +687,82 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
 
     // The opposite direction writes host memory, so it must be refused on a device-read-only mapping.
     EXPECT_THROW(
-        cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core_xy, 0),
+        cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, mapping_size, tensix_core, 0),
         std::exception);
 
     sysmem_buffer.reset();
     EXPECT_EQ(munmap(mapping, mapping_size), 0);
     EXPECT_EQ(close(read_only_fd), 0);
+}
+
+// The zero-copy error-path tests below use the write direction, so on Blackhole, which has no D2H DMA, only the
+// check under test can throw. The checks fire before any transfer, so they run with and without an IOMMU.
+
+struct ZeroCopyRange {
+    const char* name;
+    size_t offset;
+    size_t size;
+};
+
+class ApiSysmemManagerZeroCopyRange : public ::testing::TestWithParam<ZeroCopyRange> {};
+
+TEST_P(ApiSysmemManagerZeroCopyRange, ZeroCopyRangeOutsideBufferThrows) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    std::unique_ptr<SysmemBuffer> buffer = cluster->get_chip(mmio_chip)->get_sysmem_manager()->allocate_buffer(4096);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+    EXPECT_THROW(
+        cluster->get_chip(mmio_chip)->dma_write_zero_copy(*buffer, GetParam().offset, GetParam().size, tensix_core, 0),
+        std::exception);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ApiSysmemManager,
+    ApiSysmemManagerZeroCopyRange,
+    ::testing::Values(
+        ZeroCopyRange{"RunsPastEnd", 4092, 8},  // Starts inside a 4 KiB buffer and runs past its end.
+        ZeroCopyRange{"StartsAtEnd", 4096, 4}   // Starts at the end of a 4 KiB buffer.
+        ),
+    [](const ::testing::TestParamInfo<ZeroCopyRange>& info) { return info.param.name; });
+
+// A buffer is pinned for the device of the manager that allocated it; another chip's DMA engine cannot use it.
+TEST(ApiSysmemManager, ZeroCopyWithBufferOfAnotherChipThrows) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const std::set<ChipId> mmio_chips = cluster->get_target_mmio_device_ids();
+    if (mmio_chips.size() < 2) {
+        GTEST_SKIP() << "Needs at least two MMIO chips.";
+    }
+    const ChipId buffer_chip = *mmio_chips.begin();
+    const ChipId dma_chip = *std::next(mmio_chips.begin());
+    std::unique_ptr<SysmemBuffer> buffer = cluster->get_chip(buffer_chip)->get_sysmem_manager()->allocate_buffer(4096);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(dma_chip).get_cores(CoreType::TENSIX)[0];
+
+    EXPECT_THROW(cluster->get_chip(dma_chip)->dma_write_zero_copy(*buffer, 0, 4096, tensix_core, 0), std::exception);
+}
+
+// A remote chip has no zero-copy DMA, even with a buffer pinned for the MMIO chip it is reached through.
+TEST(ApiSysmemManager, ZeroCopyOnRemoteChipThrows) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const std::set<ChipId> remote_chips = cluster->get_target_remote_device_ids();
+    if (remote_chips.empty()) {
+        GTEST_SKIP() << "Needs a remote chip.";
+    }
+    const ChipId remote_chip = *remote_chips.begin();
+    const ChipId gateway_chip = cluster->get_cluster_description()->get_closest_mmio_capable_chip(remote_chip);
+    std::unique_ptr<SysmemBuffer> buffer = cluster->get_chip(gateway_chip)->get_sysmem_manager()->allocate_buffer(4096);
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::TENSIX)[0];
+
+    EXPECT_THROW(cluster->get_chip(remote_chip)->dma_write_zero_copy(*buffer, 0, 4096, tensix_core, 0), std::exception);
 }
 
 TEST(ApiSysmemManager, AutoNumChannels) {

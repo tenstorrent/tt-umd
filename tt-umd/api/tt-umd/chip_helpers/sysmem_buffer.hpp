@@ -11,7 +11,6 @@
 #include <optional>
 
 #include "tt-umd/types/host_memory.hpp"
-#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 

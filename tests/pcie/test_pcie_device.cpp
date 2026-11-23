@@ -92,12 +92,15 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
     config.x_end = peer_core.x;
     config.y_end = peer_core.y;
     config.ordering = tlb_data::Strict;
-    SiliconTlbWindow peer_window(peer->get_pci_device()->allocate_tlb(blackhole::TLB_2M_SIZE), config);
+    PCIDevice peer_pci_device(device_ids[1]);
+    SiliconTlbWindow peer_window(peer_pci_device.allocate_tlb(blackhole::TLB_2M_SIZE), config);
     peer_window.write32(SAFE_IO_L1_ADDRESS, 0);
 
     const uint32_t bar_offset = blackhole::TLB_BASE_2M + peer_window.handle_ref().get_tlb_id() * blackhole::TLB_2M_SIZE;
+    // Declared after the window, so the mapping closes with this handle before the window is freed.
+    PCIDevice pci_device(device_ids[0]);
     const uint64_t peer_window_address =
-        device->get_pci_device()->map_peer_bar(*peer->get_pci_device(), 0, bar_offset, blackhole::TLB_2M_SIZE);
+        pci_device.map_peer_bar(peer_pci_device, 0, bar_offset, blackhole::TLB_2M_SIZE);
 
     const CoreCoord pcie_core = device->get_soc_descriptor().get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
     const uint32_t pattern = 0x600d600d;
@@ -109,9 +112,6 @@ TEST(PcieDeviceTest, MapPeerBarWriteReachesPeerWindow) {
         &read_through_device, pcie_core, peer_window_address + SAFE_IO_L1_ADDRESS, sizeof(pattern));
     EXPECT_EQ(read_through_device, pattern);
     EXPECT_EQ(peer_window.read32(SAFE_IO_L1_ADDRESS), pattern);
-
-    // Close the mapping before its window is freed.
-    device.reset();
 }
 
 TEST(PcieDeviceTest, MapPeerBarRejectsSameDevice) {

@@ -56,15 +56,6 @@ bool sim_dram_teleport_enabled() {
     return enabled;
 }
 
-// Searches the DRAM cores rather than looking the coordinate up, so a coordinate the descriptor doesn't
-// know, or a harvested DRAM core, is simply not DRAM instead of throwing.
-bool is_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
-    const std::vector<CoreCoord> dram_cores = soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
-    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const CoreCoord& dram_core) {
-        return dram_core.x == core.x && dram_core.y == core.y;
-    });
-}
-
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
@@ -80,21 +71,32 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     size_t num_chips,
     std::optional<uint32_t> pci_bdf) {
     const tt::ARCH arch = get_simulator_arch(simulator_directory);
-    ChipInfo chip_info{};
-    if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole SocDescriptor construction rejects an empty eth_harvesting_mask, and this runs
-        // before there is a device to ask, so a value has to be assumed. It is the one the simulator
-        // reports: TTSim models ETH tiles 12 and 13 as harvested, so its ENABLED_ETH telemetry reads
-        // 0x0FFF and the mask derived from it is 0x3000. Assuming anything else would have the
-        // descriptor built here disagree with the one discovery builds from telemetry.
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
-    }
     const std::string soc_desc_path = find_simulator_soc_descriptor_path(simulator_directory);
     auto soc_arch_descriptor = soc_desc_path.empty() ? std::make_shared<SocArchDescriptor>(arch)
                                                      : std::make_shared<SocArchDescriptor>(soc_desc_path);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // Which ETH channels are harvested is the device's to report (ENABLED_ETH telemetry), and the
+        // SoC descriptor cannot be built without it. So bring the backend up first and build the
+        // descriptor from what the device reports, the way silicon does.
+        auto device = std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(
+            std::make_unique<SimulationTTDeviceModel>(arch, soc_arch_descriptor),
+            arch,
+            /*soc_descriptor=*/std::nullopt,
+            simulator_directory,
+            chip_id,
+            num_host_mem_channels,
+            num_chips,
+            pci_bdf));
+        device->init_tt_device();
+        return device;
+    }
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, pci_bdf);
+        simulator_directory,
+        SocDescriptor(soc_arch_descriptor, ChipInfo{}),
+        chip_id,
+        num_host_mem_channels,
+        num_chips,
+        pci_bdf);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
@@ -119,13 +121,31 @@ TTSimTTDevice::TTSimTTDevice(
     int num_host_mem_channels,
     size_t num_chips,
     std::optional<uint32_t> pci_bdf) :
+    TTSimTTDevice(
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor),
+        soc_descriptor.arch,
+        soc_descriptor,
+        simulator_directory,
+        chip_id,
+        num_host_mem_channels,
+        num_chips,
+        pci_bdf) {}
+
+TTSimTTDevice::TTSimTTDevice(
+    std::unique_ptr<SimulationTTDeviceModel> model,
+    tt::ARCH arch,
+    const std::optional<SocDescriptor>& soc_descriptor,
+    const std::filesystem::path& simulator_directory,
+    ChipId chip_id,
+    int num_host_mem_channels,
+    size_t num_chips,
+    std::optional<uint32_t> pci_bdf) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
+        ModelHandle(std::move(model)),
         simulator_directory,
-        std::make_unique<SimulationSysmemManager>(
-            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
+        std::make_unique<SimulationSysmemManager>(num_host_mem_channels, arch, static_cast<uint32_t>(chip_id))),
     // Pass chip_id and num_chips to the communicator. If the .so supports the multichip
     // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
     // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
@@ -134,7 +154,9 @@ TTSimTTDevice::TTSimTTDevice(
     communicator_(std::make_unique<TTSimCommunicator>(
         simulator_directory, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips), pci_bdf)),
     chip_id_(chip_id) {
-    set_soc_descriptor(soc_descriptor);
+    if (soc_descriptor.has_value()) {
+        set_soc_descriptor(*soc_descriptor);
+    }
     install_risc_reset();
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
@@ -145,7 +167,7 @@ TTSimTTDevice::TTSimTTDevice(
 void TTSimTTDevice::install_risc_reset() {
     // Quasar holds its DM cores in reset with the bit cleared, which is all the register write
     // differs by between architectures.
-    const bool inverted_reset_polarity = get_soc_descriptor().arch == tt::ARCH::QUASAR;
+    const bool inverted_reset_polarity = get_arch() == tt::ARCH::QUASAR;
     get_simulation_model()->set_risc_reset(std::make_unique<TTSimRiscReset>(
         this, get_architecture_implementation(), inverted_reset_polarity, device_lock));
 }
@@ -351,11 +373,24 @@ bool TTSimTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t
     return special_dram_read(mem_ptr, core, addr, size);
 }
 
+// Searches the DRAM cores rather than looking the coordinate up, so a coordinate the descriptor doesn't
+// know, or a harvested DRAM core, is simply not DRAM instead of throwing. Before the descriptor is built
+// no core is known to be DRAM; the reads that build it go to the ARC, not DRAM.
+bool TTSimTTDevice::is_dram_core(tt_xy_pair core) const {
+    if (!has_soc_descriptor()) {
+        return false;
+    }
+    const std::vector<CoreCoord> dram_cores = get_soc_descriptor().get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const CoreCoord& dram_core) {
+        return dram_core.x == core.x && dram_core.y == core.y;
+    });
+}
+
 bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!is_dram_core(get_soc_descriptor(), core)) {
+    if (!is_dram_core(core)) {
         return false;
     }
     const auto x = static_cast<uint32_t>(core.x);
@@ -372,7 +407,7 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!is_dram_core(get_soc_descriptor(), core)) {
+    if (!is_dram_core(core)) {
         return false;
     }
     const auto x = static_cast<uint32_t>(core.x);

@@ -4,6 +4,8 @@
 
 #include "tt-umd/tt_device/firmware/blackhole_arc_apb.hpp"
 
+#include <limits>
+
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
@@ -11,6 +13,21 @@
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// BAR0 addresses are 32-bit, so the base plus the offset must not wrap into a different register.
+// The whole 32-bit access has to fit, not only its first byte.
+uint32_t arc_apb_bar_address(uint64_t arc_addr_offset) {
+    constexpr uint64_t bar_end = static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1;
+    const uint64_t bar_address = blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset;
+    if (bar_address + sizeof(uint32_t) > bar_end) {
+        UMD_THROW(error::RuntimeError, "Address is out of BAR0 range for ARC APB access.");
+    }
+    return static_cast<uint32_t>(bar_address);
+}
+
+}  // namespace
 
 // How this class picks a route: a non-null JtagInterface means the device is reached over JTAG,
 // otherwise it is reached over PCIe. Inferring the protocol from which optional interface is present
@@ -57,8 +74,7 @@ void BlackholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size,
             RegisterAccessWidth::BITS32);
         return;
     }
-    auto result =
-        pcie_interface_->bar_read32(static_cast<uint32_t>(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset));
+    auto result = pcie_interface_->bar_read32(arc_apb_bar_address(arc_addr_offset));
     *(reinterpret_cast<uint32_t*>(mem_ptr)) = result;
 }
 
@@ -88,9 +104,7 @@ void BlackholeArcApb::write(
             RegisterAccessWidth::BITS32);
         return;
     }
-    pcie_interface_->bar_write32(
-        static_cast<uint32_t>(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset),
-        *(reinterpret_cast<const uint32_t*>(mem_ptr)));
+    pcie_interface_->bar_write32(arc_apb_bar_address(arc_addr_offset), *(reinterpret_cast<const uint32_t*>(mem_ptr)));
 }
 
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:

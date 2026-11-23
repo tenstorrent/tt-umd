@@ -247,6 +247,11 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
+    // Nothing stops the simulated device writing a mapping, so a read-only promise could not be kept.
+    UMD_ASSERT(
+        device_access != DeviceBufferAccess::READ_ONLY || is_read_only_page_pinning_supported(),
+        error::RuntimeError,
+        "Simulation cannot pin pages read-only to the device.");
     std::lock_guard<std::mutex> lock(registry_->mutex);
     // The caller owns this memory, so the buffer only drops the registry entry.
     return register_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});

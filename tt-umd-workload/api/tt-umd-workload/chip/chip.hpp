@@ -55,7 +55,7 @@ public:
 
     virtual TTDevice* get_tt_device() = 0;
 
-    // Allocates host memory this chip's device can reach, or nullptr for a chip without host memory access.
+    // Returns the allocator for host memory this chip's device can reach, or nullptr if it has no host memory access.
     virtual SystemMemoryAllocator* get_system_memory_allocator() = 0;
 
     [[deprecated("Use get_system_memory_allocator() instead.")]] SysmemManager* get_sysmem_manager();

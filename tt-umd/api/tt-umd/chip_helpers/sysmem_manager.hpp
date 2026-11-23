@@ -45,10 +45,6 @@ public:
         const bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) = 0;
 
-    /**
-     * @return whether this manager can pin host pages such that the device may read them but not write them,
-     * i.e. whether DeviceBufferAccess::READ_ONLY is enforceable for map_sysmem_buffer().
-     */
     bool is_read_only_page_pinning_supported() const override;
 
     uint64_t get_pcie_base() const { return pcie_base_; }

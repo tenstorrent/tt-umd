@@ -26,3 +26,15 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
     umd_cluster->get_sysmem_window_noc_base(chip_id);
     umd_cluster->get_num_host_channels(chip_id);
 }
+
+// A remote chip reaches the host only through its gateway chip, so it has no host memory of its own to hand out.
+TEST(ApiChipTest, RemoteChipHasNoSystemMemoryAllocator) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips found.";
+    }
+
+    for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(chip_id)->get_system_memory_allocator(), nullptr) << "chip " << chip_id;
+    }
+}

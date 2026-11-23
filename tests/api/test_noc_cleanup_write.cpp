@@ -57,15 +57,17 @@ protected:
 };
 
 TEST_F(ApiNocCleanupWriteTest, WritesWhenDestroyed) {
-    uint32_t value = 0;
-    tt_device_->write_to_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
-    {
-        NocCleanupWrite cleanup_write = make_cleanup_write(0, 0xc1ea4);
+    for (uint8_t noc : {0, 1}) {
+        uint32_t value = 0;
+        tt_device_->write_to_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+        {
+            NocCleanupWrite cleanup_write = make_cleanup_write(noc, 0xc1ea4);
+            tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+            EXPECT_EQ(value, 0) << "NOC " << int{noc};
+        }
         tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
-        EXPECT_EQ(value, 0);
+        EXPECT_EQ(value, 0xc1ea4) << "NOC " << int{noc};
     }
-    tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
-    EXPECT_EQ(value, 0xc1ea4);
 }
 
 TEST_F(ApiNocCleanupWriteTest, WritesAfterTheClientDropsItsPowerVote) {

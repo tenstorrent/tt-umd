@@ -22,9 +22,9 @@ namespace tt::umd {
 class NocCleanupWrite {
 public:
     // Registers a write of `data` to `addr` on tile (x, y) of NOC `noc` (0 or 1) of
-    // /dev/tenstorrent/<pci_device_num>. KMD hands (x, y) to the NOC unchanged: translated coordinates when
-    // firmware has enabled NOC translation, NOC `noc`'s own coordinates otherwise. `addr` must be 4-byte
-    // aligned. Throws when the device cannot be opened, KMD is older than 2.2.0, or KMD rejects the action.
+    // /dev/tenstorrent/<pci_device_num>. (x, y) are TRANSLATED coordinates on either NOC, as for a TLB window.
+    // `addr` must be 4-byte aligned. Throws when the device cannot be opened, KMD is older than 2.2.0, or KMD
+    // rejects the action.
     NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data);
     ~NocCleanupWrite() noexcept;
 

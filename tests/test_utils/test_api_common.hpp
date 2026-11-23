@@ -109,7 +109,7 @@ private:
 
 inline bool is_galaxy_board_type(tt::BoardType board_type) {
     return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
-           board_type == tt::BoardType::UBB_BLACKHOLE_CF;
+           board_type == tt::BoardType::UBB_BLACKHOLE_CF || board_type == tt::BoardType::UBB_BLACKHOLE_2;
 }
 
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.

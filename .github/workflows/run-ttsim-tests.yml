@@ -80,26 +80,13 @@ jobs:
           submodules: recursive
 
       - name: Download ttsim binaries
-        run: |
-          set -euo pipefail
-          # One line per asset: "release asset name | destination directory".
-          # Adding a new arch is a one-line change (issue #2899).
-          assets=$(
-          cat <<'EOF'
-          libttsim_wh.so|/tmp/ttsim-wh
-          libttsim_bh.so|/tmp/ttsim-bh
-          libttsim_bh_x2.so|/tmp/ttsim-bh-x2
-          libttsim_qsr.so|/tmp/ttsim-qsr
-          libttsim_wh_x2.so|/tmp/ttsim-wh-x2
-          libttsim_wh_x32.so|/tmp/ttsim-wh-x32
-          libttsim_bh_x32.so|/tmp/ttsim-bh-x32
-          EOF
-          )
-          latest=$(curl -fsSL https://api.github.com/repos/tenstorrent/ttsim/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
-          while IFS='|' read -r asset out_dir; do
-            mkdir -p "$out_dir"
-            curl -fsSL -o "$out_dir/$asset" "https://github.com/tenstorrent/ttsim/releases/download/$latest/$asset"
-          done <<< "$assets"
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          # Glob over the release assets; add a variant to the braces to download it.
+          fileName: "libttsim_{wh,bh,bh_x2,qsr,wh_x2,wh_x32,bh_x32}.so"
+          out-file-path: /tmp/ttsim
 
       # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
       # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
@@ -189,13 +176,13 @@ jobs:
         run: |
           echo "Preparing sim paths"
           mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2 sim_wh_x32 sim_bh_x32
-          mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
-          mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
-          mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
-          mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
-          mv /tmp/ttsim-bh-x2/libttsim_bh_x2.so sim_bh_x2/libttsim.so
-          mv /tmp/ttsim-wh-x32/libttsim_wh_x32.so sim_wh_x32/libttsim.so
-          mv /tmp/ttsim-bh-x32/libttsim_bh_x32.so sim_bh_x32/libttsim.so
+          mv /tmp/ttsim/libttsim_wh.so sim_wh/libttsim.so
+          mv /tmp/ttsim/libttsim_bh.so sim_bh/libttsim.so
+          mv /tmp/ttsim/libttsim_qsr.so sim_qsr/libttsim.so
+          mv /tmp/ttsim/libttsim_wh_x2.so sim_wh_x2/libttsim.so
+          mv /tmp/ttsim/libttsim_bh_x2.so sim_bh_x2/libttsim.so
+          mv /tmp/ttsim/libttsim_wh_x32.so sim_wh_x32/libttsim.so
+          mv /tmp/ttsim/libttsim_bh_x32.so sim_bh_x32/libttsim.so
           # Wormhole and Blackhole images need no soc_descriptor.yaml: UMD reads their architecture from
           # the image. The copies below are only for the tt-metal steps, as the tt-metal checkout still
           # expects one beside every simulator. Quasar always needs one.
@@ -574,32 +561,22 @@ jobs:
           submodules: recursive
 
       - name: Download ttsim binaries
-        run: |
-          set -euo pipefail
-          # One line per asset: "release asset name | destination directory".
-          # Adding a new arch is a one-line change (issue #2899).
-          assets=$(
-          cat <<'EOF'
-          libttsim_wh_aarch64.so|/tmp/ttsim-wh
-          libttsim_bh_aarch64.so|/tmp/ttsim-bh
-          libttsim_qsr_aarch64.so|/tmp/ttsim-qsr
-          libttsim_wh_x2_aarch64.so|/tmp/ttsim-wh-x2
-          EOF
-          )
-          latest=$(curl -fsSL https://api.github.com/repos/tenstorrent/ttsim/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
-          while IFS='|' read -r asset out_dir; do
-            mkdir -p "$out_dir"
-            curl -fsSL -o "$out_dir/$asset" "https://github.com/tenstorrent/ttsim/releases/download/$latest/$asset"
-          done <<< "$assets"
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          # Glob over the release assets; add a variant to the braces to download it.
+          fileName: "libttsim_{wh,bh,qsr,wh_x2}_aarch64.so"
+          out-file-path: /tmp/ttsim
 
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
           mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2
-          mv /tmp/ttsim-wh/libttsim_wh_aarch64.so sim_wh/libttsim.so
-          mv /tmp/ttsim-bh/libttsim_bh_aarch64.so sim_bh/libttsim.so
-          mv /tmp/ttsim-qsr/libttsim_qsr_aarch64.so sim_qsr/libttsim.so
-          mv /tmp/ttsim-wh-x2/libttsim_wh_x2_aarch64.so sim_wh_x2/libttsim.so
+          mv /tmp/ttsim/libttsim_wh_aarch64.so sim_wh/libttsim.so
+          mv /tmp/ttsim/libttsim_bh_aarch64.so sim_bh/libttsim.so
+          mv /tmp/ttsim/libttsim_qsr_aarch64.so sim_qsr/libttsim.so
+          mv /tmp/ttsim/libttsim_wh_x2_aarch64.so sim_wh_x2/libttsim.so
           # Wormhole and Blackhole images need no soc_descriptor.yaml: UMD reads their architecture from
           # the image. Quasar needs one.
           cp descriptors/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml

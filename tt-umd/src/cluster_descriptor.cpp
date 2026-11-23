@@ -985,11 +985,11 @@ void load_harvesting_information(const YAML::Node &yaml, ClusterDescription &des
 // The YAML doesn't list channel states, so every unharvested channel is idle unless a link uses it.
 void fill_eth_channel_states(ClusterDescription &description) {
     for (auto &[chip_id, chip] : description.chips) {
-        const int num_harvested_channels =
-            CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask);
-        const int num_channels =
+        const auto num_harvested_channels =
+            static_cast<uint32_t>(CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask));
+        const uint32_t num_channels =
             ArchitectureImplementation::create(chip.arch)->get_num_eth_channels() - num_harvested_channels;
-        for (int i = 0; i < num_channels; i++) {
+        for (uint32_t i = 0; i < num_channels; i++) {
             chip.idle_eth_channels.insert(i);
         }
     }

@@ -790,3 +790,23 @@ TEST_P(ApiSimulationSysmemManagerByArch, SimultaneousChipMappingsHaveDistinctHos
     EXPECT_EQ(*static_cast<uint8_t*>(a->get_va()), first_value);
     EXPECT_EQ(*static_cast<uint8_t*>(b->get_va()), second_value);
 }
+
+// Without channels the whole 0xFFFE0000-byte arena is free for buffers, so three 1 GiB buffers fit in it.
+TEST(ApiSimulationSysmemManager, MaxBufferCountIsHowManyBuffersFitInTheArena) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_max_buffer_count(1ULL << 30), std::optional<size_t>(3));
+}
+
+// A buffer larger than the arena can never be allocated, so none of it can be planned for.
+TEST(ApiSimulationSysmemManager, MaxBufferCountIsZeroForBufferLargerThanTheArena) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_max_buffer_count(1ULL << 32), std::optional<size_t>(0));
+}
+
+TEST(ApiSimulationSysmemManager, NocBaseIsTheWormholeSysmemWindowStart) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_noc_base(), 0x800000000ULL);
+}

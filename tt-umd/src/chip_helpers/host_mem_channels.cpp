@@ -43,7 +43,7 @@ void HostMemChannels::unmap_channels() {
     }
 }
 
-void HostMemChannels::write_to_channel(uint16_t channel, const void* src, uint64_t offset, uint32_t size) {
+void HostMemChannels::write_to_channel(uint16_t channel, const void* src, uint64_t offset, uint32_t size) const {
     ZoneScopedC(tracy::Color::Yellow);
     void* address = get_channel_address(channel);
     const size_t channel_size = get_channel_size(channel);

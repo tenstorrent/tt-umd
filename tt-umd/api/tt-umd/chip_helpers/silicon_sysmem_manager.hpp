@@ -19,8 +19,6 @@ class SiliconSysmemManager : public SysmemManager {
 public:
     explicit SiliconSysmemManager(TTDevice* tt_device);
 
-    ~SiliconSysmemManager() override;
-
     // Without an IOMMU each buffer is one 1 GB hugepage, so the size must be at most 1 GB.
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
@@ -32,6 +30,13 @@ public:
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
     std::optional<size_t> get_max_buffer_count(size_t size) const override;
+
+    /**
+     * Allocates the memory of host memory channel `channel`, bound to the NOC. Without an IOMMU it is the device's
+     * hugepage for that channel, the same page every process using the device maps for that channel, so size must
+     * be at most 1 GB.
+     */
+    std::unique_ptr<SysmemBuffer> allocate_channel_buffer(uint32_t channel, size_t size);
 
 private:
     /**

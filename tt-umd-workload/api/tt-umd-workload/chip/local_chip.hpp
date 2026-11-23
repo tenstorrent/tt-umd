@@ -16,6 +16,7 @@
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/io_window/io_window.hpp"
@@ -42,7 +43,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
-    HostMemChannels* get_host_mem_channels() override;
+    const HostMemChannels* get_host_mem_channels() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
@@ -84,7 +85,7 @@ public:
 private:
     LocalChip(
         std::unique_ptr<TTDevice> tt_device,
-        std::unique_ptr<SysmemManager> sysmem_manager,
+        std::unique_ptr<SiliconSysmemManager> sysmem_manager,
         uint32_t num_host_mem_channels,
         bool host_mem_in_single_buffer);
 
@@ -92,7 +93,7 @@ private:
     void map_host_mem_channels();
     void unmap_host_mem_channels();
 
-    std::unique_ptr<SysmemManager> sysmem_manager_;
+    std::unique_ptr<SiliconSysmemManager> sysmem_manager_;
 
     HostMemChannels host_mem_channels_;
 

@@ -28,11 +28,11 @@ class TTDevice;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, HostMemChannels* host_mem_channels = nullptr);
+    RemoteCommunication(TTDevice* local_tt_device, const HostMemChannels* host_mem_channels = nullptr);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels = nullptr);
+        TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels = nullptr);
 
     // Target core should be in translated coords.
     virtual void read_non_mmio(
@@ -70,7 +70,7 @@ public:
 
     // Sets the local chip's host memory channels, used for host-DRAM-backed transfers (required for broadcasts and
     // used to speed up large transfers).
-    void set_host_mem_channels(HostMemChannels* host_mem_channels);
+    void set_host_mem_channels(const HostMemChannels* host_mem_channels);
 
     bool has_host_mem_channels() const;
 
@@ -83,7 +83,7 @@ protected:
 
     TTDevice* local_tt_device_;
 
-    HostMemChannels* host_mem_channels_;
+    const HostMemChannels* host_mem_channels_;
 };
 
 }  // namespace tt::umd

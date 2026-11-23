@@ -9,6 +9,7 @@
 #include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_512MB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
+#include <sys/stat.h>    // for fstat
 #include <unistd.h>
 
 #include <cerrno>
@@ -22,6 +23,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
+#include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
@@ -38,7 +40,7 @@ namespace tt::umd {
 // regardless of size, so 1GB (PUD/level-1 block) consumes half as many TLB entries as
 // 512MB (PMD/level-2 block) for the same total memory, reducing IOMMU mapping overhead.
 // 512MB is only meaningful on AArch64 with 64K base pages; it is not exposed on x86.
-// Sets mapping_size to the size actually mapped, which can exceed size when 1GB hugepages are used.
+// Sets mapping_size to the size actually mapped, which exceeds size when it is rounded up to whole hugepages.
 static void *mmap_with_hugepage_fallback(size_t size, size_t &mapping_size) {
     constexpr size_t kHugepage1GiB = 1ULL << 30;
     constexpr size_t kHugepage512MiB = 512ULL << 20;
@@ -47,8 +49,9 @@ static void *mmap_with_hugepage_fallback(size_t size, size_t &mapping_size) {
     void *addr = MAP_FAILED;
     mapping_size = size;
 
-    // A size of 1GiB or more is rounded up to whole 1GiB hugepages. Host memory channels need this: on WH they stop
-    // 256MB short of a whole number of gigabytes, and smaller pages would multiply their IOMMU entries.
+    // A size of at least one 1GiB or 512MiB hugepage is rounded up to whole hugepages of that size. Host memory
+    // channels need this: on WH they stop 256MB short of a whole number of gigabytes, and smaller pages would
+    // multiply their IOMMU entries.
     const size_t size_in_1gib_pages = (size + kHugepage1GiB - 1) / kHugepage1GiB * kHugepage1GiB;
     if (size >= kHugepage1GiB) {
         addr = mmap(
@@ -66,16 +69,18 @@ static void *mmap_with_hugepage_fallback(size_t size, size_t &mapping_size) {
     }
 
     // 512MB hugepages (PMD block on AArch64 with 64K base pages).
-    if (size >= kHugepage512MiB && (size % kHugepage512MiB) == 0) {
+    const size_t size_in_512mib_pages = (size + kHugepage512MiB - 1) / kHugepage512MiB * kHugepage512MiB;
+    if (size >= kHugepage512MiB) {
         addr = mmap(
             nullptr,
-            size,
+            size_in_512mib_pages,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_512MB | MAP_POPULATE,
             -1,
             0);
         if (addr != MAP_FAILED) {
-            log_debug(LogUMD, "Allocated {:#x} bytes using 512MB hugepages.", size);
+            log_debug(LogUMD, "Allocated {:#x} bytes using 512MB hugepages.", size_in_512mib_pages);
+            mapping_size = size_in_512mib_pages;
             return addr;
         }
     }
@@ -171,8 +176,6 @@ SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device) {
     communication_id_ = tt_device->get_communication_device_id();
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
 }
-
-SiliconSysmemManager::~SiliconSysmemManager() = default;
 
 std::optional<size_t> SiliconSysmemManager::get_max_buffer_count(size_t size) const {
     // With an IOMMU buffers are ordinary memory, so any number fits.
@@ -277,7 +280,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
                 HUGEPAGE_REGION_SIZE,
                 sysmem_buffer_size));
     }
-    // The size actually mapped: the fallback can round it up to whole hugepages.
+    // The size actually mapped: one whole hugepage without an IOMMU, else what the fallback rounded the request up to.
     size_t mapping_size = HUGEPAGE_REGION_SIZE;
     // Without an IOMMU the device reaches only physically contiguous memory, so a buffer is one whole 1 GB
     // hugepage. It is anonymous, so unlike the channels' hugetlbfs files no other allocator or process can map
@@ -316,6 +319,92 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
         return pin_and_wrap(
             mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping, hugepage);
     } catch (...) {
+        // Nothing owns the mmap yet, so free it here rather than leaking it.
+        release_mapping(mapping);
+        throw;
+    }
+}
+
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_channel_buffer(uint32_t channel, size_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
+    if (pci_device_->is_iommu_enabled()) {
+        return allocate_sysmem_buffer(size, /*map_to_noc=*/true);
+    }
+    UMD_ASSERT(
+        size > 0 && size <= HUGEPAGE_REGION_SIZE,
+        error::RuntimeError,
+        fmt::format(
+            "Without an IOMMU a host memory channel is one {:#x} byte hugepage, so it cannot hold {:#x} bytes.",
+            HUGEPAGE_REGION_SIZE,
+            size));
+    const int device_num = pci_device_->get_device_num();
+    const std::string hugepage_dir = find_hugepage_dir(HUGEPAGE_REGION_SIZE);
+    UMD_ASSERT(
+        !hugepage_dir.empty(),
+        error::RuntimeError,
+        fmt::format("No hugetlbfs mount found for {:#x} byte hugepages.", HUGEPAGE_REGION_SIZE));
+
+    // The file is named by device and channel, so the channel is the same hugepage across restarts and for every
+    // process using the device.
+    const int hugepage_fd = open_hugepage_file(hugepage_dir, device_num, channel);
+    UMD_ASSERT(
+        hugepage_fd != -1,
+        error::RuntimeError,
+        fmt::format("Creating the hugepage file of device {} channel {} failed.", device_num, channel));
+
+    struct stat hugepage_st {};
+
+    if (fstat(hugepage_fd, &hugepage_st) == -1) {
+        log_warning(LogUMD, "Error reading hugepage file size after opening.");
+    }
+    void *mapping =
+        mmap(nullptr, HUGEPAGE_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0);
+    const int mmap_errno = errno;
+    close(hugepage_fd);
+    if (mapping == MAP_FAILED) {
+        if (hugepage_st.st_size == 0) {
+            log_warning(
+                LogUMD,
+                "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
+                "hugepages are provided.");
+        }
+        print_file_contents("/proc/cmdline");
+        print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB.
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Mapping the hugepage of device {} channel {} failed: {}.", device_num, channel, strerror(mmap_errno)));
+    }
+
+    // Device-to-host transfers are faster when the hugepage sits on the device's NUMA node.
+    if (!tt::cpuset::cpuset_allocator::bind_area_to_memory_nodeset(device_num, mapping, HUGEPAGE_REGION_SIZE)) {
+        log_warning(
+            LogUMD,
+            "bind_area_to_memory_nodeset() failed (device: {} channel: {}). Hugepage allocation is not on the NUMA "
+            "node matching the TT device. Side-Effect is decreased Device->Host perf (Issue #893).",
+            device_num,
+            channel);
+    }
+
+    const SysmemBuffer::Deleter release_mapping = [](void *aligned_va) {
+        if (munmap(aligned_va, HUGEPAGE_REGION_SIZE) != 0) {
+            log_warning(
+                LogUMD, "Failed to munmap host memory channel hugepage at {:p}: {}.", aligned_va, strerror(errno));
+        }
+    };
+
+    try {
+        return pin_and_wrap(
+            mapping, size, /*map_to_noc=*/true, DeviceBufferAccess::READ_WRITE, release_mapping, /*hugepage=*/true);
+    } catch (...) {
+        log_warning(
+            LogUMD,
+            "Failed pinning the hugepage of device {} channel {}. See contents of the following files:",
+            device_num,
+            channel);
+        print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
+        print_file_contents("/proc/meminfo");
+        print_file_contents("/proc/buddyinfo");
         // Nothing owns the mmap yet, so free it here rather than leaking it.
         release_mapping(mapping);
         throw;

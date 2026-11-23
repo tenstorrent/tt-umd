@@ -58,7 +58,7 @@ public:
      * Returns this chip's host memory channels, or nullptr for a chip that has none. The pointer stays valid for
      * the chip's lifetime, but a channel may be unmapped while the chip is not started.
      */
-    virtual HostMemChannels* get_host_mem_channels() { return nullptr; }
+    virtual const HostMemChannels* get_host_mem_channels() { return nullptr; }
 
     virtual std::size_t get_num_host_channels() = 0;
     virtual std::size_t get_host_channel_size(std::uint32_t channel) = 0;

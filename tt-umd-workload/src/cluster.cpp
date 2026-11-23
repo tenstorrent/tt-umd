@@ -208,8 +208,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 namespace {
 
 // No host memory channels can't back remote transfers, so remote communication treats them as absent.
-HostMemChannels* usable_host_mem_channels(Chip* chip) {
-    HostMemChannels* host_mem_channels = chip->get_host_mem_channels();
+const HostMemChannels* usable_host_mem_channels(Chip* chip) {
+    const HostMemChannels* host_mem_channels = chip->get_host_mem_channels();
     if (host_mem_channels != nullptr && host_mem_channels->get_num_channels() == 0) {
         return nullptr;
     }
@@ -1247,7 +1247,7 @@ Cluster::~Cluster() {
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
-    HostMemChannels* host_mem_channels = get_chip(src_device_id)->get_host_mem_channels();
+    const HostMemChannels* host_mem_channels = get_chip(src_device_id)->get_host_mem_channels();
     void* channel_address = host_mem_channels ? host_mem_channels->get_channel_address(channel) : nullptr;
     if (channel_address != nullptr) {
         return static_cast<std::byte*>(channel_address) + offset;

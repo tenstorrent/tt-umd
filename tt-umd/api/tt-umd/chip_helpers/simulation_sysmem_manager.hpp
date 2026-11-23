@@ -11,6 +11,7 @@
 #include <optional>
 #include <vector>
 
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 
@@ -50,9 +51,15 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
-    size_t get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
+    size_t get_num_host_mem_channels() const { return host_mem_channels_.get_num_channels(); }
 
     HugepageMapping get_hugepage_mapping(size_t channel) const;
+
+    /**
+     * The same channels as a HostMemChannels, for the chip that owns this device. The object lives as long as this
+     * manager; growing the channels remaps it in place.
+     */
+    const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
 
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
@@ -63,7 +70,7 @@ public:
         const bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
-    std::optional<size_t> get_max_buffer_count(size_t /*size*/) const override { return std::nullopt; }
+    std::optional<size_t> get_max_buffer_count(size_t size) const override;
 
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
@@ -147,7 +154,7 @@ private:
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
-    std::vector<HugepageMapping> hugepage_mapping_per_channel;
+    HostMemChannels host_mem_channels_;
     uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
     std::shared_ptr<MappedBufferRegistry> registry_;
 };

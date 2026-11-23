@@ -11,6 +11,7 @@
 
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -21,22 +22,6 @@
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
-
-namespace {
-
-HostMemChannels view_host_mem_channels(SimulationSysmemManager* sysmem_manager) {
-    if (sysmem_manager == nullptr) {
-        return HostMemChannels();
-    }
-    HostMemChannels channels(sysmem_manager->get_num_host_mem_channels());
-    for (size_t channel = 0; channel < channels.get_num_channels(); channel++) {
-        const HugepageMapping mapping = sysmem_manager->get_hugepage_mapping(channel);
-        channels.map_channel(channel, mapping.mapping, mapping.mapping_size);
-    }
-    return channels;
-}
-
-}  // namespace
 
 std::unique_ptr<SimulationChip> SimulationChip::create(
     const std::filesystem::path& simulator_directory,
@@ -78,8 +63,6 @@ SimulationChip::SimulationChip(
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
-    // The cluster settles the simulated device's channel count before it builds chips, so the view is final.
-    host_mem_channels_ = view_host_mem_channels(tt_device_->get_sysmem_manager());
 }
 
 void SimulationChip::start_device(uint32_t dram_membar_subchannel) {}
@@ -179,22 +162,29 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-size_t SimulationChip::get_num_host_channels() { return host_mem_channels_.get_num_channels(); }
+size_t SimulationChip::get_num_host_channels() {
+    const HostMemChannels* host_mem_channels = get_host_mem_channels();
+    return host_mem_channels ? host_mem_channels->get_num_channels() : 0;
+}
 
 size_t SimulationChip::get_host_channel_size(std::uint32_t channel) {
     UMD_ASSERT(
         channel < get_num_host_channels(),
         error::RuntimeError,
         "Querying size for a host channel that does not exist.");
-    return host_mem_channels_.get_channel_size(channel);
+    return get_host_mem_channels()->get_channel_size(channel);
 }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    host_mem_channels_.write_to_channel(channel, src, sysmem_dest, size);
+    UMD_ASSERT(
+        channel < get_num_host_channels(), error::RuntimeError, "Writing to a host channel that does not exist.");
+    get_host_mem_channels()->write_to_channel(channel, src, sysmem_dest, size);
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    host_mem_channels_.read_from_channel(channel, dest, sysmem_src, size);
+    UMD_ASSERT(
+        channel < get_num_host_channels(), error::RuntimeError, "Reading from a host channel that does not exist.");
+    get_host_mem_channels()->read_from_channel(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
@@ -205,7 +195,11 @@ TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
 
-HostMemChannels* SimulationChip::get_host_mem_channels() { return &host_mem_channels_; }
+const HostMemChannels* SimulationChip::get_host_mem_channels() {
+    // The simulated device keeps the channels, since its simulator reaches them by address.
+    const SimulationSysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    return sysmem_manager ? sysmem_manager->get_host_mem_channels() : nullptr;
+}
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

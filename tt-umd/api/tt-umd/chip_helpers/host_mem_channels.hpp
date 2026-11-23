@@ -40,6 +40,10 @@ public:
      */
     size_t get_channel_size(size_t channel) const;
 
+    /**
+     * Maps channel onto memory the caller keeps alive while the channel is mapped. Throws if the channel does not
+     * exist, the memory is null or empty, or it is larger than CHANNEL_STRIDE.
+     */
     void map_channel(size_t channel, void* address, size_t size);
 
     void unmap_channels();
@@ -47,7 +51,7 @@ public:
     /**
      * Copies size bytes from src into the channel at offset, which wraps at the channel size.
      */
-    void write_to_channel(uint16_t channel, const void* src, uint64_t offset, uint32_t size);
+    void write_to_channel(uint16_t channel, const void* src, uint64_t offset, uint32_t size) const;
 
     /**
      * Copies size bytes from the channel at offset, which wraps at the channel size, into dest.

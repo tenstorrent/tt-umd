@@ -47,7 +47,7 @@ struct routing_cmd_t {
 };
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
-    TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels) :
+    TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels) :
     RemoteCommunication(local_tt_device, host_mem_channels),
     target_chip(target_chip),
     // The ETH routing firmware this class talks to only ever ran on Wormhole.

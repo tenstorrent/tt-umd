@@ -101,7 +101,7 @@ HostMemChannelPlan plan_host_mem_channels(
 }  // namespace
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
-    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<SiliconSysmemManager> sysmem_manager = nullptr;
     HostMemChannelPlan channel_plan;
 
     if (tt_device == nullptr) {
@@ -120,7 +120,7 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
 
 LocalChip::LocalChip(
     std::unique_ptr<TTDevice> tt_device,
-    std::unique_ptr<SysmemManager> sysmem_manager,
+    std::unique_ptr<SiliconSysmemManager> sysmem_manager,
     uint32_t num_host_mem_channels,
     bool host_mem_in_single_buffer) :
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
@@ -192,7 +192,7 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }
+const HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
@@ -285,7 +285,7 @@ void LocalChip::map_host_mem_channels() {
         const size_t channel_size = get_host_mem_channel_size(arch, channel);
         std::unique_ptr<SysmemBuffer> buffer;
         try {
-            buffer = sysmem_manager_->allocate_buffer(channel_size, /*bind_to_noc=*/true);
+            buffer = sysmem_manager_->allocate_channel_buffer(static_cast<uint32_t>(channel), channel_size);
         } catch (const std::exception& e) {
             log_warning(
                 LogUMD,

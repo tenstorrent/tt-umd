@@ -18,7 +18,7 @@
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, HostMemChannels* host_mem_channels) :
+RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, const HostMemChannels* host_mem_channels) :
     local_tt_device_(local_tt_device), host_mem_channels_(host_mem_channels) {
     LockManager::initialize_mutex(
         MutexType::NON_MMIO,
@@ -27,7 +27,7 @@ RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, HostMemChann
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels) {
+    TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels) {
     switch (local_tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, host_mem_channels);
@@ -57,7 +57,7 @@ const std::vector<tt_xy_pair>& RemoteCommunication::get_remote_transfer_ethernet
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
-void RemoteCommunication::set_host_mem_channels(HostMemChannels* host_mem_channels) {
+void RemoteCommunication::set_host_mem_channels(const HostMemChannels* host_mem_channels) {
     host_mem_channels_ = host_mem_channels;
 }
 

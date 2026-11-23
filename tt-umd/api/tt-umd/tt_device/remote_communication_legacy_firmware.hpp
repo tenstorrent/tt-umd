@@ -24,7 +24,7 @@ class TTDevice;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device, EthCoord target_chip, HostMemChannels* host_mem_channels = nullptr);
+        TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels = nullptr);
 
     void read_non_mmio(
         tt_xy_pair target_core,

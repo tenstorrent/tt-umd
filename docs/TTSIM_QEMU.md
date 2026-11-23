@@ -64,22 +64,19 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
     run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 32G --bar0-size 4G \
     --kmd-module /opt/tenstorrent-keraunos.ko -- \
     env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:QuasarIoWindow.*'
+    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*'
 ```
 
-Those three suites are what a Grendel function covers today: 11 device-I/O cases, 2 coordinate-fold
-cases and 4 window cases, all measured passing in this guest. A filter that selects nothing still
-exits 0, so the CI row counts what it selected before running it and fails the step when the count is
-zero -- otherwise a build missing those suites would report green having run nothing.
+Those two suites are what a Grendel function covers today: 11 device-I/O cases and 2 coordinate-fold
+cases. A filter that selects nothing still exits 0, so the CI row counts what it selected before
+running it and fails the step when the count is zero -- otherwise a build missing those suites would
+report green having run nothing.
 
 `--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device. BAR0 used to be a
 compile-time 512 MiB constant there, and simply raising it is not an option because one image serves
 every card. The property landed upstream in ttsim-qemu `aa112ebe16`, which is what
 `TTSIM_QEMU_COMMIT` pins; it gives BAR0 the treatment BAR4 already has, so BAR0 stays 512 MiB unless
 a caller asks for more and the Wormhole and Blackhole rows are unaffected.
-
-The Grendel CI row stays `continue-on-error` while the suites it names are still in review: the
-filter check fails the step rather than reporting a green run of nothing.
 
 `GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
 for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside

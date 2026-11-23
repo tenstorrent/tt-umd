@@ -23,8 +23,8 @@ ARG TT_KMD_TAG=ttkmd-2.11.0
 #
 # This is the tip of the Keraunos TLB stack (pjanevski/keraunos-tlb-attributes), not `keraunos`
 # itself: handing TLB windows to userspace is tt-kmd #305 and #306, which `keraunos` does not carry,
-# and without them every window the QuasarIoWindow suite asks for fails to allocate. Move this to a
-# `keraunos` commit once the stack lands there.
+# and without them every TLB window a caller asks for fails to allocate. Move this to a `keraunos`
+# commit once the stack lands there.
 ARG TT_KMD_KERAUNOS_COMMIT=79f37ac65da08e53177ea15fb740a29557fb9c08
 
 # Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu. ttsim-qemu is Tenstorrent's fork of

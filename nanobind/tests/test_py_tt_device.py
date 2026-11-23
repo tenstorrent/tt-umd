@@ -420,6 +420,24 @@ class TestTTDevice(unittest.TestCase):
                     dev.read_from_device_reg(x, y, 0x1000, 4, noc_id=noc0),
                     b"\x05\x06\x07\x08",
                 )
+                # TEST (0x90) increments arg0 on Blackhole; only check success since Wormhole packs its args.
+                exit_code, _, _ = dev.arc_msg(0x90, args=[1], noc_id=noc0)
+                self.assertEqual(exit_code, 0)
+
+                # DMA is only available on local devices, and Blackhole has no DMA read.
+                if not dev.is_remote():
+                    dma_data = b"\x09\x0a\x0b\x0c"
+                    dev.dma_write_to_device(x, y, 0x1000, dma_data, noc_id=noc0)
+                    if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
+                        self.assertEqual(
+                            dev.dma_read_from_device(x, y, 0x1000, 4, noc_id=noc0),
+                            dma_data,
+                        )
+                        dma_buffer = bytearray(4)
+                        dev.dma_read_from_device(x, y, 0x1000, dma_buffer, noc_id=noc0)
+                        self.assertEqual(dma_buffer, dma_data)
+                    else:
+                        self.assertEqual(dev.noc_read(x, y, 0x1000, 4), dma_data)
             finally:
                 dev.noc_write(x, y, 0x1000, original)
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)

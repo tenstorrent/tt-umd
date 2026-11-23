@@ -9,8 +9,6 @@
 #include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_512MB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
-#include <sys/stat.h>    // for fstat
-#include <unistd.h>
 
 #include <cerrno>
 #include <cstddef>
@@ -230,64 +228,36 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = pci_device_->get_device_num();
 
-    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
-    if (hugepage_dir.empty()) {
-        log_warning(
-            LogUMD,
-            "SiliconSysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.",
-            hugepage_size);
-        return false;
-    }
-
-    bool success = true;
-
     hugepage_mapping_per_channel.resize(num_host_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (uint32_t ch = 0; ch < num_host_mem_channels; ch++) {
-        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
-        if (hugepage_fd == -1) {
-            // Probably a permissions problem.
-            log_warning(
-                LogUMD,
-                "SiliconSysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file "
-                "failed.",
-                physical_device_id,
-                ch);
-            success = false;
-            continue;
-        }
-
-        // Verify opened file size.
-        struct stat hugepage_st;
-        if (fstat(hugepage_fd, &hugepage_st) == -1) {
-            log_warning(LogUMD, "Error reading hugepage file size after opening.");
-        }
-
-        std::byte *mapping = static_cast<std::byte *>(
-            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
-
-        close(hugepage_fd);
+        // Without an IOMMU the KMD can only pin physically contiguous memory, so each channel is one 1GB hugepage
+        // taken from the kernel's pool, with no hugetlbfs mount involved. It must be shared: a private mapping is
+        // copy-on-write after fork(), which either moves this process off the pinned page or needs a spare 1GB page.
+        void *mapping = mmap(
+            nullptr,
+            hugepage_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+            -1,
+            0);
 
         if (mapping == MAP_FAILED) {
-            log_warning(
-                LogUMD,
-                "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).",
-                physical_device_id,
+            const int mmap_errno = errno;
+            // Throwing from the constructor skips the destructor, so release the channels mapped so far here.
+            unpin_or_unmap_sysmem();
+            std::string message = fmt::format(
+                "Failed to allocate a 1GB hugepage for host memory channel {} of device {}, which needs {} of them: "
+                "{}.",
                 ch,
+                physical_device_id,
                 num_host_mem_channels,
-                strerror(errno));
-            if (hugepage_st.st_size == 0) {
-                log_warning(
-                    LogUMD,
-                    "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
-                    "hugepages are provided.");
+                strerror(mmap_errno));
+            if (mmap_errno == ENOMEM) {
+                message += " " + describe_hugepage_pool();
             }
-            print_file_contents("/proc/cmdline");
-            print_file_contents(
-                "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
-            success = false;
-            continue;
+            UMD_THROW(error::RuntimeError, message);
         }
 
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
@@ -307,7 +277,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         TracyAllocN(mapping, hugepage_size, "Hugepage");
     }
 
-    return success;
+    return true;
 }
 
 bool SiliconSysmemManager::pin_or_map_hugepages() {

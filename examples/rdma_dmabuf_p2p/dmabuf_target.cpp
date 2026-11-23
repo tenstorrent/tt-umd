@@ -110,7 +110,8 @@ int run(int argc, char** argv) {
     const uint64_t ordering = parse_ordering(args.ordering);
 
     // --- UMD side: export a TLB window as a dma-buf ------------------------------------------
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    // All transfers go through TLB windows, so no host memory channels (1G hugepages) are needed.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
     const SocDescriptor& soc_desc = cluster->get_soc_descriptor(args.chip);
     std::vector<CoreCoord> dram_cores = soc_desc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
     if (dram_cores.empty()) {

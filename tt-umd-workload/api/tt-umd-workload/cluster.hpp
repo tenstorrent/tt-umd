@@ -24,6 +24,7 @@
 
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
+#include "tt-umd-workload/cluster_device_event_listener.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -753,19 +754,18 @@ public:
     //---------- Device events.
 
     /**
-     * Create a listener for the event records of all chips in the cluster, reported with each chip's ChipId as the
-     * batch key. See DeviceEventListener.
+     * Create a listener for the event records of the cluster's chips, reporting each by its ChipId. See
+     * ClusterDeviceEventListener. If none of the chips can be read, the listener has nothing to read, and a read()
+     * waits only for cancel() or a signal.
      *
-     * The listener reads through its own device handles, so it doesn't depend on this Cluster at runtime and may
-     * outlive it. Its keys are this Cluster's chip IDs, though, which a later Cluster may number differently, so
-     * stop using it together with this Cluster. Destroying the Cluster doesn't end a read() waiting at that point:
-     * cancel() it.
-     *
-     * @param uncovered_chip_ids If not null, receives the chips whose events can't be read: chips without a device,
-     *                           chips reached over Ethernet, and chips whose device model or KMD doesn't support
-     *                           device events. If null, each such chip is logged as a warning instead.
+     * @param chip_ids           The chips to listen to; std::nullopt (the default) for all chips in the cluster. A bare
+     *                           {} is std::nullopt. Throws if the set is empty or a chip ID isn't in this cluster.
+     * @param uncovered_chip_ids If not null, receives the listened chips whose events can't be read: chips without a
+     *                           device, chips reached over Ethernet, and chips whose device model or KMD doesn't
+     *                           support device events. If null, each such chip is logged as a warning instead.
      */
-    std::unique_ptr<DeviceEventListener> create_event_listener(std::set<ChipId>* uncovered_chip_ids = nullptr);
+    std::unique_ptr<ClusterDeviceEventListener> create_event_listener(
+        const std::optional<std::set<ChipId>>& chip_ids = std::nullopt, std::set<ChipId>* uncovered_chip_ids = nullptr);
 
 private:
     // Helper functions

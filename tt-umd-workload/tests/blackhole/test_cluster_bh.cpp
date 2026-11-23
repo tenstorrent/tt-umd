@@ -18,13 +18,14 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_event_test_utils.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd-workload/cluster_device_event_listener.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/tt_device/device_event_listener.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/blackhole_l1.hpp"
@@ -522,6 +523,18 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
     cluster.close_device();
 }
 
+namespace {
+
+// Publishes a TEST record, with data[2] set to data2, through the chip's firmware.
+void publish_cluster_test_event(TTDevice& tt_device, uint32_t data2) {
+    constexpr uint32_t repeat = 1;
+    DeviceCommandResult result = tt_device.get_device_firmware()->send_device_command(
+        test_utils::TEST_EVENT_RECORD_MSG, {repeat << 16, 0, 0, 0, data2}, timeout::ARC_MESSAGE_TIMEOUT);
+    ASSERT_EQ(result.exit_code, 0u);
+}
+
+}  // namespace
+
 TEST(ClusterBH, EventListenerReportsRecordsUnderChipId) {
     if (!PCIDevice::is_device_events_supported()) {
         GTEST_SKIP() << "KMD " << PCIDevice::read_kmd_version().str() << " is below required " << KMD_READ_EVENTS.str();
@@ -534,32 +547,70 @@ TEST(ClusterBH, EventListenerReportsRecordsUnderChipId) {
     }
 
     std::set<ChipId> uncovered_chip_ids;
-    std::unique_ptr<DeviceEventListener> listener = cluster->create_event_listener(&uncovered_chip_ids);
+    std::unique_ptr<ClusterDeviceEventListener> listener =
+        cluster->create_event_listener(std::nullopt, &uncovered_chip_ids);
     for (const ChipId chip_id : local_chip_ids) {
         EXPECT_EQ(uncovered_chip_ids.count(chip_id), 0u) << "Local chip " << chip_id << " is not covered";
     }
 
-    // The last chip, so that on a multi-chip system the key isn't 0 by coincidence.
+    // The last chip, so that on a multi-chip system the chip ID isn't 0 by coincidence.
     const ChipId chip_id = *local_chip_ids.rbegin();
     TTDevice* tt_device = cluster->get_tt_device(chip_id);
     if (!tt_device->create_event_reader()->is_firmware_attached()) {
         GTEST_SKIP() << "Firmware does not publish device events.";
     }
 
-    // Firmware's TT_SMC_MSG_TEST_EVENT_RECORD publishes a TEST record with the data the host chooses.
-    constexpr uint32_t test_event_record_msg = 0x91;
-    constexpr uint32_t repeat = 1;
     tt_device->set_power_state(TTDevice::PowerState::BUSY);
-    DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
-        test_event_record_msg, {repeat << 16, 0, 0, 0, 17}, timeout::ARC_MESSAGE_TIMEOUT);
-    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, std::chrono::milliseconds(1000));
+    publish_cluster_test_event(*tt_device, 17);
+    std::vector<ChipEventBatch> batches = listener->read_for(4, test_utils::EVENT_READ_TIMEOUT);
     tt_device->set_power_state(TTDevice::PowerState::IDLE);
 
-    ASSERT_EQ(result.exit_code, 0u);
     ASSERT_EQ(batches.size(), 1u);
-    EXPECT_EQ(batches[0].key, static_cast<DeviceEventKey>(chip_id));
+    EXPECT_EQ(batches[0].chip_id, chip_id);
     ASSERT_EQ(batches[0].batch.events.size(), 1u);
     EXPECT_EQ(batches[0].batch.events[0].data[2], 17u);
+}
+
+TEST(ClusterBH, EventListenerForChipSubsetLeavesOtherChipsOut) {
+    if (!PCIDevice::is_device_events_supported()) {
+        GTEST_SKIP() << "KMD " << PCIDevice::read_kmd_version().str() << " is below required " << KMD_READ_EVENTS.str();
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const std::set<ChipId> local_chip_ids = cluster->get_target_mmio_device_ids();
+    if (local_chip_ids.size() < 2) {
+        GTEST_SKIP() << "Needs two Tenstorrent devices.";
+    }
+
+    const ChipId listened_chip_id = *local_chip_ids.begin();
+    const ChipId other_chip_id = *local_chip_ids.rbegin();
+    TTDevice* listened_tt_device = cluster->get_tt_device(listened_chip_id);
+    TTDevice* other_tt_device = cluster->get_tt_device(other_chip_id);
+    if (!listened_tt_device->create_event_reader()->is_firmware_attached() ||
+        !other_tt_device->create_event_reader()->is_firmware_attached()) {
+        GTEST_SKIP() << "Firmware does not publish device events.";
+    }
+
+    std::set<ChipId> uncovered_chip_ids;
+    std::unique_ptr<ClusterDeviceEventListener> listener =
+        cluster->create_event_listener(std::set<ChipId>{listened_chip_id}, &uncovered_chip_ids);
+    EXPECT_TRUE(uncovered_chip_ids.empty());
+
+    // The other chip's record is published first, so it would arrive no later than the listened chip's.
+    listened_tt_device->set_power_state(TTDevice::PowerState::BUSY);
+    other_tt_device->set_power_state(TTDevice::PowerState::BUSY);
+    publish_cluster_test_event(*other_tt_device, 23);
+    publish_cluster_test_event(*listened_tt_device, 29);
+    std::vector<ChipEventBatch> batches = listener->read_for(4, test_utils::EVENT_READ_TIMEOUT);
+    std::vector<ChipEventBatch> later_batches = listener->read_for(4, std::chrono::milliseconds(200));
+    other_tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    listened_tt_device->set_power_state(TTDevice::PowerState::IDLE);
+
+    ASSERT_EQ(batches.size(), 1u);
+    EXPECT_EQ(batches[0].chip_id, listened_chip_id);
+    ASSERT_EQ(batches[0].batch.events.size(), 1u);
+    EXPECT_EQ(batches[0].batch.events[0].data[2], 29u);
+    EXPECT_TRUE(later_batches.empty());
 }
 
 TEST(ClusterBH, EventListenerReadsAfterItsClusterIsDestroyed) {
@@ -580,25 +631,20 @@ TEST(ClusterBH, EventListenerReadsAfterItsClusterIsDestroyed) {
     }
     const int pci_device_num = cluster->get_cluster_description()->get_chips_with_mmio().at(chip_id);
 
-    std::unique_ptr<DeviceEventListener> listener = cluster->create_event_listener();
+    std::unique_ptr<ClusterDeviceEventListener> listener = cluster->create_event_listener();
 
     // Destroys the Cluster's TTDevices, which the listener keeps no reference to.
     cluster.reset();
 
-    // Firmware's TT_SMC_MSG_TEST_EVENT_RECORD publishes a TEST record with the data the host chooses.
-    constexpr uint32_t test_event_record_msg = 0x91;
-    constexpr uint32_t repeat = 1;
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_num);
     tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
-    DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
-        test_event_record_msg, {repeat << 16, 0, 0, 0, 19}, timeout::ARC_MESSAGE_TIMEOUT);
-    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, std::chrono::milliseconds(1000));
+    publish_cluster_test_event(*tt_device, 19);
+    std::vector<ChipEventBatch> batches = listener->read_for(4, test_utils::EVENT_READ_TIMEOUT);
     tt_device->set_power_state(TTDevice::PowerState::IDLE);
 
-    ASSERT_EQ(result.exit_code, 0u);
     ASSERT_EQ(batches.size(), 1u);
-    EXPECT_EQ(batches[0].key, static_cast<DeviceEventKey>(chip_id));
+    EXPECT_EQ(batches[0].chip_id, chip_id);
     ASSERT_EQ(batches[0].batch.events.size(), 1u);
     EXPECT_EQ(batches[0].batch.events[0].data[2], 19u);
 }

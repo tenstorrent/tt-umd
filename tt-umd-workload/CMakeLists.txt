@@ -36,6 +36,7 @@ target_sources(
         src/chip/mock_chip.cpp
         src/chip/remote_chip.cpp
         src/cluster.cpp
+        src/cluster_device_event_listener.cpp
 )
 
 target_include_directories(
@@ -87,6 +88,7 @@ target_sources(
             api/tt-umd-workload/chip/remote_chip.hpp
             api/tt-umd-workload/chip/sw_emule_chip.hpp
             api/tt-umd-workload/cluster.hpp
+            api/tt-umd-workload/cluster_device_event_listener.hpp
             api/tt-umd-workload/simulation/simulation_chip.hpp
 )
 

@@ -1267,10 +1267,18 @@ void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint
     }
 }
 
-std::unique_ptr<DeviceEventListener> Cluster::create_event_listener(std::set<ChipId>* uncovered_chip_ids) {
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(
+    const std::optional<std::set<ChipId>>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    // An empty set is most likely a caller's mistake, such as a chip mapping that came out empty.
+    UMD_ASSERT(
+        !chip_ids.has_value() || !chip_ids->empty(),
+        error::RuntimeError,
+        "create_event_listener() was given an empty set of chip IDs; pass std::nullopt for all chips");
+    const std::set<ChipId>& listened_chip_ids = chip_ids.has_value() ? *chip_ids : all_chip_ids_;
+
     std::map<DeviceEventKey, TTDevice*> devices;
     std::set<ChipId> uncovered;
-    for (const ChipId chip_id : all_chip_ids_) {
+    for (const ChipId chip_id : listened_chip_ids) {
         TTDevice* tt_device = get_chip(chip_id)->get_tt_device();
         if (tt_device == nullptr) {
             uncovered.insert(chip_id);
@@ -1293,7 +1301,8 @@ std::unique_ptr<DeviceEventListener> Cluster::create_event_listener(std::set<Chi
         }
     }
 
-    return listener;
+    // The constructor is private to Cluster, so std::make_unique can't call it.
+    return std::unique_ptr<ClusterDeviceEventListener>(new ClusterDeviceEventListener(std::move(listener)));
 }
 
 TTDevice* Cluster::get_tt_device(ChipId device_id) const {

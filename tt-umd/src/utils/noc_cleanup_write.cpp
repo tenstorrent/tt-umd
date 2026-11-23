@@ -4,7 +4,6 @@
 
 #include "tt-umd/utils/noc_cleanup_write.hpp"
 
-#include <fcntl.h>  // O_APPEND
 #include <fmt/format.h>
 
 #include <cstring>
@@ -27,8 +26,9 @@ NocCleanupWrite::NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8
             "NOC cleanup writes require KMD {} or newer, but this system runs KMD {}.",
             KMD_NOC_CLEANUP.str(),
             kmd_version.str()));
-    // O_APPEND keeps this handle out of the device's power vote on KMD 2.6+; older KMD ignores it.
-    int result = tt_device_open(device_path_.c_str(), &device_, O_APPEND);
+    // Not O_APPEND: a power-aware handle votes nothing, and a cleanup write into a device that has just
+    // powered down hangs it.
+    int result = tt_device_open(device_path_.c_str(), &device_, 0);
     UMD_ASSERT(
         result == 0,
         error::RuntimeError,
@@ -59,7 +59,7 @@ NocCleanupWrite::~NocCleanupWrite() noexcept {
     }
     const int result = tt_device_close(device_);
     if (result != 0) {
-        log_warning(
+        log_debug(
             tt::LogUMD, "tt_device_close() failed for NOC cleanup device {}: {}", device_path_, strerror(-result));
     }
 }

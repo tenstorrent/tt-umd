@@ -73,3 +73,7 @@ TEST(KmdLibNocIo, ReadRequiresAnOutputPointer) { EXPECT_EQ(tt_noc_read_scalar(nu
 // A Quasar package presents one PCIe function whichever chiplets it is built from, so the library
 // names the architecture rather than the combination.
 TEST(KmdLibNocIo, QuasarArchIsDistinctFromUnknown) { EXPECT_NE(TT_DEVICE_ARCH_QUASAR, TT_DEVICE_ARCH_UNKNOWN); }
+
+TEST(KmdLibNocIo, NocCleanupNullDeviceIsRejected) {
+    EXPECT_EQ(tt_device_set_noc_cleanup(nullptr, 0, 0, 0, 0, 0), -EINVAL);
+}

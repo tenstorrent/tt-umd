@@ -68,15 +68,42 @@ TEST_F(ApiNocCleanupWriteTest, WritesWhenDestroyed) {
     EXPECT_EQ(value, 0xc1ea4);
 }
 
-TEST_F(ApiNocCleanupWriteTest, PinReturnsDmaAddress) {
-    if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "NocCleanupWrite::pin() needs an IOMMU.";
+TEST_F(ApiNocCleanupWriteTest, WritesAfterTheClientDropsItsPowerVote) {
+    uint32_t value = 0;
+    tt_device_->write_to_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+    {
+        NocCleanupWrite cleanup_write = make_cleanup_write(0, 0xc1ea4);
+        tt_device_.reset();
     }
+    tt_device_ = create_tt_device(pci_device_id_);
+    tt_device_->set_power_state(TTDevice::PowerState::BUSY);
+    tt_device_->init_tt_device();
+    tt_device_->read_from_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
+    EXPECT_EQ(value, 0xc1ea4);
+}
+
+TEST_F(ApiNocCleanupWriteTest, PinReturnsDmaAddress) {
     const size_t page_size = getpagesize();
     std::unique_ptr<void, decltype(&std::free)> buffer(std::aligned_alloc(page_size, page_size), &std::free);
 
     NocCleanupWrite cleanup_write = make_cleanup_write(0, 0);
     EXPECT_NE(cleanup_write.pin(buffer.get(), page_size), 0);
+}
+
+TEST_F(ApiNocCleanupWriteTest, RefusedPinThrows) {
+    const size_t page_size = getpagesize();
+    std::unique_ptr<void, decltype(&std::free)> buffer(std::aligned_alloc(page_size, 2 * page_size), &std::free);
+
+    NocCleanupWrite cleanup_write = make_cleanup_write(0, 0);
+    EXPECT_THROW(cleanup_write.pin(buffer.get(), 0), error::UmdException<error::RuntimeError>);
+    EXPECT_THROW(
+        cleanup_write.pin(static_cast<char*>(buffer.get()) + 4, page_size), error::UmdException<error::RuntimeError>);
+}
+
+TEST_F(ApiNocCleanupWriteTest, MissingDeviceThrows) {
+    EXPECT_THROW(
+        NocCleanupWrite(255, static_cast<uint8_t>(core_.x), static_cast<uint8_t>(core_.y), 0, SAFE_IO_L1_ADDRESS, 0),
+        error::UmdException<error::RuntimeError>);
 }
 
 TEST_F(ApiNocCleanupWriteTest, InvalidNocThrows) {

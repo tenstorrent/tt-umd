@@ -17,18 +17,20 @@ namespace tt::umd {
 // is gone, even after a crash.
 //
 // Owns a dedicated, close-on-exec device handle. A child forked without exec shares it, and then KMD
-// writes only once the child has closed it too.
+// writes only once the child has closed it too. The handle holds a power vote, so the device stays powered
+// for the write even when the client's other handles close first.
 class NocCleanupWrite {
 public:
     // Registers a write of `data` to `addr` on tile (x, y) of NOC `noc` (0 or 1) of
-    // /dev/tenstorrent/<pci_device_num>. `addr` must be 4-byte aligned. Throws when the device cannot
-    // be opened, KMD is older than 2.2.0, or KMD rejects the action.
+    // /dev/tenstorrent/<pci_device_num>. KMD hands (x, y) to the NOC unchanged: translated coordinates when
+    // firmware has enabled NOC translation, NOC `noc`'s own coordinates otherwise. `addr` must be 4-byte
+    // aligned. Throws when the device cannot be opened, KMD is older than 2.2.0, or KMD rejects the action.
     NocCleanupWrite(int pci_device_num, uint8_t x, uint8_t y, uint8_t noc, uint64_t addr, uint32_t data);
     ~NocCleanupWrite() noexcept;
 
     // Pins `size` bytes at page-aligned `addr` on this object's device handle and returns their DMA address. KMD
     // unpins them when the handle closes, after the cleanup write. The caller keeps the memory mapped until then.
-    // Needs an IOMMU. Throws when KMD refuses.
+    // Without an IOMMU, only physically contiguous memory can be pinned. Throws when KMD refuses.
     uint64_t pin(void* addr, size_t size);
 
     NocCleanupWrite(const NocCleanupWrite&) = delete;

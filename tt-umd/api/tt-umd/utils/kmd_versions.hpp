@@ -14,16 +14,16 @@ namespace tt::umd {
 inline constexpr SemVer KMD_MINIMUM_VERSION = SemVer(2, 0, 0);
 
 /**
- * KMD version 2.4.1 introduced architecture agnostic reset support. With the new IOCTL in KMD 2.4.1, by using the same
- * IOCTL UMD can now reset different architectures without needing to have architecture specific reset IOCTLs.
- */
-inline constexpr SemVer KMD_ARCH_AGNOSTIC_RESET = SemVer{2, 4, 1};
-
-/**
  * KMD version 2.2.0 introduced the TENSTORRENT_IOCTL_SET_NOC_CLEANUP IOCTL, which registers a NOC write the driver
  * performs when the file descriptor closes.
  */
 inline constexpr SemVer KMD_NOC_CLEANUP = SemVer(2, 2, 0);
+
+/**
+ * KMD version 2.4.1 introduced architecture agnostic reset support. With the new IOCTL in KMD 2.4.1, by using the same
+ * IOCTL UMD can now reset different architectures without needing to have architecture specific reset IOCTLs.
+ */
+inline constexpr SemVer KMD_ARCH_AGNOSTIC_RESET = SemVer{2, 4, 1};
 
 /**
  * KMD version 2.6.0 introduced the TENSTORRENT_IOCTL_SET_POWER_STATE IOCTL for explicit per-client power domain

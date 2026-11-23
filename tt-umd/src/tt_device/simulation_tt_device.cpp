@@ -36,13 +36,10 @@ namespace tt::umd {
 SimulationTTDevice::ModelHandle::ModelHandle(std::unique_ptr<SimulationTTDeviceModel> simulation_model) :
     simulation_model(simulation_model.get()), model(std::move(simulation_model)) {}
 
-SimulationTTDevice::SimulationTTDevice(
-    ModelHandle model,
-    const std::filesystem::path& simulator_directory,
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
+SimulationTTDevice::SimulationTTDevice(ModelHandle model, const std::filesystem::path& simulator_directory) :
     TTDevice(std::move(model.model)),
     simulator_directory_(simulator_directory),
-    sysmem_manager_(std::move(sysmem_manager)),
+    sysmem_manager_(model.simulation_model->get_system_memory_allocator()),
     simulation_model_(model.simulation_model) {}
 
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :

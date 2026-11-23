@@ -43,7 +43,6 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
-    SystemMemoryAllocator* get_system_memory_allocator() override;
     const HostMemChannels* get_host_mem_channels() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }

@@ -111,7 +111,8 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC) override;
     void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) override;
 
-    SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
+    // The model's allocator, so both getters hand out the same host memory.
+    SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_; }
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
@@ -142,10 +143,7 @@ protected:
         std::unique_ptr<TTDeviceModel> model;
     };
 
-    SimulationTTDevice(
-        ModelHandle model,
-        const std::filesystem::path& simulator_directory,
-        std::unique_ptr<SimulationSysmemManager> sysmem_manager);
+    SimulationTTDevice(ModelHandle model, const std::filesystem::path& simulator_directory);
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
@@ -201,7 +199,8 @@ protected:
 
     std::recursive_mutex device_lock;
     std::filesystem::path simulator_directory_;
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    // Owned by the model, which outlives every member here; null in client mode.
+    SimulationSysmemManager* sysmem_manager_ = nullptr;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 

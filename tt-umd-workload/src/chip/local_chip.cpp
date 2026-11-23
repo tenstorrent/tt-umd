@@ -206,8 +206,6 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 // The legacy SysmemManager type is still handed out to existing callers until they move to the allocator.
 SysmemManager* LocalChip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(system_memory_allocator_); }
 
-SystemMemoryAllocator* LocalChip::get_system_memory_allocator() { return system_memory_allocator_; }
-
 const HostMemChannels* LocalChip::get_host_mem_channels() { return &host_mem_channels_; }
 
 bool LocalChip::is_mmio_capable() const { return true; }

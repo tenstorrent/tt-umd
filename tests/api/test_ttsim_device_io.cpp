@@ -17,6 +17,9 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -103,6 +106,19 @@ protected:
 // For the tests that only use UMD's own accessors. Keeping them off TTSimDeviceIOFixture is what
 // makes them runnable at all: they are Blackhole-only, which that fixture skips.
 class TTSimTlbWindowFixture : public TTSimDeviceFixtureBase {};
+
+// For the tests of the device's own components, which every simulated architecture provides.
+class TTSimDeviceFixture : public TTSimDeviceFixtureBase {};
+
+// A simulated device reaches host memory, so it has an allocator, and it is the same host memory the
+// device's sysmem manager hands out.
+TEST_F(TTSimDeviceFixture, SystemMemoryAllocatorIsTheDevicesHostMemory) {
+    SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
+    ASSERT_NE(allocator, nullptr);
+    EXPECT_EQ(allocator, tt_device->get_sysmem_manager());
+
+    EXPECT_NE(allocator->allocate_buffer(4096), nullptr);
+}
 
 // ---------------------------------------------------------------------------
 // write_to_device (TLB path) → tile_rd_bytes (direct path)

@@ -58,6 +58,11 @@ public:
     RiscReset *get_risc_reset() override;
 
     /**
+     * Null: the driver exposes no DMA path for this architecture yet, so the device cannot reach host memory.
+     */
+    SystemMemoryAllocator *get_system_memory_allocator() override;
+
+    /**
      * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile
      * and a tile-local offset, so a caller's coordinate has to be folded into the address before
      * the access is issued. Offering the resolver is what asks TTDevice to do that.

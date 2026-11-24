@@ -62,8 +62,8 @@ public:
     // presence-only (bound + connectable) until serve() installs a handler.
     //
     // The socket is private to the user that creates it: the socket file is owner-only (0600),
-    // and a parent directory this call has to create is owner-only (0700). A parent directory
-    // that already exists is left as it is.
+    // and every directory this call has to create for it (its parent and any missing ancestors)
+    // is owner-only (0700). Directories that already exist are left as they are.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and

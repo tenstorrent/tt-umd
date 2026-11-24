@@ -269,6 +269,20 @@ TEST_F(SimulationServerSocketTest, CreatesAMissingParentDirectoryOwnerOnly) {
     EXPECT_EQ(mode_of(parent.path()), 0700u);
 }
 
+// Every directory create() makes on the way to the socket is owner-only, not only the socket's own.
+TEST_F(SimulationServerSocketTest, CreatesMissingAncestorDirectoriesOwnerOnly) {
+    const test_utils::ScopedServerDirectory ancestor(
+        std::filesystem::temp_directory_path() / ("tt-umd-sim-ancestor-test-" + std::to_string(::getpid())));
+    std::filesystem::remove_all(ancestor.path());
+    const std::filesystem::path parent = ancestor.path() / "nested";
+    const ScopedUmask permissive_umask(0);
+
+    auto server = SimulationServerSocket::create(parent / "tt-umd-sim-0.sock");
+
+    EXPECT_EQ(mode_of(ancestor.path()), 0700u);
+    EXPECT_EQ(mode_of(parent), 0700u);
+}
+
 // A parent directory that already exists belongs to whoever made it; create() does not change it.
 TEST_F(SimulationServerSocketTest, LeavesAnExistingParentDirectoryAsItIs) {
     const test_utils::ScopedServerDirectory parent(

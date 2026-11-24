@@ -48,6 +48,33 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
     return stream_protocol::endpoint(path.string());
 }
 
+// Creates dir owner-only (0700) whatever the umask. mkdir itself applies the mode, so no other user
+// can reach the directory at any point. Returns false, leaving dir as it is, if it already exists;
+// throws on any other failure.
+bool create_owner_only_directory(const std::filesystem::path& dir) {
+    if (::mkdir(dir.c_str(), S_IRWXU) != 0) {
+        const int mkdir_errno = errno;
+        UMD_ASSERT(
+            mkdir_errno == EEXIST,
+            error::RuntimeError,
+            fmt::format(
+                "Failed to create simulation server directory {}: {}", dir.string(), std::strerror(mkdir_errno)));
+        return false;
+    }
+    // mkdir's mode is narrowed by the umask; chmod's is not, so this pins exactly 0700.
+    if (::chmod(dir.c_str(), S_IRWXU) != 0) {
+        const int chmod_errno = errno;
+        ::rmdir(dir.c_str());
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to set permissions on simulation server directory {}: {}",
+                dir.string(),
+                std::strerror(chmod_errno)));
+    }
+    return true;
+}
+
 }  // namespace
 
 // The asio transport, kept out of the header (see SimulationServerSocket::Impl forward declaration).
@@ -201,37 +228,20 @@ bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
 }
 
 bool SimulationServerSocket::bind_and_listen() {
-    if (socket_path_.has_parent_path()) {
-        // A directory we create for the socket is owner-only, so other users cannot even look up
-        // the socket in it. A pre-existing dir (e.g. the system temp dir) is left untouched: there
-        // the socket's own mode, set below, is what keeps it private. Created owner-only by mkdir
-        // itself, so no other user can reach the directory at any point.
-        const std::filesystem::path socket_dir = socket_path_.parent_path();
-        if (socket_dir.has_parent_path()) {
-            std::filesystem::create_directories(socket_dir.parent_path());
-        }
-        if (::mkdir(socket_dir.c_str(), S_IRWXU) == 0) {
-            // mkdir's mode is narrowed by the umask; chmod's is not, so this pins exactly 0700.
-            if (::chmod(socket_dir.c_str(), S_IRWXU) != 0) {
-                const int chmod_errno = errno;
-                ::rmdir(socket_dir.c_str());
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "Failed to set permissions on simulation server socket directory {}: {}",
-                        socket_dir.string(),
-                        std::strerror(chmod_errno)));
-            }
-        } else {
-            const int mkdir_errno = errno;
-            UMD_ASSERT(
-                mkdir_errno == EEXIST,
-                error::RuntimeError,
-                fmt::format(
-                    "Failed to create simulation server socket directory {}: {}",
-                    socket_dir.string(),
-                    std::strerror(mkdir_errno)));
-        }
+    // Every directory created on the way to the socket is owner-only, so other users can neither
+    // look up the socket nor rename or remove a directory on its path to swap in their own.
+    // Directories that already exist (e.g. the system temp dir) are left untouched: there the
+    // socket's own mode, set below, is what keeps it private.
+    std::vector<std::filesystem::path> missing_dirs;
+    std::error_code exists_ec;
+    for (std::filesystem::path dir = socket_path_.parent_path();
+         !dir.empty() && !std::filesystem::exists(dir, exists_ec);
+         dir = dir.parent_path()) {
+        missing_dirs.push_back(dir);
+    }
+    // Top-down, so each directory is owner-only before anything is created inside it.
+    for (auto dir = missing_dirs.rbegin(); dir != missing_dirs.rend(); ++dir) {
+        create_owner_only_directory(*dir);
     }
 
     const stream_protocol::endpoint endpoint = make_endpoint(socket_path_);
@@ -396,27 +406,9 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
         // mkdir is atomic, so the winner of a race claims the index and everyone else moves on.
         // EEXIST means taken (by this or another user) -- move to the next index; any other error
         // (e.g. permissions, read-only fs) is surfaced immediately rather than spinning
-        // kMaxServerIndex times and hiding it behind a generic message. Created owner-only, so no
-        // other user can reach the directory at any point.
-        if (::mkdir(dir.c_str(), S_IRWXU) != 0) {
-            const int mkdir_errno = errno;
-            UMD_ASSERT(
-                mkdir_errno == EEXIST,
-                error::RuntimeError,
-                fmt::format(
-                    "Failed to create simulation server directory {}: {}", dir.string(), std::strerror(mkdir_errno)));
+        // kMaxServerIndex times and hiding it behind a generic message.
+        if (!create_owner_only_directory(dir)) {
             continue;
-        }
-        // mkdir's mode is narrowed by the umask; chmod's is not, so this pins exactly 0700.
-        if (::chmod(dir.c_str(), S_IRWXU) != 0) {
-            const int chmod_errno = errno;
-            ::rmdir(dir.c_str());
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "Failed to set permissions on simulation server directory {}: {}",
-                    dir.string(),
-                    std::strerror(chmod_errno)));
         }
         return dir;
     }

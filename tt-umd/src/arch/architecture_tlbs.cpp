@@ -120,16 +120,15 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     };
 
     static const ArchitectureTlbs grendel_tlbs = {
-        .size_classes =
-            {{
-                .size = grendel::TLB_APP_IN0_SIZE,
-                .count = grendel::TLB_APP_IN0_COUNT,
-                .base_index = grendel::TLB_APP_IN0_BASE_INDEX,
-                .bar_offset = grendel::TLB_APP_IN0_BAR0_OFFSET,
-                .in_bar4 = false,
-                // An entry's configuration is a physical address rather than NOC fields.
-                .register_layout = {},
-            }},
+        .size_classes = {{
+            .size = grendel::TLB_APP_IN0_SIZE,
+            .count = grendel::TLB_APP_IN0_COUNT,
+            .base_index = grendel::TLB_APP_IN0_BASE_INDEX,
+            .bar_offset = grendel::TLB_APP_IN0_BAR0_OFFSET,
+            .in_bar4 = false,
+            // An entry's configuration is a physical address rather than NOC fields.
+            .register_layout = {},
+        }},
         .cached_window_size = grendel::TLB_APP_IN0_SIZE,
         // APP_IN0 entries carry no virtual channel configuration.
         .use_static_vc = false,

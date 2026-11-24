@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
-#include "tests/test_utils/test_api_common.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"

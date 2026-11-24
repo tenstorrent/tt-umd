@@ -205,7 +205,7 @@ protected:
 
 TEST_F(ApiClusterHostMemChannels, RoundTripThroughChannel) {
     const std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    const uint32_t size = data_write.size() * sizeof(uint32_t);
+    const uint32_t size = static_cast<uint32_t>(data_write.size() * sizeof(uint32_t));
 
     for (const ChipId chip : cluster_->get_target_mmio_device_ids()) {
         cluster_->write_to_sysmem(data_write.data(), size, /*addr=*/0, /*channel=*/0, chip);
@@ -222,7 +222,11 @@ TEST_F(ApiClusterHostMemChannels, MissingChannelThrows) {
     for (const ChipId chip : cluster_->get_target_mmio_device_ids()) {
         EXPECT_THROW(
             cluster_->write_to_sysmem(
-                data_write.data(), data_write.size() * sizeof(uint32_t), /*addr=*/0, /*channel=*/1, chip),
+                data_write.data(),
+                static_cast<uint32_t>(data_write.size() * sizeof(uint32_t)),
+                /*addr=*/0,
+                /*channel=*/1,
+                chip),
             std::runtime_error)
             << "chip " << chip;
     }
@@ -231,7 +235,7 @@ TEST_F(ApiClusterHostMemChannels, MissingChannelThrows) {
 // Channel 0 is 1 GiB, so an address past its end wraps around to the channel's start.
 TEST_F(ApiClusterHostMemChannels, OffsetWrapsAtChannelSize) {
     const std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    const uint32_t size = data_write.size() * sizeof(uint32_t);
+    const uint32_t size = static_cast<uint32_t>(data_write.size() * sizeof(uint32_t));
 
     for (const ChipId chip : cluster_->get_target_mmio_device_ids()) {
         cluster_->write_to_sysmem(data_write.data(), size, /*addr=*/0x40000100, /*channel=*/0, chip);
@@ -273,7 +277,7 @@ TEST(ApiClusterHostMemChannelSetup, ChannelsSurviveRestart) {
     test_utils::safe_test_cluster_start(cluster.get());
 
     const std::vector<uint32_t> data_write = {0xCAFEF00D, 0x12345678};
-    const uint32_t size = data_write.size() * sizeof(uint32_t);
+    const uint32_t size = static_cast<uint32_t>(data_write.size() * sizeof(uint32_t));
     cluster->write_to_sysmem(data_write.data(), size, /*addr=*/0, /*channel=*/0, chip);
     std::vector<uint32_t> data_read(data_write.size(), 0);
     cluster->read_from_sysmem(data_read.data(), /*addr=*/0, /*channel=*/0, size, chip);
@@ -299,7 +303,7 @@ TEST(ApiClusterHostMemChannelSetup, HostWriteToChannelOneIsReadAtNocBasePlusOneG
     test_utils::safe_test_cluster_start(cluster.get());
 
     const std::vector<uint32_t> data_write = {0xA1B2C3D4, 0x11223344, 0x55667788, 0x99AABBCC};
-    const uint32_t size = data_write.size() * sizeof(uint32_t);
+    const uint32_t size = static_cast<uint32_t>(data_write.size() * sizeof(uint32_t));
     cluster->write_to_sysmem(data_write.data(), size, /*addr=*/0, /*channel=*/1, chip);
 
     const CoreCoord pcie_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE)[0];
@@ -327,7 +331,7 @@ TEST(ApiClusterHostMemChannelSetup, NocWriteAtNocBasePlusOneGibLandsInChannelOne
     test_utils::safe_test_cluster_start(cluster.get());
 
     const std::vector<uint32_t> data_write = {0xA1B2C3D4, 0x11223344, 0x55667788, 0x99AABBCC};
-    const uint32_t size = data_write.size() * sizeof(uint32_t);
+    const uint32_t size = static_cast<uint32_t>(data_write.size() * sizeof(uint32_t));
     const CoreCoord pcie_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE)[0];
     const uint64_t channel_one_noc_address = cluster->get_sysmem_window_noc_base(chip) + 0x40000000;
     cluster->write_to_device(data_write.data(), size, chip, pcie_core, channel_one_noc_address);
@@ -394,7 +398,8 @@ TEST(ApiClusterHostMemChannelSetup, ChannelMapsItsHugepageFileAfterAnUnrelatedBu
     test_utils::safe_test_cluster_start(cluster.get());
 
     const std::vector<uint8_t> channel_pattern = {0xA5, 0x5A, 0xC3, 0x3C};
-    cluster->write_to_sysmem(channel_pattern.data(), channel_pattern.size(), /*addr=*/0, /*channel=*/0, chip);
+    cluster->write_to_sysmem(
+        channel_pattern.data(), static_cast<uint32_t>(channel_pattern.size()), /*addr=*/0, /*channel=*/0, chip);
     const std::vector<uint8_t> buffer_pattern = {0x11, 0x22, 0x33, 0x44};
     unrelated_buffer->write_to_sysmem(buffer_pattern.data(), buffer_pattern.size(), /*offset=*/0);
 
@@ -416,7 +421,8 @@ TEST(ApiClusterHostMemChannelSetup, ChannelMapsItsHugepageFileAfterAnUnrelatedBu
     const std::vector<uint8_t> file_pattern = {0x5C, 0x3A, 0xA5, 0xC3};
     std::copy(file_pattern.begin(), file_pattern.end(), channel_bytes);
     std::vector<uint8_t> channel_read(4, 0);
-    cluster->read_from_sysmem(channel_read.data(), /*addr=*/0, /*channel=*/0, channel_read.size(), chip);
+    cluster->read_from_sysmem(
+        channel_read.data(), /*addr=*/0, /*channel=*/0, static_cast<uint32_t>(channel_read.size()), chip);
     EXPECT_EQ(channel_read, (std::vector<uint8_t>{0x5C, 0x3A, 0xA5, 0xC3}));
 
     munmap(channel_file, one_gib);

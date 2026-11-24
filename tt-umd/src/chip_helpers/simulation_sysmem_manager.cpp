@@ -137,11 +137,11 @@ SimulationSysmemManager::~SimulationSysmemManager() {
     unmap_system_memory();
 }
 
-void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size) {
     host_mem_channels_.write_to_channel(channel, src, sysmem_dest, size);
 }
 
-void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size) {
     host_mem_channels_.read_from_channel(channel, dest, sysmem_src, size);
 }
 

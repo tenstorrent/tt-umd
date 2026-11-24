@@ -48,8 +48,8 @@ public:
 
     // The simulated device's host memory channels, which its simulator reaches by address. They are the device's
     // own, unlike a silicon chip's, which the chip layer builds from buffers.
-    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
-    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size);
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size);
 
     size_t get_num_host_mem_channels() const { return host_mem_channels_.get_num_channels(); }
 

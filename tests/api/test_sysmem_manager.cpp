@@ -418,6 +418,49 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     EXPECT_GT(sysmem_buffer2->get_noc_address().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
 }
 
+// A buffer mapped mid-page reports the NOC address of its own first byte: a NOC write there lands at
+// get_va() and leaves the bytes before it in the same page untouched.
+TEST(ApiSysmemManager, UnalignedBufferNocAddressNamesItsFirstByte) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    // Two zero-filled pages, so a page-sized buffer starting 64 bytes in crosses into the second.
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    void* mapping =
+        mmap(nullptr, 2 * page_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    ASSERT_NE(mapping, MAP_FAILED);
+    uint8_t* page_start = static_cast<uint8_t*>(mapping);
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer =
+        sysmem_manager->map_user_buffer(page_start + 64, page_size, /*bind_to_noc=*/true);
+    ASSERT_EQ(sysmem_buffer->get_va(), page_start + 64);
+    ASSERT_TRUE(sysmem_buffer->get_noc_address().has_value());
+
+    const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04};
+    const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
+    const uint64_t noc_address = sysmem_buffer->get_noc_address().value();
+    cluster->write_to_device(pattern.data(), pattern.size(), mmio_chip, pcie_core, noc_address);
+    // Read back over the same path so the write is flushed before the host checks memory.
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, noc_address, readback.size());
+
+    const uint8_t* buffer_start = static_cast<uint8_t*>(sysmem_buffer->get_va());
+    EXPECT_EQ(std::vector<uint8_t>(buffer_start, buffer_start + pattern.size()), pattern);
+    EXPECT_EQ(std::vector<uint8_t>(page_start, page_start + 64), std::vector<uint8_t>(64, 0));
+
+    sysmem_buffer.reset();
+    munmap(mapping, 2 * page_size);
+}
+
 TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     if (cluster->get_target_mmio_device_ids().empty()) {

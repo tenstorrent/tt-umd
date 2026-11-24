@@ -295,11 +295,13 @@ void TTSimTTDevice::close_device() {
 }
 
 void TTSimTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_read_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::noc_multicast_write(
@@ -356,10 +358,13 @@ bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uin
     if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (communicator_->dram_write_bytes(x, y, addr, mem_ptr, n)) {
         return true;
     }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(x, y, addr, mem_ptr, n);
     return true;
 }
 
@@ -370,8 +375,11 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (!communicator_->dram_read_bytes(x, y, addr, mem_ptr, n)) {
+        communicator_->tile_read_bytes(x, y, addr, mem_ptr, n);
     }
     // Side effect: this path advances the simulation clock by 10 cycles (rather than the single
     // cycle after_read() applies), and it returns before after_read() would otherwise run.

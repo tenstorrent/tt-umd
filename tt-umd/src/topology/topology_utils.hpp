@@ -58,7 +58,7 @@ static inline uint16_t get_sys_rack(
     result <<= eth_interface_params.eth_rack_coord_width;
     result |= rack_x;
 
-    return result;
+    return static_cast<uint16_t>(result);
 }
 
 static inline bool is_non_mmio_cmd_q_full(

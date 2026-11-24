@@ -8,10 +8,13 @@
 #include <unistd.h>
 
 #include <asio.hpp>
+#include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -52,6 +55,74 @@ stream_protocol::socket connect_client(asio::io_context& io, const std::filesyst
     socket.native_non_blocking(false);
     return socket;
 }
+
+// A host that is listening but never accepts, with its accept queue already full: what a host whose
+// accept loop has stalled looks like from outside. Raw POSIX rather than SimulationServerSocket,
+// since filling the queue takes a backlog small enough to reach with a handful of connections.
+class StalledListener {
+public:
+    explicit StalledListener(const std::filesystem::path& path) {
+        listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        const sockaddr_un addr = make_address(path);
+        // Backlog 0: the kernel queues a single unaccepted connection and refuses the next.
+        listening_ = listen_fd_ >= 0 &&
+                     ::bind(listen_fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == 0 &&
+                     ::listen(listen_fd_, 0) == 0;
+        if (!listening_) {
+            return;
+        }
+        // Queue non-blocking connects nobody accepts until the kernel reports the queue full.
+        for (int attempt = 0; attempt < max_queued_connections && !accept_queue_full_; ++attempt) {
+            const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+            if (fd < 0) {
+                return;
+            }
+            queued_fds_.push_back(fd);
+            if (::connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0) {
+                accept_queue_full_ = errno == EAGAIN;
+                if (!accept_queue_full_) {
+                    return;
+                }
+            }
+        }
+    }
+
+    StalledListener(const StalledListener&) = delete;
+    StalledListener& operator=(const StalledListener&) = delete;
+
+    ~StalledListener() {
+        close_listener();
+        for (int fd : queued_fds_) {
+            ::close(fd);
+        }
+    }
+
+    // Listening, and the accept queue refuses further connections.
+    bool accept_queue_full() const { return listening_ && accept_queue_full_; }
+
+    // Closing the listener wakes any connect() blocked on its queue.
+    void close_listener() {
+        if (listen_fd_ >= 0) {
+            ::close(listen_fd_);
+            listen_fd_ = -1;
+        }
+    }
+
+private:
+    static constexpr int max_queued_connections = 16;
+
+    static sockaddr_un make_address(const std::filesystem::path& path) {
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+        return addr;
+    }
+
+    int listen_fd_ = -1;
+    bool listening_ = false;
+    bool accept_queue_full_ = false;
+    std::vector<int> queued_fds_;
+};
 
 // Provides a fresh socket path that is removed before and after each test, so cases share a
 // fixed name without leaking sockets between runs.
@@ -129,8 +200,24 @@ TEST_F(SimulationServerSocketTest, IsLiveDistinguishesAHostFromAnAbsentOrStaleSo
     EXPECT_TRUE(SimulationServerSocket::is_live(path_));
 }
 
-// A path too long for sockaddr_un cannot name a reachable listener, so is_live() answers the
-// predicate rather than throwing out of make_endpoint().
+// A host whose accept queue is full still holds the path, so it reads as live -- and the probe must
+// return rather than wait for a queue slot the host may never free.
+TEST_F(SimulationServerSocketTest, IsLiveReturnsTrueForAHostWhoseAcceptQueueIsFull) {
+    StalledListener host(path_);
+    ASSERT_TRUE(host.accept_queue_full());
+
+    auto probe = std::async(std::launch::async, [this] { return SimulationServerSocket::is_live(path_); });
+    const bool returned = probe.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    if (!returned) {
+        host.close_listener();  // unblocks the probe, so the test fails instead of hanging
+    }
+
+    ASSERT_TRUE(returned) << "is_live() blocked on a listener whose accept queue is full";
+    EXPECT_TRUE(probe.get());
+}
+
+// A path too long for sockaddr_un cannot name a reachable listener, so is_live() reports false
+// rather than throwing.
 TEST_F(SimulationServerSocketTest, IsLiveIsFalseForAnOverlongPath) {
     const std::filesystem::path too_long =
         std::filesystem::temp_directory_path() / (std::string(sizeof(sockaddr_un::sun_path), 'x') + ".sock");

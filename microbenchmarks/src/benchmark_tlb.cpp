@@ -107,7 +107,7 @@ TEST_F(TLB, IOSpeed) {
                         core,
                         core_type,
                         ordering_name,
-                        format_with_unit(batch_size, "byte"));
+                        format_with_unit(static_cast<double>(batch_size), "byte"));
                     bench.run(name, [&] { operation(batch_size); });
                 }
             }

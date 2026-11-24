@@ -73,7 +73,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t write_size = vector_to_write_th1.size() * 4;
+        const size_t write_size = vector_to_write_th1.size() * 4;
         std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
@@ -98,7 +98,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t write_size = vector_to_write_th2.size() * 4;
+        const size_t write_size = vector_to_write_th2.size() * 4;
         std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
@@ -165,7 +165,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     // Test.
     std::vector<uint32_t> vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
-    std::uint32_t write_size = vector_to_write.size() * 4;
+    const size_t write_size = vector_to_write.size() * 4;
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};

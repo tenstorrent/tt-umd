@@ -1,0 +1,29 @@
+flowchart LR
+  subgraph US["User space"]
+    APP["Workload applications / tt-metal"]
+    TOOLS["Tooling: tt-smi, tt-exalens,<br/>tt-telemetry, tt-reset"]
+    subgraph UMD["UMD"]
+      WL["Workload Layer<br/>tt-umd-workload: Cluster / Chip"]
+      BL["Base Driver Layer<br/>tt-umd: TTDevice + TTDeviceModel components"]
+      UT["tt-umd-utils"]
+      UAPI["UMD uAPI<br/>tt-kmd-lib"]
+    end
+  end
+  subgraph KS["Kernel space / platform boundary"]
+    KMD["KMD: ioctl, mmap, scalar access, IOMMU, DMA pinning, locks"]
+    SYS["sysfs / procfs / PCI sysfs"]
+  end
+  subgraph DEV["AI-IP device"]
+    FW["Firmware (ARC/CMFW, ETH FW)"]
+    MEM["L1 / DRAM / registers"]
+  end
+  APP --> WL --> BL
+  TOOLS --> BL
+  TOOLS --> UAPI
+  BL --> UT
+  BL --> UAPI
+  UAPI -- "ioctl" --> KMD
+  KMD --> MEM
+  BL -- "read, remove / rescan" --> SYS
+  BL -. "MMIO via mmap'd BAR / TLB windows (WH/BH)" .-> MEM
+  BL -. "firmware messages over MMIO" .-> FW

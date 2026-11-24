@@ -202,6 +202,28 @@ inline constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_2M + 181;
 inline constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_2M + 182;
 inline constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 183;
 
+// TLB_APP_IN0 entries 164-255, which boot firmware leaves unprogrammed for UMD. Entry k is the 16 MiB at
+// BAR0 + (k << 24). Its config qword is at BAR2 + TLB_APP_IN0_CFG_BAR2_OFFSET + k * TLB_APP_IN0_CFG_REG_SIZE_BYTES,
+// where boot TLB_SYS_IN0 entry 2 maps the APP_IN0 config registers. An entry's config is the physical address
+// the window reaches, with the valid bit in bit 0.
+inline constexpr uint32_t TLB_APP_IN0_BASE_INDEX = 164;
+inline constexpr uint32_t TLB_APP_IN0_COUNT = 92;
+inline constexpr uint64_t TLB_APP_IN0_SIZE = 1ULL << 24;
+inline constexpr uint64_t TLB_APP_IN0_BAR0_OFFSET = TLB_APP_IN0_BASE_INDEX * TLB_APP_IN0_SIZE;
+inline constexpr uint32_t TLB_APP_IN0_CFG_BAR2_OFFSET = 0x8000;
+inline constexpr uint32_t TLB_APP_IN0_CFG_REG_SIZE_BYTES = 0x40;
+
+// Boot firmware's inbound routes. TLB_APP_IN0 physical address NEO_WINDOWS_BASE + (k << 24) is the first
+// NEO_WINDOW_SIZE bytes of Tensix k in row-major order. D2D0's Keraunos IO ATT set sends physical address
+// KERAUNOS_IO_BASE + off to PCIe tile address SYSMEM_WINDOW_NOC_BASE + off, and TLB_APP_OUT0 entry 0 sends
+// that out to host address off, for off below APP_OUT0_ENTRY_SIZE.
+inline constexpr uint64_t NEO_WINDOWS_BASE = 0x100'0000'0000ULL;
+inline constexpr uint64_t NEO_WINDOW_SIZE = 1ULL << 24;
+inline constexpr uint64_t KERAUNOS_IO_BASE = 0x6'0000'0000'0000ULL;
+inline constexpr uint64_t APP_OUT0_ENTRY_SIZE = 1ULL << 44;
+// Keraunos HSIO0's noc2axi sends NOC addresses with [63:48] == 2 to the PCIe tile.
+inline constexpr uint64_t SYSMEM_WINDOW_NOC_BASE = 2ULL << 48;
+
 inline constexpr uint32_t DRAM_CHANNEL_0_X = 0;
 inline constexpr uint32_t DRAM_CHANNEL_0_Y = 1;
 inline constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  // This is the last 256MB of DRAM

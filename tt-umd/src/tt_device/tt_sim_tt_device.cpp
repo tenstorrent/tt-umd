@@ -23,6 +23,7 @@
 #include "simulation/simulator_paths.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
@@ -42,15 +43,6 @@ namespace tt::umd {
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
 namespace {
-
-// Boot firmware's Quasar inbound routes. TLB_APP_IN0 PA NEO_WINDOWS_BASE + (k << 24) is the first
-// 16 MiB of Tensix k in row-major order. D2D0's Keraunos IO ATT set sends PA KERAUNOS_IO_BASE + off
-// to PCIe tile address 0x2_0000_0000_0000 + off (the sysmem window), and TLB_APP_OUT0 entry 0 sends
-// that out to host address off, for off below 2^44.
-constexpr uint64_t QUASAR_NEO_WINDOWS_BASE = 0x100'0000'0000ULL;
-constexpr uint64_t QUASAR_NEO_WINDOW_SIZE = 1ULL << 24;
-constexpr uint64_t QUASAR_KERAUNOS_IO_BASE = 0x6'0000'0000'0000ULL;
-constexpr uint64_t QUASAR_APP_OUT0_ENTRY_SIZE = 1ULL << 44;
 
 // PCI config dword 0x04 holds the command register in its low 16 bits and status in the high 16.
 constexpr uint32_t PCI_COMMAND_STATUS_OFFSET = 0x04;
@@ -362,7 +354,7 @@ void TTSimTTDevice::init_quasar_inbound_routes() {
     const uint64_t columns = tensix_last.x - tensix_first.x + 1;
     for (const CoreCoord& tensix : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
         const uint64_t tensix_index = (tensix.y - tensix_first.y) * columns + (tensix.x - tensix_first.x);
-        quasar_neo_windows_[tensix] = QUASAR_NEO_WINDOWS_BASE + tensix_index * QUASAR_NEO_WINDOW_SIZE;
+        quasar_neo_windows_[tensix] = grendel::NEO_WINDOWS_BASE + tensix_index * grendel::NEO_WINDOW_SIZE;
     }
 }
 
@@ -371,15 +363,15 @@ std::optional<uint64_t> TTSimTTDevice::get_quasar_inbound_address(tt_xy_pair cor
         // There is no outbound iATU to add the chip's host base, so it goes into the APP_IN0 address.
         const uint64_t sysmem_window_base = sysmem_manager_->get_pcie_base();
         const uint64_t host_address = sysmem_manager_->get_host_base() + (addr - sysmem_window_base);
-        if (addr < sysmem_window_base || host_address >= QUASAR_APP_OUT0_ENTRY_SIZE) {
+        if (addr < sysmem_window_base || host_address >= grendel::APP_OUT0_ENTRY_SIZE) {
             return std::nullopt;
         }
-        return QUASAR_KERAUNOS_IO_BASE + host_address;
+        return grendel::KERAUNOS_IO_BASE + host_address;
     }
     // Tensix addresses above the first 16 MiB, and every other core, have no boot ATT set, so they stay
     // on the tile API.
     const auto neo_window = quasar_neo_windows_.find(core);
-    if (neo_window == quasar_neo_windows_.end() || addr >= QUASAR_NEO_WINDOW_SIZE) {
+    if (neo_window == quasar_neo_windows_.end() || addr >= grendel::NEO_WINDOW_SIZE) {
         return std::nullopt;
     }
     return neo_window->second + addr;

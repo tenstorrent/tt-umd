@@ -14,27 +14,6 @@
 
 namespace tt::umd {
 
-namespace {
-
-// Quasar's TLB_APP_IN0 entries 164-255, which boot firmware leaves unprogrammed. Entry k is the
-// 16 MiB at BAR0 + (k << 24), and its config qword is at BAR2 + 0x8000 + 0x40 * k, where boot
-// TLB_SYS_IN0 entry 2 maps the APP_IN0 config registers.
-constexpr TlbSizeClass QUASAR_APP_IN0_WINDOWS = {
-    .size = 16 << 20,
-    .count = 92,
-    .base_index = 164,
-    .bar_offset = 164ULL << 24,
-    .in_bar4 = false,
-    .register_layout = {},
-};
-constexpr uint64_t QUASAR_APP_IN0_CFG_BAR2_OFFSET = 0x8000;
-constexpr size_t QUASAR_APP_IN0_CFG_SIZE = 0x40;
-
-// Wormhole and Blackhole TLB configuration registers start at this offset from BAR0 base.
-constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
-
-}  // namespace
-
 SimulationTlbAllocator::SimulationTlbAllocator(
     uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base, uint64_t bar2_base) :
     bar0_base_(bar0_base), bar4_base_(bar4_base), architecture_(arch) {
@@ -130,13 +109,9 @@ SimulationTlbAllocator::TlbPool* SimulationTlbAllocator::find_pool_for_index(int
 }
 
 void SimulationTlbAllocator::initialize_architecture_config(uint64_t bar2_base) {
-    if (architecture_ == tt::ARCH::QUASAR && bar2_base != 0) {
-        pools_.push_back({QUASAR_APP_IN0_WINDOWS, std::vector<bool>(QUASAR_APP_IN0_WINDOWS.count, false)});
-        tlb_reg_base_ = bar2_base + QUASAR_APP_IN0_CFG_BAR2_OFFSET;
-        tlb_reg_size_bytes_ = QUASAR_APP_IN0_CFG_SIZE;
-        return;
-    }
-    if (architecture_ != tt::ARCH::WORMHOLE_B0 && architecture_ != tt::ARCH::BLACKHOLE) {
+    const bool has_windows = architecture_ == tt::ARCH::WORMHOLE_B0 || architecture_ == tt::ARCH::BLACKHOLE ||
+                             (architecture_ == tt::ARCH::QUASAR && bar2_base != 0);
+    if (!has_windows) {
         // Leaving every pool empty is the signal that allocator-driven addressing is not in use.
         log_debug(
             LogUMD,
@@ -148,7 +123,9 @@ void SimulationTlbAllocator::initialize_architecture_config(uint64_t bar2_base) 
     }
 
     const ArchitectureTlbs& tlbs = get_architecture_tlbs(architecture_);
-    tlb_reg_base_ = bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET;
+    // Quasar's window configuration registers are in BAR2, the others' in BAR0.
+    const uint64_t cfg_bar_base = architecture_ == tt::ARCH::QUASAR ? bar2_base : bar0_base_;
+    tlb_reg_base_ = cfg_bar_base + tlbs.static_cfg_addr;
     tlb_reg_size_bytes_ = tlbs.cfg_reg_size_bytes;
 
     for (const TlbSizeClass& size_class : tlbs.size_classes) {

@@ -21,7 +21,7 @@ struct TlbSizeClass {
     uint32_t base_index;
     // Byte offset of the class's window region within its BAR.
     uint64_t bar_offset;
-    // Blackhole and Grendel map their largest windows through BAR4, everything else is in BAR0.
+    // Blackhole maps its largest windows through BAR4, everything else is in BAR0.
     bool in_bar4;
     // Bit layout of the window configuration register.
     tlb_offsets register_layout;
@@ -44,6 +44,7 @@ struct ArchitectureTlbs {
     // architecture wiring one up for it.
     bool static_vc_is_configurable;
 
+    // Offset of the first window configuration register within its BAR: BAR2 on Quasar, BAR0 elsewhere.
     uint32_t static_cfg_addr;
     uint64_t cfg_reg_size_bytes;
 

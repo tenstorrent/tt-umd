@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -93,8 +94,7 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return 4ULL << 58;
         case tt::ARCH::QUASAR:
-            // Keraunos HSIO0's noc2axi sends addresses with [63:48] == 2 to the PCIe tile.
-            return 2ULL << 48;
+            return grendel::SYSMEM_WINDOW_NOC_BASE;
         default:
             return 0;
     }

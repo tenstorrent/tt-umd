@@ -35,8 +35,8 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
-Binaries run inside an Ubuntu 22.04 guest, so build them on Ubuntu 22.04, for example in the
-`tt-umd-ci-ubuntu-22.04` image. The guest's console, including the command's output, goes to stdout.
+Binaries run inside an Ubuntu 24.04 guest, so build them on Ubuntu 24.04, for example in the
+`tt-umd-ci-ubuntu-24.04` image. The guest's console, including the command's output, goes to stdout.
 If the VM stops without running the command, for example because tt-kmd failed to load, the runner
 says so and exits with 1.
 

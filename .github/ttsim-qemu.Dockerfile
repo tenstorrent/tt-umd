@@ -9,7 +9,7 @@
 # Stages 1-4 only produce build outputs and are discarded. The final stage, the only one published,
 # copies in just those outputs, so toolchains, sources and headers stay out of the shipped image.
 
-ARG UBUNTU_VERSION=22.04
+ARG UBUNTU_VERSION=24.04
 ARG TTSIM_QEMU_COMMIT=cade2422b833f77e5afddcec7da6916993bc2416
 ARG TT_KMD_TAG=ttkmd-2.11.0
 

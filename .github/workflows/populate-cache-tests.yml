@@ -29,7 +29,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/docker-image.yml
     with:
-      docker-version: ubuntu-22.04
+      docker-version: ubuntu-24.04
 
   # One build per sanitizer. build-tracy: true mirrors what build-and-run-all-tests.yml compiles in
   # the merge queue, so both the plain and the Tracy-enabled object files get cached. The wheel is
@@ -49,7 +49,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/build-tests.yml
     with:
-      ubuntu-docker-version: ubuntu-22.04
+      ubuntu-docker-version: ubuntu-24.04
       build-type: ${{ matrix.build-type }}
       timeout: ${{ matrix.timeout }}
       build-tracy: true

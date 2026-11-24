@@ -83,8 +83,12 @@ jobs:
 
       - name: Install UMD wheel
         shell: bash
+        # Ubuntu 24.04's system Python is externally managed (PEP 668), so install into a venv. It sees the
+        # image's preinstalled tt-exalens dependencies through system site packages.
         run: |
-          pip install tt_umd-*.whl --force-reinstall
+          python3 -m venv --system-site-packages .venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/pip install tt_umd-*.whl --force-reinstall
 
       - name: Run Python tests for tt-exalens library
         env:

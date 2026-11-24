@@ -54,6 +54,7 @@ jobs:
               ApiSysmemManager.BasicIO:\
               ApiSysmemManager.AutoNumChannels:\
               TestDeviceIOFixture.SysmemReadWrite:\
+              TestRiscProgram.DeassertResetBrisc:\
               TestRiscProgram.DeassertResetWithCounterBrisc:\
               *TriscNcriscAssertDeassertTest*:\
               TestFirmwareInfoProvider.Heartbeat"

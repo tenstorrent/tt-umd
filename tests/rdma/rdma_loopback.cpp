@@ -227,7 +227,7 @@ void RdmaLoopback::connect_qp(ibv_qp* qp, uint32_t dest_qpn, uint32_t dest_psn, 
     rtr.min_rnr_timer = 12;
     rtr.ah_attr.is_global = 1;
     rtr.ah_attr.port_num = port_;
-    rtr.ah_attr.grh.sgid_index = gid_index_;
+    rtr.ah_attr.grh.sgid_index = static_cast<uint8_t>(gid_index_);
     rtr.ah_attr.grh.hop_limit = 64;
     // Destination GID == our own GID: this is what makes the connection a loopback.
     memcpy(rtr.ah_attr.grh.dgid.raw, gid_raw_, sizeof(gid_raw_));

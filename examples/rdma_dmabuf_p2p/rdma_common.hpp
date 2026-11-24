@@ -160,7 +160,7 @@ inline RdmaPort open_active_rdma_port(const std::string& requested_dev, int requ
         const int last_port = requested_port > 0 ? requested_port : dev_attr.phys_port_cnt;
         for (int p = first_port; p <= last_port; ++p) {
             ibv_port_attr port_attr{};
-            if (ibv_query_port(ctx, p, &port_attr)) {
+            if (ibv_query_port(ctx, static_cast<uint8_t>(p), &port_attr)) {
                 tried += " " + name + ":" + std::to_string(p) + "(query failed)";
                 continue;
             }
@@ -211,7 +211,7 @@ inline std::string gid_to_string(const ibv_gid& gid) {
 // switch-friendly choice; fall back to any non-link-local RoCEv2 GID. Returns -1 if none is found.
 inline int find_roce_v2_gid_index(ibv_context* ctx, int ib_port) {
     ibv_port_attr port_attr{};
-    if (ibv_query_port(ctx, ib_port, &port_attr)) {
+    if (ibv_query_port(ctx, static_cast<uint8_t>(ib_port), &port_attr)) {
         return -1;
     }
 
@@ -263,7 +263,7 @@ inline int resolve_gid_index(ibv_context* ctx, int ib_port, int requested) {
     }
 
     ibv_gid gid{};
-    ibv_query_gid(ctx, ib_port, idx, &gid);
+    ibv_query_gid(ctx, static_cast<uint8_t>(ib_port), idx, &gid);
     std::cout << "Auto-selected RoCEv2 GID index " << idx << " (" << gid_to_string(gid) << ")" << std::endl;
     return idx;
 }
@@ -362,7 +362,7 @@ inline QpExchangeInfo make_local_exchange_info(const RdmaPort& port, int gid_ind
     info.psn = psn;
     if (port.is_roce()) {
         ibv_gid gid{};
-        if (ibv_query_gid(port.ctx, port.ib_port, gid_index, &gid)) {
+        if (ibv_query_gid(port.ctx, static_cast<uint8_t>(port.ib_port), gid_index, &gid)) {
             throw std::runtime_error("ibv_query_gid failed");
         }
         std::memcpy(info.gid, gid.raw, 16);

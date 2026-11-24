@@ -52,6 +52,7 @@ target_sources(
         src/arch/architecture_implementation.cpp
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
+        src/arch/tlb_window_size.cpp
         src/chip_helpers/sysmem_manager.cpp
         src/chip_helpers/simulation_sysmem_manager.cpp
         src/chip_helpers/silicon_sysmem_manager.cpp

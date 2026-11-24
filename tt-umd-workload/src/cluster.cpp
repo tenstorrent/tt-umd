@@ -1335,7 +1335,7 @@ void Cluster::broadcast_write_to_cluster(
                             // Registers go through the uncached path: the CPU may speculatively read a
                             // write-combined mapping, and a read landing in the unmapped space around a register
                             // never completes, which drops the device off PCIe.
-                            write_to_device_reg(mem_ptr, size_in_bytes, chip, core, address);
+                            write_to_device_reg(mem_ptr, static_cast<uint32_t>(size_in_bytes), chip, core, address);
                         } else {
                             write_to_device(mem_ptr, size_in_bytes, chip, core, address);
                         }

@@ -22,7 +22,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 
@@ -72,7 +72,12 @@ void SimulationHost::init(const std::string &suffix) {
     uint16_t port;
 
     if (local_socket_port_str) {
-        port = static_cast<uint16_t>(atoi(local_socket_port_str));
+        const int parsed_port = atoi(local_socket_port_str);
+        UMD_ASSERT(
+            parsed_port >= 0 && parsed_port < UINT16_MAX,
+            error::RuntimeError,
+            fmt::format("Given port {} must be in range 0-{}.", local_port_var, UINT16_MAX));
+        port = static_cast<uint16_t>(parsed_port);
         log_info(tt::LogEmulationDriver, "Using specified {}: {}", local_port_var, port);
     } else {
         // Generate random port in range 50000-59999.

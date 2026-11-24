@@ -150,6 +150,8 @@ public:
 
     uint64_t get_noc_base() const override { return 0; }
 
+    bool is_read_only_page_pinning_supported() const override { return false; }
+
     using SystemMemoryAllocator::create_buffer;
 };
 
@@ -526,18 +528,24 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     // Mappings are read-write unless the caller asks otherwise.
     EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
 
-    // The interface carries device access, so a read-only mapping is reachable without dropping to the
-    // concrete manager.
-    std::vector<uint8_t> read_only(4096, 0);
-    auto pinned_read_only = allocator->map_user_buffer(
-        read_only.data(), read_only.size(), /*bind_to_noc=*/false, DeviceBufferAccess::READ_ONLY);
-    ASSERT_NE(pinned_read_only, nullptr);
-    EXPECT_EQ(pinned_read_only->get_device_access(), DeviceBufferAccess::READ_ONLY);
-
     // bind_to_noc reaches the same path as the concrete map_to_noc flag.
     auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
     ASSERT_NE(bound, nullptr);
     EXPECT_TRUE(bound->get_noc_address().has_value());
+}
+
+// An allocator that cannot stop the device writing a mapping reports no read-only pinning and refuses to
+// promise it.
+TEST_P(ApiSimulationSysmemManagerByArch, RefusesReadOnlyMappingItCannotEnforce) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
+    SystemMemoryAllocator* allocator = sysmem.get();
+
+    EXPECT_FALSE(allocator->is_read_only_page_pinning_supported());
+
+    std::vector<uint8_t> buffer(4096, 0);
+    EXPECT_THROW(
+        allocator->map_user_buffer(buffer.data(), buffer.size(), /*bind_to_noc=*/false, DeviceBufferAccess::READ_ONLY),
+        std::runtime_error);
 }
 
 // The manager stamps its communication id into every buffer it produces, so a caller can confirm a

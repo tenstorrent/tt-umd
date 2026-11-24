@@ -52,7 +52,7 @@ public:
      * @param size Size of the caller's buffer in bytes.
      * @param bind_to_noc If true, additionally binds the buffer to a NOC address.
      * @param device_access What the device is allowed to do with the mapping. READ_ONLY pins the pages so the
-     * device cannot write through them, which needs KMD support the concrete allocator reports separately.
+     * device cannot write through them, and needs is_read_only_page_pinning_supported().
      * @return An exclusively owned handle to the mapped buffer.
      */
     virtual std::unique_ptr<SysmemBuffer> map_user_buffer(
@@ -83,6 +83,12 @@ public:
      * to the NOC. Where in the window a buffer lands is decided when it is bound.
      */
     virtual uint64_t get_noc_base() const = 0;
+
+    /**
+     * Returns whether map_user_buffer() can pin pages read-only to the device. An allocator that cannot enforce
+     * it returns false and refuses DeviceBufferAccess::READ_ONLY.
+     */
+    virtual bool is_read_only_page_pinning_supported() const = 0;
 
 protected:
     /**

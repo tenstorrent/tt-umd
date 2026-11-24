@@ -160,6 +160,12 @@ inline RdmaPort open_active_rdma_port(const std::string& requested_dev, int requ
             continue;
         }
 
+        if (requested_port > dev_attr.phys_port_cnt) {
+            ibv_close_device(ctx);
+            tried += " " + name + ":" + std::to_string(requested_port) + "(out of range)";
+            continue;
+        }
+
         const int first_port = requested_port > 0 ? requested_port : 1;
         const int last_port = requested_port > 0 ? requested_port : dev_attr.phys_port_cnt;
         for (int p = first_port; p <= last_port; ++p) {

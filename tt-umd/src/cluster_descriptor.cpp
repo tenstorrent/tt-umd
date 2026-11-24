@@ -1008,6 +1008,16 @@ void fill_eth_channel_states(ClusterDescription &description) {
     }
 }
 
+IODeviceType parse_io_device_type(const std::string &name) {
+    for (const auto &[type, type_name] : DeviceTypeToString) {
+        // UNDEFINED is not a real device type, so a descriptor naming it is as invalid as an unknown name.
+        if (type != IODeviceType::UNDEFINED && type_name == name) {
+            return type;
+        }
+    }
+    UMD_THROW(error::RuntimeError, fmt::format("Unknown io_device_type '{}' in the cluster descriptor YAML.", name));
+}
+
 }  // namespace
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
@@ -1021,6 +1031,11 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
         std::string cluster_id = yaml["cluster_id"].as<std::string>();
         utils::validate_cluster_id(cluster_id, "the cluster descriptor YAML");
         description.cluster_id = std::move(cluster_id);
+    }
+
+    // Optional: descriptors without it describe PCIe devices.
+    if (yaml["io_device_type"].IsDefined()) {
+        description.io_device_type = parse_io_device_type(yaml["io_device_type"].as<std::string>());
     }
 
     load_chips_from_connectivity_descriptor(yaml, description);

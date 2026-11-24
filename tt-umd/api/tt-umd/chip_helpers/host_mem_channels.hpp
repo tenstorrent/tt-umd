@@ -51,12 +51,12 @@ public:
     /**
      * Copies size bytes from src into the channel at offset, which wraps at the channel size.
      */
-    void write_to_channel(uint16_t channel, const void* src, uint64_t offset, uint32_t size) const;
+    void write_to_channel(uint16_t channel, const void* src, uint64_t offset, size_t size) const;
 
     /**
      * Copies size bytes from the channel at offset, which wraps at the channel size, into dest.
      */
-    void read_from_channel(uint16_t channel, void* dest, uint64_t offset, uint32_t size) const;
+    void read_from_channel(uint16_t channel, void* dest, uint64_t offset, size_t size) const;
 
 private:
     struct Channel {

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
@@ -204,8 +205,7 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
 
     EXPECT_EQ(info.status, 0);
     EXPECT_EQ(info.arch, static_cast<int32_t>(soc.arch));
-    const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
-    EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
+    EXPECT_EQ(info.backend_type, is_ttsim_test() ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
     EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
     EXPECT_EQ(info.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
     EXPECT_EQ(info.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);
@@ -366,8 +366,7 @@ TEST(SimulationConnector, ReportsServingHostConnection) {
 
     EXPECT_EQ(connection.role, SimulationConnector::Role::Host);
     EXPECT_EQ(connection.simulator, std::filesystem::path(simulator_path));
-    const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
-    EXPECT_EQ(connection.backend, is_ttsim ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
+    EXPECT_EQ(connection.backend, is_ttsim_test() ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
     EXPECT_EQ(connection.arch, result.devices.at(0)->get_soc_descriptor().arch);
     EXPECT_EQ(connection.server_directory, server_directory);
     EXPECT_EQ(connection.sockets.size(), result.devices.size());

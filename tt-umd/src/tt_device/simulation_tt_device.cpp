@@ -316,8 +316,10 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
             break;
         case tt::ARCH::QUASAR:
-            cached_tlb_window_ =
-                get_io_window({}, TlbMapping::WC, SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_) ? SIZE_4GB : SIZE_16MB);
+            cached_tlb_window_ = get_io_window(
+                {},
+                TlbMapping::WC,
+                SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_) ? SIZE_4GB : SIZE_16MB);
             break;
         default:
             log_debug(
@@ -340,7 +342,8 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
     // A bypass index has no pool for get_tlb_size_from_index to look up; pass the requested size through.
-    size_t actual_size = SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    const bool bypassed = SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_);
+    size_t actual_size = bypassed ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 

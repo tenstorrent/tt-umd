@@ -30,6 +30,7 @@ class PCIDevice;
 class PcieInterface;
 class RemoteInterface;
 class SocArchDescriptor;
+class SystemMemoryAllocator;
 
 /**
  * Composition root for a single device's hardware-facing components.
@@ -67,6 +68,10 @@ public:
 
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
+
+    // The allocator for host memory this device can reach; the buffers it produces carry this device's
+    // communication id. Every model has to state its choice; null means the device cannot reach host memory.
+    virtual SystemMemoryAllocator *get_system_memory_allocator() = 0;
 
     // Controls the reset state of the device's RISC cores. Every model has to state its choice;
     // null means the device has no RISC reset control.

@@ -21,6 +21,8 @@
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -262,6 +264,38 @@ TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
     }
     for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
         EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
+    }
+}
+
+TEST(ApiTTDeviceTest, SystemMemoryAllocatorPinsForItsDevice) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (ChipId chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const int communication_id = tt_device->get_communication_device_id();
+
+        SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
+        ASSERT_NE(allocator, nullptr);
+        EXPECT_EQ(allocator->get_communication_id(), communication_id);
+
+        std::unique_ptr<SysmemBuffer> buffer = allocator->allocate_buffer(4096);
+        ASSERT_NE(buffer, nullptr);
+        EXPECT_EQ(buffer->get_communication_id(), communication_id);
+    }
+}
+
+// A remote device reaches the host only through its gateway chip, so it has no host memory of its own.
+TEST(ApiTTDeviceTest, RemoteDeviceHasNoSystemMemoryAllocator) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips in the cluster.";
+    }
+
+    for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(chip_id)->get_tt_device()->get_system_memory_allocator(), nullptr);
     }
 }
 

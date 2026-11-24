@@ -286,8 +286,8 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
@@ -303,8 +303,8 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
         tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, SAFE_IO_L1_ADDRESS);
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());

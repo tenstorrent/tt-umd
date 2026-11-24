@@ -11,6 +11,7 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -342,9 +343,7 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     // Initialize random data.
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
-    for (int i = 0; i < data_size; i++) {
-        data[i] = i % 256;
-    }
+    std::iota(data.begin(), data.end(), uint8_t{0});
 
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);

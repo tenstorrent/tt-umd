@@ -68,7 +68,7 @@ static void test_read_write_all_tensix_cores_impl(
     const auto chunk_size = available_size / NUM_PARALLEL;
 
     const std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    const uint32_t data_size = vector_to_write.size() * sizeof(uint32_t);
+    const size_t data_size = vector_to_write.size() * sizeof(uint32_t);
     std::vector<uint32_t> readback_vec = {};
     readback_vec.reserve(vector_to_write.size());
 

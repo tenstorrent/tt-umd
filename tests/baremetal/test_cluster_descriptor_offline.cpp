@@ -39,7 +39,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(
+size_t count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {
     size_t count = 0;

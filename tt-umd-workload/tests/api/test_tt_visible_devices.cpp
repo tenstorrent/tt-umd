@@ -219,7 +219,7 @@ TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
 TEST_F(TestTTVisibleDevices, OpenChipsByIdException) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::unordered_set<int> target_device_ids;
+    std::unordered_set<size_t> target_device_ids;
     target_device_ids.insert(pci_device_ids.size());
 
     std::cout << "Creating Cluster with target device IDs: ";

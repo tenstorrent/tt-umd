@@ -53,10 +53,10 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
-bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+void SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     ZoneScopedC(tracy::Color::Yellow);
     if (num_host_mem_channels == 0) {
-        return true;
+        return;
     }
 
     if (num_host_mem_channels > 4) {
@@ -87,16 +87,17 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     // 1 GB, for channel in [0, num_channels)).
     registry_->next_arena_offset = total_size;
 
-    for (int i = 0; i < num_host_mem_channels; i++) {
+    host_mem_channels_ = HostMemChannels(num_host_mem_channels);
+    for (uint32_t i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
-        // physical_address is this chip's host base for the channel -- what UMD programs as the outbound
-        // iATU region target (host_base_ is per-chip distinct). The chip-side NOC sysmem-window address is
-        // separate (get_sysmem_window_noc_base), so the iATU maps NOC-window offset -> this host base.
-        hugepage_mapping_per_channel.push_back(
-            {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
+        host_mem_channels_.map_channel(i, system_memory_ + i * HostMemChannels::CHANNEL_STRIDE, channel_size);
     }
+}
 
-    return true;
+std::optional<size_t> SimulationSysmemManager::get_max_buffer_count(size_t size) const {
+    // Buffers come out of a fixed arena, so only as many as it holds fit.
+    const uint64_t arena_size = get_mapped_arena_size();
+    return size == 0 || size > arena_size ? 0 : arena_size / size;
 }
 
 uint64_t SimulationSysmemManager::get_mapped_arena_size() const {
@@ -115,7 +116,7 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
     // takes it too, so a buffer registered between the check and the remap would otherwise have its
     // registration dropped and its arena address overlapped by the larger mapping init_sysmem lays out.
     std::lock_guard<std::mutex> lock(registry_->mutex);
-    if (num_host_mem_channels <= hugepage_mapping_per_channel.size()) {
+    if (num_host_mem_channels <= host_mem_channels_.get_num_channels()) {
         return false;
     }
     UMD_ASSERT(
@@ -127,11 +128,7 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
     return true;
 }
 
-bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
-
-SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
-
-void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+SimulationSysmemManager::~SimulationSysmemManager() {
     ZoneScopedC(tracy::Color::Yellow);
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
@@ -140,8 +137,29 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
     unmap_system_memory();
 }
 
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size) {
+    host_mem_channels_.write_to_channel(channel, src, sysmem_dest, size);
+}
+
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size) {
+    host_mem_channels_.read_from_channel(channel, dest, sysmem_src, size);
+}
+
+HugepageMapping SimulationSysmemManager::get_hugepage_mapping(size_t channel) const {
+    if (channel >= host_mem_channels_.get_num_channels()) {
+        return {nullptr, 0, 0};
+    }
+    // physical_address is this chip's host base for the channel -- what UMD programs as the outbound
+    // iATU region target (host_base_ is per-chip distinct). The chip-side NOC sysmem-window address is
+    // separate (get_sysmem_window_noc_base), so the iATU maps NOC-window offset -> this host base.
+    return {
+        host_mem_channels_.get_channel_address(channel),
+        host_mem_channels_.get_channel_size(channel),
+        host_base_ + channel * HostMemChannels::CHANNEL_STRIDE};
+}
+
 void SimulationSysmemManager::unmap_system_memory() {
-    hugepage_mapping_per_channel.clear();
+    host_mem_channels_ = HostMemChannels();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);
         system_memory_ = nullptr;

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
@@ -212,6 +213,8 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
+    // Host memory channels are mapped only while the cluster is started.
+    test_utils::safe_test_cluster_start(cluster.get());
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -248,6 +251,8 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
             EXPECT_EQ(pattern_buf, readback_buf);
         }
     }
+
+    cluster->close_device();
 }
 
 TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {

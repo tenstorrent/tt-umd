@@ -43,44 +43,6 @@
 using namespace tt;
 using namespace tt::umd;
 
-constexpr uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
-
-TEST(ApiSysmemManager, BasicIO) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
-
-        // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tt_device.get(), 1);
-
-        sysmem->pin_or_map_sysmem_to_device();
-
-        // Simple write and read test.
-        std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-        sysmem->write_to_sysmem(0, data_write.data(), 0, data_write.size() * sizeof(uint32_t));
-
-        std::vector<uint32_t> data_read = std::vector<uint32_t>(data_write.size(), 0);
-        sysmem->read_from_sysmem(0, data_read.data(), 0, data_read.size() * sizeof(uint32_t));
-
-        EXPECT_EQ(data_write, data_read);
-
-        // Channel 1 is not setup, so this should throw an exception.
-        EXPECT_THROW(
-            sysmem->write_to_sysmem(1, data_write.data(), 0, data_write.size() * sizeof(uint32_t)), std::runtime_error);
-
-        // When we write over the limit, the address is wrapped around the hugepage size.
-        sysmem->write_to_sysmem(
-            0, data_write.data(), HUGEPAGE_REGION_SIZE + 0x100, data_write.size() * sizeof(uint32_t));
-        data_read = std::vector<uint32_t>(data_write.size(), 0);
-        sysmem->read_from_sysmem(0, data_read.data(), 0x100, data_read.size() * sizeof(uint32_t));
-        EXPECT_EQ(data_write, data_read);
-
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
-    }
-}
-
 TEST(ApiSysmemManager, SysmemBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -380,10 +342,10 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     EXPECT_TRUE(sysmem_buffer->get_noc_address().has_value());
 
-    // We haven't actually mapped the hugepage yet, since cluster->start_device or
-    // sysmem_manager->pin_or_map_sysmem_to_device wasn't called yet. So this will be the first buffer that was mapped,
-    // and it is expected to have the starting NOC address.
+    // The host memory channels are mapped by cluster->start_device, which wasn't called yet. So this will be the
+    // first buffer that was mapped, and it is expected to have the starting NOC address.
     EXPECT_EQ(sysmem_buffer->get_noc_address().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
+    EXPECT_EQ(sysmem_buffer->get_noc_address().value(), sysmem_manager->get_noc_base());
 
     uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_va());
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -471,8 +433,8 @@ TEST(ApiSysmemManager, BuffersFromTwoAllocatorsOnOneDeviceAreDistinct) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager first_allocator(tt_device.get(), 0);
-    SiliconSysmemManager second_allocator(tt_device.get(), 0);
+    SiliconSysmemManager first_allocator(tt_device.get());
+    SiliconSysmemManager second_allocator(tt_device.get());
 
     std::unique_ptr<SysmemBuffer> first_buffer = first_allocator.allocate_buffer(4096);
     std::unique_ptr<SysmemBuffer> second_buffer = second_allocator.allocate_buffer(4096);
@@ -497,7 +459,7 @@ TEST(ApiSysmemManager, AllocatedBufferIsNotNocBoundByDefault) {
         GTEST_SKIP() << "No Tenstorrent PCI devices found.";
     }
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device.get(), 0);
+    SiliconSysmemManager allocator(tt_device.get());
 
     std::unique_ptr<SysmemBuffer> buffer = allocator.allocate_buffer(4096);
 
@@ -542,7 +504,7 @@ TEST(ApiSysmemManager, AllocationAboveOneGibThrowsWithoutIommu) {
         GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
     }
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device.get(), 0);
+    SiliconSysmemManager allocator(tt_device.get());
 
     EXPECT_THROW(allocator.allocate_buffer((1ULL << 30) + 4096), std::runtime_error);
 }
@@ -557,7 +519,7 @@ TEST(ApiSysmemManager, OneGibAllocationSucceedsWithoutIommu) {
         GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
     }
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device.get(), 0);
+    SiliconSysmemManager allocator(tt_device.get());
 
     EXPECT_NO_THROW(allocator.allocate_buffer(1ULL << 30));
 }
@@ -573,7 +535,7 @@ TEST(ApiSysmemManager, DestroyedBufferReturnsItsHugepage) {
         GTEST_SKIP() << "Buffers are hugepage-backed only without an IOMMU.";
     }
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
-    SiliconSysmemManager allocator(tt_device.get(), 0);
+    SiliconSysmemManager allocator(tt_device.get());
 
     // A loop bound, not an expected value: one more cycle than the pool has pages.
     size_t nr_hugepages = 0;
@@ -581,6 +543,77 @@ TEST(ApiSysmemManager, DestroyedBufferReturnsItsHugepage) {
 
     for (size_t i = 0; i <= nr_hugepages; i++) {
         ASSERT_NO_THROW(allocator.allocate_buffer(4096)) << "allocation " << i << " of " << nr_hugepages + 1;
+    }
+}
+
+// With an IOMMU any pages can be made device-visible, so the device sets no limit on how many buffers it holds.
+TEST(ApiSysmemManager, MaxBufferCountHasNoLimitWithIommu) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Buffers are unlimited only with an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get());
+
+    EXPECT_EQ(allocator.get_max_buffer_count(1ULL << 30), std::nullopt);
+}
+
+// Without an IOMMU each buffer is one 1 GB hugepage, so no buffer above 1 GB can be planned for.
+TEST(ApiSysmemManager, MaxBufferCountRejectsBuffersAboveOneGibWithoutIommu) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "The 1 GB limit applies only without an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get());
+
+    EXPECT_EQ(allocator.get_max_buffer_count(2ULL << 30), std::optional<size_t>(0));
+}
+
+// Without an IOMMU the count is bounded by the host's hugepages, and a host set up for the device has at least one.
+TEST(ApiSysmemManager, MaxBufferCountAllowsOneGibBufferWithoutIommu) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "The count is bounded only without an IOMMU.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get());
+
+    const std::optional<size_t> max_buffer_count = allocator.get_max_buffer_count(1ULL << 30);
+
+    ASSERT_TRUE(max_buffer_count.has_value());
+    EXPECT_GE(max_buffer_count.value(), 1u);
+}
+
+// NOC-bound buffers are reached through the PCIe tile's outbound window, which starts at a fixed NOC address
+// per architecture.
+TEST(ApiSysmemManager, NocBaseIsTheSysmemWindowStart) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
+    SiliconSysmemManager allocator(tt_device.get());
+
+    // The PCI device knows its architecture without the TTDevice being initialised.
+    switch (PCIDevice(pci_device_ids[0]).get_arch()) {
+        case tt::ARCH::WORMHOLE_B0:
+            EXPECT_EQ(allocator.get_noc_base(), 0x800000000ULL);
+            break;
+        case tt::ARCH::BLACKHOLE:
+            EXPECT_EQ(allocator.get_noc_base(), 0x1000000000000000ULL);
+            break;
+        default:
+            FAIL() << "No expected NOC base for this architecture.";
     }
 }
 

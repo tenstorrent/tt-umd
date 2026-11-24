@@ -66,6 +66,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
+    const HostMemChannels* get_host_mem_channels() override;
 
     bool is_mmio_capable() const override { return false; }
 

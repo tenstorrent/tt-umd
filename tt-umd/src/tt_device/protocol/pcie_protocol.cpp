@@ -173,6 +173,8 @@ int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
 std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
 
+std::optional<int> PcieProtocol::get_physical_slot() const { return pci_device_->get_device_info().physical_slot; }
+
 std::unique_ptr<SiliconTlbWindow> PcieProtocol::allocate_tlb_window(size_t size, TlbMapping mapping) {
     if (size != 0) {
         return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size, mapping));

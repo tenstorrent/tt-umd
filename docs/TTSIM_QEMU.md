@@ -28,7 +28,8 @@ which is a tt-kmd change.
 
 The 64-bit PCI hole and the guest's physical address width are derived from it, because firmware
 places a 64-bit BAR at its natural alignment and a BAR too big for the hole is left unassigned
-with no error -- the guest simply has no `resource4`.
+with no error -- the guest simply has no `resource4`. BAR sizes take QEMU's size syntax (`32M`,
+`0.5T`, `0x2000000`), and a size QEMU would reject stops the runner before the VM starts.
 
 Two further options exist for Quasar, and are described under Grendel below: `--bar0-size` and
 `--kmd-module`.

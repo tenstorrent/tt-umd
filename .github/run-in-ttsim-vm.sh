@@ -61,19 +61,42 @@ ttsim_device="ttsim,lib=$lib,bar4-size=$bar4_size"
 # address width has to cover the hole too, and -cpu max gives 40 bits under TCG, which a 1 TiB hole
 # does not fit in. Both are derived from the BAR sizes, so a Wormhole or Blackhole command line comes
 # out exactly as before (64G hole, 40 bits) and only Keraunos gets the bigger window.
+#
+# to_bytes prints a size in bytes, read the way QEMU reads its size properties, and stops the runner
+# on a size QEMU would reject.
 to_bytes() {
-    local n=${1%%[KkMmGgTt]}
-    case "$1" in
-        *[Kk]) echo $(( n << 10 )) ;;
-        *[Mm]) echo $(( n << 20 )) ;;
-        *[Gg]) echo $(( n << 30 )) ;;
-        *[Tt]) echo $(( n << 40 )) ;;
-        *)     echo "$n" ;;
-    esac
+    local hex='^[[:space:]]*\+?0[xX]([[:xdigit:]]+)$'
+    local dec='^[[:space:]]*\+?([0-9]*)(\.([0-9]*))?([bBkKmMgGtTpPeE]?)$'
+    if [[ $1 =~ $hex ]]; then
+        echo $(( 16#${BASH_REMATCH[1]} ))
+        return
+    fi
+    if [[ $1 =~ $dec && -n "${BASH_REMATCH[1]}${BASH_REMATCH[3]}" ]]; then
+        local int=${BASH_REMATCH[1]} frac=${BASH_REMATCH[3]} scale_bits
+        case "${BASH_REMATCH[4]}" in
+            [kK]) scale_bits=10 ;;
+            [mM]) scale_bits=20 ;;
+            [gG]) scale_bits=30 ;;
+            [tT]) scale_bits=40 ;;
+            [pP]) scale_bits=50 ;;
+            [eE]) scale_bits=60 ;;
+            *)    scale_bits=0 ;;
+        esac
+        # QEMU takes no fraction of a byte, and rounds a fraction of a larger unit half up.
+        if [[ $frac != *[1-9]* ]] || (( scale_bits > 0 )); then
+            awk -v n="${int:-0}.${frac:-0}" -v s="$scale_bits" 'BEGIN { printf "%.0f\n", int(n * 2 ^ s + 0.5) }'
+            return
+        fi
+    fi
+    echo "run-in-ttsim-vm: '$1' is not a size QEMU accepts" >&2
+    exit 2
 }
 hole64=$(( 64 << 30 ))
 largest_bar=$(to_bytes "$bar4_size")
-[[ -n "$bar0_size" ]] && (( $(to_bytes "$bar0_size") > largest_bar )) && largest_bar=$(to_bytes "$bar0_size")
+if [[ -n "$bar0_size" ]]; then
+    bar0_bytes=$(to_bytes "$bar0_size")
+    largest_bar=$(( bar0_bytes > largest_bar ? bar0_bytes : largest_bar ))
+fi
 while (( hole64 < 2 * largest_bar )); do hole64=$(( hole64 * 2 )); done
 phys_bits=40
 while (( (1 << phys_bits) < 4 * hole64 )); do phys_bits=$(( phys_bits + 1 )); done

@@ -64,6 +64,11 @@ public:
     // The socket is private to the user that creates it: the socket file is owner-only (0600),
     // and every directory this call has to create for it (its parent and any missing ancestors)
     // is owner-only (0700). Directories that already exist are left as they are.
+    //
+    // In a server directory (see allocate_server_directory) this process must hold the directory's
+    // claim: one it allocated already does, and one whose owner is gone is taken over. Throws when
+    // another live process holds it. Tearing down the directory's last socket removes the
+    // directory and releases the claim.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
@@ -92,7 +97,25 @@ public:
     // exists), so racing hosts get distinct indices. The directory is owner-only (0700) whatever
     // the umask, so other users can neither attach to nor list the sockets in it. Throws if no
     // index is free. A client is then pointed at the returned directory.
+    //
+    // The calling process holds the claim for as long as it lives -- a forked child shares it, an
+    // exec'd program does not -- so sweep_server_directory() removes the directory once it has
+    // exited, whether or not it ever served there.
     static std::filesystem::path allocate_server_directory();
+
+    enum class SweepResult {
+        Live,         // its owner is alive, so it was left alone
+        Removed,      // its owner was gone, and it is removed
+        Unremovable,  // its owner was gone, but it could not be removed
+    };
+
+    // Removes a server directory whose owner is gone: no live process holds its claim and none of
+    // its sockets has a listener (a host from a UMD that predates claims takes none). The verdict
+    // and the removal are made holding that claim, taken here for a directory that has no claim
+    // file yet, so no host can take the directory over in between. A directory with neither a claim
+    // file nor a socket is kept, as one still being allocated, and so is one whose claim cannot be
+    // taken.
+    static SweepResult sweep_server_directory(const std::filesystem::path& directory);
 
     // The simulation server directories under the system temp dir that belong to this process's
     // effective user: {index -> directory}, keyed and ordered by index. Other users' directories
@@ -121,8 +144,8 @@ public:
     //
     // Presence only: a socket here may be one a crashed host left behind, so this is not the set of
     // hosts to attach to. SimulationConnector's classifier narrows it with is_live() and rejects a
-    // directory whose sockets are all stale. Presence is what sim_server's `list` and `prune` need,
-    // since they exist to report and remove exactly those leftovers.
+    // directory whose sockets are all stale. Presence is what sim_server's `list` needs, since it
+    // reports every chip a server published.
     static std::map<ChipId, std::filesystem::path> sockets_in_directory(const std::filesystem::path& directory);
 
 private:

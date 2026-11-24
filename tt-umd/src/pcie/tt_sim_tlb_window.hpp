@@ -41,12 +41,6 @@ public:
     void read_block(uint64_t offset, void* data, size_t size) override;
 
 private:
-    TTSimTlbWindow(
-        TTSimTlbHandle* sim_tlb_handle,
-        std::unique_ptr<TTSimTlbHandle>&& handle,
-        TTSimCommunicator* communicator,
-        const tlb_data config);
-
     bool is_mapped_through_bar() const;
 
     /**
@@ -56,8 +50,6 @@ private:
     uint64_t get_physical_address(uint64_t offset) const;
 
     TTSimCommunicator* sim_communicator_;
-    // The handle the base owns, as its concrete type.
-    TTSimTlbHandle* sim_tlb_handle_;
 };
 
 }  // namespace tt::umd

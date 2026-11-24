@@ -61,6 +61,17 @@ public:
     virtual void set_power_state(PowerState state) = 0;
 
     /**
+     * @brief Requests individual hardware power domains through the kernel driver.
+     *
+     * A no-op on architectures or KMD versions without power state management.
+     *
+     * @param power_flags_bitfield Bitmask of power domain requests (TT_POWER_FLAG_* values).
+     * @param power_flags_valid Number of low-order bits of power_flags_bitfield (0-15) the driver treats as valid.
+     * @returns False if the request is unsupported or malformed, otherwise true.
+     */
+    virtual bool set_power_state(uint16_t power_flags_bitfield, uint8_t power_flags_valid) = 0;
+
+    /**
      * @brief Exports (core, addr) as a dma-buf fd for peer-to-peer PCIe DMA, backed by a dedicated
      * TLB window.
      *

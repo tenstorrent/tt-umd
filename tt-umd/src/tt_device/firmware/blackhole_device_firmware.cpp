@@ -18,6 +18,7 @@
 #include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
 #include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
@@ -163,8 +164,8 @@ void BlackholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
         UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
     }
 
-    uint32_t msg_code = 0;
     uint32_t target_aiclk = 0;
+    uint32_t msg_code = 0;
     switch (state) {
         case ClockState::BUSY:
             msg_code = static_cast<uint32_t>(blackhole::ArcMessageType::AICLK_GO_BUSY);
@@ -178,11 +179,17 @@ void BlackholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
             UMD_THROW(error::RuntimeError, "Unrecognized clock state.");
     }
 
-    DeviceCommandResult result = send_device_command(msg_code, {}, timeout::ARC_MESSAGE_TIMEOUT, noc_id);
-    UMD_ASSERT(
-        result.exit_code == 0,
-        error::RuntimeError,
-        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
+    uint16_t power_flags = (state == ClockState::BUSY) ? 1 : 0;
+    uint8_t validity = 1;
+    bool request_supported = pcie_interface_->set_power_state(power_flags, validity);
+
+    if (!request_supported) {
+        DeviceCommandResult result = send_device_command(msg_code, {}, timeout::ARC_MESSAGE_TIMEOUT, noc_id);
+        UMD_ASSERT(
+            result.exit_code == 0,
+            error::RuntimeError,
+            fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
+    }
 
     wait_for_aiclk_value(target_aiclk);
 }

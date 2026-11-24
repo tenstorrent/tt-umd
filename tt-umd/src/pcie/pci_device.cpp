@@ -1215,25 +1215,21 @@ void PCIDevice::noc_write_scalar(
         fmt::format("Writing {} bytes at 0x{:x} failed: {}.", width, addr, strerror(-ret)));
 }
 
-void PCIDevice::set_power_state(bool busy) {
+bool PCIDevice::set_power_state(uint16_t power_flags_bitfield, uint8_t power_flags_valid) {
     if (arch != tt::ARCH::BLACKHOLE) {
-        return;
+        return false;
     }
 
     if (kmd_version < KMD_POWER_STATE) {
         log_debug(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
-        return;
+        return false;
     }
 
-    constexpr uint16_t not_busy_flags = 0;
-    constexpr uint16_t busy_flags =
-        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
-    uint16_t flags = busy ? busy_flags : not_busy_flags;
-
-    int ret = tt_device_set_power_state(tt_device_handle, flags);
+    int ret = tt_device_set_power_state(tt_device_handle, power_flags_bitfield, power_flags_valid);
     if (ret != 0) {
         log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
     }
+    return true;
 }
 
 std::vector<int> PCIDevice::get_all_device_ids() {

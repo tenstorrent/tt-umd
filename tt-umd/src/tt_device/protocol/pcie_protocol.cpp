@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -143,9 +144,16 @@ bool PcieProtocol::write_to_core_range(
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_device_num(); }
 
-// PCIDevice takes a bool, so the requested state is narrowed here rather than in the interface.
 void PcieProtocol::set_power_state(PowerState state) {
-    pci_device_->set_power_state(/*busy=*/state == PowerState::HIGH);
+    constexpr uint16_t busy_flags =
+        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
+    constexpr uint16_t idle_flags = 0;
+    constexpr uint8_t defined_flags_count = 4;
+    set_power_state(state == PowerState::HIGH ? busy_flags : idle_flags, defined_flags_count);
+}
+
+bool PcieProtocol::set_power_state(uint16_t power_flags_bitfield, uint8_t power_flags_valid) {
+    return pci_device_->set_power_state(power_flags_bitfield, power_flags_valid);
 }
 
 void PcieProtocol::noc_multicast_write(

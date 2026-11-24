@@ -542,6 +542,39 @@ bool WarmReset::galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int
     return false;
 }
 
+bool WarmReset::ubb_ipmi_reset_and_wait_for_devices(const std::chrono::milliseconds timeout_ms) {
+    auto pci_device_ids = PCIDevice::enumerate_devices();
+    std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+
+    std::map<int, std::string> pci_bdfs;
+    for (auto& pci_device_info : pci_devices_info) {
+        pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
+    }
+
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
+
+    static int constexpr UBB_NUM = 0xF;
+    static int constexpr DEV_NUM = 0xFF;
+    static int constexpr OP_MODE = 0x0;
+    static int constexpr RESET_TIME = 0xF;
+    const bool ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+
+    const bool devices_reappeared = std::all_of(pci_bdfs.begin(), pci_bdfs.end(), [&](const auto& pci_bdf) {
+        return wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms) != -1 && wait_for_reset_marker(pci_bdf.second);
+    });
+
+    if (!devices_reappeared) {
+        log_error(tt::LogUMD, "Reset failed.");
+        return false;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    PCIDevice::send_reset_ioctl_to_devices(
+        pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
+    return ipmi_reset_success;
+}
+
 bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
     if (std::getenv("TT_VISIBLE_DEVICES") != nullptr) {
         UMD_THROW(
@@ -554,52 +587,20 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         return false;
     }
 
-    auto pci_device_ids = PCIDevice::enumerate_devices();
-    std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
-    auto pci_devices_info = PCIDevice::enumerate_devices_info();
-
-    std::map<int, std::string> pci_bdfs;
-    for (auto& pci_device_info : pci_devices_info) {
-        pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
-    }
-
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(PRE_RESET_NOTIFICATION_TIMEOUT);
 
     // Listeners must be released even when the reset fails or throws, otherwise they stay blocked waiting for it.
     bool reset_success = false;
-    std::exception_ptr reset_error;
     try {
-        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
-
-        static int constexpr UBB_NUM = 0xF;
-        static int constexpr DEV_NUM = 0xFF;
-        static int constexpr OP_MODE = 0x0;
-        static int constexpr RESET_TIME = 0xF;
-        const bool ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
-
-        const bool devices_reappeared = std::all_of(pci_bdfs.begin(), pci_bdfs.end(), [&](const auto& pci_bdf) {
-            return wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms) != -1 &&
-                   wait_for_reset_marker(pci_bdf.second);
-        });
-
-        if (devices_reappeared) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            PCIDevice::send_reset_ioctl_to_devices(
-                pci_device_id_set, TenstorrentResetDevice::POST_RESET, /*ignore_failures=*/false);
-        } else {
-            log_error(tt::LogUMD, "Reset failed.");
-        }
-        reset_success = ipmi_reset_success && devices_reappeared;
+        reset_success = ubb_ipmi_reset_and_wait_for_devices(timeout_ms);
     } catch (...) {
-        reset_error = std::current_exception();
+        WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
+        throw;
     }
 
     log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
-    if (reset_error) {
-        std::rethrow_exception(reset_error);
-    }
     return reset_success;
 }
 

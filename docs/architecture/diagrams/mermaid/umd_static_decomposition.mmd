@@ -1,0 +1,37 @@
+flowchart TB
+  subgraph WL["Workload Layer (tt-umd-workload)"]
+    CL["Cluster"] --> CH["Chip (Local/Remote)"]
+  end
+  subgraph BL["Base Driver Layer (tt-umd)"]
+    TTD["TTDevice"] --> TDM["TTDeviceModel<br/>(WH / BH / Grendel)"]
+    TDM --> DP["DeviceProtocol"]
+    TDM --> DF["DeviceFirmware"]
+    TDM --> AI["ArchitectureImplementation"]
+    TDM --> SAD["SocArchDescriptor"]
+    TDM --> IOW["IoWindow"]
+    TDM --> FIP["FirmwareInfoProvider"]
+    TDM --> SMA["SystemMemoryAllocator/Buffer"]
+    TDM -.-> EPR["ATT EndpointResolver"]
+    TDM -.-> HD["HangDetector"]
+    TDM -.-> RR["RiscReset"]
+    TDM -.-> FTR["FirmwareTelemetryReader"]
+    TDM -.-> DMA["DmaInterface"]
+    TDM -.-> PCI["PcieInterface"]
+    TDM -.-> JT["JtagInterface"]
+    TDM -.-> RI["RemoteInterface"]
+    TD["TopologyDiscovery"]
+    SD["SocDescriptor / CoordinateManager"]
+    CD["ClusterDescriptor"]
+    LK["LockManager / KmdMutex"]
+    WR["Warm reset"]
+  end
+  UT["tt-umd-utils<br/>RobustMutex, errors, OpTimeoutGuard"]
+  UAPI["UMD uAPI (tt-kmd-lib)"]
+  CH --> TTD
+  CL --> CD
+  TD --> TTD
+  TD --> CD
+  DP --> UAPI
+  SMA --> UAPI
+  LK --> UAPI
+  LK --> UT

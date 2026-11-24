@@ -17,6 +17,9 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -65,6 +68,17 @@ protected:
         return v;
     }
 
+    // The simulator's tile API takes 32-bit coordinates and sizes.
+    void tile_read(const tt_xy_pair& core, uint64_t addr, void* data, size_t size) {
+        tt_device->get_communicator()->tile_read_bytes(
+            static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, data, static_cast<uint32_t>(size));
+    }
+
+    void tile_write(const tt_xy_pair& core, uint64_t addr, const void* data, size_t size) {
+        tt_device->get_communicator()->tile_write_bytes(
+            static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, data, static_cast<uint32_t>(size));
+    }
+
     std::unique_ptr<TTSimTTDevice> tt_device;
 };
 
@@ -93,6 +107,19 @@ protected:
 // makes them runnable at all: they are Blackhole-only, which that fixture skips.
 class TTSimTlbWindowFixture : public TTSimDeviceFixtureBase {};
 
+// For the tests of the device's own components, which every simulated architecture provides.
+class TTSimDeviceFixture : public TTSimDeviceFixtureBase {};
+
+// A simulated device reaches host memory, so it has an allocator, and it is the same host memory the
+// device's sysmem manager hands out.
+TEST_F(TTSimDeviceFixture, SystemMemoryAllocatorIsTheDevicesHostMemory) {
+    SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
+    ASSERT_NE(allocator, nullptr);
+    EXPECT_EQ(allocator, tt_device->get_sysmem_manager());
+
+    EXPECT_NE(allocator->allocate_buffer(4096), nullptr);
+}
+
 // ---------------------------------------------------------------------------
 // write_to_device (TLB path) → tile_rd_bytes (direct path)
 // ---------------------------------------------------------------------------
@@ -111,7 +138,7 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceReadByTileRdBytes) {
     tt_device->write_to_device(write_data.data(), core, addr, data_size);
 
     std::vector<uint8_t> read_data(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_data.data(), data_size);
+    tile_read(core, addr, read_data.data(), data_size);
 
     EXPECT_EQ(write_data, read_data);
 }
@@ -132,14 +159,14 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceZeroThenPatternReadByTileRdBytes) {
     tt_device->write_to_device(zeros.data(), core, addr, data_size);
 
     std::vector<uint8_t> read_zeros(data_size, 0xFF);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_zeros.data(), data_size);
+    tile_read(core, addr, read_zeros.data(), data_size);
     EXPECT_EQ(zeros, read_zeros) << "tile_rd_bytes should see zeros after write_to_device wrote zeros";
 
     // Then write the pattern.
     tt_device->write_to_device(pattern.data(), core, addr, data_size);
 
     std::vector<uint8_t> read_pattern(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_pattern.data(), data_size);
+    tile_read(core, addr, read_pattern.data(), data_size);
     EXPECT_EQ(pattern, read_pattern) << "tile_rd_bytes should see pattern after write_to_device wrote pattern";
 }
 
@@ -157,7 +184,7 @@ TEST_F(TTSimDeviceIOFixture, LargeWriteToDeviceReadByTileRdBytes) {
     tt_device->write_to_device(write_data.data(), core, addr, data_size);
 
     std::vector<uint8_t> read_data(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_data.data(), data_size);
+    tile_read(core, addr, read_data.data(), data_size);
 
     EXPECT_EQ(write_data, read_data);
 }
@@ -177,7 +204,7 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesReadByReadFromDevice) {
 
     auto write_data = make_pattern(data_size, [](size_t i) { return (i * 3 + 7) % 256; });
 
-    tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, write_data.data(), data_size);
+    tile_write(core, addr, write_data.data(), data_size);
 
     std::vector<uint8_t> read_data(data_size, 0);
     tt_device->read_from_device(read_data.data(), core, addr, data_size);
@@ -198,14 +225,14 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesZeroThenPatternReadByReadFromDevice) {
     auto pattern = make_pattern(data_size, [](size_t i) { return 255 - i % 256; });
 
     // First write zeros.
-    tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, zeros.data(), data_size);
+    tile_write(core, addr, zeros.data(), data_size);
 
     std::vector<uint8_t> read_zeros(data_size, 0xFF);
     tt_device->read_from_device(read_zeros.data(), core, addr, data_size);
     EXPECT_EQ(zeros, read_zeros) << "read_from_device should see zeros after tile_wr_bytes wrote zeros";
 
     // Then write the pattern.
-    tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, pattern.data(), data_size);
+    tile_write(core, addr, pattern.data(), data_size);
 
     std::vector<uint8_t> read_pattern(data_size, 0);
     tt_device->read_from_device(read_pattern.data(), core, addr, data_size);
@@ -223,7 +250,7 @@ TEST_F(TTSimDeviceIOFixture, LargeTileWrBytesReadByReadFromDevice) {
 
     auto write_data = make_pattern(data_size, [](size_t i) { return 255 - i % 256; });
 
-    tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, write_data.data(), data_size);
+    tile_write(core, addr, write_data.data(), data_size);
 
     std::vector<uint8_t> read_data(data_size, 0);
     tt_device->read_from_device(read_data.data(), core, addr, data_size);
@@ -252,7 +279,7 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceBothReadsConsistent) {
     tt_device->read_from_device(tlb_read.data(), core, addr, data_size);
 
     std::vector<uint8_t> direct_read(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+    tile_read(core, addr, direct_read.data(), data_size);
 
     EXPECT_EQ(write_data, tlb_read) << "read_from_device disagrees with write_to_device";
     EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with write_to_device";
@@ -269,13 +296,13 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesBothReadsConsistent) {
 
     auto write_data = make_pattern(data_size, [](size_t i) { return (i * 5 + 13) % 256; });
 
-    tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, write_data.data(), data_size);
+    tile_write(core, addr, write_data.data(), data_size);
 
     std::vector<uint8_t> tlb_read(data_size, 0);
     tt_device->read_from_device(tlb_read.data(), core, addr, data_size);
 
     std::vector<uint8_t> direct_read(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+    tile_read(core, addr, direct_read.data(), data_size);
 
     EXPECT_EQ(write_data, tlb_read) << "read_from_device disagrees with tile_wr_bytes";
     EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with tile_wr_bytes";
@@ -304,14 +331,14 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreAlternatingAPIsConsistent) {
         if (i % 2 == 0) {
             tt_device->write_to_device(write_data.data(), core, addr, data_size);
         } else {
-            tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, write_data.data(), data_size);
+            tile_write(core, addr, write_data.data(), data_size);
         }
 
         std::vector<uint8_t> tlb_read(data_size, 0);
         tt_device->read_from_device(tlb_read.data(), core, addr, data_size);
 
         std::vector<uint8_t> direct_read(data_size, 0);
-        tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+        tile_read(core, addr, direct_read.data(), data_size);
 
         EXPECT_EQ(write_data, tlb_read) << "read_from_device mismatch on core index " << i;
         EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes mismatch on core index " << i;
@@ -340,7 +367,7 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreWriteToDeviceReadByTileRdBytesNoBleed) {
     for (size_t i = 0; i < num_cores; i++) {
         const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED).to_pair();
         std::vector<uint8_t> read_data(data_size, 0);
-        tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_data.data(), data_size);
+        tile_read(core, addr, read_data.data(), data_size);
         EXPECT_EQ(all_patterns[i], read_data) << "Data bleed detected on core index " << i;
     }
 }
@@ -360,7 +387,7 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
     for (size_t i = 0; i < num_cores; i++) {
         const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED).to_pair();
         all_patterns[i] = make_pattern(data_size, [i](size_t j) { return (i * 41 + j * 3) % 256; });
-        tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, all_patterns[i].data(), data_size);
+        tile_write(core, addr, all_patterns[i].data(), data_size);
     }
 
     // Read back and verify each core still holds its own pattern.
@@ -399,18 +426,18 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
         EXPECT_EQ(pattern, tlb_read) << "TLB read mismatch at loop " << loop;
 
         std::vector<uint8_t> direct_read(data_size, 0);
-        tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+        tile_read(core, addr, direct_read.data(), data_size);
         EXPECT_EQ(pattern, direct_read) << "Direct read mismatch at loop " << loop;
 
         // Zero out via tile_wr_bytes.
-        tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, zeros.data(), data_size);
+        tile_write(core, addr, zeros.data(), data_size);
 
         std::vector<uint8_t> tlb_read_zeros(data_size, 0xFF);
         tt_device->read_from_device(tlb_read_zeros.data(), core, addr, data_size);
         EXPECT_EQ(zeros, tlb_read_zeros) << "TLB read of zeros mismatch at loop " << loop;
 
         std::vector<uint8_t> direct_read_zeros(data_size, 0xFF);
-        tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read_zeros.data(), data_size);
+        tile_read(core, addr, direct_read_zeros.data(), data_size);
         EXPECT_EQ(zeros, direct_read_zeros) << "Direct read of zeros mismatch at loop " << loop;
     }
 }

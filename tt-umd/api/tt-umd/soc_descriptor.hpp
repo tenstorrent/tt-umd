@@ -68,9 +68,6 @@ public:
     std::string serialize() const;
     std::filesystem::path serialize_to_file(const std::filesystem::path& dest_file = "") const;
 
-    // Returns true when `core` (given in `coord_system`) matches any core of `core_type`.
-    bool is_core_of_type(const tt_xy_pair& core, CoreType core_type, CoordSystem coord_system) const;
-
     std::vector<CoreCoord> get_cores(
         const CoreType core_type,
         const CoordSystem coord_system = CoordSystem::NOC0,
@@ -83,6 +80,7 @@ public:
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
+    // Smallest rectangle containing every core of core_type, as its {min x, min y} and {max x, max y} corners.
     std::pair<CoreCoord, CoreCoord> get_bounding_rectangle(
         CoordSystem coord_system = CoordSystem::TRANSLATED, CoreType core_type = CoreType::TENSIX) const;
 

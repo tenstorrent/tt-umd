@@ -11,6 +11,7 @@
 
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -161,47 +162,29 @@ int SimulationChip::arc_msg(
     return 0;
 }
 
-int SimulationChip::get_num_host_channels() {
-    SysmemManager* mgr = get_sysmem_manager();
-    if (!mgr) {
-        log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
-        return 0;
-    }
-    return mgr->get_num_host_mem_channels();
+size_t SimulationChip::get_num_host_channels() {
+    const HostMemChannels* host_mem_channels = get_host_mem_channels();
+    return host_mem_channels ? host_mem_channels->get_num_channels() : 0;
 }
 
-int SimulationChip::get_host_channel_size(std::uint32_t channel) {
-    SysmemManager* mgr = get_sysmem_manager();
-    if (!mgr) {
-        log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
-        return 0;
-    }
+size_t SimulationChip::get_host_channel_size(std::uint32_t channel) {
     UMD_ASSERT(
         channel < get_num_host_channels(),
         error::RuntimeError,
         "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = mgr->get_hugepage_mapping(channel);
-    UMD_ASSERT(
-        hugepage_map.mapping_size,
-        error::RuntimeError,
-        "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
+    return get_host_mem_channels()->get_channel_size(channel);
 }
 
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    SysmemManager* mgr = get_sysmem_manager();
-    if (!mgr) {
-        UMD_THROW(error::RuntimeError, "SysmemManager was not initialized for simulation device.");
-    }
-    mgr->write_to_sysmem(channel, src, sysmem_dest, size);
+    UMD_ASSERT(
+        channel < get_num_host_channels(), error::RuntimeError, "Writing to a host channel that does not exist.");
+    get_host_mem_channels()->write_to_channel(channel, src, sysmem_dest, size);
 }
 
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    SysmemManager* mgr = get_sysmem_manager();
-    if (!mgr) {
-        UMD_THROW(error::RuntimeError, "SysmemManager was not initialized for simulation device.");
-    }
-    mgr->read_from_sysmem(channel, dest, sysmem_src, size);
+    UMD_ASSERT(
+        channel < get_num_host_channels(), error::RuntimeError, "Reading from a host channel that does not exist.");
+    get_host_mem_channels()->read_from_channel(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
@@ -210,7 +193,13 @@ int SimulationChip::get_numa_node() {
 
 TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
+SystemMemoryAllocator* SimulationChip::get_system_memory_allocator() { return tt_device_->get_sysmem_manager(); }
+
+const HostMemChannels* SimulationChip::get_host_mem_channels() {
+    // The simulated device keeps the channels, since its simulator reaches them by address.
+    const SimulationSysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    return sysmem_manager ? sysmem_manager->get_host_mem_channels() : nullptr;
+}
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

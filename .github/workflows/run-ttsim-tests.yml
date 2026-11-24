@@ -188,6 +188,8 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          # The UMD tests run from the tt-metal root, not from the UMD checkout that holds the descriptors.
+          echo "UMD_DESCRIPTORS_PATH=$(pwd)/tt_metal/third_party/umd/descriptors" >> $GITHUB_ENV
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
@@ -268,12 +270,14 @@ jobs:
           # is the *host* path, so use the working directory the sim paths were prepared in instead.
           simulator=$(pwd)/sim_bh/libttsim.so
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
-          ./sim_server start --detach "$simulator"
+          ./sim_server start --detach "$simulator" | tee /tmp/sim_server_start.txt
+          log=$(sed -n 's/^sim_server up: .*, log \(.*\)$/\1/p' /tmp/sim_server_start.txt)
           ./sim_server list | tee /tmp/sim_server_list.txt
           grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
           grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
+          test ! -e "$log"  # a host that shut down cleanly takes its log with it
 
           # prune clears up after a host that was killed rather than asked to stop, so it needs one
           # that died: start a second host and SIGKILL it.
@@ -343,7 +347,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # TTSimCommunicatorTest covers the simulator-facing plumbing rather than device IO: the shared
       # dlopen, endpoint enumeration, the closed-device guard, and independent IO across two chips of
@@ -435,7 +439,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). Its topology is
       # discovered rather than declared (see "Prepare sim paths"), so the standard device-IO fixtures
@@ -454,7 +458,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -469,7 +473,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
       # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
@@ -487,7 +491,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Install microbenchmark python deps
         run: |
@@ -689,14 +693,16 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -710,7 +716,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
       # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
@@ -728,7 +735,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
   # Compare the simulator microbenchmark results against the per-arch baselines in
   # tests/microbenchmark/baselines/sim-*.yaml.

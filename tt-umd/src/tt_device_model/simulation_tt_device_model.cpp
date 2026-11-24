@@ -53,25 +53,28 @@ std::shared_ptr<SocArchDescriptor> resolve(
 // serving a PcieInterface is asked for one during startup.
 class SimulationHangDetector final : public HangDetector {
 protected:
-    uint32_t read_hang_check_reg_via_bar() override { return 0; }
+    uint32_t read_hang_check_reg_via_bus() override { return 0; }
 
     uint32_t read_hang_check_reg_via_noc(NocId /*noc*/) override { return 0; }
 
-    bool is_bus_available() override { return true; }
+    bool is_bus_available() const override { return true; }
 
-    bool is_noc_available() override { return true; }
+    bool is_noc_available() const override { return true; }
 };
 
 }  // namespace
 
 SimulationTTDeviceModel::SimulationTTDeviceModel(
-    const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    const SocDescriptor &soc_descriptor,
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     arch_(soc_descriptor.arch),
     soc_arch_descriptor_(resolve(soc_descriptor, soc_arch_descriptor)),
     architecture_impl_(ArchitectureImplementation::create(soc_descriptor.arch)),
     tt_sim_protocol_(std::make_unique<TTSimProtocol>(this)),
     hang_detector_(std::make_unique<SimulationHangDetector>()),
-    device_firmware_(std::make_unique<SimulationDeviceFirmware>(soc_descriptor.arch)) {}
+    device_firmware_(std::make_unique<SimulationDeviceFirmware>(soc_descriptor.arch)),
+    sysmem_manager_(std::move(sysmem_manager)) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
 // complete type where the destructor is instantiated.
@@ -150,5 +153,7 @@ SocArchDescriptor *SimulationTTDeviceModel::get_soc_arch_descriptor() { return s
 std::shared_ptr<SocArchDescriptor> SimulationTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;
 }
+
+SimulationSysmemManager *SimulationTTDeviceModel::get_system_memory_allocator() { return sysmem_manager_.get(); }
 
 }  // namespace tt::umd

@@ -75,7 +75,7 @@ TEST(CoordinateManager, CoordinateManagerQuasarNoHarvesting) {
 // Harvesting the first NOC0 row shifts the top-left logical core onto the
 // second NOC0 row of TENSIX_CORES_NOC0.
 TEST(CoordinateManager, CoordinateManagerQuasarTopLeftCoreHarvested) {
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> cm = CoordinateManager::create_coordinate_manager(
         tt::ARCH::QUASAR, true, {.tensix_harvesting_mask = tensix_harvesting_mask});
 

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
@@ -41,6 +42,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     dma_interface_ = pcie_protocol.get();
     io_window_factory_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
+    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -111,5 +113,7 @@ JtagInterface *WormholeTTDeviceModel::get_jtag_interface() { return jtag_interfa
 RemoteInterface *WormholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
 PCIDevice *WormholeTTDeviceModel::get_pci_device() { return pci_device_; }
+
+SystemMemoryAllocator *WormholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
 
 }  // namespace tt::umd

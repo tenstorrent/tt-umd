@@ -33,7 +33,7 @@ public:
  */
 struct DeviceTimeoutData {
     std::string operation;                ///< The individual op that overran (e.g. "store").
-    std::uint32_t op_bytes = 0;           ///< Size in bytes of the single op that overran.
+    std::size_t op_bytes = 0;             ///< Size in bytes of the single op that overran.
     std::chrono::nanoseconds delta{0};    ///< Wall-clock time the op actually took.
     std::chrono::milliseconds budget{0};  ///< Configured per-op budget that was exceeded.
     std::size_t bytes_remaining = 0;      ///< Bytes still to transfer when the budget elapsed.
@@ -51,7 +51,7 @@ struct DeviceTimeoutData {
 struct DeviceTimeoutError : public UmdError<DeviceTimeoutData> {
     DeviceTimeoutError(
         const std::string& operation,
-        std::uint32_t op_bytes,
+        std::size_t op_bytes,
         std::chrono::nanoseconds delta,
         std::chrono::milliseconds budget,
         std::size_t bytes_remaining,
@@ -63,7 +63,7 @@ struct DeviceTimeoutError : public UmdError<DeviceTimeoutData> {
 private:
     static std::string format_message(
         const std::string& operation,
-        std::uint32_t op_bytes,
+        std::size_t op_bytes,
         std::chrono::nanoseconds delta,
         std::chrono::milliseconds budget,
         std::size_t bytes_remaining,

@@ -42,7 +42,11 @@ ArchitectureImplementation *GrendelTTDeviceModel::get_architecture_impl() { retu
 
 SocArchDescriptor *GrendelTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
-const att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() { return &endpoint_resolver_; }
+RiscReset *GrendelTTDeviceModel::get_risc_reset() { return nullptr; }
+
+SystemMemoryAllocator *GrendelTTDeviceModel::get_system_memory_allocator() { return nullptr; }
+
+const att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() const { return &endpoint_resolver_; }
 
 std::shared_ptr<SocArchDescriptor> GrendelTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;

@@ -110,7 +110,7 @@ public:
      * Updates the underlying hardware mapping so that subsequent read/write operations
      * target the new device address.
      *
-     * By default ordering is IoOrdering::Strict. Callers that need another ordering mode must use the
+     * By default ordering is IoOrdering::STRICT. Callers that need another ordering mode must use the
      * two-argument overload below.
      *
      * @param config Device-side target describing the core, address, and optional NOC.

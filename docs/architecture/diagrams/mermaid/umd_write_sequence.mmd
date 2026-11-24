@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant C as Caller
+  participant TT as TTDevice
+  participant SD as SocDescriptor
+  participant DP as DeviceProtocol
+  participant D as Device
+  C->>TT: write_ctrl(core, addr, data)
+  TT->>SD: translate(core)
+  SD-->>TT: NOC x, y
+  TT->>DP: write_ctrl(x, y, addr, data)
+  DP->>D: retarget TLB window
+  DP->>D: MMIO store (posted)
+  alt budget exceeded and hang confirmed
+    DP-->>C: throw DeviceTimeoutError
+  else mapping lost, safe IO mode on
+    DP-->>C: throw SigbusError
+  else no failure detected
+    DP-->>C: return
+  end

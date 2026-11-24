@@ -53,6 +53,7 @@ target_sources(
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
         src/arch/tlb_window_size.cpp
+        src/chip_helpers/host_mem_channels.cpp
         src/chip_helpers/sysmem_manager.cpp
         src/chip_helpers/simulation_sysmem_manager.cpp
         src/chip_helpers/silicon_sysmem_manager.cpp
@@ -81,6 +82,7 @@ target_sources(
         src/types/tlb.cpp
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
+        src/tt_device/tt_device_factory.cpp
         src/tt_device/tt_device_error.cpp
         src/tt_device/reset/classic_tile_risc_reset.cpp
         src/tt_device/reset/tsc_risc_reset.cpp
@@ -182,10 +184,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_registers.hpp
                 api/tt-umd/arch/architecture_tlbs.hpp
                 api/tt-umd/arch/configs/keraunos_address_map.hpp
-                api/tt-umd/arc/arc_telemetry_reader.hpp
-                api/tt-umd/arc/blackhole_arc_message_queue.hpp
-                api/tt-umd/arc/firmware_telemetry_reader.hpp
-                api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/arc_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp
                 api/tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp
@@ -197,6 +195,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp
                 api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
+                api/tt-umd/chip_helpers/host_mem_channels.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp
                 api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
@@ -218,9 +217,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/warm_reset_with_recovery.hpp
                 api/tt-umd/utils/semver.hpp
                 api/tt-umd/utils/kmd_mutex.hpp
+                api/tt-umd/cluster_description.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp
+                api/tt-umd/tt_device/tt_device_factory.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp
                 api/tt-umd/tt_device/reset/risc_reset.hpp
                 api/tt-umd/tt_device/hang_detection/hang_detector.hpp

@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/arch.hpp"
 
@@ -26,8 +27,11 @@ public:
     // The architecture descriptor is resolved from, in order: one supplied by the caller, the
     // simulator's own SoC descriptor YAML, then the architecture's constants. Resolving it here is
     // what stops construct_soc_descriptor() rebuilding it from architecture defaults instead.
-    explicit SimulationTTDeviceModel(
-        const SocDescriptor &soc_descriptor, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+    // sysmem_manager is null for a client-mode device: its host memory lives in the remote host's process.
+    SimulationTTDeviceModel(
+        const SocDescriptor &soc_descriptor,
+        std::unique_ptr<SimulationSysmemManager> sysmem_manager,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     ~SimulationTTDeviceModel() override;
 
@@ -59,6 +63,9 @@ public:
 
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
+    // Typed, so the device can wire the simulator's host-memory callbacks to the same manager.
+    SimulationSysmemManager *get_system_memory_allocator() override;
+
 private:
     // Its precondition -- a protocol with a working transport -- is one only the protocol itself
     // can know it has met, so attach() is the single caller rather than this being public with a
@@ -78,6 +85,7 @@ private:
     std::unique_ptr<HangDetector> hang_detector_;
     std::unique_ptr<DeviceFirmware> device_firmware_;
     std::unique_ptr<RiscReset> risc_reset_;
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     // The telemetry reader and info provider belong to the concrete architecture firmwares rather
     // than to the DeviceFirmware interface, and exist only once init_firmware has run, so they are
     // captured as lookups read at call time. Empty while the firmware reports nothing.

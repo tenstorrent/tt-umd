@@ -105,17 +105,19 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
-void PcieProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::write_data(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     // The cached window carries the per-op MMIO timeout veto (built from its configured NOC + the wired
     // hang check) and the installed safe-I/O policy; see SiliconTlbWindow. The reconfigure call sets the
     // NOC before the transfer runs.
     std::lock_guard<std::mutex> lock(io_lock_);
-    write_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
+    write_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id, ordering);
 }
 
-void PcieProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::read_data(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     std::lock_guard<std::mutex> lock(io_lock_);
-    read_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
+    read_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id, ordering);
 }
 
 void PcieProtocol::write_ctrl(

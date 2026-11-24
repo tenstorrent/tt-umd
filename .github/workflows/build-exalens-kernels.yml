@@ -11,7 +11,7 @@ on:
       ubuntu-docker-version:
         required: false
         type: string
-        default: ubuntu-22.04
+        default: ubuntu-24.04
 
 jobs:
   build-exalens-kernels:

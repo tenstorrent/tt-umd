@@ -87,7 +87,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/docker-image.yml
     with:
-      docker-version: ubuntu-22.04
+      docker-version: ubuntu-24.04
 
   # Same as ensure-image, for the image run-ttsim-qemu-tests boots its VM from.
   ensure-ttsim-qemu-image:

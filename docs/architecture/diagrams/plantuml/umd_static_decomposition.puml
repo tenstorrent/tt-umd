@@ -1,0 +1,69 @@
+@startuml umd_static_decomposition
+' Static decomposition. Solid arrows: required components; dashed arrows: optional components.
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+package "Workload Layer (tt-umd-workload)" {
+  component "Cluster" as CL
+  component "Chip (Local/Remote)" as CH
+}
+
+package "Base Driver Layer (tt-umd)" {
+  component "TTDevice" as TTD
+  component "TTDeviceModel\n(WH / BH / Grendel)" as TDM
+  component "DeviceProtocol" as DP
+  component "DeviceFirmware" as DF
+  component "ArchitectureImplementation" as AI
+  component "SocArchDescriptor" as SAD
+  component "IoWindow" as IOW
+  component "FirmwareInfoProvider" as FIP
+  component "SystemMemoryAllocator/Buffer" as SMA
+  component "ATT EndpointResolver" as EPR
+  component "HangDetector" as HD
+  component "FirmwareTelemetryReader" as FTR
+  component "DmaInterface" as DMA
+  component "PcieInterface" as PCI
+  component "JtagInterface" as JT
+  component "RemoteInterface" as RI
+  component "RiscReset" as RR
+  component "TopologyDiscovery" as TD
+  component "SocDescriptor / CoordinateManager" as SD
+  component "ClusterDescriptor" as CD
+  component "LockManager / KmdMutex" as LK
+  component "Warm reset" as WR
+}
+
+component "tt-umd-utils\nRobustMutex, errors, OpTimeoutGuard" as UT
+component "UMD uAPI (tt-kmd-lib)" as UAPI
+
+CL --> CH
+CH --> TTD
+CL --> CD
+TTD --> TDM
+
+TDM --> DP
+TDM --> DF
+TDM --> AI
+TDM --> SAD
+TDM --> IOW
+TDM --> FIP
+TDM --> SMA
+
+TDM ..> EPR
+TDM ..> HD
+TDM ..> RR
+TDM ..> FTR
+TDM ..> DMA
+TDM ..> PCI
+TDM ..> JT
+TDM ..> RI
+
+TD --> TTD
+TD --> CD
+DP --> UAPI
+SMA --> UAPI
+LK --> UAPI
+LK --> UT
+@enduml

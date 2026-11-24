@@ -52,7 +52,11 @@ constexpr uint64_t QUASAR_NEO_WINDOW_SIZE = 1ULL << 24;
 constexpr uint64_t QUASAR_KERAUNOS_IO_BASE = 0x6'0000'0000'0000ULL;
 constexpr uint64_t QUASAR_APP_OUT0_ENTRY_SIZE = 1ULL << 44;
 
-constexpr uint32_t PCI_COMMAND_MEMORY_AND_BUS_MASTER = 0x6;
+// PCI config dword 0x04 holds the command register in its low 16 bits and status in the high 16.
+constexpr uint32_t PCI_COMMAND_STATUS_OFFSET = 0x04;
+constexpr uint32_t PCI_COMMAND_MASK = 0xFFFF;
+constexpr uint32_t PCI_COMMAND_MEMORY_SPACE = 1 << 1;
+constexpr uint32_t PCI_COMMAND_BUS_MASTER = 1 << 2;
 
 bool sim_dram_teleport_enabled() {
     // Cache the result since this is called on every device read/write.
@@ -173,7 +177,10 @@ void TTSimTTDevice::initialize_backend() {
         bar0_base = read_bar_base(0x10);
         bar2_base = read_bar_base(0x18);
         // The chip's replies to host reads, and sysmem DMA, are outbound requests, which need Bus Master Enable.
-        communicator_->pci_config_write32(0, 0x04, PCI_COMMAND_MEMORY_AND_BUS_MASTER);
+        // Status bits are write-one-to-clear, so they are written back as zero to leave them alone.
+        const uint32_t command = communicator_->pci_config_read32(0, PCI_COMMAND_STATUS_OFFSET) & PCI_COMMAND_MASK;
+        communicator_->pci_config_write32(
+            0, PCI_COMMAND_STATUS_OFFSET, command | PCI_COMMAND_MEMORY_SPACE | PCI_COMMAND_BUS_MASTER);
         init_quasar_inbound_routes();
     }
 

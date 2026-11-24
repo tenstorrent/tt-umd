@@ -179,7 +179,10 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     const BoardType board_type = tt_device->get_board_type();
-    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF;
+    // Galaxy 2 board IDs aren't guaranteed unique per chip (the legacy ID drops a serial digit), so like 6U it
+    // identifies chips by the ASIC IDs ethernet firmware writes into eth L1.
+    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF ||
+                       board_type == BoardType::UBB_BLACKHOLE_2;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {

@@ -34,7 +34,8 @@ TTSimTlbHandle::TTSimTlbHandle(
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
 
-    if (allocator_) {
+    // A bypassed allocator has no windows to look up; I/O then falls back to the tile API.
+    if (allocator_ && !allocator_->is_bypassed()) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }

@@ -41,7 +41,7 @@ constexpr uint32_t RESPONSE_WPTR_OFFSET = 5;
 constexpr uint64_t QUEUE_BASE = 0x40000;
 constexpr uint64_t QUEUE_ENTRIES = 4;
 
-uint64_t word_address(uint32_t word_offset) { return QUEUE_BASE + word_offset * sizeof(uint32_t); }
+uint64_t word_address(size_t word_offset) { return QUEUE_BASE + word_offset * sizeof(uint32_t); }
 
 // Both dimensions the queue actually reads: the NOC each call routes over, and whether NOC
 // translation is on -- together they decide which ARC core get_arc_core() returns.
@@ -60,15 +60,15 @@ protected:
     void SetUp() override {
         // Back the protocol's data path with a plain word-addressed map, so the queue's pointer and
         // entry accesses round-trip instead of reading garbage.
-        ON_CALL(protocol_, read_data(_, _, _, _, _))
-            .WillByDefault(Invoke([this](void* dst, tt_xy_pair, uint64_t addr, size_t size, NocId) {
+        ON_CALL(protocol_, read_data(_, _, _, _, _, _))
+            .WillByDefault(Invoke([this](void* dst, tt_xy_pair, uint64_t addr, size_t size, NocId, IoOrdering) {
                 auto* out = static_cast<uint32_t*>(dst);
                 for (size_t i = 0; i < size / sizeof(uint32_t); i++) {
                     out[i] = memory_[addr + i * sizeof(uint32_t)];
                 }
             }));
-        ON_CALL(protocol_, write_data(_, _, _, _, _))
-            .WillByDefault(Invoke([this](const void* src, tt_xy_pair, uint64_t addr, size_t size, NocId) {
+        ON_CALL(protocol_, write_data(_, _, _, _, _, _))
+            .WillByDefault(Invoke([this](const void* src, tt_xy_pair, uint64_t addr, size_t size, NocId, IoOrdering) {
                 const auto* in = static_cast<const uint32_t*>(src);
                 for (size_t i = 0; i < size / sizeof(uint32_t); i++) {
                     memory_[addr + i * sizeof(uint32_t)] = in[i];
@@ -170,7 +170,7 @@ TEST_P(BlackholeArcMessageQueueTest, TargetsTheArcCoreForTheRequestedNoc) {
 
     publish_response(/*status=*/0, /*payload=*/0, /*return_values=*/{});
 
-    EXPECT_CALL(protocol_, read_data(_, arc_core(), _, _, noc())).Times(AtLeast(1));
+    EXPECT_CALL(protocol_, read_data(_, arc_core(), _, _, noc(), _)).Times(AtLeast(1));
 
     std::vector<uint32_t> return_values;
     send(queue, return_values);
@@ -228,8 +228,8 @@ TEST_P(BlackholeArcMessageQueueTest, FactoryDecodesTheQueueDescriptor) {
 
     // Reading the request write pointer must land at the start of the selected queue. The queue
     // makes several other reads while sending; only the pointer read is of interest here.
-    EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(AnyNumber());
-    EXPECT_CALL(protocol_, read_data(_, _, expected_base, sizeof(uint32_t), _)).Times(AtLeast(1));
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _, _)).Times(AnyNumber());
+    EXPECT_CALL(protocol_, read_data(_, _, expected_base, sizeof(uint32_t), _, _)).Times(AtLeast(1));
 
     // Publish a response at the selected queue so pop_response returns immediately.
     memory_[expected_base + RESPONSE_WPTR_OFFSET * sizeof(uint32_t)] = 1;
@@ -257,7 +257,7 @@ TEST_P(BlackholeArcMessageQueueTest, FactoryReadsTheDescriptorOverJtagWhenPresen
         }));
     EXPECT_CALL(jtag_, mmio_read32(CONTROL_BLOCK_ADDR)).WillOnce(Return(FIRST_QUEUE_BASE));
     EXPECT_CALL(jtag_, mmio_read32(CONTROL_BLOCK_ADDR + 4)).WillOnce(Return(ENTRIES_PER_QUEUE));
-    EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _, _)).Times(0);
 
     auto queue = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
         &protocol_, &jtag_, &apb, noc_translation_enabled(), BlackholeArcMessageQueueIndex::KMD, noc());

@@ -23,6 +23,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 using namespace tt;
@@ -36,7 +37,7 @@ inline bool has_remote_chips() {
     if (pci_device_ids.empty()) {
         return false;
     }
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids[0]);
     tt_device->init_tt_device();
 
     auto board_type = tt_device->get_board_type();
@@ -97,7 +98,7 @@ static inline void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t
 }
 
 static inline void read_data_from_device(
-    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, uint32_t size) {
+    Cluster& cluster, std::vector<uint32_t>& vec, ChipId chip_id, CoreCoord core, uint64_t addr, size_t size) {
     size_buffer_to_capacity(vec, size);
     // Use architecture-specific read method: DMA for WORMHOLE_B0, regular read for others (including Blackhole).
     cluster.read_from_device(vec.data(), chip_id, core, addr, size);
@@ -115,7 +116,8 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     }
 }
 
-inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
+template <typename T>
+inline std::string convert_to_comma_separated_string(const std::unordered_set<T>& devices) {
     return fmt::format("{}", fmt::join(devices, ","));
 }
 
@@ -150,12 +152,12 @@ inline bool is_virtual_machine() {
 // `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
 inline std::vector<CoreCoord> broadcast_readback_cores(
     const SocDescriptor& soc_desc,
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& cols_to_exclude,
+    const std::set<size_t>& rows_to_exclude,
+    const std::set<size_t>& cols_to_exclude,
     const CoordSystem exclusion_coord_system) {
-    std::set<uint32_t> target_rows;
-    std::set<uint32_t> target_cols;
-    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
+    std::set<size_t> target_rows;
+    std::set<size_t> target_cols;
+    std::map<std::pair<size_t, size_t>, CoreCoord> targets_by_row_and_col;
     for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
         const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
         if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {

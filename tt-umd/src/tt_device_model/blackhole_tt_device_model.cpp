@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
@@ -35,6 +36,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     pcie_interface_ = pcie;
     dma_interface_ = pcie;
     protocol_ = std::move(pcie_protocol);
+    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -90,5 +92,7 @@ JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interf
 RemoteInterface *BlackholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
 
 PCIDevice *BlackholeTTDeviceModel::get_pci_device() { return pci_device_; }
+
+SystemMemoryAllocator *BlackholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
 
 }  // namespace tt::umd

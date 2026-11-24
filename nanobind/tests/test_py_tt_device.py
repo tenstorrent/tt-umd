@@ -384,17 +384,66 @@ class TestTTDevice(unittest.TestCase):
                 f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
             )
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
-            exit_code, return_3, return_4 = dev.arc_msg(
-                0x90, True, 0x1234, 0x5678, 1000
-            )
-            print(
-                f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
-            )
-            self.assertEqual(exit_code, 0, "arc_msg should succeed")
+            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+
+    def test_noc_id_argument(self):
+        """Every TTDevice I/O method accepts a trailing noc_id."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        noc0 = tt_umd.NocId.NOC0
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.init_tt_device()
+            tensix_core = tt_umd.SocDescriptor(dev).get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+            x, y = tensix_core.x, tensix_core.y
+
+            # L1 stands in for registers the test can safely overwrite; the original contents are restored.
+            original = dev.noc_read(x, y, 0x1000, 4)
+            try:
+                dev.noc_write32(x, y, 0x1000, 0x1234, noc_id=noc0)
+                self.assertEqual(dev.noc_read32(x, y, 0x1000, noc_id=noc0), 0x1234)
+                dev.noc_write(x, y, 0x1000, b"\x01\x02\x03\x04", noc_id=noc0)
+                self.assertEqual(
+                    dev.noc_read(x, y, 0x1000, 4, noc_id=noc0), b"\x01\x02\x03\x04"
+                )
+                buffer = bytearray(4)
+                dev.noc_read(x, y, 0x1000, buffer, noc_id=noc0)
+                self.assertEqual(buffer, b"\x01\x02\x03\x04")
+                dev.write_to_device_reg(x, y, 0x1000, b"\x05\x06\x07\x08", noc_id=noc0)
+                self.assertEqual(
+                    dev.read_from_device_reg(x, y, 0x1000, 4, noc_id=noc0),
+                    b"\x05\x06\x07\x08",
+                )
+                # TEST (0x90) increments arg0 on Blackhole; only check success since Wormhole packs its args.
+                exit_code, _, _ = dev.arc_msg(0x90, args=[1], noc_id=noc0)
+                self.assertEqual(exit_code, 0)
+
+                # DMA is only available on local devices, and Blackhole has no DMA read.
+                if not dev.is_remote():
+                    dma_data = b"\x09\x0a\x0b\x0c"
+                    dev.dma_write_to_device(x, y, 0x1000, dma_data, noc_id=noc0)
+                    if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
+                        self.assertEqual(
+                            dev.dma_read_from_device(x, y, 0x1000, 4, noc_id=noc0),
+                            dma_data,
+                        )
+                        dma_buffer = bytearray(4)
+                        dev.dma_read_from_device(x, y, 0x1000, dma_buffer, noc_id=noc0)
+                        self.assertEqual(dma_buffer, dma_data)
+                    else:
+                        self.assertEqual(dev.noc_read(x, y, 0x1000, 4), dma_data)
+            finally:
+                dev.noc_write(x, y, 0x1000, original)
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
 
     def test_arc_msg_test_increment(self):
-        """TEST (0x90) increments arg0 and returns it. Call twice to verify arg passing and return values."""
+        """TEST (0x90) increments arg0 and returns it. Verifies arg passing and return values."""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
         if len(pci_ids) == 0:
             print("No PCI devices found.")
@@ -407,7 +456,6 @@ class TestTTDevice(unittest.TestCase):
             arch = dev.get_arch()
             print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
 
-            # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly.
             # Wormhole accepts only two arguments. And both are passed packed into a single uint32 value.
             # What that means, is that the returned uint32 will contain both.
             # On blackhole with new arc msg protocol, we have up to 7 arguments each being uint32. So the
@@ -420,13 +468,8 @@ class TestTTDevice(unittest.TestCase):
                 + 1
                 + (default_arg_1 << 16 if arch == tt_umd.ARCH.WORMHOLE_B0 else 0)
             )
-            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, arg0=random_arg)
-            print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
-            self.assertEqual(exit_code, 0)
-            self.assertEqual(return_3, expected_value)
-
             exit_code, return_3, return_4 = dev.arc_msg(0x90, args=[random_arg])
-            print(f"Call 2: exit_code={exit_code:#x}, return_3={return_3:#x}")
+            print(f"exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
             self.assertEqual(return_3, expected_value)
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)

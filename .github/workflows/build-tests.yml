@@ -42,7 +42,7 @@ on:
       use-sccache:
         required: false
         type: boolean
-        default: true
+        default: false
       image-tag:
         required: false
         type: string
@@ -88,9 +88,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   TOOLS_OUTPUT_DIR: ./build/tools
   WHEEL_OUTPUT_DIR: ./build/wheel
-  CLUSTER_DESCRIPTORS_DIR: ./descriptors/cluster_descriptor_examples
-  SOC_DESCRIPTORS_DIR: ./descriptors/soc_descs
-  ATT_MAPS_DIR: ./descriptors/att_maps
+  DESCRIPTORS_DIR: ./descriptors
   NANOBIND_TEST_DIR: ./nanobind/tests
   # Env. vars related to SCCache:
   SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
@@ -180,9 +178,7 @@ jobs:
           ${{ env.TOOLS_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
-          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }} \
-          ${{ env.ATT_MAPS_DIR }}
+          ${{ env.DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v7

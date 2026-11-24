@@ -142,7 +142,9 @@ class TestBufferFactory : public SystemMemoryAllocator {
 public:
     std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
 
-    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override { return nullptr; }
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override {
+        throw std::runtime_error("TestBufferFactory cannot map user buffers.");
+    }
 
     int get_communication_id() const override { return 0; }
 
@@ -151,6 +153,8 @@ public:
     uint64_t get_noc_base() const override { return 0; }
 
     bool is_read_only_page_pinning_supported() const override { return false; }
+
+    bool is_user_buffer_mapping_supported() const override { return false; }
 
     using SystemMemoryAllocator::create_buffer;
 };
@@ -522,6 +526,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     EXPECT_FALSE(allocated->get_noc_address().has_value());
 
     std::vector<uint8_t> external(8192, 0);
+    EXPECT_TRUE(allocator->is_user_buffer_mapping_supported());
     auto mapped = allocator->map_user_buffer(external.data(), external.size());
     ASSERT_NE(mapped, nullptr);
     EXPECT_EQ(mapped->get_va(), external.data());

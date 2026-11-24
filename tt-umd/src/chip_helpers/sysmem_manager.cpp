@@ -6,6 +6,7 @@
 
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -15,6 +16,11 @@ std::unique_ptr<SysmemBuffer> SysmemManager::allocate_buffer(size_t size, bool b
 
 std::unique_ptr<SysmemBuffer> SysmemManager::map_user_buffer(
     void *user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) {
+    // Refuse here: without an IOMMU the pin alone still accepts physically contiguous memory.
+    UMD_ASSERT(
+        is_user_buffer_mapping_supported(),
+        error::RuntimeError,
+        "This allocator cannot map user buffers; check is_user_buffer_mapping_supported() first.");
     return map_sysmem_buffer(user_ptr, size, bind_to_noc, device_access);
 }
 

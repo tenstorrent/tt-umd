@@ -675,22 +675,6 @@ enum tt_power_flags {
 int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
 
 /**
- * @brief Map part of another device's BAR so this device can reach it by peer-to-peer PCIe DMA.
- *
- * The mapping lasts until this device handle closes; KMD has no call to undo it.
- *
- * @param dev    Device that will issue the DMA
- * @param peer   Device whose BAR is mapped; must be another device of the same class
- * @param bar    BAR index on the peer
- * @param offset Byte offset into the BAR
- * @param length Bytes to map; offset + length must stay within the BAR
- * @param out_dma_addr On success, the address `dev` uses to reach that range
- * @return 0 on success, negative error code on failure
- */
-int tt_device_map_peer_bar(
-    tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr);
-
-/**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.
  *
  * @param dev Device handle; must not be NULL

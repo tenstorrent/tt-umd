@@ -537,10 +537,12 @@ std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const {
     return dram_cores_per_bank;
 }
 
-uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
+uint32_t SocDescriptor::get_num_eth_channels() const {
+    return static_cast<uint32_t>(coordinate_manager->get_num_eth_channels());
+}
 
 uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
-    return coordinate_manager->get_num_harvested_eth_channels();
+    return static_cast<uint32_t>(coordinate_manager->get_num_harvested_eth_channels());
 }
 
 std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(

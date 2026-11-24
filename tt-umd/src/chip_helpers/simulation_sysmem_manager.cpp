@@ -150,7 +150,7 @@ void SimulationSysmemManager::unmap_system_memory() {
 }
 
 std::optional<SimulationSysmemManager::MappedBuffer> SimulationSysmemManager::find_mapped_buffer_locked(
-    uint64_t device_io_addr, uint32_t size) {
+    uint64_t device_io_addr, size_t size) {
     // Caller must hold registry_->mutex.
     for (const auto& b : registry_->buffers) {
         if (device_io_addr >= b.device_io_addr && device_io_addr - b.device_io_addr <= b.size &&
@@ -161,7 +161,7 @@ std::optional<SimulationSysmemManager::MappedBuffer> SimulationSysmemManager::fi
     return std::nullopt;
 }
 
-bool SimulationSysmemManager::write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size) {
+bool SimulationSysmemManager::write_mapped_buffer(uint64_t device_io_addr, const void* src, size_t size) {
     std::lock_guard<std::mutex> lock(registry_->mutex);
     auto b = find_mapped_buffer_locked(device_io_addr, size);
     if (!b.has_value()) {
@@ -171,7 +171,7 @@ bool SimulationSysmemManager::write_mapped_buffer(uint64_t device_io_addr, const
     return true;
 }
 
-bool SimulationSysmemManager::read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size) {
+bool SimulationSysmemManager::read_mapped_buffer(uint64_t device_io_addr, void* dst, size_t size) {
     std::lock_guard<std::mutex> lock(registry_->mutex);
     auto b = find_mapped_buffer_locked(device_io_addr, size);
     if (!b.has_value()) {

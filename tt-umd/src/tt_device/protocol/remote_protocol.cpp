@@ -66,8 +66,8 @@ bool RemoteProtocol::write_to_core_range(
 
     const bool use_translated_coords = core_start.x >= wormhole::tensix_translated_coordinate_start_x;
 
-    std::set<uint32_t> rows_to_exclude;
-    std::set<uint32_t> columns_to_exclude;
+    std::set<size_t> rows_to_exclude;
+    std::set<size_t> columns_to_exclude;
 
     if (!use_translated_coords) {
         // NOC0 coordinates: only the full tensix grid is supported.

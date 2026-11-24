@@ -59,7 +59,7 @@ TEST_F(WormholeArcApbWindowTest, RemoteReadIsARegisterAccessKeepingSize) {
     auto window = over_remote();
 
     EXPECT_CALL(protocol_, read_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC0, RegisterAccessWidth::BITS32));
-    EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
     window.read(values.data(), APB_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
@@ -69,7 +69,7 @@ TEST_F(WormholeArcApbWindowTest, RemoteWriteIsARegisterAccessKeepingSize) {
     auto window = over_remote();
 
     EXPECT_CALL(protocol_, write_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC1, RegisterAccessWidth::BITS32));
-    EXPECT_CALL(protocol_, write_data(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, write_data(_, _, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
     window.write(values.data(), APB_OFFSET, sizeof(values), ARC_CORE, NocId::NOC1);
@@ -191,7 +191,7 @@ protected:
 TEST_F(WormholeArcCsmWindowTest, RemoteReadIsADataAccess) {
     auto window = over_remote();
 
-    EXPECT_CALL(protocol_, read_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0));
+    EXPECT_CALL(protocol_, read_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0, _));
     EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
@@ -201,7 +201,7 @@ TEST_F(WormholeArcCsmWindowTest, RemoteReadIsADataAccess) {
 TEST_F(WormholeArcCsmWindowTest, RemoteWriteIsADataAccess) {
     auto window = over_remote();
 
-    EXPECT_CALL(protocol_, write_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0));
+    EXPECT_CALL(protocol_, write_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0, _));
     EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _, _)).Times(0);
 
     std::array<uint32_t, 4> values{};
@@ -215,7 +215,7 @@ TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
 
     EXPECT_CALL(
         protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1, RegisterAccessWidth::BITS32));
-    EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _, _)).Times(0);
 
     uint32_t value = 0;
     window.read(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
@@ -251,7 +251,7 @@ TEST_F(WormholeArcCsmWindowTest, AccessIsBoundedByTheCsmWindow) {
         window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0),
         error::UmdBaseException);
 
-    EXPECT_CALL(protocol_, read_data(_, _, _, _, _));
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _, _));
     window.read(&value, WINDOW_SIZE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
 }
 

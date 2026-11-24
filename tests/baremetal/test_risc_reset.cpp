@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <cstring>
 #include <memory>
 
 #include "tests/test_utils/protocol_mocks.hpp"
@@ -17,26 +16,11 @@
 using namespace tt::umd;
 using namespace tt::umd::test_utils;
 using ::testing::_;
-using ::testing::Invoke;
 using ::testing::NiceMock;
 
 namespace {
 
 constexpr tt_xy_pair TENSIX_CORE = {1, 1};
-
-// Serves the current register contents to the read under test.
-auto serves_register(uint32_t value) {
-    return Invoke([value](void* dst, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
-        std::memcpy(dst, &value, sizeof(value));
-    });
-}
-
-// Captures what the read-modify-write wrote back.
-auto captures_register(uint32_t* written) {
-    return Invoke([written](const void* src, tt_xy_pair, uint64_t, size_t, NocId, RegisterAccessWidth) {
-        std::memcpy(written, src, sizeof(*written));
-    });
-}
 
 // The same implementation serves every architecture that keeps its RISCs in one soft-reset register
 // per tile, so each case runs against both of them.

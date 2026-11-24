@@ -34,7 +34,7 @@ TEST_F(Multicast, Write) {
 
     auto benchmark = [&](const std::string& method, auto write_to_all_cores) {
         for (const size_t payload_size : payload_sizes) {
-            const std::string payload = format_with_unit(payload_size, "byte");
+            const std::string payload = format_with_unit(static_cast<double>(payload_size), "byte");
             bench.context("method", method).context("payload", payload).batch(payload_size * tensix_cores.size());
             bench.run(
                 fmt::format("method: {}, payload: {}", method, payload), [&] { write_to_all_cores(payload_size); });

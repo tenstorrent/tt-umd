@@ -90,7 +90,7 @@ TEST_F(DMA, IOSpeed) {
                     direction,
                     core,
                     core_type,
-                    format_with_unit(batch_size, "byte"));
+                    format_with_unit(static_cast<double>(batch_size), "byte"));
                 bench.run(name, [&] { operation(batch_size); });
             }
         }

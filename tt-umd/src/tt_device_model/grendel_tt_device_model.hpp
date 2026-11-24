@@ -51,6 +51,13 @@ public:
     SocArchDescriptor *get_soc_arch_descriptor() override;
 
     /**
+     * Null, so TTDevice reports reset as unavailable: UMD's RiscReset implementations address a
+     * tile by coordinate, which a Quasar access does not carry, and how the host resets Quasar
+     * RISCs is not settled yet.
+     */
+    RiscReset *get_risc_reset() override;
+
+    /**
      * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile
      * and a tile-local offset, so a caller's coordinate has to be folded into the address before
      * the access is issued. Offering the resolver is what asks TTDevice to do that.

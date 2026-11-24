@@ -28,6 +28,7 @@ public:
 
     void unpin_or_unmap_sysmem() override;
 
+    // Without an IOMMU each buffer is one 1 GB hugepage, so the size must be at most 1 GB.
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
@@ -45,14 +46,16 @@ private:
      * Pins buffer_va for the device and wraps it in a SysmemBuffer.
      *
      * release_backing_memory is what distinguishes the two allocation paths: it frees the pages for a buffer
-     * this manager allocated, and is empty for one mapped from a caller's pointer.
+     * this manager allocated, and is empty for one mapped from a caller's pointer. hugepage says buffer_va lies
+     * in one physically contiguous hugepage, so it can be bound to the NOC without an IOMMU.
      */
     std::unique_ptr<SysmemBuffer> pin_and_wrap(
         void* buffer_va,
         size_t buffer_size,
         const bool map_to_noc,
         DeviceBufferAccess device_access,
-        SysmemBuffer::Deleter release_backing_memory);
+        SysmemBuffer::Deleter release_backing_memory,
+        const bool hugepage = false);
 
     bool init_hugepages(uint32_t num_host_mem_channels);
 

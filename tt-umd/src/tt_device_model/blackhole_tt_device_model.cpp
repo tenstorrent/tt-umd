@@ -10,7 +10,6 @@
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
-#include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"

@@ -87,7 +87,9 @@ void TTSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) {
 }
 
 bool TTSimTlbWindow::is_mapped_through_bar() const {
-    // The constructor only accepts a TTSimTlbHandle.
+    // The only constructor takes a std::unique_ptr<TTSimTlbHandle>, so tlb_handle always holds one. This runs on
+    // every read and write, so avoid dynamic_cast.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
     return static_cast<const TTSimTlbHandle&>(*tlb_handle).is_mapped_through_bar();
 }
 

@@ -282,7 +282,8 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         }
 
         // Verify opened file size.
-        struct stat hugepage_st;
+        struct stat hugepage_st {};
+
         if (fstat(hugepage_fd, &hugepage_st) == -1) {
             log_warning(LogUMD, "Error reading hugepage file size after opening.");
         }
@@ -498,7 +499,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     size_t buffer_size,
     const bool map_to_noc,
     DeviceBufferAccess device_access,
-    SysmemBuffer::Deleter release_backing_memory) {
+    SysmemBuffer::Deleter release_backing_memory,
+    const bool hugepage) {
     // Pinning covers whole pages, but the buffer sees only the user's range: it gets the device addresses of
     // the user's first byte, and the deleter keeps the aligned range to unpin.
     const AlignedRange range = page_align(buffer_va, buffer_size);
@@ -506,7 +508,9 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     uint64_t aligned_iova = 0;
     std::optional<uint64_t> noc_addr = std::nullopt;
     if (map_to_noc) {
-        std::tie(noc_addr, aligned_iova) = pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
+        std::tie(noc_addr, aligned_iova) =
+            hugepage ? pci_device_->map_hugepage_to_noc(range.base, range.mapped_size)
+                     : pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
     } else {
         aligned_iova = pci_device_->map_for_dma(range.base, range.mapped_size, device_access);
     }
@@ -550,15 +554,39 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     ZoneScopedC(tracy::Color::Yellow);
-    void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
+    const bool hugepage = !pci_device_->is_iommu_enabled();
+    if (hugepage) {
+        UMD_ASSERT(
+            sysmem_buffer_size > 0 && sysmem_buffer_size <= HUGEPAGE_REGION_SIZE,
+            error::RuntimeError,
+            fmt::format(
+                "Without an IOMMU a sysmem buffer is one {:#x} byte hugepage, so it cannot hold {:#x} bytes.",
+                HUGEPAGE_REGION_SIZE,
+                sysmem_buffer_size));
+    }
+    // Without an IOMMU the device reaches only physically contiguous memory, so a buffer is one whole 1 GB
+    // hugepage. It is anonymous, so unlike the channels' hugetlbfs files no other allocator or process can map
+    // it, and MAP_SHARED like them, so a fork() cannot copy-on-write this process away from the pinned page.
+    void *mapping = hugepage ? mmap(
+                                   nullptr,
+                                   HUGEPAGE_REGION_SIZE,
+                                   PROT_READ | PROT_WRITE,
+                                   MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+                                   -1,
+                                   0)
+                             : mmap_with_hugepage_fallback(sysmem_buffer_size);
     if (mapping == MAP_FAILED) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
+            fmt::format(
+                "Failed to allocate sysmem buffer of size {:#x} bytes with mmap: {}.{}",
+                sysmem_buffer_size,
+                strerror(errno),
+                hugepage ? " Without an IOMMU each sysmem buffer needs a free 1 GB hugepage." : ""));
     }
     // This mapping belongs to the buffer, so it is released along with the pinning. mmap returns a
     // page-aligned address, so the aligned base pin_and_wrap() releases is the one to munmap.
-    const size_t mapping_size = sysmem_buffer_size;
+    const size_t mapping_size = hugepage ? HUGEPAGE_REGION_SIZE : sysmem_buffer_size;
     const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
         if (munmap(aligned_va, mapping_size) != 0) {
             log_warning(
@@ -571,7 +599,8 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     };
 
     try {
-        return pin_and_wrap(mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+        return pin_and_wrap(
+            mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping, hugepage);
     } catch (...) {
         // Nothing owns the mmap yet, so free it here rather than leaking it.
         release_mapping(mapping);

@@ -126,6 +126,10 @@ struct RdmaPort {
 //
 // An explicit device or port is honoured, but a non-ACTIVE choice is rejected rather than used.
 inline RdmaPort open_active_rdma_port(const std::string& requested_dev, int requested_port) {
+    if (requested_port > UINT8_MAX) {
+        throw std::runtime_error("--ib-port " + std::to_string(requested_port) + " is out of range (max 255)");
+    }
+
     int num_devices = 0;
     ibv_device** dev_list = ibv_get_device_list(&num_devices);
     if (!dev_list || num_devices == 0) {

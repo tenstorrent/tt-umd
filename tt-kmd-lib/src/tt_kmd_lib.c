@@ -132,6 +132,7 @@ int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs) {
     out_attrs->num_2m_tlbs = TLB_COUNT_2M[arch];
     out_attrs->num_16m_tlbs = TLB_COUNT_16M[arch];
     out_attrs->num_4g_tlbs = TLB_COUNT_4G[arch];
+    out_attrs->dma_noncoherent = (get_device_info.out.flags & TENSTORRENT_DEVICE_INFO_DMA_NONCOHERENT) ? 1 : 0;
 
     return 0;
 }
@@ -164,6 +165,9 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
             break;
         case TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID:
             *out_value = attrs.pci_subsystem_vendor_id;
+            break;
+        case TT_DEVICE_ATTR_DMA_NONCOHERENT:
+            *out_value = attrs.dma_noncoherent;
             break;
         case TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID:
             *out_value = attrs.pci_subsystem_id;
@@ -625,7 +629,12 @@ int tt_allocate_dma_buf(
     dma_buf.in.buf_index = buf_index;
     dma_buf.in.flags = 0;
 
+    if ((flags & TT_DMA_FLAG_NOC) && (flags & TT_DMA_FLAG_NOC_TOP_DOWN)) {
+        return -EINVAL;
+    }
     if (flags & TT_DMA_FLAG_NOC) {
+        dma_buf.in.flags |= TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA | TENSTORRENT_ALLOCATE_DMA_BUF_NOC_BOTTOM_UP;
+    } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
         dma_buf.in.flags |= TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
     }
 
@@ -644,7 +653,7 @@ int tt_allocate_dma_buf(
         *out_dma_addr = dma_buf.out.physical_address;
     }
 
-    if (out_noc_addr && (flags & TT_DMA_FLAG_NOC)) {
+    if (out_noc_addr && (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN))) {
         *out_noc_addr = dma_buf.out.noc_address;
     }
 

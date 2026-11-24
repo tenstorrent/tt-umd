@@ -62,7 +62,11 @@ struct tenstorrent_get_device_info_out {
 	__u16 bus_dev_fn;	// [0:2] function, [3:7] device, [8:15] bus
 	__u16 max_dma_buf_size_log2;	// Since 1.0
 	__u16 pci_domain;		// Since 1.23
+	__u16 flags;			// TENSTORRENT_DEVICE_INFO_*, since 2.13; 0 from older drivers
 };
+
+// tenstorrent_get_device_info_out.flags
+#define TENSTORRENT_DEVICE_INFO_DMA_NONCOHERENT 1
 
 struct tenstorrent_get_device_info {
 	struct tenstorrent_get_device_info_in in;
@@ -92,6 +96,7 @@ struct tenstorrent_query_mappings {
 
 // tenstorrent_allocate_dma_buf_in.flags
 #define TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA 2
+#define TENSTORRENT_ALLOCATE_DMA_BUF_NOC_BOTTOM_UP 4	// since 2.13; older drivers ignore it (top-down)
 
 struct tenstorrent_allocate_dma_buf_in {
 	__u32 requested_size;

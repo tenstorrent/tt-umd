@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -47,6 +48,8 @@ struct PciDeviceInfo {
     // for machine provisioning tool at the moment, it is not explicitly used by UMD.
     // TODO: We should think about proper place for this field to live, probably some of the higher layers.
     std::optional<int> physical_slot;
+    // Device DMA does not snoop host CPU caches (KMD >= 2.13 reports it; false from older drivers).
+    bool dma_noncoherent = false;
 
     tt::ARCH get_arch() const;
     // TODO: does it make sense to move attributes that we can read from sysfs
@@ -239,6 +242,27 @@ public:
      * @return whether the system is protected from this device by an IOMMU
      */
     bool is_iommu_enabled() const { return iommu_enabled; }
+
+    /**
+     * Whether device DMA is coherent with host CPU caches. False on e.g. SpacemiT K3 (RISC-V), where pinned
+     * cacheable host memory reads stale device writes even through an IOMMU; host<->device data must then live in
+     * uncached KMD DMA buffers. TT_UMD_DMA_NONCOHERENT=1/0 overrides what the KMD reports.
+     */
+    bool is_dma_coherent() const;
+
+    /**
+     * Whether sysmem is the uncached KMD DMA buffer rather than cacheable hugepage/IOMMU memory. Code above UMD that
+     * shares other cacheable host memory with the device (pinned buffers, sockets) should treat that memory as unsafe
+     * when this is true. Today this is exactly !is_dma_coherent(); once host cache maintenance is available it is true
+     * only on non-coherent hosts that cannot maintain caches from user space.
+     */
+    bool uses_uncached_sysmem() const;
+
+    /**
+     * Allocate a KMD DMA buffer (dma_alloc_coherent: physically contiguous, uncached on non-coherent hosts) mapped
+     * into the device's NOC-to-host window, bottom-up. Returns {mapping, dma_address, noc_address}; throws on failure.
+     */
+    std::tuple<void *, uint64_t, uint64_t> allocate_noc_dma_buffer(size_t size, uint8_t buf_index);
 
     /**
      * Map a buffer for hugepage access.

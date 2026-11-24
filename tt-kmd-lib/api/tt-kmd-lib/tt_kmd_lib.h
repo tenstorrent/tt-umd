@@ -85,6 +85,12 @@ enum tt_device_attr {
     TT_DEVICE_ATTR_NUM_16M_TLBS = 10,
     TT_DEVICE_ATTR_NUM_4G_TLBS = 11,
     TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID = 12,
+    /**
+     * 1 if the device's DMA does not snoop host CPU caches (reported by KMD >= 2.13;
+     * 0 from older drivers). Pinned cacheable memory is then unsafe for device<->host
+     * data; use `tt_allocate_dma_buf()` memory, which the kernel maps uncached.
+     */
+    TT_DEVICE_ATTR_DMA_NONCOHERENT = 13,
 };
 
 /**
@@ -107,6 +113,7 @@ typedef struct tt_device_attrs_t {
     uint64_t num_2m_tlbs;             /**< TT_DEVICE_ATTR_NUM_2M_TLBS */
     uint64_t num_16m_tlbs;            /**< TT_DEVICE_ATTR_NUM_16M_TLBS */
     uint64_t num_4g_tlbs;             /**< TT_DEVICE_ATTR_NUM_4G_TLBS */
+    uint64_t dma_noncoherent;         /**< TT_DEVICE_ATTR_DMA_NONCOHERENT */
 } tt_device_attrs_t;
 
 /**
@@ -539,11 +546,13 @@ int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
  * @param buf_index Buffer slot in [0, TENSTORRENT_MAX_DMA_BUFS)
  * @param size Number of bytes to allocate and map
  * @param flags Bitmask of flags from `enum tt_dma_map_flags`; only
- *              `TT_DMA_FLAG_NOC` is honored
+ *              `TT_DMA_FLAG_NOC` (bottom-up NOC window; KMD < 2.13 allocates
+ *              it top-down) and `TT_DMA_FLAG_NOC_TOP_DOWN` are honored
  * @param out_mapping On success, the host mapping of the buffer
  * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
  * @param out_noc_addr On success, the NOC address. Only valid when
- *                     `TT_DMA_FLAG_NOC` is set. May be NULL.
+ *                     `TT_DMA_FLAG_NOC` or `TT_DMA_FLAG_NOC_TOP_DOWN` is set.
+ *                     May be NULL.
  * @return 0 on success, error code on failure
  */
 int tt_allocate_dma_buf(

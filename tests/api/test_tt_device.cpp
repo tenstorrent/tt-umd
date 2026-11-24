@@ -29,6 +29,7 @@
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -249,6 +250,16 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     }
 }
 
+TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote devices found in cluster.";
+    }
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
+    }
+}
+
 TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -275,8 +286,8 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
@@ -292,8 +303,8 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
         tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, SAFE_IO_L1_ADDRESS);
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());
@@ -424,6 +435,14 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
     }
 }
 
-TEST(ApiTTDeviceTest, CreateRejectsUndefinedDeviceType) {
-    EXPECT_THROW(create_tt_device(0, IODeviceType::UNDEFINED), error::UmdException<error::RuntimeError>);
+class ApiTTDeviceUnsupportedTypeTest : public ::testing::TestWithParam<IODeviceType> {};
+
+TEST_P(ApiTTDeviceUnsupportedTypeTest, CreateRejectsDeviceType) {
+    EXPECT_THROW(TTDevice::create(0, GetParam()), error::UmdException<error::RuntimeError>);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    UnsupportedTypes,
+    ApiTTDeviceUnsupportedTypeTest,
+    ::testing::Values(IODeviceType::AXI, IODeviceType::UNDEFINED),
+    [](const ::testing::TestParamInfo<IODeviceType>& info) { return DeviceTypeToString.at(info.param); });

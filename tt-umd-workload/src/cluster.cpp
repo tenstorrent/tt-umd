@@ -437,7 +437,7 @@ Cluster::Cluster(ClusterOptions options) {
     log_info(LogUMD, "Cluster constructor started.");
     // Store options early so that options_ is populated if the constructor throws.
     // A second assignment at the end captures any mutations made during construction
-    // (sdesc_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
+    // (soc_descriptor_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
@@ -446,11 +446,7 @@ Cluster::Cluster(ClusterOptions options) {
                 UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
-            // ClusterOptions' own transport and SoC descriptor fields decide those for discovery.
-            TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
-            discovery_options.io_device_type = options.io_device_type;
-            discovery_options.soc_descriptor_path = options.sdesc_path;
-            auto [desc, devices] = TopologyDiscovery::discover(discovery_options);
+            auto [desc, devices] = TopologyDiscovery::discover(options.topology_discovery_options);
             cluster_desc = std::move(desc);
             tt_devices = std::move(devices);
             break;
@@ -532,8 +528,9 @@ Cluster::Cluster(ClusterOptions options) {
                         ip_devices,
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
                         launch);
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path = layout.get_soc_descriptor(first_device).string();
+                    if (options.topology_discovery_options.soc_descriptor_path.empty()) {
+                        options.topology_discovery_options.soc_descriptor_path =
+                            layout.get_soc_descriptor(first_device).string();
                     }
                     break;
                 }
@@ -551,9 +548,10 @@ Cluster::Cluster(ClusterOptions options) {
                 if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
                     // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
                     // below are populated from the simulator-provided data when it ships one (matches the
-                    // fallback path's sdesc_path resolution).
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
+                    // fallback path's soc_descriptor_path resolution).
+                    if (options.topology_discovery_options.soc_descriptor_path.empty()) {
+                        options.topology_discovery_options.soc_descriptor_path =
+                            find_simulator_soc_descriptor_path(options.simulator_directory);
                     }
                     cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                         ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
@@ -562,8 +560,10 @@ Cluster::Cluster(ClusterOptions options) {
 
                 // Without a soc_descriptor.yaml the per-chip SocDescriptors are built from the architecture
                 // the cluster descriptor records for each chip.
-                if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
-                    options.sdesc_path = find_simulator_soc_descriptor_path(options.simulator_directory);
+                if (options.topology_discovery_options.soc_descriptor_path.empty() &&
+                    options.chip_type == ChipType::SIMULATION) {
+                    options.topology_discovery_options.soc_descriptor_path =
+                        find_simulator_soc_descriptor_path(options.simulator_directory);
                 }
 
                 // Nothing declared this simulator's topology, so ask the simulator: enumerate its chips and
@@ -574,8 +574,6 @@ Cluster::Cluster(ClusterOptions options) {
                     is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR;
                 if (discoverable) {
                     TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
-                    discovery_options.io_device_type = options.io_device_type;
-                    discovery_options.soc_descriptor_path = options.sdesc_path;
                     // The auto-detect below cannot run yet -- it reads the descriptor discovery is about
                     // to produce -- and a simulated device sizes its system memory as it is constructed.
                     // So absent an explicit count, discovery builds with a provisional 1, which the grow
@@ -607,9 +605,10 @@ Cluster::Cluster(ClusterOptions options) {
                 auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
                 if (options.chip_type == ChipType::SIMULATION) {
-                    arch = options.sdesc_path.empty()
+                    arch = options.topology_discovery_options.soc_descriptor_path.empty()
                                ? get_simulator_arch(options.simulator_directory)
-                               : SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+                               : SocDescriptor::get_arch_from_soc_descriptor_path(
+                                     options.topology_discovery_options.soc_descriptor_path);
                 }
 #endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
@@ -649,7 +648,7 @@ Cluster::Cluster(ClusterOptions options) {
 #ifdef TT_UMD_BUILD_SIMULATION
     // Without a SoC descriptor, each chip's descriptor is built from the architecture the cluster
     // descriptor records, which nothing else checks against the image the chips will run on.
-    if (options.chip_type == ChipType::SIMULATION && options.sdesc_path.empty() &&
+    if (options.chip_type == ChipType::SIMULATION && options.topology_discovery_options.soc_descriptor_path.empty() &&
         options.simulator_directory.extension() == ".so") {
         const tt::ARCH image_arch = get_simulator_arch(options.simulator_directory);
         for (const ChipId chip_id : cluster_desc->get_all_chips()) {
@@ -681,8 +680,8 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        SocDescriptor soc_desc =
-            construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
+        SocDescriptor soc_desc = construct_soc_descriptor(
+            options.topology_discovery_options.soc_descriptor_path, chip_id, options.chip_type, cluster_desc.get());
 
         // Reuse TTDevice from topology discovery if available, avoiding duplicate device creation.
         std::unique_ptr<TTDevice> tt_device;
@@ -894,7 +893,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
-    // Overwrite with the final (possibly mutated) options: sdesc_path may have been
+    // Overwrite with the final (possibly mutated) options: soc_descriptor_path may have been
     // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
@@ -1129,7 +1128,9 @@ void Cluster::refresh_cluster_description() {
     }
 
     auto new_cluster_desc = Cluster::create_cluster_descriptor(
-        options_.sdesc_path, options_.io_device_type, options_.topology_discovery_options);
+        options_.topology_discovery_options.soc_descriptor_path,
+        options_.topology_discovery_options.io_device_type,
+        options_.topology_discovery_options);
 
     // Validate that the same physical chips are present by matching unique IDs.
     const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
@@ -1298,12 +1299,13 @@ void Cluster::wait_for_non_mmio_flush() {
 
 void Cluster::broadcast_write_to_cluster(
     const void* mem_ptr,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude,
-    bool use_translated_coords) {
+    std::set<size_t>& rows_to_exclude,
+    std::set<size_t>& columns_to_exclude,
+    bool use_translated_coords,
+    bool is_reg_write) {
     if (!ethernet_broadcast_) {
         // Broadcast not supported. Implement this at the software level as a for loop.
         // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
@@ -1329,7 +1331,14 @@ void Cluster::broadcast_write_to_cluster(
                          core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
                     if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
                         rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        if (is_reg_write) {
+                            // Registers go through the uncached path: the CPU may speculatively read a
+                            // write-combined mapping, and a read landing in the unmapped space around a register
+                            // never completes, which drops the device off PCIe.
+                            write_to_device_reg(mem_ptr, static_cast<uint32_t>(size_in_bytes), chip, core, address);
+                        } else {
+                            write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        }
                     }
                 }
             }
@@ -1425,8 +1434,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     }
 
     std::set<ChipId> chips_to_exclude = {};
-    std::set<uint32_t> rows_to_exclude;
-    std::set<uint32_t> columns_to_exclude;
+    std::set<size_t> rows_to_exclude;
+    std::set<size_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         if (use_translated_coords_for_eth_broadcast) {
             // PCIE and ETH are on these rows in translated space.
@@ -1453,7 +1462,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         chips_to_exclude,
         rows_to_exclude,
         columns_to_exclude,
-        use_translated_coords_for_eth_broadcast);
+        use_translated_coords_for_eth_broadcast,
+        /*is_reg_write=*/true);
     // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }
@@ -1513,11 +1523,11 @@ void Cluster::close_device() {
     log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
-std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
+std::size_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     return chips_.at(device_id)->get_num_host_channels();
 }
 
-std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+std::size_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     return chips_.at(device_id)->get_host_channel_size(channel);
 }
 

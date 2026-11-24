@@ -678,9 +678,9 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 static std::string generate_mock_bdf(ChipId logical_id) {
     // Use a deterministic formula to generate BDF for mock devices
     // Start from bus 0x04 and increment device number based on logical ID.
-    uint8_t bus = 0x04 + (logical_id / 8);  // 8 devices per bus
-    uint8_t device = logical_id % 8;        // device number within bus
-    uint8_t function = 0;                   // always use function 0
+    const int bus = 0x04 + (logical_id / 8);  // 8 devices per bus
+    const int device = logical_id % 8;        // device number within bus
+    const int function = 0;                   // always use function 0
 
     return fmt::format("{:04x}:{:02x}:{:02x}.{}", 0, bus, device, function);
 }
@@ -986,11 +986,11 @@ void load_harvesting_information(const YAML::Node &yaml, ClusterDescription &des
 // The YAML doesn't list channel states, so every unharvested channel is idle unless a link uses it.
 void fill_eth_channel_states(ClusterDescription &description) {
     for (auto &[chip_id, chip] : description.chips) {
-        const int num_harvested_channels =
-            CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask);
-        const int num_channels =
+        const auto num_harvested_channels =
+            static_cast<uint32_t>(CoordinateManager::get_num_harvested(chip.harvesting_masks.eth_harvesting_mask));
+        const uint32_t num_channels =
             ArchitectureImplementation::create(chip.arch)->get_num_eth_channels() - num_harvested_channels;
-        for (int i = 0; i < num_channels; i++) {
+        for (uint32_t i = 0; i < num_channels; i++) {
             chip.idle_eth_channels.insert(i);
         }
     }
@@ -1009,6 +1009,16 @@ void fill_eth_channel_states(ClusterDescription &description) {
     }
 }
 
+IODeviceType parse_io_device_type(const std::string &name) {
+    for (const auto &[type, type_name] : DeviceTypeToString) {
+        // UNDEFINED is not a real device type, so a descriptor naming it is as invalid as an unknown name.
+        if (type != IODeviceType::UNDEFINED && type_name == name) {
+            return type;
+        }
+    }
+    UMD_THROW(error::RuntimeError, fmt::format("Unknown io_device_type '{}' in the cluster descriptor YAML.", name));
+}
+
 }  // namespace
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
@@ -1022,6 +1032,11 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
         std::string cluster_id = yaml["cluster_id"].as<std::string>();
         utils::validate_cluster_id(cluster_id, "the cluster descriptor YAML");
         description.cluster_id = std::move(cluster_id);
+    }
+
+    // Optional: descriptors without it describe PCIe devices.
+    if (yaml["io_device_type"].IsDefined()) {
+        description.io_device_type = parse_io_device_type(yaml["io_device_type"].as<std::string>());
     }
 
     load_chips_from_connectivity_descriptor(yaml, description);
@@ -1430,7 +1445,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
                 ? expected_tensix_harvested_units_map.at(board_type)
                 : 0;
 
-        uint32_t actual_tensix_harvested_units =
+        size_t actual_tensix_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
         if (expected_tensix_harvested_units != actual_tensix_harvested_units) {
@@ -1458,7 +1473,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
             expected_dram_harvested_units_map.find(board_type) != expected_dram_harvested_units_map.end()
                 ? expected_dram_harvested_units_map.at(board_type)
                 : 0;
-        uint32_t actual_dram_harvested_units =
+        size_t actual_dram_harvested_units =
             CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask);
 
         if (expected_dram_harvested_units != actual_dram_harvested_units) {
@@ -1477,8 +1492,7 @@ bool ClusterDescriptor::verify_harvesting_information() {
             expected_eth_harvested_units_map.find(board_type) != expected_eth_harvested_units_map.end()
                 ? expected_eth_harvested_units_map.at(board_type)
                 : 0;
-        uint32_t actual_eth_harvested_units =
-            CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
+        size_t actual_eth_harvested_units = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 
         if (expected_eth_harvested_units != actual_eth_harvested_units) {
             log_warning(

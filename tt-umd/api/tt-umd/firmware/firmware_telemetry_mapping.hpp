@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <variant>
 
@@ -134,7 +135,56 @@ enum class FirmwareFeature {
     GDDR_0_1_CORR_ERRS,
     GDDR_2_3_CORR_ERRS,
     GDDR_4_5_CORR_ERRS,
-    GDDR_6_7_CORR_ERRS
+    GDDR_6_7_CORR_ERRS,
+
+    // Voltage limits.
+    VDD_MAX,
+    VDD_MIN,
+
+    // L2CPU cluster clocks.
+    L2CPUCLK0,
+    L2CPUCLK1,
+    L2CPUCLK2,
+    L2CPUCLK3,
+
+    // Enabled (non-harvested) units, as firmware bitmasks.
+    ENABLED_TENSIX_COL,
+    ENABLED_TENSIX_ROW,
+    ENABLED_ETH,
+    ENABLED_GDDR,
+    ENABLED_L2CPU,
+    PCIE_0_MODE,
+    PCIE_1_MODE,
+
+    // Board input and GDDR IO power.
+    INPUT_POWER,
+    GDDR_WEST_IO_POWER,
+    GDDR_EAST_IO_POWER,
+
+    // AICLK arbitration.
+    AICLK_ARB_MIN_FREQ,
+    AICLK_ARB_MIN_ARBITER,
+    AICLK_ARB_MAX_FREQ,
+    AICLK_ARB_MAX_ARBITER,
+    ENABLED_AICLK_MIN_ARBITERS,
+    ENABLED_AICLK_MAX_ARBITERS,
+    AICLK_TARGET_ARBITER,
+    AICLK_TARGET_REASON,
+    HOST_AICLK_LIMIT,
+
+    // SMBus.
+    SMBUS_ERRORS,
+
+    // Firmware capabilities, each as a supported and an enabled flag.
+    KERNEL_NOP_THROTTLER_SUPPORTED,
+    KERNEL_NOP_THROTTLER_ENABLED,
+    GDDR_THERMAL_TRIP_ACTION_SUPPORTED,
+    GDDR_THERMAL_TRIP_ACTION_ENABLED,
+
+    // Kernel NOP throttler.
+    KERNEL_NOP_THROTTLER_STOP_FREQ,
+    NOP_START_COUNT,
+    NOP_ON_DURATION,
 };
 
 /**
@@ -146,6 +196,9 @@ enum class FirmwareFeature {
 struct FeatureProfile {
     FeatureKey key;
     DataConverter converter;
+    // When set, this feature is only available while the named feature is available and reads non-zero.
+    // Used for values the firmware publishes only when a capability flag says the feature exists.
+    std::optional<FirmwareFeature> gated_by = std::nullopt;
 };
 
 // The configuration map: FirmwareFeature -> FeatureProfile.

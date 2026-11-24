@@ -83,11 +83,13 @@ void KmdProtocol::write_ctrl(
 // The driver serves no bulk transfer yet, so a data transfer is the same sequence of single
 // accesses as a control transfer and the two differ only in what the caller means by them. They
 // stay separate so that data can take a bulk path of its own as soon as one exists.
-void KmdProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void KmdProtocol::read_data(
+    void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     read_ctrl(dst, core, addr, size, noc_id, RegisterAccessWidth::BITS32);
 }
 
-void KmdProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void KmdProtocol::write_data(
+    const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     write_ctrl(src, core, addr, size, noc_id, RegisterAccessWidth::BITS32);
 }
 

@@ -56,6 +56,15 @@ bool sim_dram_teleport_enabled() {
     return enabled;
 }
 
+// Searches the DRAM cores rather than looking the coordinate up, so a coordinate the descriptor doesn't
+// know, or a harvested DRAM core, is simply not DRAM instead of throwing.
+bool is_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
+    const std::vector<CoreCoord> dram_cores = soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const CoreCoord& dram_core) {
+        return dram_core.x == core.x && dram_core.y == core.y;
+    });
+}
+
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
@@ -286,11 +295,13 @@ void TTSimTTDevice::close_device() {
 }
 
 void TTSimTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_read_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::noc_multicast_write(
@@ -344,13 +355,16 @@ bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uin
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+    if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (communicator_->dram_write_bytes(x, y, addr, mem_ptr, n)) {
         return true;
     }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(x, y, addr, mem_ptr, n);
     return true;
 }
 
@@ -358,11 +372,14 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+    if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (!communicator_->dram_read_bytes(x, y, addr, mem_ptr, n)) {
+        communicator_->tile_read_bytes(x, y, addr, mem_ptr, n);
     }
     // Side effect: this path advances the simulation clock by 10 cycles (rather than the single
     // cycle after_read() applies), and it returns before after_read() would otherwise run.

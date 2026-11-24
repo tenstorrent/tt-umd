@@ -141,8 +141,10 @@ bool TTDevice::get_noc_translation_enabled() const {
 
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 
-PcieInterface *TTDevice::get_pcie_interface() {
-    PcieInterface *pcie_interface = model_->get_pcie_interface();
+PcieInterface *TTDevice::get_pcie_interface() { return model_->get_pcie_interface(); }
+
+PcieInterface *TTDevice::require_pcie_interface() {
+    PcieInterface *pcie_interface = get_pcie_interface();
     if (!pcie_interface) {
         UMD_THROW(error::RuntimeError, "PCIe interface is not available for this device.");
     }
@@ -356,16 +358,18 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
     return window;
 }
 
-void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void TTDevice::read_from_device(
+    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
     const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id);
+    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id, ordering);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void TTDevice::write_to_device(
+    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
     const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id);
+    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id, ordering);
 }
 
 void TTDevice::read_from_device_reg(
@@ -400,9 +404,9 @@ EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
-void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return require_pcie_interface()->bar_write32(addr, data); }
 
-uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
+uint32_t TTDevice::bar_read32(uint32_t addr) { return require_pcie_interface()->bar_read32(addr); }
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
     FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();
@@ -597,7 +601,7 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for remote device.");
     }
-    return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+    return require_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {

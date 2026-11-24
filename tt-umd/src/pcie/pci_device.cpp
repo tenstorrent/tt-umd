@@ -18,6 +18,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -57,7 +58,9 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         attribute_name);
     std::ifstream attribute_file(sysfs_path);
     std::string value_str;
-    T value;
+    // operator>> reads single-byte types as characters, so those are parsed as numbers and range-checked.
+    using ParsedT = std::conditional_t<sizeof(T) == 1, unsigned int, T>;
+    ParsedT value;
 
     if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
         return std::nullopt;
@@ -76,7 +79,13 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         return std::nullopt;
     }
 
-    return value;
+    if constexpr (sizeof(T) == 1) {
+        if (value > std::numeric_limits<T>::max()) {
+            return std::nullopt;
+        }
+    }
+
+    return static_cast<T>(value);
 }
 
 template <typename T>
@@ -412,7 +421,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     pci_device_num(pci_device_number),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint8_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {

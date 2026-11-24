@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <random>
@@ -25,7 +26,7 @@
 
 namespace tt::umd {
 
-bool is_port_free(int port) {
+bool is_port_free(uint16_t port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         return false;
@@ -68,16 +69,16 @@ void SimulationHost::init(const std::string &suffix) {
         strcpy(hostname, "localhost");
     }
 
-    int port;
+    uint16_t port;
 
     if (local_socket_port_str) {
-        port = atoi(local_socket_port_str);
+        port = static_cast<uint16_t>(atoi(local_socket_port_str));
         log_info(tt::LogEmulationDriver, "Using specified {}: {}", local_port_var, port);
     } else {
         // Generate random port in range 50000-59999.
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dis(50000, 59999);
+        std::uniform_int_distribution<uint16_t> dis(50000, 59999);
 
         do {
             port = dis(gen);

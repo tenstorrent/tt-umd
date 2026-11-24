@@ -51,4 +51,10 @@ inline constexpr SemVer MIN_KERNEL_TLB_DMABUF_EXPORT = SemVer(5, 8, 0);
  * access raises SIGBUS instead of silently reading back stale data.
  */
 inline constexpr SemVer KMD_RESET_MAPPING_INVALIDATION = SemVer(2, 6, 0);
+
+/**
+ * The minimum KMD version with which Galaxy devices support a PCIe link reset (secondary bus reset) ahead of the
+ * IPMI reset.
+ */
+inline constexpr SemVer KMD_GALAXY_SECONDARY_BUS_RESET = SemVer(2, 7, 0);
 }  // namespace tt::umd

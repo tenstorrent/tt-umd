@@ -47,6 +47,7 @@
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt-umd/utils/kmd_versions.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -542,7 +543,8 @@ bool WarmReset::galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int
     return false;
 }
 
-bool WarmReset::ubb_ipmi_reset_and_wait_for_devices(const std::chrono::milliseconds timeout_ms) {
+bool WarmReset::ubb_ipmi_reset_and_wait_for_devices(
+    const std::chrono::milliseconds timeout_ms, const bool reset_pcie_link) {
     auto pci_device_ids = PCIDevice::enumerate_devices();
     std::unordered_set<int> pci_device_id_set(pci_device_ids.begin(), pci_device_ids.end());
     auto pci_devices_info = PCIDevice::enumerate_devices_info();
@@ -552,13 +554,25 @@ bool WarmReset::ubb_ipmi_reset_and_wait_for_devices(const std::chrono::milliseco
         pci_bdfs.insert({pci_device_info.first, pci_device_info.second.pci_bdf});
     }
 
+    if (reset_pcie_link) {
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+    }
     PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::USER_RESET);
 
     static int constexpr UBB_NUM = 0xF;
     static int constexpr DEV_NUM = 0xFF;
-    static int constexpr OP_MODE = 0x0;
     static int constexpr RESET_TIME = 0xF;
-    const bool ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+    // Resetting the PCIe retimer can also drop other devices behind it, such as NVMe drives.
+    static int constexpr OP_MODE_NO_RETIMER = 0x3;
+    static int constexpr OP_MODE_WITH_RETIMER = 0x0;
+    bool ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE_NO_RETIMER, RESET_TIME);
+    if (!ipmi_reset_success) {
+        log_warning(
+            tt::LogUMD,
+            "IPMI reset without PCIe retimer failed, which may mean the BMC firmware is older than v0.05.22. "
+            "Falling back to reset with PCIe retimer.");
+        ipmi_reset_success = galaxy_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE_WITH_RETIMER, RESET_TIME);
+    }
 
     const bool devices_reappeared = std::all_of(pci_bdfs.begin(), pci_bdfs.end(), [&](const auto& pci_bdf) {
         return wait_for_pci_bdf_to_reappear(pci_bdf.second, timeout_ms) != -1 && wait_for_reset_marker(pci_bdf.second);
@@ -587,13 +601,15 @@ bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
         return false;
     }
 
+    const bool secondary_bus_reset_supported = PCIDevice::read_kmd_version() >= KMD_GALAXY_SECONDARY_BUS_RESET;
+
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(PRE_RESET_NOTIFICATION_TIMEOUT);
 
     // Listeners must be released even when the reset fails or throws, otherwise they stay blocked waiting for it.
     bool reset_success = false;
     try {
-        reset_success = ubb_ipmi_reset_and_wait_for_devices(timeout_ms);
+        reset_success = ubb_ipmi_reset_and_wait_for_devices(timeout_ms, secondary_bus_reset_supported);
     } catch (...) {
         WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
         throw;

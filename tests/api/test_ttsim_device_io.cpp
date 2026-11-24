@@ -383,6 +383,37 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
     }
 }
 
+// For tests run once per Tensix core, named by its index into the SoC descriptor's Tensix cores.
+class TTSimDeviceIOEveryTensixFixture : public TTSimDeviceIOFixture, public ::testing::WithParamInterface<size_t> {};
+
+// Quasar's 32 Tensix cores. A harvested simulator has fewer, and the extra indices skip.
+INSTANTIATE_TEST_SUITE_P(TensixCores, TTSimDeviceIOEveryTensixFixture, ::testing::Range(size_t{0}, size_t{32}));
+
+// On Quasar each Tensix is reached through its own window, so check that every core's write lands on
+// that core rather than on a neighbour.
+TEST_P(TTSimDeviceIOEveryTensixFixture, WriteToDeviceReadByTileRdBytes) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const std::vector<CoreCoord> tensix_cores = soc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    const size_t core_index = GetParam();
+    if (core_index >= tensix_cores.size()) {
+        GTEST_SKIP() << "The simulator has only " << tensix_cores.size() << " Tensix cores.";
+    }
+    const tt_xy_pair core = tensix_cores[core_index].to_pair();
+
+    constexpr size_t data_size = 64;
+    constexpr uint64_t addr = 0xA00;
+    // Seeded by the core so data landing on another core's window cannot match.
+    auto write_data = make_pattern(data_size, [core_index](size_t i) { return (core_index * 37 + i) % 256; });
+
+    tt_device->write_to_device(write_data.data(), core, addr, data_size);
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->get_communicator()->tile_read_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, read_data.data(), data_size);
+
+    EXPECT_EQ(write_data, read_data);
+}
+
 // ---------------------------------------------------------------------------
 // Repeated write/read cycles (mirrors DynamicTLB_RW style)
 // ---------------------------------------------------------------------------

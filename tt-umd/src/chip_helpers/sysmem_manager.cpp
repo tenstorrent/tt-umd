@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -92,6 +93,8 @@ uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
             return 0x800000000;
         case tt::ARCH::BLACKHOLE:
             return 4ULL << 58;
+        case tt::ARCH::QUASAR:
+            return grendel::SYSMEM_WINDOW_NOC_BASE;
         default:
             return 0;
     }

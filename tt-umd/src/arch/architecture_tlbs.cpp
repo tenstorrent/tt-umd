@@ -120,28 +120,21 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     };
 
     static const ArchitectureTlbs grendel_tlbs = {
-        .size_classes =
-            {{
-                 .size = 2 * ONE_MB,
-                 .count = grendel::TLB_COUNT_2M,
-                 .base_index = grendel::TLB_BASE_INDEX_2M,
-                 .bar_offset = grendel::DYNAMIC_TLB_2M_BASE,
-                 .in_bar4 = false,
-                 .register_layout = grendel::TLB_2M_OFFSET,
-             },
-             {
-                 .size = 4 * ONE_GB,
-                 .count = grendel::TLB_COUNT_4G,
-                 .base_index = grendel::TLB_BASE_INDEX_4G,
-                 .bar_offset = grendel::DYNAMIC_TLB_4G_BASE,
-                 .in_bar4 = true,
-                 .register_layout = grendel::TLB_4G_OFFSET,
-             }},
-        .cached_window_size = grendel::STATIC_TLB_SIZE,
-        .use_static_vc = true,
-        .static_vc_is_configurable = true,
-        .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,
-        .cfg_reg_size_bytes = grendel::TLB_CFG_REG_SIZE_BYTES,
+        .size_classes = {{
+            .size = grendel::TLB_APP_IN0_SIZE,
+            .count = grendel::TLB_APP_IN0_COUNT,
+            .base_index = grendel::TLB_APP_IN0_BASE_INDEX,
+            .bar_offset = grendel::TLB_APP_IN0_BAR0_OFFSET,
+            .in_bar4 = false,
+            // An entry's configuration is a physical address rather than NOC fields.
+            .register_layout = {},
+        }},
+        .cached_window_size = grendel::TLB_APP_IN0_SIZE,
+        // APP_IN0 entries carry no virtual channel configuration.
+        .use_static_vc = false,
+        .static_vc_is_configurable = false,
+        .static_cfg_addr = grendel::TLB_APP_IN0_CFG_BAR2_OFFSET,
+        .cfg_reg_size_bytes = grendel::TLB_APP_IN0_CFG_REG_SIZE_BYTES,
     };
 
     switch (arch) {

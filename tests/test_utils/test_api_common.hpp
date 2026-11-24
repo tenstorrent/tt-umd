@@ -178,3 +178,8 @@ constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;
 // True when the test should run against a simulator, indicated by TT_UMD_SIMULATOR
 // pointing at the simulator binary directory.
 inline bool is_simulation_test() { return std::getenv("TT_UMD_SIMULATOR") != nullptr; }
+
+// True when the simulator under test is TTSim, which is a shared library rather than an RTL build directory.
+inline bool is_ttsim_test() {
+    return is_simulation_test() && std::filesystem::path(std::getenv("TT_UMD_SIMULATOR")).extension() == ".so";
+}

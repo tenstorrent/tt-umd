@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_set>
 
+#include "chip_helpers/simulation_tlb_allocator_internal.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/types/arch.hpp"
 
@@ -18,6 +19,7 @@ namespace {
 
 // Arbitrary nonzero base for address-math assertions.
 constexpr uint64_t TEST_BAR0_BASE = 0x10000000ULL;
+constexpr uint64_t TEST_BAR2_BASE = 0x40000000ULL;
 
 }  // namespace
 
@@ -162,6 +164,29 @@ TEST(SimulationTlbAllocator, BlackholeRegAddressFromIndex) {
     // TLB config registers start at BAR0+0x1FC00000 with 12-byte stride on Blackhole.
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(0), 0x2FC00000ULL);
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(5), 0x2FC0003CULL);
+}
+
+TEST(SimulationTlbAllocator, QuasarAddressFromIndex) {
+    std::shared_ptr<SimulationTlbAllocator> allocator =
+        SimulationTlbAllocatorInternal::create(TEST_BAR0_BASE, tt::ARCH::QUASAR, 0, TEST_BAR2_BASE);
+
+    // Quasar's first window is TLB_APP_IN0 entry 164, the 16MB at BAR0 + (164 << 24).
+    EXPECT_EQ(allocator->get_tlb_address_from_index(164), 0xB4000000ULL);
+}
+
+TEST(SimulationTlbAllocator, QuasarRegAddressFromIndex) {
+    std::shared_ptr<SimulationTlbAllocator> allocator =
+        SimulationTlbAllocatorInternal::create(TEST_BAR0_BASE, tt::ARCH::QUASAR, 0, TEST_BAR2_BASE);
+
+    // APP_IN0 config registers start at BAR2+0x8000 with 0x40-byte stride, so entry 164 is at +0x2900.
+    EXPECT_EQ(allocator->get_tlb_reg_address_from_index(164), 0x4000A900ULL);
+}
+
+TEST(SimulationTlbAllocator, QuasarWithoutBar2IsBypassed) {
+    std::shared_ptr<SimulationTlbAllocator> allocator =
+        SimulationTlbAllocatorInternal::create(TEST_BAR0_BASE, tt::ARCH::QUASAR, 0, /*bar2_base=*/0);
+
+    EXPECT_TRUE(SimulationTlbAllocatorInternal::is_bypassed(*allocator));
 }
 
 TEST(SimulationTlbAllocator, GettersThrowOnInvalidIndex) {

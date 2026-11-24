@@ -1537,15 +1537,7 @@ std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
 
 std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
-    tt::ARCH arch = get_soc_descriptor(chip_id).arch;
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        return 0x800000000;
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        // Enable 4th ATU window.
-        return 1ULL << 60;
-    } else {
-        return 0;
-    }
+    return SysmemManager::get_pcie_base_for_arch(get_soc_descriptor(chip_id).arch);
 }
 
 std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {

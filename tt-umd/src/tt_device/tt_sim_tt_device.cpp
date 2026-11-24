@@ -362,8 +362,11 @@ std::optional<uint64_t> TTSimTTDevice::get_quasar_inbound_address(tt_xy_pair cor
     if (core == quasar_pcie_core_) {
         // There is no outbound iATU to add the chip's host base, so it goes into the APP_IN0 address.
         const uint64_t sysmem_window_base = sysmem_manager_->get_pcie_base();
+        if (addr < sysmem_window_base) {
+            return std::nullopt;
+        }
         const uint64_t host_address = sysmem_manager_->get_host_base() + (addr - sysmem_window_base);
-        if (addr < sysmem_window_base || host_address >= grendel::APP_OUT0_ENTRY_SIZE) {
+        if (host_address >= grendel::APP_OUT0_ENTRY_SIZE) {
             return std::nullopt;
         }
         return grendel::KERAUNOS_IO_BASE + host_address;

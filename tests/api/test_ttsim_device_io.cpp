@@ -397,7 +397,7 @@ TEST_P(TTSimDeviceIOEveryTensixFixture, WriteToDeviceReadByTileRdBytes) {
     tt_device->write_to_device(write_data.data(), core, addr, data_size);
 
     std::vector<uint8_t> read_data(data_size, 0);
-    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_data.data(), data_size);
+    tt_device->get_communicator()->tile_read_bytes(static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, read_data.data(), data_size);
 
     EXPECT_EQ(write_data, read_data);
 }

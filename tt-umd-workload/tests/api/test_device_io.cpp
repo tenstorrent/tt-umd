@@ -941,7 +941,7 @@ TEST(TestDeviceIO, DMA1) {
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
-        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(static_cast<int>(i), 0, CoordSystem::NOC0));
     }
 
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
@@ -990,7 +990,7 @@ TEST(TestDeviceIO, DMA2) {
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
-        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(static_cast<int>(i), 0, CoordSystem::NOC0));
     }
 
     // Constraints for random size generation.

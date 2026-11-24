@@ -109,11 +109,9 @@ inline constexpr tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{8, 0}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
-inline constexpr tt_xy_pair PCIE_GRID_SIZE = {2, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
-static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
-static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{2, 0}, {11, 0}};
+inline constexpr tt_xy_pair PCIE_GRID_SIZE = {1, 1};
+static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{11, 1}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_NOC0;
 
 static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {
     {1, 0},

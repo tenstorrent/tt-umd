@@ -73,6 +73,7 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
+    std::optional<int> get_physical_slot() const override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
 
     // Builds a 32-bit NOC register reader for a hang detector to probe NOC liveness with. It is safe to call

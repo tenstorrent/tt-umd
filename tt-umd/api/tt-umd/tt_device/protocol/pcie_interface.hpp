@@ -51,6 +51,12 @@ public:
     virtual std::optional<uint32_t> get_lane_count() const = 0;
 
     /**
+     * @brief Returns the motherboard slot this device sits in.
+     * @return std::optional<int> Slot number, or std::nullopt if the platform does not report one.
+     */
+    virtual std::optional<int> get_physical_slot() const = 0;
+
+    /**
      * @brief Requests a hardware power domain state change through the kernel driver.
      *
      * A no-op on architectures or KMD versions without power state management.

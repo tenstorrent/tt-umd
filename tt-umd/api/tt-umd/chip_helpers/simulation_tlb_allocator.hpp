@@ -25,10 +25,10 @@ namespace tt::umd {
 class SimulationTlbAllocator {
 public:
     /**
-     * Quasar windows exist only with a BAR2 base, through which they are configured. Without one
-     * (RTL simulation), Quasar takes the bypass described at allocate_tlb_index().
+     * Quasar windows are configured through BAR2, which this constructor has no base for, so a Quasar
+     * allocator built with it has no windows and takes the bypass described at allocate_tlb_index().
      */
-    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base = 0, uint64_t bar2_base = 0);
+    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base = 0);
 
     /**
      * Allocate the smallest TLB whose size class is >= the requested size. If no
@@ -37,10 +37,10 @@ public:
      *
      * If size is 0, allocate any available TLB, preferring smaller size classes first.
      *
-     * When is_bypassed(), hand back an auto-incrementing dummy index so window
-     * bookkeeping keyed by tlb id does not collide across allocations. Callers should
-     * then use the requested size directly rather than querying
-     * get_tlb_size_from_index() (which has no pool to look up).
+     * A Quasar allocator without windows hands back an auto-incrementing dummy index, so
+     * window bookkeeping keyed by tlb id does not collide across allocations. Callers should
+     * then use the requested size directly rather than querying get_tlb_size_from_index()
+     * (which has no pool to look up).
      *
      * @param size Requested TLB size in bytes (0 means any available).
      * @return TLB index if successful, -1 if no TLB available.
@@ -69,12 +69,13 @@ public:
 
     tt::ARCH get_architecture() const;
 
-    /**
-     * Whether this Quasar allocator has no windows, leaving all I/O to the simulator's tile API.
-     */
+private:
+    friend class SimulationTlbAllocatorInternal;
+
+    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base, uint64_t bar2_base);
+
     bool is_bypassed() const;
 
-private:
     // A size class and which of its windows are currently allocated.
     struct TlbPool {
         TlbSizeClass layout;

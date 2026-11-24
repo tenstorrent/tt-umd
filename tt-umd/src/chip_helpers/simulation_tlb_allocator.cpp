@@ -8,11 +8,15 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "chip_helpers/simulation_tlb_allocator_internal.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base) :
+    SimulationTlbAllocator(bar0_base, arch, bar4_base, /*bar2_base=*/0) {}
 
 SimulationTlbAllocator::SimulationTlbAllocator(
     uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base, uint64_t bar2_base) :
@@ -134,6 +138,16 @@ void SimulationTlbAllocator::initialize_architecture_config(uint64_t bar2_base) 
         pool.allocated.resize(size_class.count, false);
         pools_.push_back(std::move(pool));
     }
+}
+
+std::shared_ptr<SimulationTlbAllocator> SimulationTlbAllocatorInternal::create(
+    uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base, uint64_t bar2_base) {
+    // make_shared cannot reach the private constructor.
+    return std::shared_ptr<SimulationTlbAllocator>(new SimulationTlbAllocator(bar0_base, arch, bar4_base, bar2_base));
+}
+
+bool SimulationTlbAllocatorInternal::is_bypassed(const SimulationTlbAllocator& allocator) {
+    return allocator.is_bypassed();
 }
 
 }  // namespace tt::umd

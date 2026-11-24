@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "chip_helpers/simulation_tlb_allocator_internal.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
@@ -35,7 +36,7 @@ TTSimTlbHandle::TTSimTlbHandle(
     tlb_mapping_ = tlb_mapping;
 
     // A bypassed allocator has no windows to look up; I/O then falls back to the tile API.
-    if (allocator_ && !allocator_->is_bypassed()) {
+    if (allocator_ && !SimulationTlbAllocatorInternal::is_bypassed(*allocator_)) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }

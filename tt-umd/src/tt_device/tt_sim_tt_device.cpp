@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "chip_helpers/simulation_tlb_allocator_internal.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "pcie/tt_sim_tlb_window.hpp"
@@ -189,7 +190,8 @@ void TTSimTTDevice::initialize_backend() {
         }
     }
 
-    init_tlb_allocator(bar0_base, bar4_base, bar2_base);
+    // BAR2 configures the Quasar windows; without it Quasar has none.
+    tlb_allocator_ = SimulationTlbAllocatorInternal::create(bar0_base, get_arch(), bar4_base, bar2_base);
     setup_cached_tlb_window();
 
     // The protocol is now usable: the backend is up, BAR bases are known, and the TLB window the

@@ -120,15 +120,6 @@ public:
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
 
     /**
-     * Write to PCI configuration space. Requires a simulator exporting libttsim_pci_config_wr32.
-     *
-     * @param bus_device_function Bus/device/function identifier
-     * @param offset Offset in configuration space
-     * @param data 32-bit value to write
-     */
-    void pci_config_write32(uint32_t bus_device_function, uint32_t offset, uint32_t data);
-
-    /**
      * The bus/device/function of this chip's endpoint: the one named at construction, else the one
      * start_sim() found. Unset in the multichip-ABI mode when not named, where the endpoint is
      * reached by select_device_by_id instead.
@@ -230,6 +221,12 @@ public:
     bool is_closed() const { return closed_; }
 
 private:
+    // Only the device bringing a simulated chip up writes its config space.
+    friend class TTSimTTDevice;
+
+    // Write to PCI configuration space. Requires a simulator exporting libttsim_pci_config_wr32.
+    void pci_config_write32(uint32_t bus_device_function, uint32_t offset, uint32_t data);
+
     // What an image's config space reports, read once per image and process.
     struct ImageProbe {
         std::vector<uint32_t> bdfs;

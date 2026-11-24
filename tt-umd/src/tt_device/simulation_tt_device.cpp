@@ -11,6 +11,7 @@
 #include <limits>
 #include <tt-logger/tt-logger.hpp>
 
+#include "chip_helpers/simulation_tlb_allocator_internal.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
@@ -296,8 +297,8 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
     }
 }
 
-void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base, uint64_t bar4_base, uint64_t bar2_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), bar4_base, bar2_base);
+void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base, uint64_t bar4_base) {
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch(), bar4_base);
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
@@ -316,7 +317,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             break;
         case tt::ARCH::QUASAR:
             cached_tlb_window_ =
-                get_io_window({}, TlbMapping::WC, tlb_allocator_->is_bypassed() ? SIZE_4GB : SIZE_16MB);
+                get_io_window({}, TlbMapping::WC, SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_) ? SIZE_4GB : SIZE_16MB);
             break;
         default:
             log_debug(
@@ -328,8 +329,8 @@ void SimulationTTDevice::setup_cached_tlb_window() {
 }
 
 std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    // tlb_allocator_ is only built by init_tlb_allocator(), which the client-mode path never calls
-    // (it runs no local backend). Fail loudly instead of dereferencing a null allocator.
+    // tlb_allocator_ is only built once a local backend comes up, which the client-mode path never
+    // does. Fail loudly instead of dereferencing a null allocator.
     UMD_ASSERT(
         tlb_allocator_ != nullptr,
         error::RuntimeError,
@@ -339,7 +340,7 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
     // A bypass index has no pool for get_tlb_size_from_index to look up; pass the requested size through.
-    size_t actual_size = tlb_allocator_->is_bypassed() ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    size_t actual_size = SimulationTlbAllocatorInternal::is_bypassed(*tlb_allocator_) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 

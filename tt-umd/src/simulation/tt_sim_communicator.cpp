@@ -25,6 +25,9 @@
         UMD_THROW(error::RuntimeError, fmt::format("Failed to find symbol: {} {}", #func_name, dlerror())); \
     }
 
+#define DLSYM_OPTIONAL_FUNCTION(func_name) \
+    pfn_##func_name##_ = (decltype(pfn_##func_name##_))dlsym(libttsim_handle_, #func_name);
+
 // NOLINTEND.
 
 namespace tt::umd {
@@ -170,6 +173,7 @@ void TTSimCommunicator::initialize() {
             DLSYM_FUNCTION(libttsim_init)
             DLSYM_FUNCTION(libttsim_exit)
             DLSYM_FUNCTION(libttsim_pci_config_rd32)
+            DLSYM_OPTIONAL_FUNCTION(libttsim_pci_config_wr32)
             DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
             DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
             DLSYM_FUNCTION(libttsim_tile_rd_bytes)
@@ -249,6 +253,7 @@ void TTSimCommunicator::initialize() {
             DLSYM_FUNCTION(libttsim_init)
             DLSYM_FUNCTION(libttsim_exit)
             DLSYM_FUNCTION(libttsim_pci_config_rd32)
+            DLSYM_OPTIONAL_FUNCTION(libttsim_pci_config_wr32)
             DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
             DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
             DLSYM_FUNCTION(libttsim_tile_rd_bytes)
@@ -419,26 +424,27 @@ void TTSimCommunicator::resolve_pci_bdf() {
     pci_bdf_ = bdfs[index];
 }
 
-uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
-    std::lock_guard<std::mutex> lock(device_lock_);
+uint32_t TTSimCommunicator::select_config_bdf(uint32_t bus_device_function) {
     // Outside the multichip-ABI mode there is no select_device_by_id: this chip's PCI device is
     // named by its BDF, so each chip reads its own per-device BAR bases. Callers pass
     // bus_device_function 0 ("this device"); we fill in this chip's endpoint.
     const uint32_t bdf = (multichip_mode_ || bus_device_function != 0) ? bus_device_function : pci_bdf_.value_or(0);
     select_chip_if_needed();  // no-op outside the multichip-ABI mode
-    return pfn_libttsim_pci_config_rd32_(bdf, offset);
+    return bdf;
+}
+
+uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    return pfn_libttsim_pci_config_rd32_(select_config_bdf(bus_device_function), offset);
 }
 
 void TTSimCommunicator::pci_config_write32(uint32_t bus_device_function, uint32_t offset, uint32_t data) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    // Resolved here rather than at load: not every simulator image exports it, and only Quasar needs it.
-    auto config_write32 =
-        reinterpret_cast<void (*)(uint32_t, uint32_t, uint32_t)>(dlsym(libttsim_handle_, "libttsim_pci_config_wr32"));
-    UMD_ASSERT(config_write32 != nullptr, error::RuntimeError, "Simulator does not export libttsim_pci_config_wr32.");
-    // See pci_config_read32 for the BDF selection.
-    const uint32_t bdf = (multichip_mode_ || bus_device_function != 0) ? bus_device_function : pci_bdf_.value_or(0);
-    select_chip_if_needed();
-    config_write32(bdf, offset, data);
+    UMD_ASSERT(
+        pfn_libttsim_pci_config_wr32_ != nullptr,
+        error::RuntimeError,
+        "Simulator does not export libttsim_pci_config_wr32.");
+    pfn_libttsim_pci_config_wr32_(select_config_bdf(bus_device_function), offset, data);
 }
 
 const TTSimCommunicator::ImageProbe &TTSimCommunicator::probe_image(const std::filesystem::path &simulator_path) {
@@ -695,6 +701,7 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_init)
     DLSYM_FUNCTION(libttsim_exit)
     DLSYM_FUNCTION(libttsim_pci_config_rd32)
+    DLSYM_OPTIONAL_FUNCTION(libttsim_pci_config_wr32)
     DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
     DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)

@@ -247,6 +247,9 @@ private:
     // In multichip mode, selects this communicator's chip before an I/O call.
     void select_chip_if_needed();
 
+    // Selects the chip a config space access goes to and returns the BDF to pass the simulator.
+    uint32_t select_config_bdf(uint32_t bus_device_function);
+
     // Outside the multichip-ABI mode, finds this chip's endpoint in the running image's config space
     // when the caller did not name it.
     void resolve_pci_bdf();
@@ -313,6 +316,8 @@ private:
     void (*pfn_libttsim_init_)() = nullptr;
     void (*pfn_libttsim_exit_)() = nullptr;
     uint32_t (*pfn_libttsim_pci_config_rd32_)(uint32_t bus_device_function, uint32_t offset) = nullptr;
+    // Optional: not every simulator image exports it, and only Quasar needs it.
+    void (*pfn_libttsim_pci_config_wr32_)(uint32_t bus_device_function, uint32_t offset, uint32_t data) = nullptr;
     void (*pfn_libttsim_pci_mem_rd_bytes_)(uint64_t paddr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_pci_mem_wr_bytes_)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;

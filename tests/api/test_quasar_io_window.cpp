@@ -5,9 +5,9 @@
 // A Quasar TLB window programmed through the driver, used the way a caller would: map it onto a
 // system physical address, then load and store through it.
 //
-// The data cases check that a round trip through one window returns what was written, and that a
-// window reconfigured away and back still reaches its data. Both read back through the window they
-// wrote through, so they do not prove that the window reaches the same address as the driver's
+// The data cases check that a round trip through one window returns what was written, and that
+// reconfiguring a window moves the address its offsets land on. Both read back through the window
+// they wrote through, so they do not prove that the window reaches the same address as the driver's
 // scalar access. The flag case checks that a window reports WindowFlags::NonCacheable once
 // configured with it. The refusal cases check that a window configured with a coordinate,
 // multicast, a NOC selector, an ordering, linking, a static virtual channel or an AXI attribute
@@ -40,9 +40,6 @@ using namespace tt::umd;
 
 namespace {
 
-// The SMC cold scratch bank starts here; one window covers all of it.
-constexpr uint64_t IO_WINDOW_COLD_SCRATCH_BASE = 0x1202002800ULL;
-
 struct ScratchRegister {
     uint64_t address;
     uint32_t test_value;
@@ -63,8 +60,9 @@ constexpr std::array<ScratchRegister, 6> WRITABLE_COLD_SCRATCH = {{
     {0x120200281CULL, 0xC0FFEE07u},
 }};
 
-// Cold scratch 1, the register the retarget case leaves its sentinel in.
-constexpr uint64_t SENTINEL_SCRATCH = 0x1202002804ULL;
+// The window's home address, cold scratch 1: the lowest writable register, so every writable
+// register sits at a non-negative offset from it, and offset 0 is itself writable.
+constexpr uint64_t HOME_SCRATCH = 0x1202002804ULL;
 
 // Open the first Quasar device present, or nullptr when the machine has none.
 std::unique_ptr<PCIDevice> open_quasar_device() {
@@ -87,9 +85,6 @@ protected:
 
         window_size_ = get_architecture_tlbs(tt::ARCH::QUASAR).size_classes.front().size;
 
-        // One window covers the whole scratch bank, so every case below addresses within it.
-        window_base_ = IO_WINDOW_COLD_SCRATCH_BASE & ~(window_size_ - 1);
-
         // The address is flat and already names its target, so no coordinate is set: configuring
         // a Quasar window with one is refused.
         window_ = std::make_unique<SiliconTlbWindow>(device_->allocate_tlb(window_size_, TlbMapping::UC), home());
@@ -110,20 +105,22 @@ protected:
         }
     }
 
-    // The window's configuration that covers the scratch bank.
-    tlb_data home() const {
+    // The window's configuration that covers the writable scratch registers.
+    static tlb_data home() { return at(HOME_SCRATCH); }
+
+    // A window configuration whose offset 0 lands on the given address.
+    static tlb_data at(const uint64_t address) {
         tlb_data config;
-        config.local_offset = window_base_;
+        config.local_offset = address;
         return config;
     }
 
-    // Offset of a system physical address within the mapped window.
-    uint64_t offset_of(const uint64_t address) const { return address - window_base_; }
+    // Offset of a system physical address within the window at home.
+    static uint64_t offset_of(const uint64_t address) { return address - HOME_SCRATCH; }
 
     std::unique_ptr<PCIDevice> device_;
     std::unique_ptr<SiliconTlbWindow> window_;
     uint64_t window_size_ = 0;
-    uint64_t window_base_ = 0;
     std::array<uint32_t, WRITABLE_COLD_SCRATCH.size()> saved_values_{};
 };
 
@@ -139,21 +136,20 @@ TEST_F(QuasarIoWindow, WriteAndReadBackThroughTheWindow) {
     }
 }
 
-// Reconfiguring a window has to retarget it, not just renumber it: point the same window at a
-// different part of the address space and the data underneath must follow.
-TEST_F(QuasarIoWindow, ReconfiguringTheWindowRetargetsIt) {
-    constexpr uint32_t SENTINEL = 0x5EC0ADDEu;
-    window_->write32(offset_of(SENTINEL_SCRATCH), SENTINEL);
+// Reconfiguring a window has to move it: an offset that reached one register before must reach
+// the new address afterwards, and the register it left behind must keep its own value. If
+// configure() were a no-op, the second write would overwrite cold scratch 1 and the final check
+// would catch it. Every address touched, even by a broken configure(), is a writable register.
+TEST_F(QuasarIoWindow, ReconfiguringTheWindowMovesWhereItsOffsetsLand) {
+    window_->write32(0, 0xC0FFEE01u);
 
-    // Move the window one window-size away and back. If configure() were a no-op, the value would
-    // still be readable at the same offset while the window points elsewhere.
-    tlb_data elsewhere;
-    elsewhere.local_offset = window_base_ + window_size_;
-    window_->configure(elsewhere);
+    window_->configure(at(0x1202002808ULL));
+    window_->write32(0, 0xC0FFEE02u);
+    EXPECT_EQ(window_->read32(0), 0xC0FFEE02u);
 
     window_->configure(home());
-
-    EXPECT_EQ(window_->read32(offset_of(SENTINEL_SCRATCH)), SENTINEL);
+    EXPECT_EQ(window_->read32(0), 0xC0FFEE01u);
+    EXPECT_EQ(window_->read32(4), 0xC0FFEE02u);
 }
 
 // A window configured with WindowFlags::NonCacheable accepts it and reports it back. This checks
@@ -166,7 +162,7 @@ TEST_F(QuasarIoWindow, ReconfiguringTheWindowRetargetsIt) {
 TEST_F(QuasarIoWindow, NonCacheableFlagIsCarriedToTheWindow) {
     TargetIoWindowConfig target;
     target.core_start = tt_xy_pair(0, 0);  // the address is flat; a coordinate is refused
-    target.addr = window_base_;
+    target.addr = HOME_SCRATCH;
     target.noc = NocId::NOC0;
     target.flags = WindowFlags::NonCacheable;
 

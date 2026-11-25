@@ -46,6 +46,12 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
+CI runs `api_tests`, `unit_tests`, `unified_tests` and `test_pcie_device` on an N150, filtered to
+the tests that pass in the VM; a test that reaches something ttsim does not model ends QEMU rather
+than failing, so it has to be filtered out. On a P150 it opens the chip and runs the TLB window
+suites (`TestTlb`, `TestTlbRegisterReconfigure` and the `DynamicTLB_RW` tests). The guest has no
+hugepages, so a test that needs host memory through one, such as `UnalignedTLB_RW`, fails there.
+
 ## Grendel
 
 A Grendel function needs two things a Wormhole or Blackhole one does not, and the runner takes an
@@ -106,5 +112,6 @@ A weekly workflow (`check-keraunos-kmd-pin.yml`) opens or updates a tracking iss
 
 QEMU emulates the guest CPU in software (TCG), so it needs no KVM or nested virtualization, and runs
 on any x86-64 Linux host. Booting takes about 20 seconds. After that, time is dominated by the
-simulator itself, as on the direct path. KVM is not used because it cannot emulate the AVX2 loads and
-stores UMD uses for BAR accesses, which the simulated device turns into emulated MMIO.
+simulator itself, as on the direct path. TCG's `-cpu max` gives the guest AVX2, so UMD's AVX2 BAR
+copies run as they do on silicon. KVM is not used because it cannot emulate those AVX2 loads and
+stores to a BAR, which the simulated device turns into emulated MMIO.

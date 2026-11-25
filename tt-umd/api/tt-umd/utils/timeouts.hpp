@@ -19,6 +19,7 @@ inline constexpr auto SIMULATION_SOCKET_TIMEOUT = std::chrono::milliseconds(30'0
 // scheduling and model load on an emulator (about 90 s when healthy, but in CI the emulation is a
 // downstream pipeline queued for a Zebu board, which tt-umd-simulators' trigger waits up to 1 h for);
 // a run that never acks, e.g. a model that fails to load, otherwise blocks the host forever.
+// TT_UMD_RTL_SIM_ACK_TIMEOUT_S overrides it, see RtlSimSession::start().
 inline constexpr auto RTL_SIM_ACK_TIMEOUT = std::chrono::minutes(60);
 
 // Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via

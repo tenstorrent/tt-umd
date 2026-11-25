@@ -149,6 +149,7 @@ protected:
             unsetenv(("NNG_SOCKET_ADDR_" + name).c_str());
         }
         unsetenv("TT_SIMULATOR_LOCALHOST");
+        unsetenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S");
         std::filesystem::remove_all(dir_);
     }
 
@@ -199,6 +200,23 @@ TEST_F(RtlSimSessionTest, TimesOutWithoutAck) {
     RtlSimSession session(dir_, {"ut_a"});
 
     EXPECT_THROW(session.start(std::chrono::milliseconds(200)), std::exception);
+}
+
+// Without the variable, start() would wait 60 min for this ack.
+TEST_F(RtlSimSessionTest, TakesTheAckTimeoutFromTheEnvironment) {
+    add_socket("ut_a");
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "1", 1);
+    RtlSimSession session(dir_, {"ut_a"});
+
+    EXPECT_THROW(session.start(), std::exception);
+}
+
+TEST_F(RtlSimSessionTest, RejectsAnAckTimeoutThatIsNotSeconds) {
+    add_socket("ut_a");
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "2h", 1);
+    RtlSimSession session(dir_, {"ut_a"});
+
+    EXPECT_THROW(session.start(), std::exception);
 }
 
 TEST_F(RtlSimSessionTest, RejectsAWrongAck) {

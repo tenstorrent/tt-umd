@@ -9,8 +9,12 @@
 #include <uv.h>
 
 #include <algorithm>
+#include <charconv>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <set>
+#include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -56,6 +60,24 @@ void spawn_simulator(const std::filesystem::path &simulator_directory) {
     uv_loop_close(loop);
 }
 
+// A run queued for a shared emulator can wait longer than the default before it acks, and the
+// processes that open the device (tt-metal, tt-exalens) have no way to pass a timeout through.
+std::chrono::milliseconds default_ack_timeout() {
+    constexpr const char *variable = "TT_UMD_RTL_SIM_ACK_TIMEOUT_S";
+    const char *value = std::getenv(variable);
+    if (value == nullptr) {
+        return timeout::RTL_SIM_ACK_TIMEOUT;
+    }
+    const char *value_end = value + std::strlen(value);
+    int seconds = 0;
+    const auto [parsed_end, error] = std::from_chars(value, value_end, seconds);
+    UMD_ASSERT(
+        error == std::errc() && parsed_end == value_end && seconds > 0,
+        error::RuntimeError,
+        fmt::format("{} must be a positive whole number of seconds, not '{}'.", variable, value));
+    return std::chrono::seconds(seconds);
+}
+
 }  // namespace
 
 RtlSimSession::RtlSimSession(
@@ -84,9 +106,13 @@ size_t RtlSimSession::add_socket(const std::string &name) {
     return sockets_.size() - 1;
 }
 
-void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
+void RtlSimSession::start(std::optional<std::chrono::milliseconds> ack_timeout) {
     UMD_ASSERT(!started_, error::RuntimeError, "RtlSimSession::start() called twice.");
     UMD_ASSERT(!sockets_.empty(), error::RuntimeError, "RtlSimSession has no socket to serve.");
+    // NNG takes the timeout as an int of milliseconds.
+    const std::chrono::milliseconds timeout = ack_timeout.has_value() ? *ack_timeout : default_ack_timeout();
+    const int timeout_ms = static_cast<int>(
+        std::clamp<std::chrono::milliseconds::rep>(timeout.count(), 0, std::numeric_limits<int>::max()));
     started_ = true;
     for (size_t i = 0; i < sockets_.size(); i++) {
         hosts_[i]->init(sockets_[i]);
@@ -101,11 +127,12 @@ void RtlSimSession::start(std::chrono::milliseconds ack_timeout) {
     }
 
     for (size_t i = 0; i < sockets_.size(); i++) {
-        log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote on socket '{}'...", sockets_[i]);
+        log_info(
+            tt::LogEmulationDriver,
+            "Waiting up to {} ms for ack msg from remote on socket '{}'...",
+            timeout_ms,
+            sockets_[i]);
         void *buf_ptr = nullptr;
-        // NNG takes the timeout as an int of milliseconds.
-        const int timeout_ms = static_cast<int>(
-            std::clamp<std::chrono::milliseconds::rep>(ack_timeout.count(), 0, std::numeric_limits<int>::max()));
         size_t buf_size = hosts_[i]->recv_from_device(&buf_ptr, timeout_ms);
         UMD_ASSERT(
             buf_size != 0,

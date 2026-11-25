@@ -57,7 +57,7 @@ protected:
 };
 
 TEST_F(ApiNocCleanupWriteTest, WritesWhenDestroyed) {
-    for (uint8_t noc : {0, 1}) {
+    for (uint8_t noc : {uint8_t{0}, uint8_t{1}}) {
         uint32_t value = 0;
         tt_device_->write_to_device(&value, core_, SAFE_IO_L1_ADDRESS, sizeof(value));
         {

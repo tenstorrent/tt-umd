@@ -115,7 +115,10 @@ std::unique_ptr<SimulationServerSocket> SimulationServerSocket::create(const std
     auto socket = try_create(socket_path);
     if (!socket) {
         UMD_THROW(
-            error::RuntimeError, fmt::format("A live simulation server already exists at: {}", socket_path.string()));
+            error::RuntimeError,
+            fmt::format(
+                "Cannot host a simulation server at {}: a live server holds it, or it belongs to another user.",
+                socket_path.string()));
     }
     return socket;
 }
@@ -224,7 +227,10 @@ bool SimulationServerSocket::is_live(const std::filesystem::path& socket_path) {
     const int connect_errno = errno;
     ::close(probe);
     // EAGAIN means a listener holds the path but its accept queue is full: busy, not stale.
-    return connected || connect_errno == EAGAIN;
+    // EACCES (no write permission on the socket, e.g. another user's) comes back before the kernel
+    // looks for a listener, so a live socket and a stale one look alike; either way it is never this
+    // user's to reclaim, so report it as live.
+    return connected || connect_errno == EAGAIN || connect_errno == EACCES;
 }
 
 bool SimulationServerSocket::bind_and_listen() {
@@ -265,8 +271,8 @@ bool SimulationServerSocket::bind_and_listen() {
         // is_live() -> remove() -> re-bind() sequence is a TOCTOU window, so two
         // processes racing to reclaim the same stale socket (or a new owner binding in
         // the gap) is undefined. The socket dir is assumed trusted (see
-        // default_socket_path), which is what makes this acceptable. Note a stale socket
-        // owned by another user may not be removable under a sticky dir (e.g. /tmp).
+        // default_socket_path), which is what makes this acceptable. A socket this user may
+        // not connect to (another user's) reads as live, so it is never reclaimed.
         if (is_live(socket_path_)) {
             return false;
         }
@@ -499,8 +505,8 @@ std::map<ChipId, std::filesystem::path> SimulationServerSocket::sockets_in_direc
     const std::filesystem::path& directory) {
     std::map<ChipId, std::filesystem::path> sockets;
     // directory_iterator(dir, ec) sets ec if the path is not a directory or cannot be read; in
-    // either case there are no per-chip sockets to report (the caller then classifies it as a host
-    // build, not a client socket directory), so return empty rather than silently proceeding.
+    // either case there are no per-chip sockets to report, so return empty and let a caller
+    // enumerating many directories carry on past one it cannot read.
     std::error_code ec;
     std::filesystem::directory_iterator it(directory, ec);
     if (ec) {

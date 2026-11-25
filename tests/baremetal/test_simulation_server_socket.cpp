@@ -238,6 +238,32 @@ TEST_F(SimulationServerSocketTest, IsLiveReturnsTrueForAHostWhoseAcceptQueueIsFu
     EXPECT_TRUE(probe.get());
 }
 
+// A socket the caller may not connect to (another user's) cannot be probed, and is never the
+// caller's to reclaim, so it reads as live.
+TEST_F(SimulationServerSocketTest, IsLiveForASocketTheCallerMayNotConnectTo) {
+    auto host = SimulationServerSocket::create(path_);
+
+    EXPECT_TRUE(test_utils::holds_for_a_user_who_may_not_connect(
+        path_, [this] { return SimulationServerSocket::is_live(path_); }));
+}
+
+// Nothing stops another user from unlinking a socket in a writable directory without the sticky bit,
+// so create() itself must refuse to take over a socket the caller may not connect to.
+TEST_F(SimulationServerSocketTest, CreateLeavesASocketTheCallerMayNotConnectToInPlace) {
+    const test_utils::ScopedServerDirectory directory(
+        std::filesystem::temp_directory_path() / ("tt-umd-sim-shared-test-" + std::to_string(::getpid())));
+    std::filesystem::remove_all(directory.path());
+    std::filesystem::create_directory(directory.path());
+    std::filesystem::permissions(directory.path(), static_cast<std::filesystem::perms>(0777));
+    const std::filesystem::path socket_path = directory.path() / "tt-umd-sim-0.sock";
+    auto host = SimulationServerSocket::create(socket_path);
+
+    EXPECT_TRUE(test_utils::holds_for_a_user_who_may_not_connect(socket_path, [&socket_path] {
+        return test_utils::throws([&socket_path] { return SimulationServerSocket::create(socket_path); });
+    }));
+    EXPECT_TRUE(SimulationServerSocket::is_live(socket_path));
+}
+
 // A path too long for sockaddr_un cannot name a reachable listener, so is_live() reports false
 // rather than throwing.
 TEST_F(SimulationServerSocketTest, IsLiveIsFalseForAnOverlongPath) {

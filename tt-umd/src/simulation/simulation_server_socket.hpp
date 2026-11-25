@@ -21,12 +21,11 @@ namespace tt::umd {
 // (allocate_server_directory) so distinct hosts on the same machine never collide.
 //
 // The socket acts as a presence indicator: if a process can bind the path it becomes the host,
-// and create() throws if a live host already holds it. Which role a process takes is decided
+// and create() throws if it cannot claim it. Which role a process takes is decided
 // from the path by SimulationConnector, not by racing for the bind; is_live() answers whether a
 // host has the path bound and listening, which the socket file's presence alone does not (it says
-// nothing about whether that host is still alive, only that one bound it once). Stale
-// sockets left by crashed owners are automatically reclaimed. On destruction the host closes
-// the socket and removes the file.
+// nothing about whether that host is still alive, only that one bound it once). On destruction
+// the host closes the socket and removes the file.
 //
 // Request handling is split from binding, so the owner can claim the socket first and begin
 // serving only once its backend is ready (the handler dispatches into that backend, which does
@@ -57,9 +56,10 @@ public:
     SimulationServerSocket(const SimulationServerSocket&) = delete;
     SimulationServerSocket& operator=(const SimulationServerSocket&) = delete;
 
-    // Binds and listens, reclaiming a socket left behind by a crashed owner, and throws when a
-    // *live* owner already holds the path. Throws on real socket errors too. The socket is
-    // presence-only (bound + connectable) until serve() installs a handler.
+    // Binds and listens, reclaiming a socket left behind by a crashed owner. Throws when the path
+    // reads as live (see is_live()): a live owner holds it, or it is a socket the caller may not
+    // connect to, such as another user's, which is never reclaimed. Throws on real socket errors
+    // too. The socket is presence-only (bound + connectable) until serve() installs a handler.
     //
     // The socket is private to the user that creates it: the socket file is owner-only (0600),
     // and every directory this call has to create for it (its parent and any missing ancestors)
@@ -69,7 +69,9 @@ public:
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
     // listening, as opposed to the path being free or holding a socket file a crashed owner left
     // behind, which are indistinguishable on disk. Does not claim the path, and never blocks: a host
-    // that is listening but not accepting (its accept queue full) still reads as live.
+    // that is listening but not accepting (its accept queue full) still reads as live. A socket the
+    // caller is not permitted to connect to (e.g. another user's) also reads as live: it cannot be
+    // probed, and it is never the caller's to reclaim.
     //
     // Note this is liveness of the bind, not of request handling: a host binds before serve()
     // installs its handler (see the split described above), so a host still coming up reads as
@@ -115,7 +117,7 @@ public:
     // The per-chip simulation sockets present in a directory: {chip_id -> socket file}, keyed and
     // ordered by chip id. Only AF_UNIX sockets whose names match the default_socket_path()
     // convention are included; everything else in the directory is ignored. Empty if the path is
-    // not a directory or holds no such sockets.
+    // not a directory, cannot be read, or holds no such sockets.
     //
     // Presence only: a socket here may be one a crashed host left behind, so this is not the set of
     // hosts to attach to. SimulationConnector's classifier narrows it with is_live() and rejects a
@@ -128,14 +130,14 @@ private:
     // the try_create()/create() factories.
     explicit SimulationServerSocket(const std::filesystem::path& socket_path);
 
-    // Like create(), but returns nullptr instead of throwing when a live owner already holds the
-    // path. An implementation detail of create(): nothing outside needs the null return, since the
+    // Like create(), but returns nullptr instead of throwing when the path reads as live. An
+    // implementation detail of create(): nothing outside needs the null return, since the
     // role a process takes is decided from the path rather than by racing for the bind.
     static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
 
     // Binds + listens (claims the path; connectable for liveness), with the owner-only modes
     // create() promises. Does not accept yet -- the accept loop starts in serve(). Returns false
-    // if a live owner holds the path; throws on real socket errors.
+    // if the path reads as live (see create()); throws on real socket errors.
     bool bind_and_listen();
 
     // Re-arms the async accept; each accepted connection is handed to a serving thread. Only ever

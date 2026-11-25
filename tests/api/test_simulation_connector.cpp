@@ -468,6 +468,39 @@ TEST(SimulationConnector, ThrowsOnADirectoryOfOnlyStaleSockets) {
     EXPECT_THROW(SimulationConnector::discover(options), std::exception);
 }
 
+// A socket the caller may not connect to (another user's host) reads as live, so the directory is a
+// server to attach to rather than one of only stale sockets. Needs no simulator.
+TEST(SimulationConnector, RoleForIsClientForASocketTheCallerMayNotConnectTo) {
+    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+    // Listable by everyone, so only the socket itself keeps the caller out.
+    std::filesystem::permissions(directory.path(), static_cast<std::filesystem::perms>(0755));
+    auto host = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(directory.path(), 0));
+
+    EXPECT_TRUE(test_utils::holds_for_a_user_who_may_not_connect(host->socket_path(), [&directory] {
+        return SimulationConnector::role_for(directory.path()) == SimulationConnector::Role::Client;
+    }));
+}
+
+// A directory the caller cannot list (another user's server directory) is neither a server it can
+// attach to nor an RTL build to host. Needs no simulator.
+TEST(SimulationConnector, RoleForThrowsOnADirectoryTheCallerCannotRead) {
+    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+
+    EXPECT_TRUE(test_utils::holds_for_a_user_who_may_not_read(directory.path(), [&directory] {
+        return test_utils::throws([&directory] { return SimulationConnector::role_for(directory.path()); });
+    }));
+}
+
+TEST(SimulationConnector, DiscoverThrowsOnADirectoryTheCallerCannotRead) {
+    const test_utils::ScopedServerDirectory directory(SimulationServerSocket::allocate_server_directory());
+    SimulationConnectorOptions options;
+    options.simulator_directory = directory.path();
+
+    EXPECT_TRUE(test_utils::holds_for_a_user_who_may_not_read(directory.path(), [&options] {
+        return test_utils::throws([&options] { return SimulationConnector::discover(options); });
+    }));
+}
+
 // One stale socket beside a live one must not drag the healthy chip out of the client's device
 // list, nor make the topology probe pick the dead socket. Requires TT_UMD_SIMULATOR.
 TEST(SimulationConnector, IgnoresAStaleSocketBesideALiveOne) {

@@ -122,7 +122,8 @@ void bind_simulation(nb::module_ &m) {
             nb::arg("simulator_directory"),
             release_gil(),
             "Host or client, decided from the path: a directory holding live simulation sockets means a host already "
-            "serves there, so attach to it; anything else is a simulator build to host.")
+            "serves there, so attach to it; anything else is a simulator build to host. Raises when the path is a "
+            "directory the caller cannot read (e.g. another user's server directory).")
         .def_static(
             "discover",
             [](const SimulationConnectorOptions &options) {
@@ -134,7 +135,8 @@ void bind_simulation(nb::module_ &m) {
             release_gil(),
             "Opens the simulated devices for these options. Returns (connection, {chip_id: TTDevice}, "
             "cluster_descriptor) -- the connection says which role this process took and what simulator is behind "
-            "it, and the cluster descriptor is the topology those devices sit in.")
+            "it, and the cluster descriptor is the topology those devices sit in. Raises, like role_for, when the "
+            "simulator directory cannot be read.")
         .def_static(
             "allocate_server_directory",
             &SimulationConnector::allocate_server_directory,

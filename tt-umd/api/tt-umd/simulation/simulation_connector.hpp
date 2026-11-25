@@ -59,6 +59,8 @@ class SimulationConnector {
 public:
     // Host vs client, decided from simulator_directory (the two host backends collapse to Host).
     // Exposed so callers (e.g. Cluster) can branch on the role without duplicating the path logic.
+    // role_for() throws when simulator_directory is a directory the caller cannot read (e.g. another
+    // user's server directory).
     enum class Role { Host, Client };
     static Role role_for(const std::filesystem::path& simulator_directory);
 
@@ -96,6 +98,7 @@ public:
         std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     };
 
+    // Throws, like role_for(), when simulator_directory is a directory the caller cannot read.
     static Result discover(const SimulationConnectorOptions& options);
 
     // Claims a fresh directory for one simulation server (the lowest free index) and returns it, so

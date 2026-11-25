@@ -64,6 +64,17 @@ Classification classify(const std::filesystem::path& simulator_path) {
         std::filesystem::is_directory(simulator_path, ec),
         error::RuntimeError,
         fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
+    // A directory that cannot be listed would read as one with no sockets, i.e. an RTL build to
+    // host, and fail later on an unrelated missing file. Most likely it is another user's server.
+    std::filesystem::directory_iterator listing(simulator_path, ec);
+    UMD_ASSERT(
+        !ec,
+        error::RuntimeError,
+        fmt::format(
+            "Cannot read simulator directory {}: {}. A simulation server directory is private to the user who "
+            "started the server.",
+            simulator_path.string(),
+            ec.message()));
     // A directory that holds per-chip simulation sockets means a host is already serving there, so
     // attach as a client; any other directory is an RTL build we host.
     const auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);

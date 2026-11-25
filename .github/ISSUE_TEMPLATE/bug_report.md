@@ -27,3 +27,11 @@ Steps to reproduce the behavior.
 
 **Expected behavior**
 A clear and concise description of what you expect to happen.
+
+**How to test (optional)**
+How the fix should be verified, if you know it.
+- Backend: [silicon, ttsim-qemu, ttsim, RTL simulation, emulation]
+- Architectures: [e.g. Wormhole, Blackhole, Quasar]
+- Test to extend or add: [e.g. an existing suite or test name, or the new test's name]
+- Command or gtest filter: [e.g. the exact command or `--gtest_filter`]
+- Expected result: [what passes after the fix, and what fails before it]

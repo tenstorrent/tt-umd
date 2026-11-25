@@ -20,3 +20,11 @@ A clear and concise description of what the problem is. Ex. I'm always frustrate
 
 **Definition of Done**
 List the conditions that must be met for this feature to be considered done.
+
+**How to test (optional)**
+How the feature should be verified, if you know it.
+- Backend: [silicon, ttsim-qemu, ttsim, RTL simulation, emulation]
+- Architectures: [e.g. Wormhole, Blackhole, Quasar]
+- Test to extend or add: [e.g. an existing suite or test name, or the new test's name]
+- Command or gtest filter: [e.g. the exact command or `--gtest_filter`]
+- Expected result: [what passing looks like]

@@ -21,12 +21,18 @@ jobs:
         # One job per card and test binary keeps each well inside the timeout. The filters leave out the
         # tests that cannot pass in the VM; one that reaches an unmodelled part of ttsim ends QEMU and every
         # test after it, so it has to be filtered out rather than left to fail.
+        #
+        # The N150 and P150 rows name their TLB window suites in the positive half, so the filter check fails if one
+        # stops being built. TTSimTlbWindowFixture stays unnamed: it opens ttsim in process and skips in the VM.
+        # TestTlb.TestClusterExportDmabuf skips for want of an RDMA NIC.
         include:
           - card: n150
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: api/api_tests
-            tests: "*-*ClusterWarmResetScratch*:\
+            # The sysmem, host memory channel and TestDeviceIOFixture.SysmemReadWrite exclusions need a hugepage the
+            # guest does not have.
+            tests: "*:*TestDeviceIOFixture.DynamicTLB_RW/*-*ClusterWarmResetScratch*:\
               TestFirmwareInfoProvider.ClockFrequencies:\
               TestFirmwareInfoProvider.EthFirmwareVersion:\
               TestFirmwareInfoProvider.GddrTelemetry:\
@@ -51,9 +57,21 @@ jobs:
               TestDeviceIOFixture.TestDmaMulticastWrite:\
               ApiTTDeviceTest.TTDeviceRegIO:\
               ApiTTDeviceTest.UninitializedError:\
-              ApiSysmemManager.BasicIO:\
               ApiSysmemManager.AutoNumChannels:\
               TestDeviceIOFixture.SysmemReadWrite:\
+              ApiSysmemManager.AllocatedBufferBoundToNocIsReachableOverNoc:\
+              ApiSysmemManager.AllocatedBufferIsNotNocBoundByDefault:\
+              ApiSysmemManager.BuffersFromTwoAllocatorsOnOneDeviceAreDistinct:\
+              ApiSysmemManager.DestroyedBufferReturnsItsHugepage:\
+              ApiSysmemManager.MaxBufferCountAllowsOneGibBufferWithoutIommu:\
+              ApiSysmemManager.OneGibAllocationSucceedsWithoutIommu:\
+              *ApiSysmemManagerZeroCopyRange.ZeroCopyRangeOutsideBufferThrows/*:\
+              ApiTTDeviceTest.SystemMemoryAllocatorPinsForItsDevice:\
+              ApiClusterHostMemChannels.RoundTripThroughChannel:\
+              ApiClusterHostMemChannels.OffsetWrapsAtChannelSize:\
+              ApiClusterHostMemChannelSetup.ChannelsAreMappedOnlyWhileStarted:\
+              ApiClusterHostMemChannelSetup.ChannelsSurviveRestart:\
+              ApiClusterHostMemChannelSetup.ChannelMapsItsHugepageFileAfterAnUnrelatedBuffer:\
               TestRiscProgram.DeassertResetBrisc:\
               TestRiscProgram.DeassertResetWithCounterBrisc:\
               *TriscNcriscAssertDeassertTest*:\
@@ -62,7 +80,8 @@ jobs:
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: wormhole_b0/unit_tests
-            tests: "*-WormholeArcMessages.WormholeArcMessagesAICLK:\
+            # UnalignedTLB_RW writes host memory too, which needs a hugepage the guest does not have.
+            tests: "*:ClusterWH.DynamicTLB_RW:ClusterWH.LargeAddressTlb-WormholeArcMessages.WormholeArcMessagesAICLK:\
               ClusterWH.HarvestingRuntime:\
               TestDeviceIO.DMA3:\
               ClusterWH.UnalignedTLB_RW:\
@@ -71,7 +90,7 @@ jobs:
             lib: libttsim_wh.so
             bar4-size: 32M
             binary: unified/unified_tests
-            tests: "*-DmaReadMixedCoreReproTest.DmaReadMixedCoreRepro:\
+            tests: "*:TestTlb.*:*TestTlbRegisterReconfigure.*-DmaReadMixedCoreReproTest.DmaReadMixedCoreRepro:\
               Multiprocess.DMAWriteReadRaceCondition:\
               Multiprocess.LongLivedMonitor:\
               Multiprocess.WorkloadVSMonitor"
@@ -80,8 +99,14 @@ jobs:
             bar4-size: 32M
             binary: test_pcie_device/test_pcie_device
             tests: "*"
+          # The P150 runs its TLB window suites here; its other suites need their own exclusions.
+          # ClusterBH.UnalignedTLB_RW is left out for the same missing hugepage as on the N150.
           - {card: p150, binary: api/api_tests, lib: libttsim_bh.so, bar4-size: 32G,
-             tests: ApiClusterTest.OpenAllSiliconChips}
+             tests: "ApiClusterTest.OpenAllSiliconChips:*TestDeviceIOFixture.DynamicTLB_RW/*"}
+          - {card: p150, binary: blackhole/unit_tests, lib: libttsim_bh.so, bar4-size: 32G,
+             tests: ClusterBH.DynamicTLB_RW}
+          - {card: p150, binary: unified/unified_tests, lib: libttsim_bh.so, bar4-size: 32G,
+             tests: "TestTlb.*:*TestTlbRegisterReconfigure.*"}
           # Grendel wants two things the other cards do not: a BAR0 big enough to hold tt-kmd's own
           # TLB window (entry 164, 2.56 GB in) and a driver that knows Keraunos.
           #

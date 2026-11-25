@@ -92,8 +92,6 @@ std::chrono::milliseconds RtlSimSession::get_ack_timeout(std::optional<std::chro
     if (ack_timeout.has_value()) {
         return *ack_timeout;
     }
-    // A run queued for a shared emulator can wait longer than the default before it acks, and the
-    // processes that open the device (tt-metal, tt-exalens) have no way to pass a timeout through.
     constexpr const char *variable = "TT_UMD_RTL_SIM_ACK_TIMEOUT_S";
     const char *value = std::getenv(variable);
     if (value == nullptr) {
@@ -101,9 +99,9 @@ std::chrono::milliseconds RtlSimSession::get_ack_timeout(std::optional<std::chro
     }
     const char *value_end = value + std::strlen(value);
     int seconds = 0;
-    const auto [parsed_end, error] = std::from_chars(value, value_end, seconds);
+    const auto [parsed_end, parse_error] = std::from_chars(value, value_end, seconds);
     UMD_ASSERT(
-        error == std::errc() && parsed_end == value_end && seconds > 0,
+        parse_error == std::errc() && parsed_end == value_end && seconds > 0,
         error::RuntimeError,
         fmt::format("{} must be a positive whole number of seconds, not '{}'.", variable, value));
     return std::chrono::seconds(seconds);
@@ -131,9 +129,9 @@ void RtlSimSession::start(std::optional<std::chrono::milliseconds> ack_timeout) 
     for (size_t i = 0; i < sockets_.size(); i++) {
         log_info(
             tt::LogEmulationDriver,
-            "Waiting up to {} ms for ack msg from remote on socket '{}'...",
-            timeout_ms,
-            sockets_[i]);
+            "Waiting for ack msg from remote on socket '{}' (up to {} ms)...",
+            sockets_[i],
+            timeout_ms);
         void *buf_ptr = nullptr;
         size_t buf_size = hosts_[i]->recv_from_device(&buf_ptr, timeout_ms);
         UMD_ASSERT(

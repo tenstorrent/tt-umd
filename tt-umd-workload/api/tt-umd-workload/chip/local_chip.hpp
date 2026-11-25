@@ -73,7 +73,7 @@ public:
         const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
 
-    int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering);
+    int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering);
 
     void wait_for_non_mmio_flush() override;
 

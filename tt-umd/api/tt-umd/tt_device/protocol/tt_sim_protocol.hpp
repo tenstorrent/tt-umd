@@ -73,7 +73,6 @@ public:
     std::optional<uint32_t> get_lane_count() const override;
     std::optional<int> get_physical_slot() const override;
     void set_power_state(PowerState state) override;
-    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
 
 private:
     // BAR0's physical base, read from the simulator's config space on first use. The simulator

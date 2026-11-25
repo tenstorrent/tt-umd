@@ -41,6 +41,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     io_window_factory_ = pcie_protocol.get();
+    peer_dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
     system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
     if (use_safe_api) {
@@ -107,6 +108,8 @@ HangDetector *WormholeTTDeviceModel::get_hang_detector() { return hang_detector_
 PcieInterface *WormholeTTDeviceModel::get_pcie_interface() { return pcie_interface_; }
 
 DmaInterface *WormholeTTDeviceModel::get_dma_interface() { return dma_interface_; }
+
+PeerDmaInterface *WormholeTTDeviceModel::get_peer_dma_interface() { return peer_dma_interface_; }
 
 JtagInterface *WormholeTTDeviceModel::get_jtag_interface() { return jtag_interface_; }
 

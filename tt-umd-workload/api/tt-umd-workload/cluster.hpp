@@ -546,7 +546,7 @@ public:
      * @return dma-buf file descriptor; the caller owns it and must close() it when done.
      */
     int export_dmabuf(
-        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering = IoOrdering::RELAXED);
 
     //---------- Functions for synchronization and memory barriers.
 

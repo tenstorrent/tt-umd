@@ -36,6 +36,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     pcie_interface_ = pcie;
     dma_interface_ = pcie;
     io_window_factory_ = pcie;
+    peer_dma_interface_ = pcie;
     protocol_ = std::move(pcie_protocol);
     system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
     if (use_safe_api) {
@@ -88,6 +89,8 @@ HangDetector *BlackholeTTDeviceModel::get_hang_detector() { return hang_detector
 PcieInterface *BlackholeTTDeviceModel::get_pcie_interface() { return pcie_interface_; }
 
 DmaInterface *BlackholeTTDeviceModel::get_dma_interface() { return dma_interface_; }
+
+PeerDmaInterface *BlackholeTTDeviceModel::get_peer_dma_interface() { return peer_dma_interface_; }
 
 JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interface_; }
 

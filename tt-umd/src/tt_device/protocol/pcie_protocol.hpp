@@ -18,6 +18,7 @@
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/io_window_config.hpp"
@@ -41,13 +42,17 @@ struct tlb_data;
 enum TlbMapping : uint8_t;
 
 /**
- * PcieProtocol implements DeviceProtocol, PcieInterface, DmaInterface and IoWindowFactory for PCIe-connected
- * devices.
+ * PcieProtocol implements DeviceProtocol, PcieInterface, DmaInterface, IoWindowFactory and PeerDmaInterface for
+ * PCIe-connected devices.
  *
  * Provides PCIe-based device I/O including DMA transfers, register access,
  * and multicast writes.
  */
-class PcieProtocol : public DeviceProtocol, public PcieInterface, public DmaInterface, public IoWindowFactory {
+class PcieProtocol : public DeviceProtocol,
+                     public PcieInterface,
+                     public DmaInterface,
+                     public IoWindowFactory,
+                     public PeerDmaInterface {
 public:
     // io_timeout_hang_check is consulted with the in-flight op's NOC when an MMIO op overruns its timeout:
     // true confirms a hung NOC and aborts the op, false lets it continue.
@@ -78,7 +83,6 @@ public:
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
     std::optional<int> get_physical_slot() const override;
-    int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
 
     // IoWindowFactory. The window sits over one of this device's TLBs and carries io_timeout_hang_check like the
     // protocol's own windows, so an overrun aborts only on a confirmed NOC hang.
@@ -109,6 +113,9 @@ public:
     [[nodiscard]] DmaTransferState dma_write_zero_copy_check() override;
     [[nodiscard]] DmaTransferState dma_read_zero_copy_check() override;
     [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr) const override;
+
+    // PeerDmaInterface.
+    int export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
 
 private:
     // A size of 0 takes the smallest window still free.

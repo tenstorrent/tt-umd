@@ -520,7 +520,7 @@ void LocalChip::dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t s
     tt_device_->dma_read_zero_copy(buffer.get_iova(offset), addr, size, core, get_selected_noc_id());
 }
 
-int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering) {
     return tt_device_->export_dmabuf(core, addr, size, ordering, get_selected_noc_id());
 }
 

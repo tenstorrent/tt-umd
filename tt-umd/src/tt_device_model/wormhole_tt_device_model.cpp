@@ -28,8 +28,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     bool use_safe_api,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::WORMHOLE_B0>(soc_arch_descriptor)),
-    architecture_impl_(std::make_unique<WormholeImplementation>()),
-    pci_device_(pci_device.get()) {
+    architecture_impl_(std::make_unique<WormholeImplementation>()) {
+    // The protocol takes ownership of the device; the system memory allocator pins through it.
+    PCIDevice *pinning_device = pci_device.get();
     // The detector probes through a reader the protocol builds, so it comes after the protocol, and the
     // protocol's timeout check looks it up only when an op overruns. Until it exists, an overrun is not
     // judged a hang, as when no check is wired.
@@ -43,7 +44,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     io_window_factory_ = pcie_protocol.get();
     peer_dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
-    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
+    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pinning_device, protocol_->get_mmio_id());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }

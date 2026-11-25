@@ -393,6 +393,7 @@ jobs:
       # TTSimDeclaredTopology declares each image's topology in a cluster_descriptor.yaml beside a copy
       # of it; TTSimEnumeratedTopology checks discovery's chips and host channel sizing against the
       # image. Both stay out of the galaxy steps, whose own discovery takes most of their timeout.
+      # TTSimDeclaredSingleChipBoards declares bh_x2's chips as separate boards to select one of them.
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole
         timeout-minutes: 1
         env:
@@ -409,7 +410,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:TTSimDeclaredSingleChipBoards.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
         timeout-minutes: 5
@@ -481,6 +482,24 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      # TTSim models no topology for Quasar, so discovery gives it one chip unless one is declared
+      # (TTSimDeclaredQuasar). RtlBuildTargetDevices needs no simulator: the chips it selects of a
+      # scratch RTL build are refused before one is launched.
+      - name: Run UMD one-chip simulator discovery on tt-sim quasar
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="OneChipSimulatorTopology.*:TTSimDeclaredQuasar.*:RtlBuildTargetDevices.*"
+
+      # RtlIpLayoutDiscovery fakes an RTL build with an ip_layout.yaml: a thread per socket plays the
+      # simulator, so it needs no simulator of its own. Closing each fake device takes ~5 s.
+      - name: Run UMD RTL ip_layout discovery against a fake simulator
+        timeout-minutes: 3
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="RtlIpLayoutDiscovery.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1

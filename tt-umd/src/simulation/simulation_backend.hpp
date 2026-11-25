@@ -10,6 +10,8 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -39,6 +41,32 @@ public:
     virtual tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path) const = 0;
 
     /**
+     * Whether the simulator at simulator_path is a TTSim image or an RTL build.
+     */
+    virtual SimulationBackendType get_backend_type(const std::filesystem::path& simulator_path) const = 0;
+
+    /**
+     * The SoC descriptor of each device the ip_layout.yaml of the RTL simulator build at simulator_path declares, in
+     * device id order; empty when the build has no ip_layout.yaml.
+     */
+    virtual std::vector<std::string> get_ip_layout_soc_descriptor_paths(
+        const std::filesystem::path& simulator_path) const = 0;
+
+    /**
+     * Open devices of the ip_layout.yaml of the RTL simulator build at simulator_path, all served by one run of the
+     * simulator, each with num_host_mem_channels host memory channels. Only the devices opened here are served, so
+     * other processes may open the rest. With launch_simulator false, the run is left for another process to launch.
+     *
+     * @param layout_devices The devices to open, by position in device id order, keyed by the chip id each one gets.
+     * @return The devices keyed by chip id.
+     */
+    virtual std::map<ChipId, std::unique_ptr<TTDevice>> create_ip_layout_tt_devices(
+        const std::filesystem::path& simulator_path,
+        const std::map<ChipId, size_t>& layout_devices,
+        int num_host_mem_channels,
+        bool launch_simulator) const = 0;
+
+    /**
      * Open one device per host-visible endpoint of the simulator image at simulator_path, each with
      * num_host_mem_channels host memory channels: the simulator's counterpart of enumerating PCIe devices and opening
      * each one.
@@ -49,8 +77,8 @@ public:
         const std::filesystem::path& simulator_path, int num_host_mem_channels) const = 0;
 
     /**
-     * Open the device for chip_id, one of num_chips MMIO-capable chips a declared topology opens on the simulator image
-     * at simulator_path, built with soc_descriptor and num_host_mem_channels host memory channels.
+     * Open the device for chip_id, one of the num_chips MMIO-capable chips of a topology known without enumerating the
+     * simulator at simulator_path, built with soc_descriptor and num_host_mem_channels host memory channels.
      */
     virtual std::unique_ptr<TTDevice> create_simulation_tt_device(
         const std::filesystem::path& simulator_path,

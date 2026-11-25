@@ -37,8 +37,6 @@
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
-#include "simulation/rtl_sim_ip_block_layout.hpp"
-#include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
@@ -205,6 +203,21 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 namespace {
 
+// A simulator's settings for TopologyDiscovery, from the Cluster options that name them.
+SimulationDiscoveryOptions get_simulation_discovery_options(const ClusterOptions& options) {
+    SimulationDiscoveryOptions simulation_options;
+    simulation_options.simulator_path = options.simulator_directory.string();
+    if (options.num_host_mem_ch_per_mmio_device.has_value()) {
+        simulation_options.num_host_mem_channels = static_cast<int>(options.num_host_mem_ch_per_mmio_device.value());
+    }
+    // Of several processes sharing one run of an RTL simulator, the ones started with TT_UMD_SIMULATOR_LAUNCH=0 leave
+    // launching it to another.
+    const char* launch_env = std::getenv("TT_UMD_SIMULATOR_LAUNCH");
+    simulation_options.launch_simulator = launch_env == nullptr || std::string(launch_env) != "0";
+    simulation_options.target_devices = options.target_devices;
+    return simulation_options;
+}
+
 // A sysmem manager with no host memory channels can't back remote transfers, so remote communication treats it as
 // absent.
 SysmemManager* usable_sysmem_manager(Chip* chip) {
@@ -301,7 +314,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             SocDescriptor device_soc = tt_device->get_soc_descriptor();
             return std::make_unique<SimulationChip>(simulator_directory, device_soc, chip_id, std::move(tt_device));
         }
-        if (simulator_directory.extension() == ".so" && cluster_desc->is_chip_remote(chip_id)) {
+        if (cluster_desc->is_chip_remote(chip_id)) {
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
         }
         log_info(LogUMD, "Creating Simulation device");
@@ -428,13 +441,12 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
     chips_.emplace(chip_id, std::move(chip));
 }
 
-// Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
+// Options is intentionally taken by value because num_host_mem_ch_per_mmio_device is filled in below when unset.
 Cluster::Cluster(ClusterOptions options) {
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
     log_info(LogUMD, "Cluster constructor started.");
     // Store options early so that options_ is populated if the constructor throws.
-    // A second assignment at the end captures any mutations made during construction
-    // (soc_descriptor_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
+    // A second assignment at the end captures the num_host_mem_ch_per_mmio_device auto-detect.
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
@@ -485,112 +497,29 @@ Cluster::Cluster(ClusterOptions options) {
                 break;
             }
 #endif
+            if (options.cluster_descriptor == nullptr && options.chip_type == ChipType::SIMULATION) {
+                // A simulator's topology is TopologyDiscovery's to find, and so are the chips of it this process
+                // opens: discovery applies target_devices before it opens any device.
+                TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+                discovery_options.simulation = get_simulation_discovery_options(options);
+                auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
+                // discover() answers with a valid, chipless descriptor when it found nothing -- callers and the
+                // Python bindings go through it on an empty machine too -- so the devices, not the pointer, are what
+                // say whether this simulator was discovered at all.
+                UMD_ASSERT(
+                    !discovered_devices.empty(),
+                    error::RuntimeError,
+                    fmt::format("Discovering simulator {} produced no chips.", options.simulator_directory.string()));
+                cluster_desc = std::move(discovered_desc);
+                tt_devices = std::move(discovered_devices);
+                break;
+            }
+
             if (options.cluster_descriptor == nullptr) {
-                // A TTSim image's topology is TopologyDiscovery's to find, whether a cluster_descriptor.yaml beside
-                // the image declares it or the image is enumerated and its Ethernet links walked. TTSim models no
-                // ARC or Ethernet for Quasar, so there is nothing to discover from: a Quasar image keeps the mock
-                // descriptor below. Lifting the exclusion is #3404.
-                const bool is_ttsim_build =
-                    options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so";
-                if (is_ttsim_build && get_simulator_arch(options.simulator_directory) != tt::ARCH::QUASAR) {
-                    TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
-                    SimulationDiscoveryOptions simulation_options;
-                    simulation_options.simulator_path = options.simulator_directory.string();
-                    if (options.num_host_mem_ch_per_mmio_device.has_value()) {
-                        simulation_options.num_host_mem_channels =
-                            static_cast<int>(options.num_host_mem_ch_per_mmio_device.value());
-                    }
-                    discovery_options.simulation = std::move(simulation_options);
-                    auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
-                    // discover() answers with a valid, chipless descriptor when it found nothing --
-                    // callers and the Python bindings go through it on an empty machine too -- so
-                    // the devices, not the pointer, are what say whether this simulator was
-                    // discovered at all.
-                    UMD_ASSERT(
-                        !discovered_devices.empty(),
-                        error::RuntimeError,
-                        fmt::format(
-                            "Discovering simulator {} produced no chips.", options.simulator_directory.string()));
-                    // Constrained the same way a caller-supplied descriptor is, so target_devices means the
-                    // same thing however the topology was obtained.
-                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                        discovered_desc.get(), options.target_devices);
-                    tt_devices = std::move(discovered_devices);
-                    break;
-                }
-
-#ifdef TT_UMD_BUILD_SIMULATION
-                // An RTL build with an ip_layout.yaml states its devices: one TTDevice per device of the
-                // layout, each on its own socket of one shared simulator run.
-                const bool is_rtl_build_with_ip_layout =
-                    options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() != ".so" &&
-                    std::filesystem::exists(options.simulator_directory / RtlSimIpBlockLayout::FILE_NAME);
-                if (is_rtl_build_with_ip_layout) {
-                    const RtlSimIpBlockLayout layout(options.simulator_directory);
-                    // The layout's devices in id order; a mock chip stands for the device at its place here.
-                    std::vector<IpDeviceId> layout_devices;
-                    std::unordered_set<ChipId> mock_chips;
-                    for (const auto& [device, access_points] : layout.get_devices()) {
-                        mock_chips.insert(static_cast<ChipId>(layout_devices.size()));
-                        layout_devices.push_back(device);
-                    }
-                    const IpDeviceId first_device = layout.get_devices().begin()->first;
-                    const tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(
-                        layout.get_soc_descriptor(first_device).string());
-
-                    // The descriptor picks the devices this process opens (target_devices, else
-                    // TT_VISIBLE_DEVICES) and renumbers them from 0. A mock chip's unique id is its
-                    // original number, so it maps each chip back to its device.
-                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                        ClusterDescriptor::create_mock_cluster(mock_chips, arch, false).get(), options.target_devices);
-                    std::map<ChipId, IpDeviceId> ip_devices;
-                    for (const auto& [chip_id, unique_id] : cluster_desc->get_chip_unique_ids()) {
-                        ip_devices.emplace(chip_id, layout_devices.at(unique_id));
-                    }
-
-                    // Serve only this process's devices. Another process may serve the rest of the
-                    // layout; TT_UMD_SIMULATOR_LAUNCH=0 leaves launching run.sh to it.
-                    const char* launch_env = std::getenv("TT_UMD_SIMULATOR_LAUNCH");
-                    const bool launch = launch_env == nullptr || std::string(launch_env) != "0";
-                    tt_devices = create_rtl_sim_ip_layout_tt_devices(
-                        options.simulator_directory,
-                        layout,
-                        ip_devices,
-                        static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(1)),
-                        launch);
-                    if (options.topology_discovery_options.soc_descriptor_path.empty()) {
-                        options.topology_discovery_options.soc_descriptor_path =
-                            layout.get_soc_descriptor(first_device).string();
-                    }
-                    break;
-                }
-
-                // The mock descriptor below (an RTL build without a layout, a Quasar TTSim image) builds each chip
-                // from the soc_descriptor.yaml the simulator ships; without one, from the architecture the cluster
-                // descriptor records for it.
-                if (options.topology_discovery_options.soc_descriptor_path.empty() &&
-                    options.chip_type == ChipType::SIMULATION) {
-                    options.topology_discovery_options.soc_descriptor_path =
-                        find_simulator_soc_descriptor_path(options.simulator_directory);
-                }
-#endif
-                // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
-                // cluster descriptor from passed target devices.
-                auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
-                if (options.chip_type == ChipType::SIMULATION) {
-                    arch = options.topology_discovery_options.soc_descriptor_path.empty()
-                               ? get_simulator_arch(options.simulator_directory)
-                               : SocDescriptor::get_arch_from_soc_descriptor_path(
-                                     options.topology_discovery_options.soc_descriptor_path);
-                }
-#endif
-                // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
-                // simulation.
-                bool noc_translation_enabled =
-                    options.chip_type == ChipType::MOCK || options.chip_type == ChipType::SWEMULE || is_ttsim_build;
-                std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
-                    ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+                // If no custom descriptor is provided, in case of mock chip type, we create a mock cluster descriptor
+                // from passed target devices. Noc translation is enabled for mock chips.
+                std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster(
+                    options.target_devices, tt::ARCH::WORMHOLE_B0, /*noc_translation_enabled=*/true);
 
                 cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                     temp_full_cluster_desc_ptr.get(), options.target_devices);
@@ -602,20 +531,20 @@ Cluster::Cluster(ClusterOptions options) {
                 options.cluster_descriptor, options.target_devices);
 
             // Without a SoC descriptor, each chip's descriptor is built from the architecture the caller's cluster
-            // descriptor records, which nothing else checks against the image the chips will run on.
-            if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so" &&
+            // descriptor records, which nothing else checks against the simulator the chips will run on.
+            if (options.chip_type == ChipType::SIMULATION &&
                 options.topology_discovery_options.soc_descriptor_path.empty()) {
-                const tt::ARCH image_arch = get_simulator_arch(options.simulator_directory);
+                const tt::ARCH simulator_arch = get_simulator_arch(options.simulator_directory);
                 for (const ChipId chip_id : cluster_desc->get_all_chips()) {
                     UMD_ASSERT(
-                        cluster_desc->get_arch(chip_id) == image_arch,
+                        cluster_desc->get_arch(chip_id) == simulator_arch,
                         error::RuntimeError,
                         fmt::format(
                             "Cluster descriptor gives chip {} architecture {}, but simulator {} is {}.",
                             chip_id,
                             arch_to_str(cluster_desc->get_arch(chip_id)),
                             options.simulator_directory.string(),
-                            arch_to_str(image_arch)));
+                            arch_to_str(simulator_arch)));
                 }
             }
             break;
@@ -675,8 +604,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
-    // Overwrite with the final (possibly mutated) options: soc_descriptor_path may have been
-    // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
+    // Overwrite with the final options: num_host_mem_ch_per_mmio_device may have been auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
 }
@@ -703,10 +631,9 @@ SimulationConnector::Connection Cluster::describe_simulation_host(
             break;
         }
     }
-    // A simulation Cluster with no simulation device is degenerate but legal -- an empty
-    // target_devices with no cluster_descriptor.yaml beside the simulator yields zero chips -- so
-    // warn instead of asserting. Say so rather than reporting the defaults (TTSim/Invalid) as if
-    // they had been read off a device, which is also how a future regression that describes the
+    // A simulation Cluster with no simulation device is degenerate but legal -- a caller-supplied
+    // cluster descriptor may name no chips -- so warn instead of asserting. Say so rather than reporting the defaults
+    // (TTSim/Invalid) as if they had been read off a device, which is also how a future regression that describes the
     // host before the chips exist would surface.
     if (!described) {
         log_warning(

@@ -166,10 +166,9 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
     options.simulator_directory = simulator_path;
-    // A simulator that ships a cluster_descriptor.yaml is enumerated from it, and leaving
-    // target_devices empty then means "every chip in it". Without one, Cluster falls back to a mock
-    // descriptor built *from* target_devices -- so leaving it empty there yields a Cluster with zero
-    // chips that serves zero sockets. Name chip 0 in that case, and only that case.
+    // A simulator that ships a cluster_descriptor.yaml serves every chip it declares. Without one,
+    // only chip 0 is served: every chip of a one-chip simulator, but only device 0 of an
+    // ip_layout.yaml build and only chip 0's board of an enumerated TTSim image.
     if (!std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path))) {
         options.target_devices = {0};
     }

@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <string>
+#include <vector>
+
 #include "simulation/simulation_backend.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -17,6 +20,23 @@ constexpr const char* simulation_not_built_message =
 class UnavailableSimulationBackend final : public SimulationBackend {
 public:
     tt::ARCH get_simulator_arch(const std::filesystem::path& /*simulator_path*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    SimulationBackendType get_backend_type(const std::filesystem::path& /*simulator_path*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    std::vector<std::string> get_ip_layout_soc_descriptor_paths(
+        const std::filesystem::path& /*simulator_path*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    std::map<ChipId, std::unique_ptr<TTDevice>> create_ip_layout_tt_devices(
+        const std::filesystem::path& /*simulator_path*/,
+        const std::map<ChipId, size_t>& /*layout_devices*/,
+        int /*num_host_mem_channels*/,
+        bool /*launch_simulator*/) const override {
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 

@@ -18,8 +18,11 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
+#include "tests/test_utils/fetch_local_files.hpp"
+#include "tests/test_utils/simulation_discovery.hpp"
 #include "tests/test_utils/simulator_layout.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
@@ -35,6 +38,8 @@
 #include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
+using tt::umd::test_utils::chips_of;
+using tt::umd::test_utils::simulation_discovery_options;
 using tt::umd::test_utils::SimulatorLayout;
 
 // What a declared topology for one image looks like once discovered.
@@ -196,6 +201,35 @@ boards:
     - chips: [0]
 )";
 
+// The two chips of the bh_x2 image declared as two single-chip boards, so that one chip can be selected without its
+// board mate.
+constexpr const char* DECLARED_BLACKHOLE_TWO_P150_BOARDS = R"(arch:
+  0: blackhole
+  1: blackhole
+chips: {}
+chip_unique_ids:
+  0: 5550000
+  1: 5550001
+ethernet_connections:
+  - [{chip: 0, chan: 2}, {chip: 1, chan: 9}]
+  - [{chip: 0, chan: 3}, {chip: 1, chan: 8}]
+chips_with_mmio:
+  - 0: 0
+  - 1: 1
+harvesting:
+  0: {noc_translation: true, harvest_mask: 8320, dram_harvesting_mask: 0, eth_harvesting_mask: 12288,
+      pcie_harvesting_mask: 2}
+  1: {noc_translation: true, harvest_mask: 272, dram_harvesting_mask: 0, eth_harvesting_mask: 12288,
+      pcie_harvesting_mask: 2}
+boards:
+  - - board_id: 4398046511105
+    - board_type: p150
+    - chips: [0]
+  - - board_id: 4398046511106
+    - board_type: p150
+    - chips: [1]
+)";
+
 // A SoC descriptor the image's architecture ships in the repo whose cores differ from the built-in descriptor's, and
 // how many cores of one type a device built from it has.
 struct ShippedSocDescriptorCase {
@@ -240,13 +274,6 @@ const std::map<std::pair<tt::ARCH, size_t>, TTSimDeclaredTopologyCase>& declared
           120}},
     };
     return topologies;
-}
-
-TopologyDiscoveryOptions simulation_discovery_options(const std::filesystem::path& simulator_path) {
-    TopologyDiscoveryOptions options;
-    options.simulation = SimulationDiscoveryOptions{};
-    options.simulation->simulator_path = simulator_path.string();
-    return options;
 }
 
 ClusterOptions simulation_cluster_options(const std::filesystem::path& simulator_path) {
@@ -472,6 +499,14 @@ TEST_F(TTSimDeclaredTopology, DiscoveryBuildsDevicesFromTheShippedSocDescriptor)
     EXPECT_EQ(devices.at(0)->get_soc_descriptor().get_cores(shipped.core_type).size(), shipped.cores);
 }
 
+TEST_F(TTSimDeclaredTopology, SocDescriptorOfAnotherArchIsRefused) {
+    TopologyDiscoveryOptions options = simulation_discovery_options(declare(declared_->yaml));
+    options.soc_descriptor_path = test_utils::get_soc_desc_path(
+        arch_ == tt::ARCH::WORMHOLE_B0 ? "blackhole_140_arch.yaml" : "wormhole_b0_8x10.yaml");
+
+    EXPECT_THROW(TopologyDiscovery::discover(options), error::UmdException<error::RuntimeError>);
+}
+
 // The declaration harvests no Tensix core, but the image harvests some on chip 0, and the device's SoC descriptor
 // follows the image.
 TEST_F(TTSimDeclaredTopology, SocDescriptorHarvestingComesFromTheDevice) {
@@ -506,6 +541,109 @@ TEST_F(TTSimDeclaredTopology, ClusterRefusesACallerDescriptorOfAnotherArch) {
     EXPECT_THROW(Cluster cluster(options), error::UmdException<error::RuntimeError>);
 }
 
+// Selecting the last chip of a board brings in the rest of it: N150 and P150 are one chip, N300 and P300 two.
+TEST_F(TTSimDeclaredTopology, TargetingOneChipDiscoversItsWholeBoard) {
+    const ChipId last_chip = static_cast<ChipId>(chips_ - 1);
+
+    const auto [cluster_desc, devices] =
+        TopologyDiscovery::discover(simulation_discovery_options(declare(declared_->yaml), {last_chip}));
+
+    EXPECT_EQ(cluster_desc->get_chip_unique_ids(), declared_->unique_ids);
+    std::set<ChipId> declared;
+    for (const auto& [chip, _] : declared_->unique_ids) {
+        declared.insert(chip);
+    }
+    EXPECT_EQ(chips_of(devices), declared);
+}
+
+TEST_F(TTSimDeclaredTopology, UnknownTargetDeviceIsRefused) {
+    const std::filesystem::path simulator = declare(declared_->yaml);
+
+    EXPECT_THROW(
+        TopologyDiscovery::discover(simulation_discovery_options(simulator, {99})),
+        error::UmdException<error::RuntimeError>);
+}
+
+// Declared chips on boards of their own, of which one is selected.
+class TTSimDeclaredSingleChipBoards : public TTSimDeclaredTopology {
+protected:
+    // Every test selects its chips itself, so a TT_VISIBLE_DEVICES from the caller's environment is set aside for it.
+    void SetUp() override {
+        if (const char* visible_devices = std::getenv("TT_VISIBLE_DEVICES")) {
+            saved_visible_devices_ = visible_devices;
+        }
+        unsetenv("TT_VISIBLE_DEVICES");
+        TTSimDeclaredTopology::SetUp();
+        if (IsSkipped()) {
+            return;
+        }
+        if (arch_ != tt::ARCH::BLACKHOLE || chips_ != 2) {
+            GTEST_SKIP() << "Only the bh_x2 image models two MMIO chips that can be declared as separate boards.";
+        }
+    }
+
+    void TearDown() override {
+        if (saved_visible_devices_.has_value()) {
+            setenv("TT_VISIBLE_DEVICES", saved_visible_devices_->c_str(), 1);
+        } else {
+            unsetenv("TT_VISIBLE_DEVICES");
+        }
+    }
+
+    std::optional<std::string> saved_visible_devices_;
+};
+
+TEST_F(TTSimDeclaredSingleChipBoards, TargetedChipIsRenumberedFromZero) {
+    const auto [cluster_desc, devices] =
+        TopologyDiscovery::discover(simulation_discovery_options(declare(DECLARED_BLACKHOLE_TWO_P150_BOARDS), {1}));
+
+    EXPECT_EQ(cluster_desc->get_chip_unique_ids(), (std::unordered_map<ChipId, uint64_t>{{0, 5550001}}));
+    EXPECT_EQ(chips_of(devices), (std::set<ChipId>{0}));
+}
+
+// bh_x2's firmware reports each chip's index as its ASIC location (specs/ttsim/multichip.md "Chip identity values"),
+// so device 0 reporting 1 shows it drives the selected chip, not the image's chip 0.
+TEST_F(TTSimDeclaredSingleChipBoards, TargetedChipsDeviceDrivesThatChip) {
+    const auto [cluster_desc, devices] =
+        TopologyDiscovery::discover(simulation_discovery_options(declare(DECLARED_BLACKHOLE_TWO_P150_BOARDS), {1}));
+
+    EXPECT_EQ(devices.at(0)->get_asic_location(), 1);
+}
+
+TEST_F(TTSimDeclaredSingleChipBoards, VisibleDevicesSelectTheChipsWithoutTargets) {
+    const std::filesystem::path simulator = declare(DECLARED_BLACKHOLE_TWO_P150_BOARDS);
+    setenv("TT_VISIBLE_DEVICES", "1", 1);
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(simulation_discovery_options(simulator));
+
+    EXPECT_EQ(cluster_desc->get_chip_unique_ids(), (std::unordered_map<ChipId, uint64_t>{{0, 5550001}}));
+    EXPECT_EQ(chips_of(devices), (std::set<ChipId>{0}));
+}
+
+// A Cluster hands its target devices to discovery, which renumbers the selected chip 0: chip 0 of the Cluster is the
+// image's chip 1, which reports ASIC location 1 (specs/ttsim/multichip.md "Chip identity values").
+TEST_F(TTSimDeclaredSingleChipBoards, ClusterTargetingChipOneDrivesThatChip) {
+    ClusterOptions options = simulation_cluster_options(declare(DECLARED_BLACKHOLE_TWO_P150_BOARDS));
+    options.target_devices = {1};
+    Cluster cluster(options);
+
+    EXPECT_EQ(cluster.get_target_device_ids(), (std::set<ChipId>{0}));
+    EXPECT_EQ(
+        cluster.get_cluster_description()->get_chip_unique_ids(), (std::unordered_map<ChipId, uint64_t>{{0, 5550001}}));
+    EXPECT_EQ(cluster.get_tt_device(0)->get_asic_location(), 1);
+}
+
+TEST_F(TTSimDeclaredSingleChipBoards, ClusterVisibleDevicesSelectTheChip) {
+    const ClusterOptions options = simulation_cluster_options(declare(DECLARED_BLACKHOLE_TWO_P150_BOARDS));
+    setenv("TT_VISIBLE_DEVICES", "1", 1);
+    Cluster cluster(options);
+
+    EXPECT_EQ(cluster.get_target_device_ids(), (std::set<ChipId>{0}));
+    EXPECT_EQ(
+        cluster.get_cluster_description()->get_chip_unique_ids(), (std::unordered_map<ChipId, uint64_t>{{0, 5550001}}));
+    EXPECT_EQ(cluster.get_tt_device(0)->get_asic_location(), 1);
+}
+
 // The image under test as it ships, without a declared topology: discovery enumerates it and walks Ethernet.
 class TTSimEnumeratedTopology : public TTSimImageTest {
 protected:
@@ -524,5 +662,33 @@ TEST_F(TTSimEnumeratedTopology, DiscoveryFindsEveryChipTheImageModels) {
     const auto [cluster_desc, devices] = TopologyDiscovery::discover(simulation_discovery_options(image_));
 
     EXPECT_EQ(cluster_desc->get_number_of_chips(), chips_);
+    EXPECT_EQ(devices.size(), chips_);
+}
+
+// The wh_x2 and bh_x2 images are one two-chip board (N300, P300), so selecting chip 0 selects both chips.
+TEST_F(TTSimEnumeratedTopology, TargetingChipZeroDiscoversItsWholeBoard) {
+    if (chips_ > 2) {
+        GTEST_SKIP() << "A galaxy image's boards are not one board per image.";
+    }
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(simulation_discovery_options(image_, {0}));
+
+    EXPECT_EQ(cluster_desc->get_number_of_chips(), chips_);
+    EXPECT_EQ(devices.size(), chips_);
+}
+
+TEST_F(TTSimEnumeratedTopology, UnknownTargetDeviceIsRefused) {
+    EXPECT_THROW(
+        TopologyDiscovery::discover(simulation_discovery_options(image_, {99})),
+        error::UmdException<error::RuntimeError>);
+}
+
+// TTSim runs in this process, so there is no simulator to leave for another process to launch.
+TEST_F(TTSimEnumeratedTopology, TTSimIgnoresLaunchSimulator) {
+    TopologyDiscoveryOptions options = simulation_discovery_options(image_);
+    options.simulation->launch_simulator = false;
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(options);
+
     EXPECT_EQ(devices.size(), chips_);
 }

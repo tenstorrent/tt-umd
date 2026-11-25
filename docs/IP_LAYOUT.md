@@ -135,10 +135,10 @@ devices:
 
 ## One process or several
 
-A build with an `ip_layout.yaml` opens as one chip per device. A process opens the devices selected by `ClusterOptions::target_devices`, or else by `TT_VISIBLE_DEVICES`, renumbered from 0, and serves only their sockets.
+A build with an `ip_layout.yaml` opens as one chip per device. A process opens the devices selected by `ClusterOptions::target_devices` (`SimulationDiscoveryOptions::target_devices` when calling `TopologyDiscovery` directly), or else by `TT_VISIBLE_DEVICES`, renumbered from 0, and serves only their sockets.
 
 - One process, all devices: select nothing. The process serves every socket and launches `run.sh` once.
-- Several processes, each with its own devices: give each process its devices, for example `TT_VISIBLE_DEVICES=0` and `TT_VISIBLE_DEVICES=1`. Exactly one of them launches `run.sh`; set `TT_UMD_SIMULATOR_LAUNCH=0` on the others.
+- Several processes, each with its own devices: give each process its devices, for example `TT_VISIBLE_DEVICES=0` and `TT_VISIBLE_DEVICES=1`. Exactly one of them launches `run.sh`; set `TT_UMD_SIMULATOR_LAUNCH=0` on the others (`SimulationDiscoveryOptions::launch_simulator = false` when calling `TopologyDiscovery` directly).
   - Fix every socket's port: each process sets `NNG_SOCKET_LOCAL_PORT_<host_access>` for the sockets it serves. Without it, a process picks a random port that the others can't know.
   - The launching process needs every socket's `NNG_SOCKET_ADDR_<host_access>` in its environment, the other processes' sockets included, since `run.sh` passes them all to the simulator.
 

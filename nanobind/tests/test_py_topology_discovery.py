@@ -127,6 +127,24 @@ class TestSimulationDiscoveryOptions(unittest.TestCase):
         options.num_host_mem_channels = None
         self.assertIsNone(options.num_host_mem_channels)
 
+    def test_launch_simulator_defaults_to_true(self):
+        self.assertTrue(tt_umd.SimulationDiscoveryOptions().launch_simulator)
+
+    def test_launch_simulator_can_be_turned_off(self):
+        options = tt_umd.SimulationDiscoveryOptions()
+
+        options.launch_simulator = False
+        self.assertFalse(options.launch_simulator)
+
+    def test_target_devices_default_to_every_chip(self):
+        self.assertEqual(tt_umd.SimulationDiscoveryOptions().target_devices, set())
+
+    def test_target_devices_accept_a_set_of_chip_ids(self):
+        options = tt_umd.SimulationDiscoveryOptions()
+
+        options.target_devices = {0, 1}
+        self.assertEqual(options.target_devices, {0, 1})
+
 
 @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 class TestSimulationDiscovery(unittest.TestCase):
@@ -153,6 +171,13 @@ class TestSimulationDiscovery(unittest.TestCase):
 
         self.assertGreaterEqual(len(devices), 1)
         self.assertEqual(len(devices), len(cluster_descriptor.get_all_chips()))
+
+    def test_unknown_target_device_raises(self):
+        options = self.discovery_options(self.simulator)
+        options.simulation.target_devices = {99}
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.TopologyDiscovery.discover(options)
 
     def test_declared_chip_of_another_arch_raises(self):
         directory = tempfile.TemporaryDirectory()

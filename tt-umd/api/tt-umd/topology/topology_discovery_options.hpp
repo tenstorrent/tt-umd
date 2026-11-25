@@ -6,7 +6,9 @@
 
 #include <optional>
 #include <string>
+#include <unordered_set>
 
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 
 namespace tt::umd {
@@ -14,12 +16,12 @@ namespace tt::umd {
  * @brief Settings for discovering the chips a simulator models, rather than the host's own.
  *
  * A simulation backend has no OS device enumeration, so the topology comes from the simulator:
- * - A cluster_descriptor.yaml beside the simulator declares it. Discovery returns that descriptor
+ * - A cluster_descriptor.yaml beside a TTSim image declares it. Discovery returns that descriptor
  *   and a device for each of its chips: MMIO-capable chips are opened on the simulator's
  *   endpoints, the others are reached over Ethernet through their closest MMIO-capable chip.
  *   Discovery throws error::RuntimeError when the descriptor gives a chip an architecture other
- *   than the simulator's. A chip's declared harvesting must be one its architecture allows, since its
- *   device is built from the declaration before it reports its own; otherwise discovery throws
+ *   than the simulator's. A chip's declared harvesting must be one its architecture allows, since
+ *   its device is built from the declaration before it reports its own; otherwise discovery throws
  *   error::RuntimeError. cluster_id, discover_remote_devices and device_init_failure_action apply
  *   as to a walked topology: cluster_id replaces any id the file carries, discover_remote_devices =
  *   false leaves out the chips reached over Ethernet, and every device is initialized under
@@ -27,16 +29,29 @@ namespace tt::umd {
  *   opened and is reported unhealthy. The walk's firmware-version and Ethernet checks are not run,
  *   so the descriptor carries no firmware versions. An initialized device's SoC descriptor follows
  *   what the device reports, not the file.
- * - Otherwise the image is asked which endpoints it exposes, a device is opened for each, and
- *   their Ethernet links are walked as on silicon.
+ * - An RTL simulator build with an ip_layout.yaml has one chip per device of the layout, in device
+ *   id order, all served by one run of the simulator, each on its own sockets. Each device is built
+ *   from the SoC descriptor the layout gives it.
+ * - A Wormhole or Blackhole TTSim image without a declaration is asked which endpoints it exposes,
+ *   a device is opened for each, and their Ethernet links are walked as on silicon.
+ * - Any other simulator (an RTL build without an ip_layout.yaml, a Quasar TTSim image without a
+ *   declaration) is one chip, chip 0, of the simulator's architecture, with NOC translation enabled
+ *   for TTSim and disabled for RTL.
  *
- * An empty TopologyDiscoveryOptions::soc_descriptor_path selects the soc_descriptor.yaml the
- * simulator ships beside it, or the architecture's built-in descriptor when it ships none.
- * io_device_type stays PCIe: a simulator models PCIe.
+ * The devices of an ip_layout.yaml and of a one-chip simulator are returned as opened, keeping the
+ * SoC descriptor they were built from: these simulators model no firmware to initialize them from,
+ * so device_init_failure_action does not apply.
+ *
+ * Outside an ip_layout.yaml, an empty TopologyDiscoveryOptions::soc_descriptor_path selects the
+ * soc_descriptor.yaml the simulator ships beside it, or the architecture's built-in descriptor when
+ * it ships none. A supplied one must be of the simulator's architecture, or discovery throws
+ * error::RuntimeError; an RTL build that ships no soc_descriptor.yaml has no architecture of its own
+ * and takes the supplied one's. io_device_type stays PCIe: a simulator models PCIe.
  */
 struct SimulationDiscoveryOptions {
     /**
-     * @brief Path to the simulator (a libttsim .so) whose chips discovery should walk.
+     * @brief Path to the simulator whose chips discovery should find: a libttsim .so, or an RTL
+     * simulator build directory.
      */
     std::string simulator_path;
 
@@ -48,6 +63,30 @@ struct SimulationDiscoveryOptions {
      * cluster gets the same count.
      */
     std::optional<int> num_host_mem_channels;
+
+    /**
+     * @brief Whether this process launches an RTL build's simulator (its run.sh) for the
+     * ip_layout.yaml devices it opens.
+     *
+     * Several processes can share one run of a layout, each opening its own devices (see
+     * target_devices): exactly one of them launches it, the others set this to false and only
+     * serve their devices' sockets to it. TTSim runs inside this process, so it ignores this.
+     * Defaults to true.
+     */
+    bool launch_simulator = true;
+
+    /**
+     * @brief Chips of the simulator to discover, by the ids the simulator's topology gives them.
+     *
+     * Empty selects every chip, or the chips TT_VISIBLE_DEVICES names (chip ids or BDFs) when it is
+     * set. Selecting a chip of a board with two chips selects the whole board. Discovery throws
+     * error::RuntimeError for an id that names none of the simulator's chips. When the selection
+     * leaves chips out, the returned descriptor and devices number the selected chips from 0,
+     * MMIO-capable chips first, and both use the same ids. A declared topology, an ip_layout.yaml
+     * and a one-chip simulator name their chips up front, so the chips left out are never opened
+     * and other processes may open them; an enumerated TTSim image is opened whole to walk it.
+     */
+    std::unordered_set<ChipId> target_devices;
 };
 
 /**

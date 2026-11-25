@@ -9,7 +9,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
+#include "simulation/rtl_sim_ip_block_layout.hpp"
+#include "simulation/rtl_sim_ip_layout_devices.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
@@ -57,6 +60,42 @@ public:
             device_id,
             arch_to_str(arch));
         return arch;
+    }
+
+    // TTSim ships as a shared library; anything else is an RTL simulator build directory.
+    SimulationBackendType get_backend_type(const std::filesystem::path& simulator_path) const override {
+        return simulator_path.extension() == ".so" ? SimulationBackendType::TTSIM : SimulationBackendType::RTL;
+    }
+
+    std::vector<std::string> get_ip_layout_soc_descriptor_paths(
+        const std::filesystem::path& simulator_path) const override {
+        if (!std::filesystem::exists(simulator_path / RtlSimIpBlockLayout::FILE_NAME)) {
+            return {};
+        }
+        const RtlSimIpBlockLayout layout(simulator_path);
+        std::vector<std::string> soc_descriptor_paths;
+        for (const auto& [device, access_points] : layout.get_devices()) {
+            soc_descriptor_paths.push_back(layout.get_soc_descriptor(device).string());
+        }
+        return soc_descriptor_paths;
+    }
+
+    std::map<ChipId, std::unique_ptr<TTDevice>> create_ip_layout_tt_devices(
+        const std::filesystem::path& simulator_path,
+        const std::map<ChipId, size_t>& layout_devices,
+        int num_host_mem_channels,
+        bool launch_simulator) const override {
+        const RtlSimIpBlockLayout layout(simulator_path);
+        std::vector<IpDeviceId> devices_in_id_order;
+        for (const auto& [device, access_points] : layout.get_devices()) {
+            devices_in_id_order.push_back(device);
+        }
+        std::map<ChipId, IpDeviceId> ip_devices;
+        for (const auto& [chip_id, position] : layout_devices) {
+            ip_devices.emplace(chip_id, devices_in_id_order.at(position));
+        }
+        return create_rtl_sim_ip_layout_tt_devices(
+            simulator_path, layout, ip_devices, num_host_mem_channels, launch_simulator);
     }
 
     std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(

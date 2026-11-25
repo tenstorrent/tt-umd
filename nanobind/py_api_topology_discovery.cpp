@@ -162,13 +162,26 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw(
             "simulator_path",
             &SimulationDiscoveryOptions::simulator_path,
-            "Path to the simulator (a libttsim .so) whose chips are discovered.")
+            "Path to the simulator whose chips are discovered: a libttsim .so, or an RTL simulator build directory.")
         .def_rw(
             "num_host_mem_channels",
             &SimulationDiscoveryOptions::num_host_mem_channels,
             nb::for_setter(nb::arg("value").none()),
             "Number of host memory channels to give each simulated device. None (the default) sizes it from the "
-            "discovered topology: the most chips that share one closest MMIO-capable chip, at most 4.");
+            "discovered topology: the most chips that share one closest MMIO-capable chip, at most 4.")
+        .def_rw(
+            "launch_simulator",
+            &SimulationDiscoveryOptions::launch_simulator,
+            "Whether this process launches an RTL build's simulator (its run.sh) for the ip_layout.yaml devices it "
+            "opens. Of several processes sharing one run of a layout, exactly one launches it; the others set this "
+            "to False and only serve their devices' sockets. TTSim ignores it. Defaults to True.")
+        .def_rw(
+            "target_devices",
+            &SimulationDiscoveryOptions::target_devices,
+            "Set of the simulator's chip ids to discover. Empty (the default) selects every chip, or the chips "
+            "TT_VISIBLE_DEVICES names when it is set; selecting a chip of a two-chip board selects the whole board. "
+            "Discovery raises for an id that names no chip. When chips are left out, the returned descriptor and "
+            "devices number the selected chips from 0, MMIO-capable chips first.");
 
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 

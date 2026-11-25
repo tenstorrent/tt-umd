@@ -21,6 +21,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -40,6 +41,7 @@
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -129,14 +131,96 @@ void drop_remote_chips(ClusterDescription& description) {
         description.eth_links.end());
 }
 
+using DiscoveredTopology = std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>;
+
+// A chip's description as a SocDescriptor wants it, from a topology that describes it without its device's firmware.
+ChipInfo get_described_chip_info(const ClusterDescriptor& topology, ChipId chip_id) {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = topology.get_noc_translation_table_en().at(chip_id);
+    chip_info.harvesting_masks = topology.get_harvesting_masks(chip_id);
+    chip_info.board_type = topology.get_board_type(chip_id);
+    chip_info.asic_location = topology.get_asic_location(chip_id);
+    return chip_info;
+}
+
+// The chips of a simulator's whole topology that this process discovers: the caller's target_devices, else the chips
+// TT_VISIBLE_DEVICES names, a chip of a two-chip board bringing in the whole board. Chips left out are dropped and the
+// rest renumbered from 0, MMIO-capable chips first, as a Cluster numbers a subset of its chips.
+std::unique_ptr<ClusterDescriptor> select_simulated_chips(
+    const ClusterDescriptor& topology, const SimulationDiscoveryOptions& simulation) {
+    for (const ChipId chip_id : simulation.target_devices) {
+        UMD_ASSERT(
+            topology.get_all_chips().count(chip_id) != 0,
+            error::RuntimeError,
+            fmt::format(
+                "Target device {} is not one of the {} chip(s) of simulator {}.",
+                chip_id,
+                topology.get_number_of_chips(),
+                simulation.simulator_path));
+    }
+    return ClusterDescriptor::create_constrained_cluster_descriptor(&topology, simulation.target_devices);
+}
+
+// For each chip of selection, a part of topology that select_simulated_chips or create_constrained_cluster_descriptor
+// renumbered, the id topology gives the same chip. Chips are matched by unique id, which renumbering keeps.
+std::map<ChipId, ChipId> get_topology_chip_ids(const ClusterDescriptor& topology, const ClusterDescriptor& selection) {
+    std::unordered_map<uint64_t, ChipId> chip_by_unique_id;
+    for (const auto& [chip_id, unique_id] : topology.get_chip_unique_ids()) {
+        const auto [it, inserted] = chip_by_unique_id.emplace(unique_id, chip_id);
+        UMD_ASSERT(
+            inserted,
+            error::RuntimeError,
+            fmt::format(
+                "Chips {} and {} of the simulator's topology share unique id {}, so a selection of its chips cannot be "
+                "told apart.",
+                it->second,
+                chip_id,
+                unique_id));
+    }
+    std::map<ChipId, ChipId> topology_chip_ids;
+    for (const auto& [chip_id, unique_id] : selection.get_chip_unique_ids()) {
+        topology_chip_ids.emplace(chip_id, chip_by_unique_id.at(unique_id));
+    }
+    return topology_chip_ids;
+}
+
+// The devices opened for chips of topology, keyed instead by the ids selection gives them. Devices of chips the
+// selection leaves out are closed.
+std::map<ChipId, std::unique_ptr<TTDevice>> rekey_to_selection(
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices,
+    const ClusterDescriptor& topology,
+    const ClusterDescriptor& selection) {
+    std::map<ChipId, std::unique_ptr<TTDevice>> selected_devices;
+    for (const auto& [chip_id, topology_chip_id] : get_topology_chip_ids(topology, selection)) {
+        auto it = devices.find(topology_chip_id);
+        if (it != devices.end()) {
+            selected_devices.emplace(chip_id, std::move(it->second));
+        }
+    }
+    return selected_devices;
+}
+
+// A topology whose devices are all open, narrowed to the chips this process discovers. A topology selected whole is
+// kept as it is, since narrowing would also drop the unhealthy chips it reports.
+DiscoveredTopology select_opened_simulated_chips(
+    DiscoveredTopology topology, const SimulationDiscoveryOptions& simulation) {
+    auto& [cluster_desc, devices] = topology;
+    std::unique_ptr<ClusterDescriptor> selection = select_simulated_chips(*cluster_desc, simulation);
+    if (selection->get_number_of_chips() == cluster_desc->get_number_of_chips()) {
+        return topology;
+    }
+    devices = rekey_to_selection(std::move(devices), *cluster_desc, *selection);
+    cluster_desc = std::move(selection);
+    return topology;
+}
+
 // A cluster_descriptor.yaml beside the simulator declares its topology, so there is nothing to walk: the descriptor is
-// the declared one, with a device for each of its chips. The descriptor is written by hand rather than read from the
-// image, so each chip's architecture is checked against the image the chip runs on. As for a walked topology, the
-// caller's cluster id is stamped, remote chips are left out when the caller asks for local ones only, and every device
-// is initialized. The walk's firmware-version and Ethernet checks are not run: the declaration, not a walk, states the
-// links.
-std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
-discover_declared_simulation_topology(
+// the declared one, with a device for each of its chips this process discovers. The descriptor is written by hand
+// rather than read from the image, so each chip's architecture is checked against the image the chip runs on. As for a
+// walked topology, the caller's cluster id is stamped, remote chips are left out when the caller asks for local ones
+// only, and every device is initialized. The walk's firmware-version and Ethernet checks are not run: the declaration,
+// not a walk, states the links.
+DiscoveredTopology discover_declared_simulation_topology(
     const TopologyDiscoveryOptions& options, const std::filesystem::path& cluster_descriptor_path) {
     const std::filesystem::path simulator_path = options.simulation->simulator_path;
     ClusterDescription description = load_cluster_description_yaml(cluster_descriptor_path);
@@ -161,10 +245,16 @@ discover_declared_simulation_topology(
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         create_cluster_descriptor(description, options.discover_remote_devices, /*check_harvesting_counts=*/false);
 
+    // Devices are opened only for the selected chips, so that other processes can open the rest. They are keyed by
+    // the declared chip ids until the final descriptor is known, as a chip that fails to initialize changes it.
+    std::unique_ptr<ClusterDescriptor> selection = select_simulated_chips(*cluster_desc, *options.simulation);
+    const std::map<ChipId, ChipId> declared_chip_ids = get_topology_chip_ids(*cluster_desc, *selection);
+    const bool selected_whole = selection->get_number_of_chips() == cluster_desc->get_number_of_chips();
+
     const std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
         create_soc_arch_descriptor(resolve_soc_descriptor_path(options), simulator_arch);
     const int num_host_mem_channels = options.simulation->num_host_mem_channels.value_or(
-        static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
+        static_cast<int>(get_host_mem_channels_for_topology(*selection)));
 
     // A device that fails to initialize is kept, and its chip reported unhealthy, unless the caller asked to throw.
     std::vector<ChipId> unhealthy_chips;
@@ -183,12 +273,14 @@ discover_declared_simulation_topology(
         }
     };
 
-    // MMIO-capable chips come first, as every remote chip is reached through one of them.
+    // MMIO-capable chips come first, as every remote chip is reached through one of them. A chip's endpoint on the
+    // image is its declared id, so the image is opened as the whole declaration's MMIO-capable chips.
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     const size_t num_mmio_chips = cluster_desc->get_chips_with_mmio().size();
-    for (const ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+    for (const ChipId selected_id : selection->get_chips_local_first(selection->get_all_chips())) {
+        const ChipId chip_id = declared_chip_ids.at(selected_id);
         std::unique_ptr<TTDevice> device;
-        if (!cluster_desc->is_chip_remote(chip_id)) {
+        if (!selection->is_chip_remote(selected_id)) {
             // A simulated device sizes its system memory as it is constructed, so it is built from the declared
             // description and rebuilds its SoC descriptor from what its firmware reports once initialized.
             const SocDescriptor soc_descriptor(
@@ -197,7 +289,7 @@ discover_declared_simulation_topology(
                 simulator_path, soc_descriptor, chip_id, num_mmio_chips, num_host_mem_channels);
             init_device(*device, chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT);
         } else {
-            const ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            const ChipId gateway_id = declared_chip_ids.at(selection->get_closest_mmio_capable_chip(selected_id));
             // A simulator may end the process rather than throw on traffic through an uninitialized chip, so a chip
             // behind one is not opened.
             if (std::find(unhealthy_chips.begin(), unhealthy_chips.end(), gateway_id) != unhealthy_chips.end()) {
@@ -227,14 +319,134 @@ discover_declared_simulation_topology(
         devices.size(),
         cluster_descriptor_path.string());
 
-    if (!unhealthy_chips.empty()) {
-        for (const ChipId chip_id : unhealthy_chips) {
-            description.chips.erase(chip_id);
-            description.unhealthy_chips.push_back(chip_id);
+    if (unhealthy_chips.empty()) {
+        if (selected_whole) {
+            return std::make_pair(std::move(cluster_desc), std::move(devices));
         }
+        devices = rekey_to_selection(std::move(devices), *cluster_desc, *selection);
+        return std::make_pair(std::move(selection), std::move(devices));
+    }
+    for (const ChipId chip_id : unhealthy_chips) {
+        description.chips.erase(chip_id);
+        description.unhealthy_chips.push_back(chip_id);
+    }
+    if (selected_whole) {
         cluster_desc = create_cluster_descriptor(
             std::move(description), options.discover_remote_devices, /*check_harvesting_counts=*/false);
+        return std::make_pair(std::move(cluster_desc), std::move(devices));
     }
+    // A selection keeps out the chips it leaves out, and reports the unhealthy ones only through its devices' absence.
+    std::unordered_set<ChipId> healthy_selected_chips;
+    for (const auto& [selected_id, chip_id] : declared_chip_ids) {
+        if (description.chips.count(chip_id) != 0) {
+            healthy_selected_chips.insert(chip_id);
+        }
+    }
+    if (healthy_selected_chips.empty()) {
+        ClusterDescription no_healthy_chips;
+        no_healthy_chips.cluster_id = description.cluster_id;
+        no_healthy_chips.unhealthy_chips = std::move(description.unhealthy_chips);
+        no_healthy_chips.health_errors = std::move(description.health_errors);
+        return std::make_pair(create_cluster_descriptor(std::move(no_healthy_chips)), std::move(devices));
+    }
+    cluster_desc = create_cluster_descriptor(
+        std::move(description), options.discover_remote_devices, /*check_harvesting_counts=*/false);
+    std::unique_ptr<ClusterDescriptor> healthy_selection =
+        ClusterDescriptor::create_constrained_cluster_descriptor(cluster_desc.get(), healthy_selected_chips);
+    devices = rekey_to_selection(std::move(devices), *cluster_desc, *healthy_selection);
+    return std::make_pair(std::move(healthy_selection), std::move(devices));
+}
+
+// The topology of a simulator whose chips are known only by their count: each is the only chip of its own board and
+// has its own endpoint, its unique id is its position, and its board and harvesting are the placeholders of a mock
+// cluster. The caller's cluster id is stamped as on any discovered topology.
+std::unique_ptr<ClusterDescriptor> create_counted_simulation_topology(
+    size_t num_chips, tt::ARCH arch, bool noc_translation_enabled, const TopologyDiscoveryOptions& options) {
+    ClusterDescription description;
+    description.cluster_id = utils::resolve_cluster_id(options.cluster_id);
+    std::unordered_set<ChipId> chip_ids;
+    for (size_t position = 0; position < num_chips; ++position) {
+        chip_ids.insert(static_cast<ChipId>(position));
+    }
+    const std::unique_ptr<ClusterDescriptor> placeholders =
+        ClusterDescriptor::create_mock_cluster(chip_ids, arch, noc_translation_enabled);
+    for (const ChipId chip_id : chip_ids) {
+        ChipDescription chip;
+        chip.arch = arch;
+        chip.board_type = placeholders->get_board_type(chip_id);
+        chip.board_id = placeholders->get_board_id_for_chip(chip_id);
+        chip.unique_id = static_cast<uint64_t>(chip_id);
+        chip.eth_coord = placeholders->get_chip_location(chip_id);
+        chip.harvesting_masks = placeholders->get_harvesting_masks(chip_id);
+        chip.noc_translation_enabled = noc_translation_enabled;
+        chip.mmio_device_id = chip_id;
+        chip.pci_bdf = placeholders->get_chip_pci_bdfs().at(chip_id);
+        chip.pci_bus_id = placeholders->get_bus_id(chip_id);
+        chip.asic_location = placeholders->get_asic_location(chip_id);
+        description.chips.emplace(chip_id, std::move(chip));
+    }
+    // A simulator's harvesting is whatever its image models and need not match its board type.
+    return create_cluster_descriptor(
+        std::move(description), /*check_board_chip_count=*/true, /*check_harvesting_counts=*/false);
+}
+
+// An RTL simulator build with an ip_layout.yaml states its chips: one per device of the layout, all served by one run
+// of the simulator. Only the selected devices are opened, so other processes can serve the rest of the layout.
+DiscoveredTopology discover_ip_layout_simulation_topology(
+    const TopologyDiscoveryOptions& options, const std::vector<std::string>& layout_soc_descriptor_paths) {
+    const SimulationDiscoveryOptions& simulation = *options.simulation;
+    // The layout's chip ids are the devices' positions in it. RTL simulation runs without NOC translation.
+    const std::unique_ptr<ClusterDescriptor> layout_topology = create_counted_simulation_topology(
+        layout_soc_descriptor_paths.size(),
+        SocDescriptor::get_arch_from_soc_descriptor_path(layout_soc_descriptor_paths.front()),
+        /*noc_translation_enabled=*/false,
+        options);
+    std::unique_ptr<ClusterDescriptor> cluster_desc = select_simulated_chips(*layout_topology, simulation);
+
+    std::map<ChipId, size_t> layout_devices;
+    for (const auto& [chip_id, layout_chip_id] : get_topology_chip_ids(*layout_topology, *cluster_desc)) {
+        layout_devices.emplace(chip_id, static_cast<size_t>(layout_chip_id));
+    }
+    const int num_host_mem_channels =
+        simulation.num_host_mem_channels.value_or(static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices = simulation_backend().create_ip_layout_tt_devices(
+        simulation.simulator_path, layout_devices, num_host_mem_channels, simulation.launch_simulator);
+    log_debug(
+        LogUMD,
+        "Opened {} of the {} device(s) of the ip_layout.yaml.",
+        devices.size(),
+        layout_soc_descriptor_paths.size());
+    return std::make_pair(std::move(cluster_desc), std::move(devices));
+}
+
+// A simulator that neither declares its chips nor can be enumerated models one chip, of the simulator's architecture.
+// NOC translation is what its backend runs with: on for TTSim, off for RTL.
+DiscoveredTopology discover_one_chip_simulation_topology(
+    const TopologyDiscoveryOptions& options, SimulationBackendType backend) {
+    const SimulationDiscoveryOptions& simulation = *options.simulation;
+    const std::string soc_descriptor_path = resolve_soc_descriptor_path(options);
+    // An RTL build tells its architecture only through the SoC descriptor it ships, so one that ships none is taken to
+    // be of the caller's descriptor's architecture. Otherwise the caller's descriptor is checked against the simulator.
+    const bool arch_from_callers_descriptor = backend == SimulationBackendType::RTL &&
+                                              !options.soc_descriptor_path.empty() &&
+                                              find_simulator_soc_descriptor_path(simulation.simulator_path).empty();
+    const tt::ARCH arch = arch_from_callers_descriptor
+                              ? SocDescriptor::get_arch_from_soc_descriptor_path(soc_descriptor_path)
+                              : simulation_backend().get_simulator_arch(simulation.simulator_path);
+    const std::unique_ptr<ClusterDescriptor> one_chip_topology = create_counted_simulation_topology(
+        1, arch, /*noc_translation_enabled=*/backend == SimulationBackendType::TTSIM, options);
+    std::unique_ptr<ClusterDescriptor> cluster_desc = select_simulated_chips(*one_chip_topology, simulation);
+
+    constexpr ChipId chip_id = 0;
+    const SocDescriptor soc_descriptor(
+        create_soc_arch_descriptor(soc_descriptor_path, arch), get_described_chip_info(*cluster_desc, chip_id));
+    const int num_host_mem_channels =
+        simulation.num_host_mem_channels.value_or(static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    devices.emplace(
+        chip_id,
+        simulation_backend().create_simulation_tt_device(
+            simulation.simulator_path, soc_descriptor, chip_id, /*num_chips=*/1, num_host_mem_channels));
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
@@ -298,10 +510,24 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
             fmt::format(
                 "Simulation topology discovery models PCIe, but {} was requested.",
                 DeviceTypeToString.at(options.io_device_type)));
-        const std::filesystem::path cluster_descriptor_path =
-            get_simulator_cluster_descriptor_path(options.simulation->simulator_path);
-        if (std::filesystem::exists(cluster_descriptor_path)) {
-            return discover_declared_simulation_topology(options, cluster_descriptor_path);
+        const std::filesystem::path simulator_path = options.simulation->simulator_path;
+        const SimulationBackendType backend = simulation_backend().get_backend_type(simulator_path);
+        if (backend == SimulationBackendType::TTSIM) {
+            const std::filesystem::path cluster_descriptor_path = get_simulator_cluster_descriptor_path(simulator_path);
+            if (std::filesystem::exists(cluster_descriptor_path)) {
+                return discover_declared_simulation_topology(options, cluster_descriptor_path);
+            }
+            // TTSim models no ARC or Ethernet for Quasar, so its image has nothing to walk (#3404).
+            if (simulation_backend().get_simulator_arch(simulator_path) == tt::ARCH::QUASAR) {
+                return discover_one_chip_simulation_topology(options, backend);
+            }
+        } else {
+            const std::vector<std::string> layout_soc_descriptor_paths =
+                simulation_backend().get_ip_layout_soc_descriptor_paths(simulator_path);
+            if (layout_soc_descriptor_paths.empty()) {
+                return discover_one_chip_simulation_topology(options, backend);
+            }
+            return discover_ip_layout_simulation_topology(options, layout_soc_descriptor_paths);
         }
     }
 
@@ -320,15 +546,21 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
         ChipId chip_id = td->asic_id_to_chip_id[unique_id];
         devices[chip_id] = std::move(device);
     }
-    // The simulated devices had to be opened to walk the links that show how many chips each serves, so a channel
-    // count left to discovery is only known now.
-    if (options.simulation.has_value() && !options.simulation->num_host_mem_channels.has_value()) {
-        const int num_host_mem_channels = static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc));
-        for (auto& [chip_id, device] : devices) {
+    if (!options.simulation.has_value()) {
+        return std::make_pair(std::move(cluster_desc), std::move(devices));
+    }
+    // The whole image had to be opened to walk its links, so the chips this process discovers are picked only now.
+    DiscoveredTopology selected =
+        select_opened_simulated_chips({std::move(cluster_desc), std::move(devices)}, *options.simulation);
+    // The walk is also what shows how many chips each device serves, so a channel count left to discovery is only
+    // known now.
+    if (!options.simulation->num_host_mem_channels.has_value()) {
+        const int num_host_mem_channels = static_cast<int>(get_host_mem_channels_for_topology(*selected.first));
+        for (auto& [chip_id, device] : selected.second) {
             simulation_backend().grow_host_mem_channels(*device, num_host_mem_channels);
         }
     }
-    return std::make_pair(std::move(cluster_desc), std::move(devices));
+    return selected;
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(

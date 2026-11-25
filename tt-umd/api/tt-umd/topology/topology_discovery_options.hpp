@@ -155,6 +155,6 @@ struct TopologyDiscoveryOptions {
     /**
      * @brief NOC to use during device discovery.
      */
-    NocId noc_id = NocId::DEFAULT_NOC;
+    NocId noc = NocId::DEFAULT_NOC;
 };
 }  // namespace tt::umd

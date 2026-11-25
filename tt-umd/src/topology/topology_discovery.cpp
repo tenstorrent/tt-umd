@@ -29,6 +29,7 @@
 #include "topology/topology_utils.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/cluster_description.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
@@ -47,6 +48,7 @@
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -156,7 +158,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     ZoneScopedC(tracy::Color::DarkGreen);
 
     TopologyDiscoveryOptions options_stateful_noc = options;
-    options_stateful_noc.noc_id = get_selected_noc_id();
+    options_stateful_noc.noc = get_selected_noc_id();
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options_stateful_noc);
@@ -183,7 +185,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
 
 bool TopologyDiscoveryBase::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
     try {
-        tt_device->init_tt_device(timeout);
+        tt_device->init_tt_device(timeout, options.noc);
     } catch (error::UmdBaseException& err) {
         if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
             throw;
@@ -701,9 +703,8 @@ void TopologyDiscoveryBase::wait_eth_cores_training(TTDevice* tt_device, const s
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
         const auto start = std::chrono::steady_clock::now();
-        tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        tt_device->wait_eth_core_training(eth_core, timeout_left, options.noc);
         timeout_left -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     }
     log_debug(
@@ -717,12 +718,34 @@ bool TopologyDiscoveryBase::is_board_id_included(uint64_t board_id) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 
+SemVer TopologyDiscoveryBase::get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) const {
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0: {
+            uint32_t eth_fw_version_read;
+            tt_device->read_from_device(
+                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), options.noc);
+            return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+        }
+        case ARCH::BLACKHOLE: {
+            uint8_t major = 0;
+            uint8_t minor = 0;
+            uint8_t patch = 0;
+            tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t), options.noc);
+            tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t), options.noc);
+            tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t), options.noc);
+            return SemVer(major, minor, patch);
+        }
+        default:
+            UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
+    }
+}
+
 bool TopologyDiscoveryBase::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver(options.noc);
         if (expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {

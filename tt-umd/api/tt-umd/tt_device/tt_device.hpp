@@ -621,10 +621,6 @@ private:
     // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
     PcieInterface *require_pcie_interface();
 
-    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
-    // check, and gives the detector a separately-locked window to probe through.
-    void wire_hang_detector();
-
     // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
     // confirmed only when the in-flight op's NOC is hung.
     std::function<bool(NocId)> make_io_timeout_hang_check();

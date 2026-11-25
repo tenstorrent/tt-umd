@@ -13,7 +13,7 @@ ARG UBUNTU_VERSION=22.04
 # Pinned to the commit that gives BAR0 a bar0-size property. Keraunos needs a 4 GiB BAR0 -- tt-kmd's
 # own TLB window is inbound entry 164, which sits 2.56 GB in -- and before this commit the ttsim
 # device fixed BAR0 at a compile-time 512 MiB. The property defaults to that old 512 MiB, so the N150
-# and P150 rows that share this image are unaffected. It lives on stable-11.0-ttsim, not master.
+# and P150 rows that share this image are unaffected.
 ARG TTSIM_QEMU_COMMIT=aa112ebe16f9c4ef68a838fa24fec04090018a28
 ARG TT_KMD_TAG=ttkmd-2.11.0
 # Keraunos support is in no tt-kmd release yet, so the Grendel row builds a second module from an

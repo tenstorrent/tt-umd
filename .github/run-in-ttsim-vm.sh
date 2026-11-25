@@ -6,11 +6,12 @@
 #
 # Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size>
 #            [--bar0-size <size>] [--kmd-module <path>] -- <command> [args...]
-#   --bar4-size   BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole.
+#   --bar4-size   BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole and Quasar.
 #   --bar0-size   BAR0 size, when what the device advertises by default is not enough. Keraunos
 #                 needs 4G: tt-kmd's own TLB window is entry 164, which sits 2.56 GB into BAR0.
 #   --kmd-module  tt-kmd to load instead of the released build, for an architecture no release
-#                 knows about yet.
+#                 knows about yet. A path inside the guest, such as a module the image ships; a host
+#                 path works only under the current directory, which the guest sees at the same path.
 #
 # Example, from a directory holding libttsim_wh.so:
 #   docker run --rm -v "$PWD:$PWD" -w "$PWD" \
@@ -22,7 +23,7 @@ QEMU=/opt/ttsim-qemu/bin/qemu-system-x86_64
 VM_DIR=/opt/ttsim-vm
 
 usage() {
-    sed -n 's/^# \?//; 7,15p' "$0" >&2
+    sed -n 's/^# \?//; 7,14p' "$0" >&2
     exit 2
 }
 
@@ -47,65 +48,21 @@ control=$(mktemp -d)
 trap 'rm -rf "$control"' EXIT
 pwd > "$control/workdir"
 printf '%q ' "$@" > "$control/cmd"
-# Both are optional: the init treats an absent or empty file as "nothing to do".
+# Empty without --kmd-module, and the init then loads the released module.
 printf '%s' "$kmd_module" > "$control/kmd-module"
 
 # BAR0 is a fixed size in the device unless asked for otherwise, so the option is only passed when set.
 ttsim_device="ttsim,lib=$lib,bar4-size=$bar4_size"
 [[ -n "$bar0_size" ]] && ttsim_device="$ttsim_device,bar0-size=$bar0_size"
 
-# Firmware places a 64-bit BAR inside the 64-bit PCI hole at its natural alignment, so the hole has
-# to be at least twice the largest BAR -- a 512 GiB BAR4 needs a 512 GiB-aligned slot, and in a 64G
-# hole it simply goes unassigned: `info pci` reports "BAR4: 64 bit memory (not mapped)", the guest
-# never sees resource4, and nothing says so unless a test happens to touch it. The guest's physical
-# address width has to cover the hole too, and -cpu max gives 40 bits under TCG, which a 1 TiB hole
-# does not fit in. Both are derived from the BAR sizes, so a Wormhole or Blackhole command line comes
-# out exactly as before (64G hole, 40 bits) and only Keraunos gets the bigger window.
-#
-# to_bytes prints a size in bytes, read the way QEMU reads its size properties, and stops the runner
-# on a size QEMU would reject.
-to_bytes() {
-    local hex='^[[:space:]]*\+?0[xX]([[:xdigit:]]+)$'
-    local dec='^[[:space:]]*\+?([0-9]*)(\.([0-9]*))?([bBkKmMgGtTpPeE]?)$'
-    if [[ $1 =~ $hex ]]; then
-        echo $(( 16#${BASH_REMATCH[1]} ))
-        return
-    fi
-    if [[ $1 =~ $dec && -n "${BASH_REMATCH[1]}${BASH_REMATCH[3]}" ]]; then
-        local int=${BASH_REMATCH[1]} frac=${BASH_REMATCH[3]} scale_bits
-        case "${BASH_REMATCH[4]}" in
-            [kK]) scale_bits=10 ;;
-            [mM]) scale_bits=20 ;;
-            [gG]) scale_bits=30 ;;
-            [tT]) scale_bits=40 ;;
-            [pP]) scale_bits=50 ;;
-            [eE]) scale_bits=60 ;;
-            *)    scale_bits=0 ;;
-        esac
-        # QEMU takes no fraction of a byte, and rounds a fraction of a larger unit half up.
-        if [[ $frac != *[1-9]* ]] || (( scale_bits > 0 )); then
-            awk -v n="${int:-0}.${frac:-0}" -v s="$scale_bits" 'BEGIN { printf "%.0f\n", int(n * 2 ^ s + 0.5) }'
-            return
-        fi
-    fi
-    echo "run-in-ttsim-vm: '$1' is not a size QEMU accepts" >&2
-    exit 2
-}
-hole64=$(( 64 << 30 ))
-largest_bar=$(to_bytes "$bar4_size")
-if [[ -n "$bar0_size" ]]; then
-    bar0_bytes=$(to_bytes "$bar0_size")
-    largest_bar=$(( bar0_bytes > largest_bar ? bar0_bytes : largest_bar ))
-fi
-while (( hole64 < 2 * largest_bar )); do hole64=$(( hole64 * 2 )); done
-phys_bits=40
-while (( (1 << phys_bits) < 4 * hole64 )); do phys_bits=$(( phys_bits + 1 )); done
-
+# The default 64-bit PCI window cannot fit a Blackhole BAR4. 64G covers its 32G BAR4 plus the other
+# BARs at their natural alignment. A BAR4 over 32G needs a bigger hole and a wider -cpu phys-bits, or
+# firmware leaves it unassigned without an error.
 # TCG rather than KVM: every BAR access is emulated MMIO forwarded to libttsim, and KVM cannot emulate
 # the AVX2 loads and stores UMD uses for device copies, so the guest would get SIGILL.
 "$QEMU" \
-    -machine q35,accel=tcg -cpu "max,phys-bits=$phys_bits" -smp 4 -m 4G \
-    -global "q35-pcihost.pci-hole64-size=$hole64" \
+    -machine q35,accel=tcg -cpu max -smp 4 -m 4G \
+    -global q35-pcihost.pci-hole64-size=64G \
     -kernel "$VM_DIR/vmlinuz" -initrd "$VM_DIR/rootfs.cpio.gz" \
     -append "console=ttyS0 loglevel=4 panic=-1" \
     -nographic -no-reboot \

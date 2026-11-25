@@ -313,7 +313,8 @@ jobs:
           # unittest rather than pytest: this file sits inside tt-metal's tree, and pytest would
           # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
           cd tt-metal/tt_metal/third_party/umd/nanobind/tests
-          python3 -m unittest -v test_py_simulation_connector test_py_simulator_info
+          python3 -m unittest -v test_py_simulation_connector test_py_simulator_info \
+            test_py_topology_discovery.TestSimulationDiscoveryOptions test_py_topology_discovery.TestSimulationDiscovery
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -388,13 +389,18 @@ jobs:
       # TT_UMD_SIM_EXPECTED_CHIPS is how many chips each image models, which only the job staging it
       # knows. Without it the remote half of the test passes vacuously on a discovery that found the MMIO
       # chip and nothing else -- the regression wh_x2 is here to catch.
+      #
+      # TTSimDeclaredTopology declares each image's topology in a cluster_descriptor.yaml beside a copy
+      # of it; TTSimEnumeratedTopology checks discovery's chips and host channel sizing against the
+      # image. Both stay out of the galaxy steps, whose own discovery takes most of their timeout.
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x2
         timeout-minutes: 2
@@ -402,7 +408,8 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
         timeout-minutes: 5
@@ -418,7 +425,8 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
 
       # wh_x2 is the case the remote half of the test is for: one PCI endpoint, two chips, the second
       # reached only over ethernet.
@@ -428,7 +436,8 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDiscoveryTest.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
 
       # The wormhole galaxy steps below take all 32 chips from discovery, so check it finds them.
       - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x32

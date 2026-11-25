@@ -105,6 +105,9 @@ struct ClusterOptions {
 
     /**
      * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
+     *
+     * Deprecated for SIMULATION: a TTSim simulator declares its topology in the cluster_descriptor.yaml it ships beside
+     * it, which topology discovery reads.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 

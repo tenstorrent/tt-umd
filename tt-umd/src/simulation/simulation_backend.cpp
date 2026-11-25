@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
@@ -61,6 +62,23 @@ public:
     std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
         const std::filesystem::path& simulator_path, int num_host_mem_channels) const override {
         return tt::umd::create_local_simulation_tt_devices(simulator_path, num_host_mem_channels);
+    }
+
+    std::unique_ptr<TTDevice> create_simulation_tt_device(
+        const std::filesystem::path& simulator_path,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        size_t num_chips,
+        int num_host_mem_channels) const override {
+        return tt::umd::create_simulation_tt_device(
+            simulator_path, soc_descriptor, chip_id, num_chips, num_host_mem_channels);
+    }
+
+    // Only a TTSim device sizes its system memory as it is constructed; every other device leaves it to its chip.
+    void grow_host_mem_channels(TTDevice& tt_device, int num_host_mem_channels) const override {
+        if (auto* tt_sim_device = dynamic_cast<TTSimTTDevice*>(&tt_device)) {
+            tt_sim_device->grow_host_mem_channels(static_cast<uint32_t>(num_host_mem_channels));
+        }
     }
 
     // Only a TTSim device is opened on an endpoint its image enumerated; RTL devices and silicon have no such BDF.

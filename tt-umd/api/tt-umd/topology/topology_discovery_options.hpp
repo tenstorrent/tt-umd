@@ -13,8 +13,26 @@ namespace tt::umd {
 /**
  * @brief Settings for discovering the chips a simulator models, rather than the host's own.
  *
- * A simulation backend has no OS device enumeration, so the image is asked which endpoints it
- * exposes and a device is created for each. io_device_type stays PCIe: a simulator models PCIe.
+ * A simulation backend has no OS device enumeration, so the topology comes from the simulator:
+ * - A cluster_descriptor.yaml beside the simulator declares it. Discovery returns that descriptor
+ *   and a device for each of its chips: MMIO-capable chips are opened on the simulator's
+ *   endpoints, the others are reached over Ethernet through their closest MMIO-capable chip.
+ *   Discovery throws error::RuntimeError when the descriptor gives a chip an architecture other
+ *   than the simulator's. A chip's declared harvesting must be one its architecture allows, since its
+ *   device is built from the declaration before it reports its own; otherwise discovery throws
+ *   error::RuntimeError. cluster_id, discover_remote_devices and device_init_failure_action apply
+ *   as to a walked topology: cluster_id replaces any id the file carries, discover_remote_devices =
+ *   false leaves out the chips reached over Ethernet, and every device is initialized under
+ *   device_init_failure_action. A chip whose closest MMIO-capable chip fails to initialize is not
+ *   opened and is reported unhealthy. The walk's firmware-version and Ethernet checks are not run,
+ *   so the descriptor carries no firmware versions. An initialized device's SoC descriptor follows
+ *   what the device reports, not the file.
+ * - Otherwise the image is asked which endpoints it exposes, a device is opened for each, and
+ *   their Ethernet links are walked as on silicon.
+ *
+ * An empty TopologyDiscoveryOptions::soc_descriptor_path selects the soc_descriptor.yaml the
+ * simulator ships beside it, or the architecture's built-in descriptor when it ships none.
+ * io_device_type stays PCIe: a simulator models PCIe.
  */
 struct SimulationDiscoveryOptions {
     /**
@@ -24,8 +42,12 @@ struct SimulationDiscoveryOptions {
 
     /**
      * @brief Number of host memory channels to give each simulated device.
+     *
+     * Unset, discovery sizes it from the topology it finds: the most chips that share one closest
+     * MMIO-capable chip (that chip included), at most 4. Every simulated device of the discovered
+     * cluster gets the same count.
      */
-    int num_host_mem_channels = 0;
+    std::optional<int> num_host_mem_channels;
 };
 
 /**

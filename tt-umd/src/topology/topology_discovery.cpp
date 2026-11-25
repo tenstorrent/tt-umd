@@ -6,8 +6,12 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -20,9 +24,11 @@
 #include <utility>
 #include <vector>
 
+#include "cluster_description_yaml.hpp"
 #include "common/utils.hpp"
 #include "firmware/erisc_firmware.hpp"
 #include "simulation/simulation_backend.hpp"
+#include "simulation/simulator_paths.hpp"
 #include "topology/topology_discovery_base.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
@@ -34,6 +40,7 @@
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery_error.hpp"
@@ -70,6 +77,167 @@ tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
     }
 }
 
+// The SoC descriptor file discovery builds its devices from: the caller's, else the one a simulator ships beside it.
+// Empty selects the architecture's built-in descriptor.
+std::string resolve_soc_descriptor_path(const TopologyDiscoveryOptions& options) {
+    if (!options.soc_descriptor_path.empty() || !options.simulation.has_value()) {
+        return options.soc_descriptor_path;
+    }
+    return find_simulator_soc_descriptor_path(options.simulation->simulator_path);
+}
+
+std::shared_ptr<SocArchDescriptor> create_soc_arch_descriptor(
+    const std::string& soc_descriptor_path, tt::ARCH device_arch) {
+    if (soc_descriptor_path.empty()) {
+        return std::make_shared<SocArchDescriptor>(device_arch);
+    }
+    auto soc_arch_descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
+    UMD_ASSERT(
+        soc_arch_descriptor->get_arch() == device_arch,
+        error::RuntimeError,
+        fmt::format(
+            "Architecture {} in SocArchDescriptor file on path {} does not match the device architecture {}.",
+            arch_to_str(soc_arch_descriptor->get_arch()),
+            soc_descriptor_path,
+            arch_to_str(device_arch)));
+    return soc_arch_descriptor;
+}
+
+// A chip's description as a SocDescriptor wants it: what the declared topology says about the chip, until the device's
+// firmware reports it.
+ChipInfo get_declared_chip_info(const ChipDescription& chip) {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = chip.noc_translation_enabled;
+    chip_info.harvesting_masks = chip.harvesting_masks;
+    chip_info.board_type = chip.board_type;
+    chip_info.asic_location = chip.asic_location.value_or(0);
+    return chip_info;
+}
+
+// Leaves out the chips the host reaches only over Ethernet, and the links to them, as discovery does when it does not
+// follow Ethernet links. The channels of those links stay active on the chips that are kept, since they still carry
+// traffic to chips outside the cluster.
+void drop_remote_chips(ClusterDescription& description) {
+    for (auto it = description.chips.begin(); it != description.chips.end();) {
+        it = it->second.mmio_device_id.has_value() ? std::next(it) : description.chips.erase(it);
+    }
+    const auto links_a_dropped_chip = [&description](const EthLink& link) {
+        return description.chips.count(link.chip_a) == 0 || description.chips.count(link.chip_b) == 0;
+    };
+    description.eth_links.erase(
+        std::remove_if(description.eth_links.begin(), description.eth_links.end(), links_a_dropped_chip),
+        description.eth_links.end());
+}
+
+// A cluster_descriptor.yaml beside the simulator declares its topology, so there is nothing to walk: the descriptor is
+// the declared one, with a device for each of its chips. The descriptor is written by hand rather than read from the
+// image, so each chip's architecture is checked against the image the chip runs on. As for a walked topology, the
+// caller's cluster id is stamped, remote chips are left out when the caller asks for local ones only, and every device
+// is initialized. The walk's firmware-version and Ethernet checks are not run: the declaration, not a walk, states the
+// links.
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+discover_declared_simulation_topology(
+    const TopologyDiscoveryOptions& options, const std::filesystem::path& cluster_descriptor_path) {
+    const std::filesystem::path simulator_path = options.simulation->simulator_path;
+    ClusterDescription description = load_cluster_description_yaml(cluster_descriptor_path);
+
+    const tt::ARCH simulator_arch = simulation_backend().get_simulator_arch(simulator_path);
+    for (const auto& [chip_id, chip] : description.chips) {
+        UMD_ASSERT(
+            chip.arch == simulator_arch,
+            error::RuntimeError,
+            fmt::format(
+                "Cluster descriptor gives chip {} architecture {}, but simulator {} is {}.",
+                chip_id,
+                arch_to_str(chip.arch),
+                simulator_path.string(),
+                arch_to_str(simulator_arch)));
+    }
+    description.cluster_id = utils::resolve_cluster_id(options.cluster_id);
+    if (!options.discover_remote_devices) {
+        drop_remote_chips(description);
+    }
+    // A simulator's harvesting is whatever its image models and need not match its board type.
+    std::unique_ptr<ClusterDescriptor> cluster_desc =
+        create_cluster_descriptor(description, options.discover_remote_devices, /*check_harvesting_counts=*/false);
+
+    const std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
+        create_soc_arch_descriptor(resolve_soc_descriptor_path(options), simulator_arch);
+    const int num_host_mem_channels = options.simulation->num_host_mem_channels.value_or(
+        static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
+
+    // A device that fails to initialize is kept, and its chip reported unhealthy, unless the caller asked to throw.
+    std::vector<ChipId> unhealthy_chips;
+    auto init_device = [&](TTDevice& device, ChipId chip_id, std::chrono::milliseconds timeout) {
+        try {
+            device.init_tt_device(timeout);
+        } catch (error::UmdBaseException& err) {
+            if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+                throw;
+            }
+            log_warning(LogUMD, err.message());
+            if (std::optional<ClusterDescriptor::DeviceHealthError> health_error = determine_device_init_error(err)) {
+                description.health_errors[chip_id].push_back(std::move(*health_error));
+            }
+            unhealthy_chips.push_back(chip_id);
+        }
+    };
+
+    // MMIO-capable chips come first, as every remote chip is reached through one of them.
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    const size_t num_mmio_chips = cluster_desc->get_chips_with_mmio().size();
+    for (const ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        std::unique_ptr<TTDevice> device;
+        if (!cluster_desc->is_chip_remote(chip_id)) {
+            // A simulated device sizes its system memory as it is constructed, so it is built from the declared
+            // description and rebuilds its SoC descriptor from what its firmware reports once initialized.
+            const SocDescriptor soc_descriptor(
+                soc_arch_descriptor, get_declared_chip_info(description.chips.at(chip_id)));
+            device = simulation_backend().create_simulation_tt_device(
+                simulator_path, soc_descriptor, chip_id, num_mmio_chips, num_host_mem_channels);
+            init_device(*device, chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        } else {
+            const ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            // A simulator may end the process rather than throw on traffic through an uninitialized chip, so a chip
+            // behind one is not opened.
+            if (std::find(unhealthy_chips.begin(), unhealthy_chips.end(), gateway_id) != unhealthy_chips.end()) {
+                log_warning(
+                    LogUMD,
+                    "Chip {} is not opened: its closest MMIO-capable chip {} failed to initialize.",
+                    chip_id,
+                    gateway_id);
+                unhealthy_chips.push_back(chip_id);
+                continue;
+            }
+            TTDevice* gateway_device = devices.at(gateway_id).get();
+            std::unique_ptr<RemoteCommunication> remote_communication =
+                RemoteCommunication::create_remote_communication(
+                    gateway_device, cluster_desc->get_chip_location(chip_id));
+            remote_communication->set_remote_transfer_ethernet_cores(
+                gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+            device = create_tt_device(std::move(remote_communication), soc_arch_descriptor);
+            init_device(*device, chip_id, timeout::ARC_STARTUP_TIMEOUT);
+        }
+        devices.emplace(chip_id, std::move(device));
+    }
+    log_debug(
+        LogUMD,
+        "Opened {} simulated device(s) of the topology declared in {}.",
+        devices.size(),
+        cluster_descriptor_path.string());
+
+    if (!unhealthy_chips.empty()) {
+        for (const ChipId chip_id : unhealthy_chips) {
+            description.chips.erase(chip_id);
+            description.unhealthy_chips.push_back(chip_id);
+        }
+        cluster_desc = create_cluster_descriptor(
+            std::move(description), options.discover_remote_devices, /*check_harvesting_counts=*/false);
+    }
+    return std::make_pair(std::move(cluster_desc), std::move(devices));
+}
+
 }  // namespace
 
 std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_discovery(
@@ -88,21 +256,8 @@ std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_di
         return nullptr;
     }
 
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
-    if (options.soc_descriptor_path.empty()) {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
-    } else {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(options.soc_descriptor_path);
-        if (soc_arch_descriptor->get_arch() != current_arch) {
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "Architecture {} in SocArchDescriptor file on path {} does not match the device architecture {}.",
-                    arch_to_str(soc_arch_descriptor->get_arch()),
-                    options.soc_descriptor_path,
-                    arch_to_str(current_arch)));
-        }
-    }
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
+        create_soc_arch_descriptor(resolve_soc_descriptor_path(options), current_arch);
 
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
@@ -133,6 +288,23 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::create_ethernet_map() 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscoveryBase::run(
     const TopologyDiscoveryOptions& options) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (options.simulation.has_value()) {
+        // A simulator models PCIe and nothing else, so the devices discovered are PCIe-modelled whatever the caller
+        // asked for. Accepting JTAG here would label the cluster descriptor with a transport none of its devices
+        // speak; refuse instead of misreporting it.
+        UMD_ASSERT(
+            options.io_device_type == IODeviceType::PCIe,
+            error::RuntimeError,
+            fmt::format(
+                "Simulation topology discovery models PCIe, but {} was requested.",
+                DeviceTypeToString.at(options.io_device_type)));
+        const std::filesystem::path cluster_descriptor_path =
+            get_simulator_cluster_descriptor_path(options.simulation->simulator_path);
+        if (std::filesystem::exists(cluster_descriptor_path)) {
+            return discover_declared_simulation_topology(options, cluster_descriptor_path);
+        }
+    }
+
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options);
     if (td == nullptr) {
@@ -147,6 +319,14 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     for (auto& [unique_id, device] : td->devices) {
         ChipId chip_id = td->asic_id_to_chip_id[unique_id];
         devices[chip_id] = std::move(device);
+    }
+    // The simulated devices had to be opened to walk the links that show how many chips each serves, so a channel
+    // count left to discovery is only known now.
+    if (options.simulation.has_value() && !options.simulation->num_host_mem_channels.has_value()) {
+        const int num_host_mem_channels = static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc));
+        for (auto& [chip_id, device] : devices) {
+            simulation_backend().grow_host_mem_channels(*device, num_host_mem_channels);
+        }
     }
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
@@ -228,17 +408,10 @@ void TopologyDiscoveryBase::get_connected_devices() {
     // as its transport, but create_tt_device(device_id, ...) would try to open /dev/tenstorrent for
     // it. A simulator image enumerates its own endpoints instead.
     if (options.simulation.has_value()) {
-        // A simulator models PCIe and nothing else, so the devices created below are PCIe-modelled
-        // whatever the caller asked for. Accepting JTAG here would label the cluster descriptor with
-        // a transport none of its devices speak; refuse instead of misreporting it.
-        UMD_ASSERT(
-            options.io_device_type == IODeviceType::PCIe,
-            error::RuntimeError,
-            fmt::format(
-                "Simulation topology discovery models PCIe, but {} was requested.",
-                DeviceTypeToString.at(options.io_device_type)));
+        // A count left to discovery starts at one channel per device and is grown in run() once the walk has shown
+        // how many chips each device serves.
         for (auto& [chip_id, tt_device] : simulation_backend().create_local_simulation_tt_devices(
-                 options.simulation->simulator_path, options.simulation->num_host_mem_channels)) {
+                 options.simulation->simulator_path, options.simulation->num_host_mem_channels.value_or(1))) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());

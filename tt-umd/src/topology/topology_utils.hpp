@@ -4,8 +4,12 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 
+#include "hugepage.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -26,6 +30,16 @@ inline std::optional<ClusterDescriptor::DeviceHealthError> determine_device_init
         return pcie_err->error();
     }
     return std::nullopt;
+}
+
+// The host memory channels an MMIO-capable chip needs to serve its share of the topology: one for each chip whose
+// closest MMIO-capable chip it is, itself included, up to MAX_HOST_MEM_CHANNELS. The busiest such chip sets the count.
+inline uint32_t get_host_mem_channels_for_topology(const ClusterDescriptor& cluster_desc) {
+    size_t max_chips_per_mmio = 0;
+    for (const auto& [mmio_chip_id, chips] : cluster_desc.get_chips_grouped_by_closest_mmio()) {
+        max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
+    }
+    return static_cast<uint32_t>(std::min<size_t>(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio));
 }
 
 template <typename T>

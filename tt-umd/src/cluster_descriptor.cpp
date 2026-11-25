@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "cluster_description_yaml.hpp"
 #include "common/utils.hpp"
 #include "tt-umd-utils/internal/disjoint_set.hpp"
 #include "tt-umd-utils/internal/string_utils.hpp"
@@ -282,16 +283,7 @@ void ClusterDescriptor::log_topology() const {
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
-    std::ifstream fdesc(cluster_descriptor_file_path);
-    if (fdesc.fail()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Cluster descriptor file does not exist at path: {}", cluster_descriptor_file_path));
-    }
-    std::stringstream buffer;
-    buffer << fdesc.rdbuf();
-    fdesc.close();
-    return create_from_yaml_content(buffer.str());
+    return create_cluster_descriptor(load_cluster_description_yaml(cluster_descriptor_file_path));
 }
 
 template <typename T>
@@ -1008,10 +1000,7 @@ void fill_eth_channel_states(ClusterDescription &description) {
     }
 }
 
-}  // namespace
-
-std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
-    const std::string &cluster_descriptor_file_content) {
+ClusterDescription parse_cluster_description_yaml(const std::string &cluster_descriptor_file_content) {
     ClusterDescription description;
 
     YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
@@ -1028,7 +1017,25 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
     load_ethernet_connections_from_connectivity_descriptor(yaml, description);
     fill_eth_channel_states(description);
 
-    return create_cluster_descriptor(std::move(description));
+    return description;
+}
+
+}  // namespace
+
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
+    const std::string &cluster_descriptor_file_content) {
+    return create_cluster_descriptor(parse_cluster_description_yaml(cluster_descriptor_file_content));
+}
+
+ClusterDescription load_cluster_description_yaml(const std::filesystem::path &path) {
+    std::ifstream fdesc(path);
+    if (fdesc.fail()) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Cluster descriptor file does not exist at path: {}", path.string()));
+    }
+    std::stringstream buffer;
+    buffer << fdesc.rdbuf();
+    return parse_cluster_description_yaml(buffer.str());
 }
 
 void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {

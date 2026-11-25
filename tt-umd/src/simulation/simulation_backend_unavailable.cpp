@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "simulation/simulation_backend.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -24,8 +25,19 @@ public:
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 
+    std::unique_ptr<TTDevice> create_simulation_tt_device(
+        const std::filesystem::path& /*simulator_path*/,
+        const SocDescriptor& /*soc_descriptor*/,
+        ChipId /*chip_id*/,
+        size_t /*num_chips*/,
+        int /*num_host_mem_channels*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
     // No simulator exists in this build, so no device is simulated.
     std::optional<uint32_t> get_pci_bdf(const TTDevice& /*tt_device*/) const override { return std::nullopt; }
+
+    void grow_host_mem_channels(TTDevice& /*tt_device*/, int /*num_host_mem_channels*/) const override {}
 
     std::optional<SimulationBackendType> get_backend_type(const TTDevice& /*tt_device*/) const override {
         return std::nullopt;

@@ -1,8 +1,53 @@
 # SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
+
 import tt_umd
+from test_py_simulator_info import find_soc_descriptor
+
+# The simulator only runs when UMD is built with TT_UMD_BUILD_SIMULATION.
+SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
+
+
+# One chip of each architecture, for an image of the other one to be declared with.
+DECLARED_WORMHOLE_N150 = """arch:
+  0: wormhole_b0
+chips:
+  0: [0, 0, 0, 0]
+chip_unique_ids:
+  0: 5550000
+ethernet_connections: []
+chips_with_mmio:
+  - 0: 0
+harvesting:
+  0: {noc_translation: true, harvest_mask: 64}
+boards:
+  - - board_id: 1649267441665
+    - board_type: n150
+    - chips: [0]
+"""
+
+DECLARED_BLACKHOLE_P150 = """arch:
+  0: blackhole
+chips: {}
+chip_unique_ids:
+  0: 5550000
+ethernet_connections: []
+chips_with_mmio:
+  - 0: 0
+harvesting:
+  0: {noc_translation: true, harvest_mask: 192, dram_harvesting_mask: 0, eth_harvesting_mask: 12288,
+      pcie_harvesting_mask: 2}
+boards:
+  - - board_id: 4398046511105
+    - board_type: p150
+    - chips: [0]
+"""
 
 
 class TestTopologyDiscovery(unittest.TestCase):
@@ -68,3 +113,69 @@ class TestTopologyDiscovery(unittest.TestCase):
             0,
             "With no_remote_discovery=True, should not discover any remote chips",
         )
+
+
+class TestSimulationDiscoveryOptions(unittest.TestCase):
+    def test_host_mem_channels_default_to_sized_from_topology(self):
+        self.assertIsNone(tt_umd.SimulationDiscoveryOptions().num_host_mem_channels)
+
+    def test_host_mem_channels_accept_a_count_and_none(self):
+        options = tt_umd.SimulationDiscoveryOptions()
+
+        options.num_host_mem_channels = 2
+        self.assertEqual(options.num_host_mem_channels, 2)
+        options.num_host_mem_channels = None
+        self.assertIsNone(options.num_host_mem_channels)
+
+
+@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+class TestSimulationDiscovery(unittest.TestCase):
+    """Discovery of the Wormhole or Blackhole TTSim image TT_UMD_SIMULATOR names."""
+
+    def setUp(self):
+        self.simulator = os.environ.get("TT_UMD_SIMULATOR")
+        if not self.simulator or not os.path.isfile(self.simulator):
+            self.skipTest("TT_UMD_SIMULATOR does not name a TTSim library.")
+        self.arch = tt_umd.get_simulator_arch(self.simulator)
+        if self.arch not in (tt_umd.ARCH.WORMHOLE_B0, tt_umd.ARCH.BLACKHOLE):
+            self.skipTest("TTSim models neither ARC nor Ethernet for Quasar.")
+
+    def discovery_options(self, simulator_path):
+        options = tt_umd.TopologyDiscoveryOptions()
+        options.simulation = tt_umd.SimulationDiscoveryOptions()
+        options.simulation.simulator_path = str(simulator_path)
+        return options
+
+    def test_discovers_a_device_for_every_chip(self):
+        cluster_descriptor, devices = tt_umd.TopologyDiscovery.discover(
+            self.discovery_options(self.simulator)
+        )
+
+        self.assertGreaterEqual(len(devices), 1)
+        self.assertEqual(len(devices), len(cluster_descriptor.get_all_chips()))
+
+    def test_declared_chip_of_another_arch_raises(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        library = Path(directory.name) / "libttsim.so"
+        shutil.copyfile(self.simulator, library)
+        # The copy ships its architecture's SoC descriptor, so discovery reads the architecture from that file
+        # instead of running the image after other simulators are up in this process.
+        if self.arch == tt_umd.ARCH.WORMHOLE_B0:
+            soc_descriptor, other_arch = (
+                "wormhole_b0_8x10.yaml",
+                DECLARED_BLACKHOLE_P150,
+            )
+        else:
+            soc_descriptor, other_arch = (
+                "blackhole_140_arch.yaml",
+                DECLARED_WORMHOLE_N150,
+            )
+        shutil.copyfile(
+            find_soc_descriptor(soc_descriptor),
+            Path(directory.name) / "soc_descriptor.yaml",
+        )
+        (Path(directory.name) / "cluster_descriptor.yaml").write_text(other_arch)
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.TopologyDiscovery.discover(self.discovery_options(library))

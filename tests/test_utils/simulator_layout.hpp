@@ -62,6 +62,13 @@ public:
         return soc_descriptor;
     }
 
+    // Ships yaml as the directory's cluster_descriptor.yaml, which declares the topology the simulator models.
+    std::filesystem::path add_cluster_descriptor(const std::string& yaml) const {
+        const std::filesystem::path cluster_descriptor = directory_ / "cluster_descriptor.yaml";
+        std::ofstream(cluster_descriptor) << yaml;
+        return cluster_descriptor;
+    }
+
 private:
     std::filesystem::path directory_;
 };

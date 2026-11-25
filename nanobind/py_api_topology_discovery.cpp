@@ -166,7 +166,9 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw(
             "num_host_mem_channels",
             &SimulationDiscoveryOptions::num_host_mem_channels,
-            "Number of host memory channels to give each simulated device.");
+            nb::for_setter(nb::arg("value").none()),
+            "Number of host memory channels to give each simulated device. None (the default) sizes it from the "
+            "discovered topology: the most chips that share one closest MMIO-capable chip, at most 4.");
 
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 

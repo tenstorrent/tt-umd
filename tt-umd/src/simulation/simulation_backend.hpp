@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -16,6 +17,7 @@
 
 namespace tt::umd {
 
+class SocDescriptor;
 class TTDevice;
 
 /**
@@ -45,6 +47,24 @@ public:
      */
     virtual std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
         const std::filesystem::path& simulator_path, int num_host_mem_channels) const = 0;
+
+    /**
+     * Open the device for chip_id, one of num_chips MMIO-capable chips a declared topology opens on the simulator image
+     * at simulator_path, built with soc_descriptor and num_host_mem_channels host memory channels.
+     */
+    virtual std::unique_ptr<TTDevice> create_simulation_tt_device(
+        const std::filesystem::path& simulator_path,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        size_t num_chips,
+        int num_host_mem_channels) const = 0;
+
+    /**
+     * Give tt_device at least num_host_mem_channels host memory channels when it is opened on a simulator image, for a
+     * device that had to be opened before the topology saying how many it needs was known. No effect on any other
+     * device, nor on one that already has that many. Only valid before the device's system memory is handed out.
+     */
+    virtual void grow_host_mem_channels(TTDevice& tt_device, int num_host_mem_channels) const = 0;
 
     /**
      * The PCI bus/device/function (bus << 8 | device << 3 | function) of the simulated endpoint tt_device drives, or

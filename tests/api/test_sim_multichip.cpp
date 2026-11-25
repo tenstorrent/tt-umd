@@ -11,15 +11,16 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -663,11 +664,26 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
     EXPECT_EQ(read, written);
 }
 
-// Discovery has to build its devices before the descriptor that says how many chips each MMIO chip
-// serves exists, so it sizes their sysmem provisionally and the cluster corrects it afterwards. Left
-// to auto-detect, every MMIO chip ends up with one channel per chip the busiest gateway serves --
-// on wh_x2 that is 2, the channel the remote chip needs, which the provisional count lacks.
+// Left unset, every MMIO chip gets one host memory channel per chip the busiest MMIO chip serves, itself included, at
+// most 4. Keyed by the image's architecture and chip count (specs/ttsim/multichip.md "Which images exist"): only wh_x2
+// has a chip reached over Ethernet among the images CI runs, so it alone needs 2.
 TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
+    static const std::map<std::pair<ARCH, size_t>, size_t> host_mem_channels = {
+        {{ARCH::WORMHOLE_B0, 1}, 1},
+        {{ARCH::WORMHOLE_B0, 2}, 2},
+        {{ARCH::WORMHOLE_B0, 32}, 1},
+        {{ARCH::BLACKHOLE, 1}, 1},
+        {{ARCH::BLACKHOLE, 2}, 1},
+        {{ARCH::BLACKHOLE, 32}, 1},
+    };
+    if (!expected_chips_.has_value()) {
+        GTEST_SKIP() << "TT_UMD_SIM_EXPECTED_CHIPS is not set, so the chips this image models are unknown.";
+    }
+    const auto expected = host_mem_channels.find({arch_, *expected_chips_});
+    if (expected == host_mem_channels.end()) {
+        GTEST_SKIP() << "No host memory channel count recorded for " << *expected_chips_ << " " << arch_to_str(arch_)
+                     << " chip(s).";
+    }
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
     options.simulator_directory = simulator_path_;
@@ -675,21 +691,10 @@ TEST_F(TTSimDiscoveryTest, AutoDetectedHostMemChannelsCoverEveryChipServed) {
 
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     ASSERT_NE(cluster_desc, nullptr);
-
-    // MAX_HOST_MEM_CHANNELS lives in a private header; the auto-detect caps at it.
-    constexpr size_t max_host_mem_channels = 4;
-    size_t max_chips_per_mmio = 0;
-    for (const auto& [_, chips] : cluster_desc->get_chips_grouped_by_closest_mmio()) {
-        max_chips_per_mmio = std::max(max_chips_per_mmio, chips.size());
-    }
-    const size_t expected_channels = std::min(max_host_mem_channels, max_chips_per_mmio);
-    ASSERT_GT(expected_channels, 0u);
-
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
         SysmemManager* sysmem_manager = cluster.get_chip(chip)->get_sysmem_manager();
         ASSERT_NE(sysmem_manager, nullptr) << "MMIO chip " << chip << " has no sysmem manager";
-        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected_channels)
-            << "MMIO chip " << chip << " kept the provisional channel count discovery built it with";
+        EXPECT_EQ(sysmem_manager->get_num_host_mem_channels(), expected->second) << "MMIO chip " << chip;
     }
 }
 

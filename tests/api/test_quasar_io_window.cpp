@@ -34,7 +34,7 @@ using namespace tt::umd;
 namespace {
 
 // The SMC cold scratch bank starts here; one window covers all of it.
-constexpr uint64_t COLD_SCRATCH_BASE = 0x1202002800ULL;
+constexpr uint64_t IO_WINDOW_COLD_SCRATCH_BASE = 0x1202002800ULL;
 
 struct ScratchRegister {
     uint64_t address;
@@ -81,7 +81,7 @@ protected:
         window_size_ = get_architecture_tlbs(tt::ARCH::QUASAR).size_classes.front().size;
 
         // One window covers the whole scratch bank, so every case below addresses within it.
-        window_base_ = COLD_SCRATCH_BASE & ~(window_size_ - 1);
+        window_base_ = IO_WINDOW_COLD_SCRATCH_BASE & ~(window_size_ - 1);
 
         // The address is flat and already names its target, so no coordinate is set: configuring
         // a Quasar window with one is refused.

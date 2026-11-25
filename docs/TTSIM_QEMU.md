@@ -65,11 +65,12 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
     run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 32G --bar0-size 4G \
     --kmd-module /opt/tenstorrent-keraunos.ko -- \
     env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*'
+    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:*QuasarIoWindow*'
 ```
 
-Those two suites are what a Grendel function covers today: 11 device-I/O cases and 2 coordinate-fold
-cases. A filter that selects nothing still exits 0, so the CI row counts what it selected before
+Those suites are what a Grendel function covers today: 11 device-I/O cases, 2 coordinate-fold cases
+and the Quasar I/O window cases. The window pattern is `*QuasarIoWindow*` rather than
+`QuasarIoWindow.*` so it also selects the parameterized `QuasarIoWindow/QuasarIoWindowRefusal` suite. A filter that selects nothing still exits 0, so the CI row counts what it selected before
 running it and fails the step when the count is zero -- otherwise a build missing those suites would
 report green having run nothing.
 

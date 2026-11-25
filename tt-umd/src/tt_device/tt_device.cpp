@@ -64,7 +64,7 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
 
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, NocId noc) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (model_->get_pcie_interface() != nullptr) {
         is_pcie_hung();
@@ -79,7 +79,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     // Waits for the firmware and builds the components that read what it publishes; the model's
     // firmware owns them, and the accessors below lend them onward.
     get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
-    construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
+    construct_soc_descriptor(model_->get_shared_soc_arch_descriptor(), get_selected_noc_id());
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -114,21 +114,21 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();
 }
 
-void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc) {
     // TTDevice::PowerState is BUSY/IDLE and the firmware's is HIGH/LOW; converting here rather than
     // at every call site keeps the ~90 existing TTDevice::PowerState uses compiling while the two
     // enums are collapsed separately.
     get_device_firmware()->set_power_state(
-        state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
+        state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc);
 }
 
-void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
+void TTDevice::set_clock_state(ClockState state, NocId /*noc*/) {
     // The per-arch overrides this replaces ignored the parameter and let ArcMessenger route on the
     // thread-selected NOC; keep that until the parameter is honored end-to-end.
     get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
-bool TTDevice::get_noc_translation_enabled() const {
+bool TTDevice::get_noc_translation_enabled(NocId noc) const {
     // The overrides this replaces routed their device reads per the thread-selected NOC (via the
     // TTDevice accessors); keep that.
     return get_device_firmware()->get_noc_translation_enabled(get_selected_noc_id());
@@ -252,49 +252,50 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
 }
 
 void TTDevice::read_from_device(
-    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
+    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc_id, ordering);
+    const auto [xy, target] = resolve_target(core, addr, size, noc);
+    get_device_protocol()->read_data(mem_ptr, xy, target, size, noc, ordering);
 }
 
 void TTDevice::write_to_device(
-    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
+    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc, IoOrdering ordering) {
     ZoneScopedC(tracy::Color::Orange);
-    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc_id, ordering);
+    const auto [xy, target] = resolve_target(core, addr, size, noc);
+    get_device_protocol()->write_data(mem_ptr, xy, target, size, noc, ordering);
 }
 
 void TTDevice::read_from_device_reg(
-    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc, RegisterAccessWidth width) {
     ZoneScopedC(tracy::Color::Orange);
     validate_register_access_width(get_arch(), width);
-    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->read_ctrl(mem_ptr, xy, target, size, noc_id, width);
+    const auto [xy, target] = resolve_target(core, addr, size, noc);
+    get_device_protocol()->read_ctrl(mem_ptr, xy, target, size, noc, width);
 }
 
 void TTDevice::write_to_device_reg(
-    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) {
+    const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc, RegisterAccessWidth width) {
     ZoneScopedC(tracy::Color::Orange);
     validate_register_access_width(get_arch(), width);
-    const auto [xy, target] = resolve_target(core, addr, size, noc_id);
-    get_device_protocol()->write_ctrl(mem_ptr, xy, target, size, noc_id, width);
+    const auto [xy, target] = resolve_target(core, addr, size, noc);
+    get_device_protocol()->write_ctrl(mem_ptr, xy, target, size, noc, width);
 }
 
-bool TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
+bool TTDevice::wait_dram_channel_training(
+    const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms, NocId noc) {
     ZoneScopedC(tracy::Color::DarkGreen);
     return get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
 }
 
-bool TTDevice::wait_eth_core_training(CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
+bool TTDevice::wait_eth_core_training(CoreCoord eth_core, const std::chrono::milliseconds timeout_ms, NocId noc) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    const NocId noc_id = get_selected_noc_id();
-    return get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
+    const NocId tls_noc = get_selected_noc_id();
+    return get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, tls_noc), timeout_ms, tls_noc);
 }
 
-EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    const NocId noc_id = get_selected_noc_id();
-    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
+EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core, NocId noc) {
+    const NocId tls_noc = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, tls_noc), tls_noc);
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return require_pcie_interface()->bar_write32(addr, data); }
@@ -319,7 +320,7 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
-void TTDevice::wait_for_non_mmio_flush() {
+void TTDevice::wait_for_non_mmio_flush(NocId noc) {
     if (model_->get_remote_interface() == nullptr) {
         return;
     }
@@ -354,7 +355,7 @@ IODeviceType TTDevice::get_communication_device_type() const {
 
 BoardType TTDevice::get_board_type() const { return get_board_type_from_board_id(get_board_id()); }
 
-uint64_t TTDevice::get_refclk_counter() const {
+uint64_t TTDevice::get_refclk_counter(NocId noc) const {
     return get_device_firmware()->get_refclk_counter(get_selected_noc_id());
 }
 
@@ -366,7 +367,7 @@ double TTDevice::get_asic_temperature() const {
 
 uint8_t TTDevice::get_asic_location() const { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
-ChipInfo TTDevice::get_chip_info() {
+ChipInfo TTDevice::get_chip_info(NocId noc) {
     // The overrides this replaces read harvesting through ArcMessenger, which routed on the
     // thread-selected NOC; keep that.
     return get_device_firmware()->get_chip_info(get_selected_noc_id());
@@ -412,31 +413,29 @@ RiscReset *TTDevice::get_risc_reset() {
     return risc_reset;
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
-    get_risc_reset()->assert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, noc_id);
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc) {
+    get_risc_reset()->assert_risc_reset(resolve_coordinate(core, noc), selected_riscs, noc);
 }
 
-void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
-    get_risc_reset()->deassert_risc_reset(resolve_coordinate(core, noc_id), selected_riscs, staggered_start, noc_id);
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc) {
+    get_risc_reset()->deassert_risc_reset(resolve_coordinate(core, noc), selected_riscs, staggered_start, noc);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }
 
-tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
-    return get_device_firmware()->get_firmware_noc_coord(noc_id);
-}
+tt_xy_pair TTDevice::get_arc_core(const NocId noc) const { return get_device_firmware()->get_firmware_noc_coord(noc); }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc) {
     UMD_ASSERT(
         get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
-    xy_pair translated_start = resolve_coordinate(core_start, noc_id);
-    xy_pair translated_end = resolve_coordinate(core_end, noc_id);
+    xy_pair translated_start = resolve_coordinate(core_start, noc);
+    xy_pair translated_end = resolve_coordinate(core_end, noc);
     bool multicast_success =
-        get_device_protocol()->write_to_core_range(src, translated_start, translated_end, addr, size, noc_id);
+        get_device_protocol()->write_to_core_range(src, translated_start, translated_end, addr, size, noc);
 
     log_trace(
         LogUMD,
@@ -455,26 +454,26 @@ void TTDevice::noc_multicast_write(
         return;
     }
 
-    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc);
     if (is_remote()) {
         get_remote_communication()->wait_for_non_mmio_flush();
     }
 }
 
-void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
+void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc) {
     UMD_ASSERT(
         get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle((noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
-    noc_multicast_write(src, size, start, end, addr, noc_id);
+        get_soc_descriptor().get_bounding_rectangle((noc == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
+    noc_multicast_write(src, size, start, end, addr, noc);
 }
 
 void TTDevice::multicast_write_via_unicast(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    CoreCoord translated_start = resolve_coordinate(core_start, noc_id);
-    CoreCoord translated_end = resolve_coordinate(core_end, noc_id);
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc) {
+    CoreCoord translated_start = resolve_coordinate(core_start, noc);
+    CoreCoord translated_end = resolve_coordinate(core_end, noc);
     size_t x_min = std::min(translated_start.x, translated_end.x);
     size_t x_max = std::max(translated_start.x, translated_end.x);
     size_t y_min = std::min(translated_start.y, translated_end.y);
@@ -485,107 +484,103 @@ void TTDevice::multicast_write_via_unicast(
     const SocDescriptor &soc_descriptor = get_soc_descriptor();
     for (const CoreCoord &core : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
         if (core.x >= x_min && core.x <= x_max && core.y >= y_min && core.y <= y_max) {
-            write_to_device(src, core, addr, size, noc_id);
+            write_to_device(src, core, addr, size, noc);
         }
     }
 }
 
-int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc) {
     PeerDmaInterface *peer_dma_interface = model_->get_peer_dma_interface();
     if (!peer_dma_interface) {
         UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for this device.");
     }
-    return peer_dma_interface->export_window(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+    return peer_dma_interface->export_window(resolve_coordinate(core, noc), addr, size, ordering, noc);
 }
 
-void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc), noc);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
-    write_to_device(src, core, dst_addr, size, noc_id);
+    write_to_device(src, core, dst_addr, size, noc);
 }
 
-void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc), noc);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
-    read_from_device(dst, core, src_addr, size, noc_id);
+    read_from_device(dst, core, src_addr, size, noc);
 }
 
 void TTDevice::dma_write_to_core_range(
-    const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
+    const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
-        src, dst_addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
+        src, dst_addr, size, resolve_coordinate(core_start, noc), resolve_coordinate(core_end, noc), noc);
 
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular multicast write.
-    noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
+    noc_multicast_write(src, size, core_start, core_end, dst_addr, noc);
 }
 
-void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
     bool dma_success =
-        get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+        get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc), noc);
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read failed: no DMA buffer allocated for this device.");
     }
 }
 
-void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
     bool dma_success =
-        get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+        get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc), noc);
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
 }
 
-bool TTDevice::dma_write_zero_copy_start(
-    uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+bool TTDevice::dma_write_zero_copy_start(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc) {
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
-    return get_dma_interface()->dma_write_zero_copy_start(
-        src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    return get_dma_interface()->dma_write_zero_copy_start(src_iova, dst_addr, size, resolve_coordinate(core, noc), noc);
 }
 
-bool TTDevice::dma_read_zero_copy_start(
-    uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+bool TTDevice::dma_read_zero_copy_start(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc) {
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
-    return get_dma_interface()->dma_read_zero_copy_start(
-        dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    return get_dma_interface()->dma_read_zero_copy_start(dst_iova, src_addr, size, resolve_coordinate(core, noc), noc);
 }
 
 DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interface()->dma_write_zero_copy_check(); }
@@ -603,11 +598,11 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const {
     return soc_descriptor_.value();
 }
 
-void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor, NocId noc) {
     if (soc_arch_descriptor == nullptr) {
-        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info(noc));
     } else {
-        soc_descriptor_ = SocDescriptor(soc_arch_descriptor, get_chip_info());
+        soc_descriptor_ = SocDescriptor(soc_arch_descriptor, get_chip_info(noc));
     }
 }
 
@@ -626,25 +621,25 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
 // A LITERAL coordinate is never folded. It already means "device-ready by contract" to both
 // resolve_coordinate() and att::resolve_core(), which is what lets a caller address a system
 // physical range directly on an architecture that otherwise resolves by coordinate.
-std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const {
+std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc) const {
     const att::EndpointResolver *resolver = model_->get_endpoint_resolver();
 
     // No resolver, or an address the caller states is already device-ready: nothing to fold.
     if (resolver == nullptr || core.coord_system == CoordSystem::LITERAL) {
-        return {resolve_coordinate(core, noc_id), addr};
+        return {resolve_coordinate(core, noc), addr};
     }
 
     // What the fold produces is a system physical address, and only NOC0 routes one. The caller
-    // chooses the address space with noc_id further down, so folding for SYSTEM_NOC would hand a
+    // chooses the address space with noc further down, so folding for SYSTEM_NOC would hand a
     // system physical address to the device-local aperture and land somewhere else entirely. A
     // device-local target names itself, so it arrives LITERAL and has already returned above.
     UMD_ASSERT(
-        noc_id != NocId::SYSTEM_NOC,
+        noc != NocId::SYSTEM_NOC,
         error::RuntimeError,
         fmt::format(
             "A folded address is system physical and only NOC0 carries one, so {} cannot be reached with core {}; "
             "address a device-local target with a LITERAL coordinate.",
-            noc_to_str(noc_id),
+            noc_to_str(noc),
             core.str()));
 
     // The fold consumes the coordinate, so what travels is the origin: a Quasar address names its
@@ -664,14 +659,14 @@ std::pair<xy_pair, uint64_t> TTDevice::resolve_target(CoreCoord core, uint64_t a
     return {xy_pair(0, 0), att::resolve_core(*resolver, get_soc_descriptor(), core, addr, size)};
 }
 
-xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {
+xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc) const {
     if (core.coord_system == CoordSystem::LITERAL) {
         return xy_pair(core.x, core.y);
     }
     if (!soc_descriptor_.has_value()) {
-        UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc_id);
+        UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc);
     }
-    return get_soc_descriptor().translate_chip_coord_to_translated(core, noc_id);
+    return get_soc_descriptor().translate_chip_coord_to_translated(core, noc);
 }
 
 }  // namespace tt::umd

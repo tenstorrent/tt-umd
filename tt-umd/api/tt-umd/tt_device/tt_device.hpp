@@ -165,14 +165,14 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        NocId noc_id = NocId::DEFAULT_NOC,
+        NocId noc = NocId::DEFAULT_NOC,
         IoOrdering ordering = IoOrdering::STRICT);
     virtual void write_to_device(
         const void *mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        NocId noc_id = NocId::DEFAULT_NOC,
+        NocId noc = NocId::DEFAULT_NOC,
         IoOrdering ordering = IoOrdering::STRICT);
 
     // Register reads/writes reach the device as one access of the given width per register; addr and size must
@@ -182,14 +182,14 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        NocId noc_id = NocId::DEFAULT_NOC,
+        NocId noc = NocId::DEFAULT_NOC,
         RegisterAccessWidth width = RegisterAccessWidth::BITS32);
     virtual void write_to_device_reg(
         const void *mem_ptr,
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        NocId noc_id = NocId::DEFAULT_NOC,
+        NocId noc = NocId::DEFAULT_NOC,
         RegisterAccessWidth width = RegisterAccessWidth::BITS32);
 
     /**
@@ -202,10 +202,10 @@ public:
      * @param dst_addr Destination address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Target core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_write(
-        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
@@ -217,9 +217,9 @@ public:
      * @param src_addr Source address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
-    virtual void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Executes a multicast Host-to-Device DMA transfer using an internal bounce buffer.
@@ -232,7 +232,7 @@ public:
      * @param size Number of bytes to transfer.
      * @param core_start Top-left core coordinate of the multicast grid.
      * @param core_end Bottom-right core coordinate of the multicast grid.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_write_to_core_range(
         const void *src,
@@ -240,7 +240,7 @@ public:
         size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
-        NocId noc_id = NocId::DEFAULT_NOC);
+        NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Executes a zero-copy Device-to-Host (D2H) DMA transfer.
@@ -253,10 +253,10 @@ public:
      * @param src_addr Source address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_read_zero_copy(
-        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
@@ -269,10 +269,10 @@ public:
      * @param dst_addr Destination address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Target core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Starts a zero-copy Host-to-Device DMA transfer without waiting for it.
@@ -285,18 +285,18 @@ public:
      * @param dst_addr Destination address on the target device core. Must be a multiple of 4.
      * @param size Number of bytes to transfer. Non-zero multiple of 4, at most dma_zero_copy_max_size(dst_addr).
      * @param core Target core coordinate on the device.
-     * @param noc_id Physical network to route the transaction over.
+     * @param noc Physical network to route the transaction over.
      * @return false if the device is busy and nothing was started.
      */
     [[nodiscard]] bool dma_write_zero_copy_start(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Device-to-Host counterpart of dma_write_zero_copy_start(). Destination memory must not be
      * read until the transfer finishes. Not supported on Blackhole.
      */
     [[nodiscard]] bool dma_read_zero_copy_start(
-        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Reports on the Host-to-Device transfer in flight on this device, without waiting.
@@ -339,7 +339,7 @@ public:
         CoreCoord core_start,
         CoreCoord core_end,
         uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
+        NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to all TENSIX cores in the grid.
@@ -348,9 +348,9 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc = NocId::DEFAULT_NOC);
 
-    ChipInfo get_chip_info();
+    ChipInfo get_chip_info([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
 
     FirmwareBundleVersion get_firmware_version();
 
@@ -361,22 +361,30 @@ public:
     DeviceFirmware *get_device_firmware() const;
 
     /**
-     * Waits for ETH core training to complete.
-     * @param eth_core Specific ETH core to wait on.
-     * @param timeout_ms Timeout in ms.
-     * @return true if training completed within the timeout.
+     * @brief Waits for the specified Ethernet core to complete its link training sequence.
+     * @param eth_core Target Ethernet core coordinates.
+     * @param timeout_ms Maximum duration to wait for training completion.
+     * Defaults to @ref timeout::ETH_TRAINING_TIMEOUT.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @return true if training completed successfully within the timeout.
      */
     bool wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+        const CoreCoord eth_core,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        NocId noc = NocId::DEFAULT_NOC);
 
     /**
-     * Waits for DRAM channel training to complete.
-     * @param dram_channel Index of the DRAM channel to wait on.
-     * @param timeout_ms Timeout in ms.
-     * @return true if training completed within the timeout.
+     * @brief Waits for the specified DRAM channel to complete its hardware training and calibration.
+     * @param dram_channel The index of the DRAM channel to poll.
+     * @param timeout_ms Maximum duration to wait for training completion.
+     * Defaults to @ref timeout::DRAM_TRAINING_TIMEOUT.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     * @return true if training completed successfully within the timeout.
      */
     bool wait_dram_channel_training(
-        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+        const uint32_t dram_channel,
+        const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT,
+        NocId noc = NocId::DEFAULT_NOC);
 
     void bar_write32(uint32_t addr, uint32_t data);
 
@@ -386,7 +394,7 @@ public:
 
     tt_xy_pair get_arc_core() const;
 
-    tt_xy_pair get_arc_core(const NocId noc_id) const;
+    tt_xy_pair get_arc_core(const NocId noc) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
@@ -396,9 +404,9 @@ public:
      * Claims or releases full power domains. No-op for remote devices.
      *
      * @param state The requested power state (BUSY or IDLE).
-     * @param noc_id NOC to route through (if the feature is routed through NOC).
+     * @param noc NOC to route through (if the feature is routed through NOC).
      */
-    virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void set_power_state(PowerState state, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Sets the device clock frequency.
@@ -407,9 +415,9 @@ public:
      * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
-     * @param noc_id NOC to route through (if the feature is routed through NOC).
+     * @param noc NOC to route through (if the feature is routed through NOC).
      */
-    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
+    void set_clock_state(ClockState state, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Retrieves the current AICLK frequency, read from the telemetry the firmware publishes.
@@ -444,26 +452,35 @@ public:
 
     BoardType get_board_type() const;
 
-    bool get_noc_translation_enabled() const;
+    bool get_noc_translation_enabled([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
     double get_asic_temperature() const;
 
-    virtual void wait_for_non_mmio_flush();
+    /**
+     * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     *
+     * Guarantees that all transactions sent via remote communication have completed
+     * before proceeding. No-op when the device is not remote.
+     */
+    void wait_for_non_mmio_flush(NocId noc = NocId::DEFAULT_NOC);
 
     bool is_remote() const;
 
-    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    void init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
+        [[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
 
-    uint64_t get_refclk_counter() const;
+    uint64_t get_refclk_counter([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
     int get_communication_device_id() const;
 
     IODeviceType get_communication_device_type() const;
 
     /**
-     * Get the soft reset signal for the given riscs.
-     *
-     * @param core Core to get soft reset for, in translated coordinates
+     * @brief Returns which baby RISCs are currently held in soft reset.
+     * @param core Target core coordinates.
+     * @return Bitmask of RISCs currently in reset.
      */
     uint32_t get_risc_reset_state(CoreCoord core);
 
@@ -480,9 +497,9 @@ public:
      *
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
-     * @param noc_id NOC to route through (if the feature is routed through NOC)
+     * @param noc NOC to route through (if the feature is routed through NOC)
      */
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -490,10 +507,10 @@ public:
      * @param core Core to deassert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to deassert reset for
      * @param staggered_start Whether to use staggered start
-     * @param noc_id NOC to route through (if the feature is routed through NOC)
+     * @param noc NOC to route through (if the feature is routed through NOC)
      */
     void deassert_risc_reset(
-        CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -570,6 +587,11 @@ public:
      * PeerDmaInterface::export_window for the full contract; the caller owns the returned fd and
      * must close() it.
      *
+     * @param core Core to target.
+     * @param addr Address within the core to aim the exported region at; must be page-aligned.
+     * @param size Number of bytes to export; must be page-aligned and non-zero.
+     * @param ordering Ordering mode for the TLB window backing the export.
+     * @param noc NOC to route the exported traffic over.
      * @throws if this device has no PeerDmaInterface.
      */
     virtual int export_dmabuf(
@@ -577,7 +599,7 @@ public:
         uint64_t addr,
         size_t size,
         IoOrdering ordering = IoOrdering::RELAXED,
-        NocId noc_id = NocId::DEFAULT_NOC);
+        NocId noc = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -587,7 +609,8 @@ public:
      * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
+    EthTrainingStatus read_eth_core_training_status(
+        CoreCoord eth_core, [[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
 
     const SocDescriptor &get_soc_descriptor() const;
 
@@ -601,19 +624,19 @@ protected:
         CoreCoord core_start,
         CoreCoord core_end,
         uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
+        NocId noc = NocId::DEFAULT_NOC);
 
-    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor, NocId noc);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
     // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
     PcieInterface *require_pcie_interface();
 
-    xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
+    xy_pair resolve_coordinate(CoreCoord core, NocId noc) const;
 
     /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */
-    std::pair<xy_pair, uint64_t> resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc_id) const;
+    std::pair<xy_pair, uint64_t> resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc) const;
 
     DmaInterface *get_dma_interface();
 

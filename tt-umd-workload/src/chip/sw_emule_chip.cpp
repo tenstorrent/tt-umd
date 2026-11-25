@@ -5,9 +5,13 @@
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"
 
 #include <cassert>
+#include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -16,20 +20,18 @@
 #include <utility>
 #include <vector>
 
-#include "register_access.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/utils/error.hpp"
-#include "tt_device/firmware/simulation_device_firmware.hpp"
-#include "tt_device_model/soc_arch_descriptor_resolver.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
@@ -210,6 +212,19 @@ CoreCoord core_at_noc_xy(const SocDescriptor& soc, tt_xy_pair xy, NocId noc) {
     }
 }
 
+// A register access is one access per register, never one wide request, as on every other protocol.
+template <typename Access>
+void for_each_register(uint64_t addr, size_t size, RegisterAccessWidth width, Access access) {
+    const size_t access_size = register_access_size(width);
+    UMD_ASSERT(
+        addr % access_size == 0 && size % access_size == 0,
+        error::RuntimeError,
+        "Register address and size must be aligned to the access width.");
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        access(offset, access_size);
+    }
+}
+
 // Every TTDevice access reaches the chip's own memory. Register accesses go one register at a time, as on
 // any other protocol; there is no hardware multicast.
 class SWEmuleProtocol final : public DeviceProtocol {
@@ -226,13 +241,17 @@ public:
 
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
-        read_registers_individually(*this, dst, core, addr, size, noc_id, width);
+        for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
+            read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id);
+        });
     }
 
     void write_ctrl(
         const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
         override {
-        write_registers_individually(*this, src, core, addr, size, noc_id, width);
+        for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
+            write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, access_size, noc_id);
+        });
     }
 
     [[nodiscard]] bool write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId) override {
@@ -245,7 +264,55 @@ private:
     SWEmuleChip& chip_;
 };
 
-// The device model of an emulated chip: no management firmware behind it (the simulation firmware that reports
+// An emulated chip runs no management firmware, so each operation is the no-op a simulated device's firmware
+// performs (tt-umd's SimulationDeviceFirmware, which is private to tt-umd). Keep the two in step.
+class SWEmuleDeviceFirmware final : public DeviceFirmware {
+public:
+    explicit SWEmuleDeviceFirmware(tt::ARCH arch) : arch_(arch) {}
+
+    void init_firmware(std::chrono::milliseconds, NocId) override {}
+
+    DeviceCommandResult send_device_command(uint32_t, const std::vector<uint32_t>&, std::chrono::milliseconds, NocId)
+        override {
+        return DeviceCommandResult{};
+    }
+
+    void set_clock_state(ClockState, NocId) override {}
+
+    void set_power_state(PowerState, NocId) override {}
+
+    bool get_noc_translation_enabled(NocId) override { return false; }
+
+    // Blackhole's SocDescriptor needs 2 or 14 harvested ETH cores; 0x3000 is what a simulated chip reports.
+    ChipInfo get_chip_info(NocId) override {
+        ChipInfo chip_info{};
+        if (arch_ == tt::ARCH::BLACKHOLE) {
+            chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
+        }
+        return chip_info;
+    }
+
+    tt_xy_pair get_firmware_noc_coord(NocId) const override { return tt_xy_pair{}; }
+
+    bool wait_eth_core_training(tt_xy_pair, std::chrono::milliseconds, NocId) override { return true; }
+
+    EthTrainingStatus get_eth_core_training_status(tt_xy_pair, NocId) override { return EthTrainingStatus::SUCCESS; }
+
+    bool wait_dram_channel_training(uint32_t, std::chrono::milliseconds, NocId) override { return false; }
+
+    std::optional<uint64_t> get_runtime_telemetry_buffer_address(NocId) override { return std::nullopt; }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId) override { return std::nullopt; }
+
+    uint64_t get_refclk_counter(NocId) override {
+        UMD_THROW(error::RuntimeError, "The refclk counter is not available for an emulated device.");
+    }
+
+private:
+    tt::ARCH arch_;
+};
+
+// The device model of an emulated chip: no management firmware behind it (firmware that reports
 // nothing), the architecture's constants, and the chip's own protocol and windows. Built only from sources every
 // UMD build has, so an emule build does not need TT_UMD_BUILD_SIMULATION.
 class SWEmuleTTDeviceModel final : public TTDeviceModel {
@@ -255,7 +322,7 @@ public:
         protocol_(chip),
         device_firmware_(chip.get_soc_descriptor().arch),
         architecture_impl_(ArchitectureImplementation::create(chip.get_soc_descriptor().arch)),
-        soc_arch_descriptor_(resolve_soc_arch_descriptor(chip.get_soc_descriptor().arch, nullptr)) {}
+        soc_arch_descriptor_(std::make_shared<SocArchDescriptor>(chip.get_soc_descriptor().arch)) {}
 
     DeviceProtocol* get_device_protocol() override { return &protocol_; }
 
@@ -274,7 +341,7 @@ public:
 private:
     SWEmuleChip& chip_;
     SWEmuleProtocol protocol_;
-    SimulationDeviceFirmware device_firmware_;
+    SWEmuleDeviceFirmware device_firmware_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
 };

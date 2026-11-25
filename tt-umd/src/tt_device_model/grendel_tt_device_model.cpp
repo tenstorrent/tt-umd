@@ -25,8 +25,10 @@ GrendelTTDeviceModel::GrendelTTDeviceModel(
 GrendelTTDeviceModel::~GrendelTTDeviceModel() = default;
 
 // The window borrows the device the protocol owns: both issue their accesses over the same driver
-// handle, and this model outlives the windows it hands out.
-std::unique_ptr<IoWindow> GrendelTTDeviceModel::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+// handle, and this model outlives the windows it hands out. It has nothing weaker than Strict to offer,
+// so ordering is not passed on.
+std::unique_ptr<IoWindow> GrendelTTDeviceModel::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     return std::make_unique<KmdNocWindow>(pci_device_, target, host.size);
 }
 
@@ -40,7 +42,11 @@ ArchitectureImplementation *GrendelTTDeviceModel::get_architecture_impl() { retu
 
 SocArchDescriptor *GrendelTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
-const att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() { return &endpoint_resolver_; }
+RiscReset *GrendelTTDeviceModel::get_risc_reset() { return nullptr; }
+
+SystemMemoryAllocator *GrendelTTDeviceModel::get_system_memory_allocator() { return nullptr; }
+
+const att::EndpointResolver *GrendelTTDeviceModel::get_endpoint_resolver() const { return &endpoint_resolver_; }
 
 std::shared_ptr<SocArchDescriptor> GrendelTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;

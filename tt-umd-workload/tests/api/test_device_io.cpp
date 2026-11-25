@@ -15,6 +15,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <random>
 #include <set>
@@ -69,9 +70,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     // Initialize random data.
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
-    for (int i = 0; i < data_size; i++) {
-        data[i] = i % 256;
-    }
+    std::iota(data.begin(), data.end(), uint8_t{0});
 
     // Setup memory barrier addresses.
     // Some default values are set during construction of UMD, but you can override them.
@@ -158,9 +157,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     // Initialize random data.
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
-    for (int i = 0; i < data_size; i++) {
-        data[i] = i % 256;
-    }
+    std::iota(data.begin(), data.end(), uint8_t{0});
 
     // Setup memory barrier addresses.
     // Some default values are set during construction of UMD, but you can override them.
@@ -207,7 +204,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = zeros;
 
-    static const uint32_t num_loops = 100;
+    static constexpr uint32_t num_loops = 100;
 
     for (const ChipId chip : cluster->get_target_device_ids()) {
         std::uint32_t address = SAFE_IO_L1_ADDRESS;
@@ -253,8 +250,8 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-    const uint64_t address = 0;
-    const size_t data_size = 256;
+    constexpr uint64_t address = 0;
+    constexpr size_t data_size = 256;
     std::vector<uint8_t> write_data(data_size, 0);
     for (std::size_t i = 0; i < data_size; i++) {
         write_data[i] = (uint8_t)i;
@@ -474,9 +471,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 
     std::vector<uint8_t> zero_data(test_size, 0);
     std::vector<uint8_t> data(test_size, 0);
-    for (int i = 0; i < test_size; i++) {
-        data[i] = i % 256;
-    }
+    std::iota(data.begin(), data.end(), uint8_t{0});
 
     // Set elements to 1 since the first readback will be of zero data, so want to confirm that
     // elements actually changed.
@@ -628,8 +623,8 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     constexpr size_t ONE_GIG = 1ULL << 30;
     constexpr uint64_t ALIGNMENT = sizeof(uint32_t);
 
-    uint32_t channels;
-    uint32_t channels_to_test;
+    uint16_t channels;
+    uint16_t channels_to_test;
     if (is_simulation_test()) {
         channels = 4;
         channels_to_test = 1;
@@ -678,7 +673,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.
         const uint32_t chip_pattern = 0xDEAD'BEEFu + static_cast<uint32_t>(mmio_chip_id);
 
-        for (uint32_t channel = 0; channel < channels_to_test; channel++) {
+        for (uint16_t channel = 0; channel < channels_to_test; channel++) {
             uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(/*offset=*/0, mmio_chip_id, channel));
 
             ASSERT_NE(sysmem, nullptr);
@@ -836,9 +831,7 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
     const size_t test_size = l1_size - SAFE_IO_L1_ADDRESS;
 
     std::vector<uint32_t> write_data_l1(test_size / 4, 0);
-    for (size_t i = 0; i < test_size / 4; i++) {
-        write_data_l1[i] = i;
-    }
+    std::iota(write_data_l1.begin(), write_data_l1.end(), uint32_t{0});
 
     cluster->write_to_device(
         write_data_l1.data(), write_data_l1.size() * sizeof(uint32_t), 0, tensix_core, SAFE_IO_L1_ADDRESS);
@@ -908,9 +901,7 @@ TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
     constexpr size_t data_size = 256;
     constexpr uint64_t addr = SAFE_IO_L1_ADDRESS;
     std::vector<uint8_t> write_data(data_size, 0);
-    for (size_t i = 0; i < data_size; i++) {
-        write_data[i] = i % 256;
-    }
+    std::iota(write_data.begin(), write_data.end(), uint8_t{0});
 
     // Selecting SYSTEM_NOC routes write_to_device/read_from_device through the SMN path.
     NocIdSwitcher noc_switcher(NocId::SYSTEM_NOC);
@@ -941,7 +932,7 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  * to 0x0 in several DRAM cores, then reading them back and verifying.
  */
 TEST(TestDeviceIO, DMA1) {
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 
@@ -950,7 +941,7 @@ TEST(TestDeviceIO, DMA1) {
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
-        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(static_cast<int>(i), 0, CoordSystem::NOC0));
     }
 
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
@@ -990,7 +981,7 @@ TEST(TestDeviceIO, DMA1) {
  * MMIO instead of DMA.
  */
 TEST(TestDeviceIO, DMA2) {
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 
@@ -999,12 +990,12 @@ TEST(TestDeviceIO, DMA2) {
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
     for (size_t i = 0; i < dram_count; ++i) {
-        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(static_cast<int>(i), 0, CoordSystem::NOC0));
     }
 
     // Constraints for random size generation.
-    const size_t MIN_BUF_SIZE = 4;
-    const size_t MAX_BUF_SIZE = 0x2000000;
+    constexpr size_t MIN_BUF_SIZE = 4;
+    constexpr size_t MAX_BUF_SIZE = 0x2000000;
 
     // Setup random number generation.
     std::random_device rd;
@@ -1018,7 +1009,7 @@ TEST(TestDeviceIO, DMA2) {
         std::vector<uint8_t> data;  // Store the actual data written for verification.
     };
 
-    const size_t ITERATIONS = 25;
+    constexpr size_t ITERATIONS = 25;
     for (size_t i = 0; i < ITERATIONS; ++i) {
         std::vector<DmaOpInfo> write_ops;
         write_ops.reserve(dram_cores.size());

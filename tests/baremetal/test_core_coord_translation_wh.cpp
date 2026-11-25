@@ -52,7 +52,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     // This harvesting mask if targeting first row in NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
@@ -73,7 +73,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
 // the logical coordinates (7, 0) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
     // This harvesting mask if targeting first row in NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
@@ -95,7 +95,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
 // the logical coordinates (0, 8) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
     // This harvesting mask if targeting first row in NOC layout.
-    const size_t tensix_harvesting_mask = (1 << 0);
+    constexpr size_t tensix_harvesting_mask = (1 << 0);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
@@ -117,7 +117,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
 // For the reverse mapping back of noc0 to logical coordinates we expect that same logical coordinates are returned
 // as from original mapping.
 TEST(CoordinateManager, CoordinateManagerWormholeLogicalNOC0Mapping) {
-    const size_t max_num_harvested_y = 10;
+    constexpr size_t max_num_harvested_y = 10;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
@@ -158,12 +158,12 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalNOC0Mapping) {
 
 // Test top left corner translation from logical to translated coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
-    const size_t translated_x_start = 18;
-    const size_t translated_y_start = 18;
+    constexpr size_t translated_x_start = 18;
+    constexpr size_t translated_y_start = 18;
     const CoreCoord expected_translated_coords =
         CoreCoord(translated_x_start, translated_y_start, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    const size_t max_num_harvested_y = 10;
+    constexpr size_t max_num_harvested_y = 10;
 
     // We go up to numbers less than 2^10 - 1 to test all possible harvesting masks, we fon't want to try to convert
     // if everything is harvested.
@@ -308,7 +308,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHHarvestingAssert) {
 
 // Test that we properly get harvesting mask that is based on the noc0 layout of the chip.
 TEST(CoordinateManager, CoordinateManagerWormholeNOC0LayoutTensixHarvestingMask) {
-    const size_t max_num_harvested_y = 10;
+    constexpr size_t max_num_harvested_y = 10;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = harvesting_mask};

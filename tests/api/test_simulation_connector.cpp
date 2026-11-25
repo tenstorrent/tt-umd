@@ -332,7 +332,7 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     EXPECT_EQ(client_connection->backend, host_connection->backend);
     EXPECT_EQ(client_connection->arch, host_connection->arch);
 
-    const tt::ChipId chip = 0;
+    constexpr tt::ChipId chip = 0;
     const SocDescriptor& soc = host_cluster.get_soc_descriptor(chip);
     const CoreCoord tensix = soc.get_cores(tt::CoreType::TENSIX).at(0);
     constexpr uint64_t addr = 0x1000;

@@ -78,8 +78,8 @@ RdmaLoopback::RdmaLoopback(int max_outstanding_reads) : max_outstanding_reads_(s
     qp_requester_ = create_qp(sq_depth);
     qp_responder_ = create_qp(sq_depth);
 
-    const uint32_t psn_requester = 0x111111;
-    const uint32_t psn_responder = 0x222222;
+    constexpr uint32_t psn_requester = 0x111111;
+    constexpr uint32_t psn_responder = 0x222222;
     connect_qp(qp_requester_, qp_responder_->qp_num, psn_responder, psn_requester);
     connect_qp(qp_responder_, qp_requester_->qp_num, psn_requester, psn_responder);
 }
@@ -227,7 +227,7 @@ void RdmaLoopback::connect_qp(ibv_qp* qp, uint32_t dest_qpn, uint32_t dest_psn, 
     rtr.min_rnr_timer = 12;
     rtr.ah_attr.is_global = 1;
     rtr.ah_attr.port_num = port_;
-    rtr.ah_attr.grh.sgid_index = gid_index_;
+    rtr.ah_attr.grh.sgid_index = static_cast<uint8_t>(gid_index_);
     rtr.ah_attr.grh.hop_limit = 64;
     // Destination GID == our own GID: this is what makes the connection a loopback.
     memcpy(rtr.ah_attr.grh.dgid.raw, gid_raw_, sizeof(gid_raw_));

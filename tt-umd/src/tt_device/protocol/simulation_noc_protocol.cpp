@@ -13,13 +13,15 @@ namespace tt::umd {
 SimulationNocProtocol::SimulationNocProtocol(SimulationTTDevice* device, int mmio_id) :
     device_(device), mmio_id_(mmio_id) {}
 
-void SimulationNocProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void SimulationNocProtocol::read_data(
+    void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     // The caller translated the coordinate for noc_id, so the access goes out on that NOC.
     NocIdSwitcher noc_switcher(noc_id);
     device_->noc_read_translated(core, addr, dst, size);
 }
 
-void SimulationNocProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void SimulationNocProtocol::write_data(
+    const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     NocIdSwitcher noc_switcher(noc_id);
     device_->noc_write_translated(core, addr, src, size);
 }

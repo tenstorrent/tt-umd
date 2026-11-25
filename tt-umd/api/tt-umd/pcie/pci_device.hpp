@@ -139,15 +139,15 @@ enum class NocAddressSpace {
 };
 
 class PCIDevice {
-    const std::string device_path;   // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;        // N in /dev/tenstorrent/N
-    const int pci_device_file_desc;  // Character device file descriptor
-    const PciDeviceInfo info;        // PCI device info
-    const int numa_node;             // -1 if non-NUMA
-    const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
-    const SemVer kmd_version;        // KMD version
-    const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;       // N in /dev/tenstorrent/N
+    const PciDeviceInfo info;       // PCI device info
+    const int numa_node;            // -1 if non-NUMA
+    const uint8_t revision;         // PCI revision value from sysfs
+    const tt::ARCH arch;            // e.g. Wormhole, Blackhole
+    const SemVer kmd_version;       // KMD version
+    int pci_device_file_desc = -1;  // Character device file descriptor, -1 until opened
+    const bool iommu_enabled;       // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
 public:
@@ -223,13 +223,13 @@ public:
     /**
      * @return PCI device id
      */
-    int get_pci_device_id() const { return info.device_id; }
+    uint16_t get_pci_device_id() const { return info.device_id; }
 
     /**
      * @return PCI revision value from sysfs.
      * TODO: target for removal; upper layers should not care about this.
      */
-    int get_pci_revision() const { return revision; }
+    uint8_t get_pci_revision() const { return revision; }
 
     /**
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
@@ -467,6 +467,18 @@ public:
     uint32_t read_checking_offset;
 
 private:
+    /**
+     * Closes the tt_device handle, the device file descriptor and every BAR mapping. Called by the
+     * destructor, and by the constructor when it throws, so a partially constructed device leaks nothing.
+     */
+    void release_resources();
+
+    /**
+     * Runs everything after the constructor's member initializers: opening the tt_device handle
+     * and mapping the BARs. Called only by the constructor.
+     */
+    void construct_resources();
+
     /**
      * Function will allocate PCIe DMA buffer that UMD uses for PCIe DMA transfers. To make the process of allocation
      * robust, allocation tries to allocate larger DMA buffers first and then shrinks the size until it reaches the

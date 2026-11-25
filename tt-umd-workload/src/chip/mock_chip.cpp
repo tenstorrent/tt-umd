@@ -24,11 +24,11 @@ void MockChip::close_device() {}
 
 TTDevice* MockChip::get_tt_device() { return nullptr; }
 
-SysmemManager* MockChip::get_sysmem_manager() { return nullptr; }
+SystemMemoryAllocator* MockChip::get_system_memory_allocator() { return nullptr; }
 
-int MockChip::get_num_host_channels() { return 0; }
+size_t MockChip::get_num_host_channels() { return 0; }
 
-int MockChip::get_host_channel_size(std::uint32_t channel) { return 0; }
+size_t MockChip::get_host_channel_size(std::uint32_t channel) { return 0; }
 
 void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {}
 

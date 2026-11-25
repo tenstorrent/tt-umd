@@ -405,17 +405,17 @@ void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
 
 HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvesting_masks; }
 
-uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
+uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, size_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
         ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
-    size_t new_harvesting_mask = 0;
+    uint32_t new_harvesting_mask = 0;
     uint32_t pos = 0;
     while (tensix_harvesting_physical_layout > 0) {
         if (tensix_harvesting_physical_layout & 1) {
-            uint32_t sorted_position =
+            const size_t sorted_position =
                 std::find(
                     sorted_harvesting_locations.begin(), sorted_harvesting_locations.end(), harvesting_locations[pos]) -
                 sorted_harvesting_locations.begin();
@@ -434,7 +434,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
         ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
-    size_t new_harvesting_mask = 0;
+    uint32_t new_harvesting_mask = 0;
     uint32_t pos = 0;
     while (tensix_harvesting_logical_layout > 0) {
         if (tensix_harvesting_logical_layout & 1) {
@@ -642,11 +642,11 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
     }
 }
 
-uint32_t CoordinateManager::get_num_eth_channels() const {
+size_t CoordinateManager::get_num_eth_channels() const {
     return num_eth_channels - CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 
-uint32_t CoordinateManager::get_num_harvested_eth_channels() const {
+size_t CoordinateManager::get_num_harvested_eth_channels() const {
     return CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
 }
 

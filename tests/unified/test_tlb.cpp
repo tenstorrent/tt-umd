@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <vector>
 
@@ -59,9 +60,9 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr uint64_t tensix_addr = 0;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -73,7 +74,7 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     uint32_t value_check = 0;
 
@@ -91,7 +92,7 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -111,8 +112,8 @@ TEST_F(TestTlb, TestClusterExportDmabuf) {
         GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
     }
 
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -144,9 +145,9 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const uint64_t tensix_addr = 0;
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr uint64_t tensix_addr = 0;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -158,7 +159,7 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     uint32_t value_check = 0;
 
@@ -166,7 +167,7 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
     // do the reconfigure of the TLB window.
     tlb_data config{};
     std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+        std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -196,18 +197,18 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     // Point of the test is to read NOC0 node id register.
     // TLB needs to be aligned to 2MB so these base and offset values are
     // how TLB should be programmed in order to get to addr 0xFFB2002C.
-    const uint64_t tlb_base = 0xFFA00000;
-    const uint64_t noc_node_id_tlb_offset = 0x12002C;
+    constexpr uint64_t tlb_base = 0xFFA00000;
+    constexpr uint64_t noc_node_id_tlb_offset = 0x12002C;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(0)->get_communication_device_id());
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -225,7 +226,7 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
 
@@ -243,14 +244,14 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config_write;
@@ -266,14 +267,14 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
         config_write.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
         std::unique_ptr<TlbWindow> tlb_window_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
         uint32_t expect0 = tlb_window_read->read32(4);
@@ -287,14 +288,14 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -310,9 +311,9 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Test basic write16/read16.
         tlb_write->write16(0, 0xABCD);
@@ -325,8 +326,8 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
 
         // Two write16 calls should be equivalent to one write32.
         // Write via two write16 at offset 0, then read back as write32.
-        const uint16_t low16 = 0xBEEF;
-        const uint16_t high16 = 0xDEAD;
+        constexpr uint16_t low16 = 0xBEEF;
+        constexpr uint16_t high16 = 0xDEAD;
         const uint32_t combined32 = (static_cast<uint32_t>(high16) << 16) | low16;
 
         tlb_write->write16(0, low16);
@@ -335,7 +336,7 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         EXPECT_EQ(readback32, combined32);
 
         // Conversely, write32 and read back as two read16.
-        const uint32_t test_val32 = 0xCAFEBABE;
+        constexpr uint32_t test_val32 = 0xCAFEBABE;
         tlb_write->write32(4, test_val32);
         uint16_t low_half = tlb_read->read16(4);
         uint16_t high_half = tlb_read->read16(6);
@@ -356,14 +357,14 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb_size = 1 << 21;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -379,9 +380,9 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_write =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
         std::unique_ptr<TlbWindow> tlb_read =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
         tlb_write->write32(0, 0xAAAABBBB);
@@ -409,20 +410,18 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb = 1 << 21;
-    const uint64_t one_mb = 1 << 20;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb = 1 << 21;
+    constexpr uint64_t one_mb = 1 << 20;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     std::vector<uint8_t> write_pattern(0x100, 0);
-    for (size_t i = 0; i < write_pattern.size(); ++i) {
-        write_pattern[i] = (i % 256);
-    }
+    std::iota(write_pattern.begin(), write_pattern.end(), uint8_t{0});
 
     for (CoreCoord core : tensix_cores) {
         cluster->write_to_device(write_pattern.data(), write_pattern.size(), chip, core, one_mb);
@@ -440,11 +439,11 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());
@@ -471,16 +470,16 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
 // A read that runs off the end of one TLB window has to continue in the next mapping. DRAM is the target because the
 // boundary sits a whole window into the core's address space, beyond the end of Tensix L1.
 TEST_F(TestTlb, TestTlbReadAcrossWindowBoundary) {
-    const ChipId chip = 0;
-    const size_t window_size = 1 << 21;
+    constexpr ChipId chip = 0;
+    constexpr size_t window_size = 1 << 21;
     // A multiple of the window size, so the window has to end exactly here.
-    const uint64_t boundary_addr = 0x30000000;
+    constexpr uint64_t boundary_addr = 0x30000000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const CoreCoord dram_core =
         cluster->get_soc_descriptor(chip).get_dram_core_for_channel(0, 0, CoordSystem::TRANSLATED);
-    SiliconTlbWindow window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+    SiliconTlbWindow window(pci_device.allocate_tlb(window_size, TlbMapping::WC));
 
     // Covers both reads below, [boundary_addr - 4, boundary_addr + 32).
     std::vector<uint8_t> pattern(36);
@@ -506,15 +505,15 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t two_mb = 1 << 21;
-    const uint64_t one_mb = 1 << 20;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t two_mb = 1 << 21;
+    constexpr uint64_t one_mb = 1 << 20;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -530,11 +529,11 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> read_aligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
         std::unique_ptr<TlbWindow> read_unaligned =
-            std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
+            std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
         read_aligned->read_block(one_mb, readback_aligned.data(), readback_aligned.size());
@@ -563,18 +562,18 @@ TEST_F(TestTlb, IoWindowInterface) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
+    constexpr ChipId chip = 0;
     // 2MB is a valid TLB size class on both Wormhole and Blackhole.
-    const size_t window_size = 1 << 21;
+    constexpr size_t window_size = 1 << 21;
     // Unaligned within the window, so get_target_config() has to reconstruct the sub-window offset.
-    const uint64_t l1_addr = 0x100;
+    constexpr uint64_t l1_addr = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const CoreCoord tensix_core =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-    SiliconTlbWindow tlb_window(pci_device->allocate_tlb(window_size, TlbMapping::WC));
+    SiliconTlbWindow tlb_window(pci_device.allocate_tlb(window_size, TlbMapping::WC));
     IoWindow& window = tlb_window;
 
     TargetIoWindowConfig target;
@@ -594,7 +593,7 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_EQ(readback_target.noc, NocId::NOC0);
 
     // The single-argument configure() is documented to apply Strict.
-    EXPECT_EQ(window.get_io_ordering(), IoOrdering::Strict);
+    EXPECT_EQ(window.get_io_ordering(), IoOrdering::STRICT);
 
     window.write32(0, 0xabcd1234);
     EXPECT_EQ(window.read32(0), 0xabcd1234u);
@@ -622,8 +621,8 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_EQ(aligned_readback, aligned_pattern);
 
     // Posted is the mode tt-metal needs for the Blackhole DRAM window; make sure it survives configure().
-    window.configure(target, IoOrdering::Posted);
-    EXPECT_EQ(window.get_io_ordering(), IoOrdering::Posted);
+    window.configure(target, IoOrdering::POSTED);
+    EXPECT_EQ(window.get_io_ordering(), IoOrdering::POSTED);
     EXPECT_EQ(window.get_target_config().addr, l1_addr) << "Ordering change should not disturb the target";
 
     // A silicon TLB can express none of the WindowFlags -- AXI user bits belong to the kernel
@@ -642,10 +641,10 @@ TEST_F(TestTlb, CreateIoWindow) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_addr = 0x100;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_addr = 0x100;
     // Not a size class on any architecture, so it can only be served by rounding up.
-    const size_t requested_size = 4096;
+    constexpr size_t requested_size = 4096;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     TTDevice* tt_device = cluster->get_tt_device(chip);
@@ -663,7 +662,7 @@ TEST_F(TestTlb, CreateIoWindow) {
     EXPECT_GE(window->get_size(), requested_size);
     EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
     // Ordering defaults to Strict when the caller does not ask for one.
-    EXPECT_EQ(window->get_io_ordering(), IoOrdering::Strict);
+    EXPECT_EQ(window->get_io_ordering(), IoOrdering::STRICT);
 
     const TargetIoWindowConfig readback = window->get_target_config();
     EXPECT_EQ(readback.core_start, target.core_start);
@@ -678,7 +677,7 @@ TEST_F(TestTlb, CreateIoWindow) {
 
     // A caller that needs another ordering mode gets it applied to the mapping it is handed, rather
     // than having to reconfigure the window itself once it has one.
-    for (const IoOrdering ordering : {IoOrdering::Relaxed, IoOrdering::Posted}) {
+    for (const IoOrdering ordering : {IoOrdering::RELAXED, IoOrdering::POSTED}) {
         std::unique_ptr<IoWindow> ordered_window =
             tt_device->create_io_window(target, {.size = requested_size}, ordering);
         EXPECT_EQ(ordered_window->get_io_ordering(), ordering);
@@ -688,11 +687,11 @@ TEST_F(TestTlb, CreateIoWindow) {
     // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
     // TTDevice nor translated coordinates ask for a window.
     std::unique_ptr<IoWindow> chip_window =
-        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
+        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::RELAXED);
     ASSERT_NE(chip_window, nullptr);
     EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
     EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
-    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::Relaxed);
+    EXPECT_EQ(chip_window->get_io_ordering(), IoOrdering::RELAXED);
 
     chip_window->write32(0, 0xa5a5a5a5);
     EXPECT_EQ(chip_window->read32(0), 0xa5a5a5a5u);
@@ -704,9 +703,9 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_addr = 0x100;
-    const uint32_t pattern = 0xc0ffee00;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_addr = 0x100;
+    constexpr uint32_t pattern = 0xc0ffee00;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     if (!cluster->get_soc_descriptor(chip).noc_translation_enabled) {
@@ -731,7 +730,7 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
     const CoreCoord grid_end = *right;
 
     // Clear the targets first, so the readback can only be explained by the multicast.
-    const uint32_t zero = 0;
+    constexpr uint32_t zero = 0;
     for (const CoreCoord& core : {grid_start, grid_end}) {
         cluster->write_to_device(&zero, sizeof(zero), chip, core, l1_addr);
     }
@@ -741,7 +740,7 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
         grid_start,
         l1_addr,
         {.size = sizeof(pattern)},
-        IoOrdering::Strict,
+        IoOrdering::STRICT,
         grid_end,
         WindowFlags::MulticastWrite);
     ASSERT_NE(window, nullptr);
@@ -762,7 +761,7 @@ TEST_F(TestTlb, IoWindowTensixRoundTrip) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-    const int num_writes = 1024;
+    constexpr int num_writes = 1024;
     std::vector<uint32_t> zero_out(num_writes, 0);
     std::vector<uint32_t> readback_zeros(num_writes, 0xFFFFFFFF);
     cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
@@ -795,16 +794,16 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
-    const ChipId chip = 0;
-    const uint64_t l1_start = 0x100;
+    constexpr ChipId chip = 0;
+    constexpr uint64_t l1_start = 0x100;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
     const auto& tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
     const size_t num_words = ((1 << 20) + (1 << 17)) / sizeof(uint32_t);
     const size_t test_size = num_words * sizeof(uint32_t);
-    const size_t tlb_size = 1 << 21;
+    constexpr size_t tlb_size = 1 << 21;
 
     std::vector<uint32_t> pattern(num_words);
     std::generate(pattern.begin(), pattern.end(), [i = uint32_t{0}]() mutable { return i++ * 0xDEAD0001; });
@@ -813,7 +812,7 @@ TEST_P(TestTlbRegisterReconfigure, L1RoundTrip) {
     for (auto it = tensix_cores.begin(); it != cores_end; ++it) {
         tt_xy_pair xy{it->x, it->y};
 
-        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
+        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(tlb_size, TlbMapping::UC));
 
         write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0, GetParam());
 

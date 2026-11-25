@@ -15,6 +15,7 @@ class ClassicTileRiscReset;
 class ArchitectureImplementation;
 class HangDetector;
 class IoWindowFactory;
+class PCIDevice;
 class SocArchDescriptor;
 class SystemMemoryAllocator;
 class RemoteCommunication;
@@ -65,8 +66,6 @@ public:
 
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
-    PCIDevice *get_pci_device() override;
-
     SystemMemoryAllocator *get_system_memory_allocator() override;
 
 private:
@@ -80,8 +79,6 @@ private:
     PeerDmaInterface *peer_dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
-    // Owned by the PCIe protocol; retained only to serve get_pci_device().
-    PCIDevice *pci_device_ = nullptr;
 
     // Must come after protocol_: the detector holds the protocol's NOC probe window, which needs the
     // protocol's PCIDevice alive when it is released.

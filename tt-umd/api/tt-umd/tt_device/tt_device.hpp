@@ -56,7 +56,6 @@ class SimulationSysmemManager;
 class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
@@ -99,10 +98,6 @@ public:
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
-
-    // Being removed (#3530): do not add new callers. PCIe queries go through get_pcie_interface().
-    PCIDevice *get_pci_device();
-
     RemoteCommunication *get_remote_communication();
 
     SystemMemoryAllocator *get_system_memory_allocator();

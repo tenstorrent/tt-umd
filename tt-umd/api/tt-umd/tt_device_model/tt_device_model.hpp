@@ -26,7 +26,6 @@ class FirmwareInfoProvider;
 class FirmwareTelemetryReader;
 class HangDetector;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PeerDmaInterface;
 class RemoteInterface;
@@ -122,9 +121,6 @@ public:
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once
     // SocDescriptor's ownership model is revisited.
     virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
-
-    // Being removed along with TTDevice::get_pci_device() (#3530): do not add new callers.
-    virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 
 }  // namespace tt::umd

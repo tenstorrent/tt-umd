@@ -55,9 +55,6 @@ public:
 
     int get_mmio_id() override;
 
-    /** Borrowed, not transferred: this protocol owns the device for as long as it lives. */
-    PCIDevice* get_pci_device();
-
 private:
     /** Rejects a request the driver would refuse, naming what is wrong with it. */
     static void validate(tt_xy_pair core, uint64_t addr, size_t size, uint32_t access_width);

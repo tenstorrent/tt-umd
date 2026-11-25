@@ -25,8 +25,9 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     bool use_safe_api,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     soc_arch_descriptor_(resolve_soc_arch_descriptor<tt::ARCH::BLACKHOLE>(soc_arch_descriptor)),
-    architecture_impl_(std::make_unique<BlackholeImplementation>()),
-    pci_device_(pci_device.get()) {
+    architecture_impl_(std::make_unique<BlackholeImplementation>()) {
+    // The protocol takes ownership of the device; the system memory allocator pins through it.
+    PCIDevice *pinning_device = pci_device.get();
     // The protocol's timeout check looks the detector up only when an op overruns. Until it exists, an
     // overrun is not judged a hang, as when no check is wired.
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api, [this](NocId noc) -> bool {
@@ -38,7 +39,7 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     io_window_factory_ = pcie;
     peer_dma_interface_ = pcie;
     protocol_ = std::move(pcie_protocol);
-    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
+    system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pinning_device, protocol_->get_mmio_id());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -95,8 +96,6 @@ PeerDmaInterface *BlackholeTTDeviceModel::get_peer_dma_interface() { return peer
 JtagInterface *BlackholeTTDeviceModel::get_jtag_interface() { return jtag_interface_; }
 
 RemoteInterface *BlackholeTTDeviceModel::get_remote_interface() { return remote_interface_; }
-
-PCIDevice *BlackholeTTDeviceModel::get_pci_device() { return pci_device_; }
 
 SystemMemoryAllocator *BlackholeTTDeviceModel::get_system_memory_allocator() { return system_memory_allocator_.get(); }
 

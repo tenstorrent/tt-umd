@@ -131,9 +131,14 @@ private:
     void configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size);
 
     // Client-mode constructor: this device does not own a simulator (.so); it forwards device
-    // operations to a remote host through client. Reached only via create_client(), which
-    // validates the arguments before construction.
-    TTSimTTDevice(const SocDescriptor &soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+    // operations to a remote host through client. simulator_directory is the simulator the host
+    // reports it runs. Reached only via create_client(), which validates the arguments before
+    // construction.
+    TTSimTTDevice(
+        const SocDescriptor &soc_descriptor,
+        ChipId chip_id,
+        const std::filesystem::path &simulator_directory,
+        std::unique_ptr<SimulationClient> client);
 
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);

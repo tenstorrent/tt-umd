@@ -139,10 +139,13 @@ private:
     bool smn_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
 
     // Client-mode constructor: this device does not own a simulator; it forwards device operations
-    // to a remote host through client. Reached only via create_client(), which validates the
-    // arguments before construction.
+    // to a remote host through client. simulator_directory is the simulator the host reports it
+    // runs. Reached only via create_client(), which validates the arguments before construction.
     RtlSimulationTTDevice(
-        const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        const std::filesystem::path& simulator_directory,
+        std::unique_ptr<SimulationClient> client);
     // Host mode over @p socket, one of an RtlSimSession's, as device @p layout_device of its layout.
     RtlSimulationTTDevice(
         const RtlSimSocket& socket,

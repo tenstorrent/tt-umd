@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -32,7 +33,43 @@ class TTDevice;
  */
 class SimulationBackend {
 public:
+    /**
+     * The chips a simulation server serves, as attached to by a client.
+     */
+    struct AttachedServer {
+        // The topology the server serves, as cluster descriptor YAML.
+        std::string topology_yaml;
+        // One device per live socket that answered, keyed by the chip id its socket is named for.
+        std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    };
+
+    /**
+     * How a simulated device reaches its simulator.
+     */
+    struct DeviceConnection {
+        // Host when this process runs the simulator, Client when the device drives another process's over a socket.
+        SimulationConnector::Role role = SimulationConnector::Role::Host;
+        // The simulator behind the device; as a client, the one the host reports it runs.
+        std::filesystem::path simulator;
+        SimulationBackendType backend = SimulationBackendType::TTSIM;
+        // The socket a host serves the device on (empty when it is not served), or a client reaches its host through.
+        std::filesystem::path socket;
+    };
+
     virtual ~SimulationBackend() = default;
+
+    /**
+     * Whether simulator_path is the server directory of a simulation server, a directory holding per-chip simulation
+     * sockets, rather than a simulator.
+     */
+    virtual bool is_server_directory(const std::filesystem::path& simulator_path) const = 0;
+
+    /**
+     * Attach as a client to the simulation server serving in server_directory: one device per live socket, built from
+     * the SoC descriptor the server reports for its chip. Sockets nobody listens on, and sockets that do not answer,
+     * are skipped; throws error::RuntimeError when none is left.
+     */
+    virtual AttachedServer attach_to_server(const std::filesystem::path& server_directory) const = 0;
 
     /**
      * The architecture the simulator at simulator_path models, with the contract of the public get_simulator_arch in
@@ -105,6 +142,12 @@ public:
      * std::nullopt when tt_device is not a simulated device (silicon, and devices reached through another device).
      */
     virtual std::optional<SimulationBackendType> get_backend_type(const TTDevice& tt_device) const = 0;
+
+    /**
+     * How tt_device reaches its simulator, or std::nullopt when tt_device is not a simulated device (silicon, and
+     * devices reached through another device).
+     */
+    virtual std::optional<DeviceConnection> get_device_connection(const TTDevice& tt_device) const = 0;
 };
 
 /**

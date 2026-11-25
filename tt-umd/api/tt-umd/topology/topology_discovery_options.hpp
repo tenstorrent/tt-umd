@@ -37,21 +37,32 @@ namespace tt::umd {
  * - Any other simulator (an RTL build without an ip_layout.yaml, a Quasar TTSim image without a
  *   declaration) is one chip, chip 0, of the simulator's architecture, with NOC translation enabled
  *   for TTSim and disabled for RTL.
+ * - A server directory, where another process hosting a simulator serves its chips over per-chip
+ *   sockets, is attached to as a client: discovery returns the topology the server serves, and for
+ *   each of its chips a device that drives the server's device for that chip over the chip's
+ *   socket, built from the SoC descriptor the server reports for it. Sockets no process listens on
+ *   any more are ignored. Discovery throws error::RuntimeError when none is live, and when a chip it
+ *   discovers has no live socket. cluster_id and discover_remote_devices apply as to a declared
+ *   topology. The server owns the simulator and the devices' host memory, so soc_descriptor_path,
+ *   num_host_mem_channels and launch_simulator do not apply.
  *
- * The devices of an ip_layout.yaml and of a one-chip simulator are returned as opened, keeping the
- * SoC descriptor they were built from: these simulators model no firmware to initialize them from,
- * so device_init_failure_action does not apply.
+ * The devices of an ip_layout.yaml, of a one-chip simulator and of a server directory are returned
+ * as opened, keeping the SoC descriptor they were built from: these simulators model no firmware to
+ * initialize them from, and a server's devices are its own to initialize, so
+ * device_init_failure_action does not apply.
  *
- * Outside an ip_layout.yaml, an empty TopologyDiscoveryOptions::soc_descriptor_path selects the
- * soc_descriptor.yaml the simulator ships beside it, or the architecture's built-in descriptor when
- * it ships none. A supplied one must be of the simulator's architecture, or discovery throws
- * error::RuntimeError; an RTL build that ships no soc_descriptor.yaml has no architecture of its own
- * and takes the supplied one's. io_device_type stays PCIe: a simulator models PCIe.
+ * Outside an ip_layout.yaml and a server directory, an empty
+ * TopologyDiscoveryOptions::soc_descriptor_path selects the soc_descriptor.yaml the simulator ships
+ * beside it, or the architecture's built-in descriptor when it ships none. A supplied one must be
+ * of the simulator's architecture, or discovery throws error::RuntimeError; an RTL build that ships
+ * no soc_descriptor.yaml has no architecture of its own and takes the supplied one's.
+ * io_device_type stays PCIe: a simulator models PCIe.
  */
 struct SimulationDiscoveryOptions {
     /**
-     * @brief Path to the simulator whose chips discovery should find: a libttsim .so, or an RTL
-     * simulator build directory.
+     * @brief Path to the simulator whose chips discovery should find: a libttsim .so, an RTL
+     * simulator build directory, or the server directory of a simulation server to attach to (a
+     * directory holding per-chip simulation sockets, as SimulationConnector::list_servers reports).
      */
     std::string simulator_path;
 
@@ -84,7 +95,9 @@ struct SimulationDiscoveryOptions {
      * leaves chips out, the returned descriptor and devices number the selected chips from 0,
      * MMIO-capable chips first, and both use the same ids. A declared topology, an ip_layout.yaml
      * and a one-chip simulator name their chips up front, so the chips left out are never opened
-     * and other processes may open them; an enumerated TTSim image is opened whole to walk it.
+     * and other processes may open them; an enumerated TTSim image is opened whole to walk it, and
+     * a server directory is attached to whole. Only the selected chips of a server directory need a
+     * live socket.
      */
     std::unordered_set<ChipId> target_devices;
 };

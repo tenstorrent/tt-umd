@@ -81,7 +81,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
     // to pick this class); build the SoC descriptor from it -- a client does not read a local build.
     SocDescriptor soc_descriptor = build_soc_descriptor(device_info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
-    return std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(soc_descriptor, chip_id, std::move(client)));
+    return std::unique_ptr<TTSimTTDevice>(
+        new TTSimTTDevice(soc_descriptor, chip_id, device_info.simulator_path, std::move(client)));
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -216,8 +217,12 @@ void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
 }
 
 TTSimTTDevice::TTSimTTDevice(
-    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)),
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    const std::filesystem::path& simulator_directory,
+    std::unique_ptr<SimulationClient> client) :
+    SimulationTTDevice(
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), simulator_directory, std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     install_risc_reset();

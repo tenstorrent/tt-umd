@@ -31,8 +31,9 @@ void bind_cluster(nb::module_ &m) {
             "get_simulation_connection",
             &Cluster::get_simulation_connection,
             release_gil(),
-            "What simulation this cluster is connected to (role, simulator, server directory), or None when it is "
-            "not a simulation cluster.")
+            "What simulation this cluster was constructed over (role, simulator, server directory), or None when "
+            "it is not a simulation cluster. Its sockets are keyed by this cluster's chip ids. A host that stops "
+            "serving afterwards does not change a client's answer.")
 #endif
         ;
 }

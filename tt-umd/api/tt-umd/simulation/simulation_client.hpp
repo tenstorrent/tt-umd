@@ -43,6 +43,9 @@ public:
     // layer). Throws if not attached, or if the host disconnects or errors mid-exchange.
     std::vector<uint8_t> transact(const std::vector<uint8_t>& request);
 
+    // The host socket this client connects to.
+    const std::filesystem::path& socket_path() const { return socket_path_; }
+
 private:
     std::filesystem::path socket_path_;
     std::chrono::milliseconds timeout_;

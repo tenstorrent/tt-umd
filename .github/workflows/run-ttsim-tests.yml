@@ -291,7 +291,43 @@ jobs:
         timeout-minutes: 2
         run: |
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="SimulationConnector.*:SimulationServer*.*"
+
+      # Discovery attaching to a server directory, one process per image: wh_x2's host serves no socket for the chip
+      # it reaches over Ethernet, and bh_x2 is served as two single-chip boards to select one of them.
+      - name: Run UMD SimulationServerDiscovery on tt-sim wormhole
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="SimulationServer*.*"
+
+      - name: Run UMD SimulationServerDiscovery on tt-sim wormhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="SimulationServer*.*"
+
+      - name: Run UMD SimulationServerDiscovery on tt-sim blackhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_CHIPS: 2
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="SimulationServer*.*"
+
+      - name: Run UMD SimulationServerDiscovery on tt-sim quasar
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="SimulationServer*.*"
 
       # Its own process: the simulator's architecture has to be asked before any simulator runs in it.
       - name: Run UMD SimulatorInfo tests on tt-sim blackhole
@@ -314,7 +350,9 @@ jobs:
           # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
           cd tt-metal/tt_metal/third_party/umd/nanobind/tests
           python3 -m unittest -v test_py_simulation_connector test_py_simulator_info \
-            test_py_topology_discovery.TestSimulationDiscoveryOptions test_py_topology_discovery.TestSimulationDiscovery
+            test_py_topology_discovery.TestSimulationDiscoveryOptions \
+            test_py_topology_discovery.TestSimulationDiscovery \
+            test_py_topology_discovery.TestSimulationServerDiscovery
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -720,7 +758,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="SimulationConnector.*:SimulationServer*.*"
 
       # One process per image: the architecture of an image without a soc_descriptor.yaml (sim_wh, sim_bh here) is
       # read from the image, which has to happen before any simulator runs in the process.

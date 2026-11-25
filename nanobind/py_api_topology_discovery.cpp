@@ -162,7 +162,9 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw(
             "simulator_path",
             &SimulationDiscoveryOptions::simulator_path,
-            "Path to the simulator whose chips are discovered: a libttsim .so, or an RTL simulator build directory.")
+            "Path to the simulator whose chips are discovered: a libttsim .so, an RTL simulator build directory, or "
+            "the server directory of a simulation server to attach to (a directory of per-chip simulation sockets, as "
+            "SimulationConnector.list_servers reports).")
         .def_rw(
             "num_host_mem_channels",
             &SimulationDiscoveryOptions::num_host_mem_channels,

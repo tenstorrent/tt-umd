@@ -107,12 +107,14 @@ struct ClusterOptions {
      * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
      *
      * Deprecated for SIMULATION: a TTSim simulator declares its topology in the cluster_descriptor.yaml it ships beside
-     * it, which topology discovery reads.
+     * it, which topology discovery reads. Refused with error::RuntimeError when simulator_directory is the server
+     * directory of a simulation server: a client uses the topology the server serves.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 
     /**
-     * This parameter is used only for SIMULATION chip type.
+     * SIMULATION chip type only: the simulator to run, or the server directory of a simulation
+     * server to attach to, as SimulationDiscoveryOptions::simulator_path describes.
      */
     std::filesystem::path simulator_directory = "";
 
@@ -296,6 +298,11 @@ public:
      * What simulation this cluster is connected to: whether this process hosts the simulation or
      * attached to one another process hosts, which simulator sits behind it, and -- for a host that
      * serves -- the directory and sockets it serves on, including one UMD allocated itself.
+     * The sockets are keyed by this cluster's chip ids. A client that selects only some of the
+     * served chips (target_devices) numbers them from 0, as SimulationDiscoveryOptions::target_devices
+     * describes, so its sockets are keyed by those ids, not by the server's.
+     * It describes the connection the cluster was constructed over: a host that stops serving
+     * afterwards does not change what a client cluster reports.
      *
      * std::nullopt for a cluster that is not a simulation cluster.
      */
@@ -782,15 +789,12 @@ private:
         const SocDescriptor& soc_desc,
         std::unique_ptr<TTDevice> remote_tt_device = nullptr);
 
-    // Host simulation Cluster only: describes the simulation this process runs, for
-    // get_simulation_connection(). Called once the chips exist, so the arch is known. The serving
-    // directory and sockets are filled in afterwards by serve_simulation_devices_over_sockets().
-    SimulationConnector::Connection describe_simulation_host(const std::filesystem::path& simulator_directory) const;
-
     // Host simulation Cluster only: exposes each simulation chip's device on its per-chip socket so a
     // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
     // no-op for a client Cluster. Called once from the constructor after the chips are built.
-    void serve_simulation_devices_over_sockets(
+    // Returns the directory it serves in: simulator_server_directory, or the one it allocated when
+    // that is empty.
+    std::filesystem::path serve_simulation_devices_over_sockets(
         const std::filesystem::path& simulator_directory,
         const std::filesystem::path& simulator_server_directory,
         const std::function<void()>& shutdown_handler);
@@ -814,11 +818,6 @@ private:
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
-#ifdef TT_UMD_BUILD_SIMULATION
-    // Filled during construction for a simulation cluster: by discovery on the client path, by
-    // describe_simulation_host() plus serve_simulation_devices_over_sockets() on the host path.
-    std::optional<SimulationConnector::Connection> simulation_connection_;
-#endif  // TT_UMD_BUILD_SIMULATION
 
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;

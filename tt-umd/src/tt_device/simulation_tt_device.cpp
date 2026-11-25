@@ -45,10 +45,21 @@ SimulationTTDevice::SimulationTTDevice(
     sysmem_manager_(std::move(sysmem_manager)),
     simulation_model_(model.simulation_model) {}
 
-SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :
-    TTDevice(std::move(model.model)), client_(std::move(client)), simulation_model_(model.simulation_model) {}
+SimulationTTDevice::SimulationTTDevice(
+    ModelHandle model, const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model.model)),
+    simulator_directory_(simulator_directory),
+    client_(std::move(client)),
+    simulation_model_(model.simulation_model) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
+
+std::filesystem::path SimulationTTDevice::socket_path() const {
+    if (client_mode()) {
+        return client_->socket_path();
+    }
+    return socket_ != nullptr ? socket_->socket_path() : std::filesystem::path{};
+}
 
 void SimulationTTDevice::attach_client() { client_->attach(); }
 

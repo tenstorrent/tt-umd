@@ -112,6 +112,18 @@ public:
     // tell what its simulation is backed by.
     virtual SimulationBackendType backend_type() const = 0;
 
+    // Whether this device drives a device another process hosts, over that host's socket, rather
+    // than a simulator of its own. The two roles are disjoint.
+    bool client_mode() const { return client_ != nullptr; }
+
+    // The simulator behind this device: the build it opened or, in client mode, the build its host
+    // reports it runs (empty for a host that does not report it).
+    const std::filesystem::path& simulator_path() const { return simulator_directory_; }
+
+    // The socket this device is served on to other processes (empty when it is not served) or, in
+    // client mode, reaches its host through.
+    std::filesystem::path socket_path() const;
+
     // NOC access at an already-translated coordinate: the special-case fast paths, the
     // TLB-window-or-tile choice, and the post-read clocking, without the coordinate translation
     // host_read/host_write do first. Exposed so a DeviceProtocol serving this backend can reach the
@@ -137,10 +149,12 @@ protected:
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<SimulationSysmemManager> sysmem_manager);
 
-    // Client-mode constructor: the device does not own a local simulator, so it has no simulator
-    // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
-    // the client here so client_ is initialized through the base, not written by each derived ctor.
-    SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client);
+    // Client-mode constructor: the device does not own a local simulator, so it has no sysmem
+    // manager -- that lives on the remote host reached over the socket. simulator_directory is the
+    // simulator the host reports it runs, kept only to say what backs the device. Takes the client
+    // here so client_ is initialized through the base, not written by each derived ctor.
+    SimulationTTDevice(
+        ModelHandle model, const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationClient> client);
 
     // The model this device was built with, for the components only the backend can finish wiring.
     SimulationTTDeviceModel* get_simulation_model() { return simulation_model_; }
@@ -230,10 +244,6 @@ private:
     // The host's topology, as handed to adopt_socket(). Set before serving starts and never changed
     // afterwards, so the serving threads read it without locking.
     std::string served_cluster_descriptor_yaml_;
-
-    // The device serves one of two disjoint roles; read_from_device/write_to_device dispatch on
-    // this rather than a bare client_ null-check so the intent is named at the call site.
-    bool client_mode() const { return client_ != nullptr; }
 
     // Host-mode device memory access: run the transfer against the local backend (cached TLB
     // window or direct tile access), guarded by is_device_closed() and device_lock.

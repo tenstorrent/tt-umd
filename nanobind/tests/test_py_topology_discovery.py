@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 import tt_umd
+from test_py_simulation_connector import leave_stale_socket
 from test_py_simulator_info import find_soc_descriptor
 
 # The simulator only runs when UMD is built with TT_UMD_BUILD_SIMULATION.
@@ -204,3 +205,51 @@ class TestSimulationDiscovery(unittest.TestCase):
 
         with self.assertRaises(tt_umd.error.UmdBaseException):
             tt_umd.TopologyDiscovery.discover(self.discovery_options(library))
+
+
+@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+class TestSimulationServerDiscovery(unittest.TestCase):
+    """Discovery attaching to a simulation server that serves the TTSim image TT_UMD_SIMULATOR names."""
+
+    def setUp(self):
+        simulator = os.environ.get("TT_UMD_SIMULATOR")
+        if not simulator or not os.path.isfile(simulator):
+            self.skipTest("TT_UMD_SIMULATOR does not name a TTSim library.")
+        self.server_directory = tt_umd.SimulationConnector.allocate_server_directory()
+        self.addCleanup(shutil.rmtree, self.server_directory, ignore_errors=True)
+        host_options = tt_umd.SimulationConnectorOptions()
+        host_options.simulator_directory = simulator
+        host_options.serve_over_sockets = True
+        host_options.server_directory = self.server_directory
+        self.host_connection, self.host_devices, _ = (
+            tt_umd.SimulationConnector.discover(host_options)
+        )
+        # Cleanups run last-registered first: the host stops serving before its directory is removed.
+        self.addCleanup(delattr, self, "host_devices")
+
+    def client_options(self):
+        options = tt_umd.TopologyDiscoveryOptions()
+        options.simulation = tt_umd.SimulationDiscoveryOptions()
+        options.simulation.simulator_path = str(self.server_directory)
+        # A chip the host reaches over Ethernet has no socket of its own to attach to.
+        options.discover_remote_devices = False
+        return options
+
+    def test_attaches_a_device_to_every_served_socket(self):
+        cluster_descriptor, devices = tt_umd.TopologyDiscovery.discover(
+            self.client_options()
+        )
+
+        self.assertEqual(sorted(devices), sorted(self.host_connection.sockets))
+        self.assertEqual(
+            sorted(cluster_descriptor.get_all_chips()),
+            sorted(self.host_connection.sockets),
+        )
+
+    def test_directory_without_a_live_socket_raises(self):
+        for socket_path in self.host_connection.sockets.values():
+            socket_path.unlink()
+            leave_stale_socket(socket_path)
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.TopologyDiscovery.discover(self.client_options())

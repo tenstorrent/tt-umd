@@ -8,12 +8,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <system_error>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "simulation/rtl_sim_ip_layout_devices.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -28,6 +32,21 @@ namespace {
 
 class AvailableSimulationBackend final : public SimulationBackend {
 public:
+    // Stale sockets count too, so that a server directory whose host is gone is reported as such rather than taken for
+    // a simulator.
+    bool is_server_directory(const std::filesystem::path& simulator_path) const override {
+        std::error_code ec;
+        return std::filesystem::is_directory(simulator_path, ec) &&
+               !SimulationServerSocket::sockets_in_directory(simulator_path).empty();
+    }
+
+    AttachedServer attach_to_server(const std::filesystem::path& server_directory) const override {
+        SimulationConnectorOptions connector_options;
+        connector_options.simulator_directory = server_directory;
+        SimulationConnector::Result attached = SimulationConnector::discover(connector_options);
+        return {attached.cluster_descriptor->serialize(), std::move(attached.devices)};
+    }
+
     // A libttsim image without a SoC descriptor is told apart by the PCI device id it reports, the way KMD tells
     // silicon apart.
     tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path) const override {
@@ -134,6 +153,20 @@ public:
             return simulation_device->backend_type();
         }
         return std::nullopt;
+    }
+
+    std::optional<DeviceConnection> get_device_connection(const TTDevice& tt_device) const override {
+        const auto* simulation_device = dynamic_cast<const SimulationTTDevice*>(&tt_device);
+        if (simulation_device == nullptr) {
+            return std::nullopt;
+        }
+        DeviceConnection connection;
+        connection.role =
+            simulation_device->client_mode() ? SimulationConnector::Role::Client : SimulationConnector::Role::Host;
+        connection.simulator = simulation_device->simulator_path();
+        connection.backend = simulation_device->backend_type();
+        connection.socket = simulation_device->socket_path();
+        return connection;
     }
 };
 

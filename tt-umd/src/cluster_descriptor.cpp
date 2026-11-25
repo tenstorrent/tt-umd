@@ -1000,6 +1000,8 @@ void fill_eth_channel_states(ClusterDescription &description) {
     }
 }
 
+}  // namespace
+
 ClusterDescription parse_cluster_description_yaml(const std::string &cluster_descriptor_file_content) {
     ClusterDescription description;
 
@@ -1019,8 +1021,6 @@ ClusterDescription parse_cluster_description_yaml(const std::string &cluster_des
 
     return description;
 }
-
-}  // namespace
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
     const std::string &cluster_descriptor_file_content) {

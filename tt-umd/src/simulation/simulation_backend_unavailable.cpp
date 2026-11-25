@@ -19,6 +19,14 @@ constexpr const char* simulation_not_built_message =
 // Stands in for the simulator in a build without simulation, so callers compile the same in both builds.
 class UnavailableSimulationBackend final : public SimulationBackend {
 public:
+    bool is_server_directory(const std::filesystem::path& /*simulator_path*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    AttachedServer attach_to_server(const std::filesystem::path& /*server_directory*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
     tt::ARCH get_simulator_arch(const std::filesystem::path& /*simulator_path*/) const override {
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
@@ -60,6 +68,10 @@ public:
     void grow_host_mem_channels(TTDevice& /*tt_device*/, int /*num_host_mem_channels*/) const override {}
 
     std::optional<SimulationBackendType> get_backend_type(const TTDevice& /*tt_device*/) const override {
+        return std::nullopt;
+    }
+
+    std::optional<DeviceConnection> get_device_connection(const TTDevice& /*tt_device*/) const override {
         return std::nullopt;
     }
 };

@@ -450,6 +450,56 @@ DiscoveredTopology discover_one_chip_simulation_topology(
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
+// A server directory is where another process hosting a simulator serves its chips, one socket per chip. Its topology
+// is the one the server serves, with the caller's cluster id stamped and remote chips left out when the caller asks for
+// local ones only. Each chip is driven through the server over its own socket, so every chip this process discovers
+// needs a live one.
+DiscoveredTopology discover_served_simulation_topology(const TopologyDiscoveryOptions& options) {
+    const SimulationDiscoveryOptions& simulation = *options.simulation;
+    // Resolved first, so that an illegal cluster id is refused before anything attaches to the server.
+    std::optional<std::string> cluster_id = utils::resolve_cluster_id(options.cluster_id);
+    SimulationBackend::AttachedServer server = simulation_backend().attach_to_server(simulation.simulator_path);
+
+    ClusterDescription description = parse_cluster_description_yaml(server.topology_yaml);
+    description.cluster_id = std::move(cluster_id);
+    if (!options.discover_remote_devices) {
+        drop_remote_chips(description);
+    }
+    // A simulator's harvesting is whatever its image models and need not match its board type.
+    std::unique_ptr<ClusterDescriptor> served_topology = create_cluster_descriptor(
+        std::move(description), options.discover_remote_devices, /*check_harvesting_counts=*/false);
+    std::unique_ptr<ClusterDescriptor> selection = select_simulated_chips(*served_topology, simulation);
+    // A topology selected whole keeps the server's chip ids, so that each chip has the same id here as on the server.
+    const bool selected_whole = selection->get_number_of_chips() == served_topology->get_number_of_chips();
+    std::map<ChipId, ChipId> served_chip_ids;
+    if (selected_whole) {
+        for (const ChipId chip_id : served_topology->get_all_chips()) {
+            served_chip_ids.emplace(chip_id, chip_id);
+        }
+    } else {
+        served_chip_ids = get_topology_chip_ids(*served_topology, *selection);
+    }
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    for (const auto& [chip_id, served_chip_id] : served_chip_ids) {
+        auto it = server.devices.find(served_chip_id);
+        UMD_ASSERT(
+            it != server.devices.end(),
+            error::RuntimeError,
+            fmt::format(
+                "Chip {} of the topology served in {} has no live simulation socket there.",
+                served_chip_id,
+                simulation.simulator_path));
+        devices.emplace(chip_id, std::move(it->second));
+    }
+    log_debug(
+        LogUMD,
+        "Attached to {} of the {} chip(s) served in {}.",
+        devices.size(),
+        served_topology->get_number_of_chips(),
+        simulation.simulator_path);
+    return std::make_pair(selected_whole ? std::move(served_topology) : std::move(selection), std::move(devices));
+}
+
 }  // namespace
 
 std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_discovery(
@@ -511,6 +561,10 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
                 "Simulation topology discovery models PCIe, but {} was requested.",
                 DeviceTypeToString.at(options.io_device_type)));
         const std::filesystem::path simulator_path = options.simulation->simulator_path;
+        // Checked before anything asks what simulator the path is: a server directory is not one.
+        if (simulation_backend().is_server_directory(simulator_path)) {
+            return discover_served_simulation_topology(options);
+        }
         const SimulationBackendType backend = simulation_backend().get_backend_type(simulator_path);
         if (backend == SimulationBackendType::TTSIM) {
             const std::filesystem::path cluster_descriptor_path = get_simulator_cluster_descriptor_path(simulator_path);

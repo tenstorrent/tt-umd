@@ -194,6 +194,32 @@ TEST_F(RtlSimSessionTest, AcksOnEverySocket) {
     EXPECT_EQ(remote_b->receive(), "to b");
 }
 
+// run.sh is launched as itself, so a simulator script can find its own directory through $0.
+TEST_F(RtlSimSessionTest, LaunchesRunShWithItsPathAsArgv0) {
+    // run.sh resolves itself the way a simulator script does, and publishes the result atomically.
+    const std::string marker = (dir_ / "argv0").string();
+    std::ofstream(dir_ / "run.sh")
+        << "#!/bin/sh\nprintf '%s' \"$(cd \"$(dirname \"$0\")\" && pwd -P)/$(basename \"$0\")\" > \"" << marker
+        << ".tmp\" && mv \"" << marker << ".tmp\" \"" << marker << "\"\n";
+    const std::string address = add_socket("ut_a");
+    RtlSimSession session(dir_, {"ut_a"});
+
+    std::unique_ptr<MockRemote> remote;
+    std::thread dialer([&] { remote = std::make_unique<MockRemote>(address, DEVICE_COMMAND_EXIT); });
+    session.start(std::chrono::milliseconds(10'000));
+    dialer.join();
+
+    // The ack comes from the mock remote, not from run.sh, so run.sh may still be writing its marker.
+    for (int attempt = 0; attempt < 100 && !std::filesystem::exists(dir_ / "argv0"); attempt++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    std::ifstream argv0_file(dir_ / "argv0");
+    std::stringstream argv0;
+    argv0 << argv0_file.rdbuf();
+    ASSERT_TRUE(std::filesystem::exists(argv0.str())) << "run.sh did not run, or $0 does not name it: " << argv0.str();
+    EXPECT_TRUE(std::filesystem::equivalent(argv0.str(), dir_ / "run.sh")) << "$0 resolved to " << argv0.str();
+}
+
 TEST_F(RtlSimSessionTest, TimesOutWithoutAck) {
     add_socket("ut_a");
     RtlSimSession session(dir_, {"ut_a"});

@@ -1,0 +1,54 @@
+# Weekly check that the Keraunos tt-kmd the ttsim-qemu image builds (TT_KMD_KERAUNOS_COMMIT in
+# .github/ttsim-qemu.Dockerfile) is still the head of tt-kmd's keraunos branch. The pin is a commit so
+# the image tag follows it, which means it falls behind as the branch moves. This only reports that,
+# in one tracking issue: moving the pin is a change of its own, tested by the Grendel ttsim-qemu row.
+name: Check Keraunos tt-kmd pin
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout UMD
+        uses: actions/checkout@v6
+
+      - name: Compare the pin with the keraunos branch
+        # bash with pipefail, so a failed issue lookup stops the step instead of opening a duplicate.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          pinned=$(sed -n 's/^ARG TT_KMD_KERAUNOS_COMMIT=//p' .github/ttsim-qemu.Dockerfile)
+          head=$(git ls-remote https://github.com/tenstorrent/tt-kmd refs/heads/keraunos | cut -f1)
+          if [ -z "$pinned" ] || [ -z "$head" ]; then
+            echo "::error::cannot read the pin ('$pinned') or the keraunos branch head ('$head')"
+            exit 1
+          fi
+          if [ "$pinned" = "$head" ]; then
+            echo "TT_KMD_KERAUNOS_COMMIT is the keraunos branch head, $head"
+            exit 0
+          fi
+
+          title="Keraunos tt-kmd pin of the ttsim-qemu image is behind the keraunos branch"
+          compare="https://github.com/tenstorrent/tt-kmd/compare/$pinned...$head"
+          body="\`TT_KMD_KERAUNOS_COMMIT\` in \`.github/ttsim-qemu.Dockerfile\` is $pinned;"
+          body="$body tt-kmd's \`keraunos\` branch is at $head ([compare]($compare))."
+          echo "::warning::$body"
+          # One open issue tracks the drift; a comment is added only when the branch head has moved since.
+          number=$(gh issue list --state open --search "in:title \"$title\"" --json number,title \
+              --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -z "$number" ]; then
+            gh issue create --title "$title" --body "$body"
+          else
+            seen=$(gh issue view "$number" --json body,comments --jq '.body, .comments[].body')
+            grep -qF -- "$head" <<< "$seen" || gh issue comment "$number" --body "$body"
+          fi

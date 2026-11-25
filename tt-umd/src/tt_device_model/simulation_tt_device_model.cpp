@@ -81,7 +81,7 @@ SimulationTTDeviceModel::SimulationTTDeviceModel(
 SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> SimulationTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     return nullptr;
 }
 

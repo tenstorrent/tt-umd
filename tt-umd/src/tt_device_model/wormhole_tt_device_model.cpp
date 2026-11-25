@@ -15,6 +15,7 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/wormhole_device_firmware.hpp"
 #include "tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "tt_device/protocol/io_window_factory.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
 #include "tt_device/reset/classic_tile_risc_reset.hpp"
@@ -39,6 +40,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
         std::make_unique<WormholeHangDetector>(pcie_protocol.get(), pcie_protocol->make_noc_probe_reader());
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
+    io_window_factory_ = pcie_protocol.get();
     peer_dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
     system_memory_allocator_ = std::make_unique<SiliconSysmemManager>(pci_device_, protocol_->get_mmio_id());
@@ -74,8 +76,9 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
 WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> WormholeTTDeviceModel::create_io_window(
-    TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return nullptr;
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    // Over a remote link there is no BAR to map, so the window is left to TTDevice.
+    return io_window_factory_ == nullptr ? nullptr : io_window_factory_->create_io_window(target, host, ordering);
 }
 
 DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.get(); }

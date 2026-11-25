@@ -26,8 +26,8 @@ class SocDescriptor;
 class TTDevice;
 
 /**
- * What always-built code (topology discovery and the public simulator queries) needs from a simulator, so that it
- * compiles the same with and without simulation.
+ * What always-built code (topology discovery, the public simulator queries, SimulationConnector and the simulation
+ * device factory) needs from a simulator, so that it compiles the same with and without simulation.
  *
  * In a build without simulation, every call that needs a simulator throws error::RuntimeError saying UMD was built
  * without simulation support, and calls that ask about an existing device answer as for a device no simulator
@@ -35,16 +35,6 @@ class TTDevice;
  */
 class SimulationBackend {
 public:
-    /**
-     * The chips a simulation server serves, as attached to by a client.
-     */
-    struct AttachedServer {
-        // The topology the server serves, as cluster descriptor YAML.
-        std::string topology_yaml;
-        // One device per live socket that answered, keyed by the chip id its socket is named for.
-        std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    };
-
     /**
      * How a simulated device reaches its simulator.
      */
@@ -65,13 +55,6 @@ public:
      * sockets, rather than a simulator.
      */
     virtual bool is_server_directory(const std::filesystem::path& simulator_path) const = 0;
-
-    /**
-     * Attach as a client to the simulation server serving in server_directory: one device per live socket, built from
-     * the SoC descriptor the server reports for its chip. Sockets nobody listens on, and sockets that do not answer,
-     * are skipped; throws error::RuntimeError when none is left.
-     */
-    virtual AttachedServer attach_to_server(const std::filesystem::path& server_directory) const = 0;
 
     /**
      * The architecture the simulator at simulator_path models, with the contract of the public get_simulator_arch in
@@ -127,6 +110,13 @@ public:
         int num_host_mem_channels) const = 0;
 
     /**
+     * create_simulation_tt_device(simulator_path, num_host_mem_channels) of
+     * tt-umd/tt_device/simulation_device_factory.hpp, with its contract.
+     */
+    virtual std::unique_ptr<TTDevice> create_simulation_tt_device(
+        const std::filesystem::path& simulator_path, int num_host_mem_channels) const = 0;
+
+    /**
      * Give tt_device at least num_host_mem_channels host memory channels when it is opened on a simulator image, for a
      * device that had to be opened before the topology saying how many it needs was known. No effect on any other
      * device, nor on one that already has that many. Only valid before the device's system memory is handed out.
@@ -152,13 +142,31 @@ public:
     virtual std::optional<DeviceConnection> get_device_connection(const TTDevice& tt_device) const = 0;
 
     /**
-     * SimulationConnector::serve, with its contract.
+     * SimulationConnector::discover, with its contract, for a simulator this process hosts: options.simulator_directory
+     * is a TTSim .so or an RTL simulator directory.
      */
-    virtual std::unique_ptr<SimulationConnector::Server> serve(
+    virtual SimulationConnector::Result discover_as_host(const SimulationConnectorOptions& options) const = 0;
+
+    /**
+     * SimulationConnector::discover, with its contract, for the server directory a simulation server serves in.
+     *
+     * @param sockets The live per-chip sockets in server_directory, keyed by the chip id each is named for.
+     */
+    virtual SimulationConnector::Result discover_as_client(
+        const std::filesystem::path& server_directory,
+        const std::map<ChipId, std::filesystem::path>& sockets) const = 0;
+
+    /**
+     * What answers the requests of the clients SimulationConnector::serve serves devices to, one handler per device,
+     * keyed like devices: each request, as wire bytes, is answered as serve() describes, with cluster_descriptor as the
+     * served topology and shutdown_handler for SHUTDOWN, and the reply comes back as wire bytes. The handlers are
+     * called on the serving threads; the devices must outlive them.
+     */
+    virtual std::map<ChipId, std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)>>
+    make_server_request_handlers(
         const std::map<ChipId, TTDevice*>& devices,
         const ClusterDescriptor& cluster_descriptor,
-        const std::filesystem::path& server_directory,
-        const std::function<void()>& shutdown_handler) const = 0;
+        std::function<void()> shutdown_handler) const = 0;
 };
 
 /**

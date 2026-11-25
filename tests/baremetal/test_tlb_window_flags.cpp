@@ -4,7 +4,7 @@
 
 // TlbWindow's WindowFlags contract, verified against a fake TlbHandle so it needs no card and no
 // simulation build. The concrete RTL-sim mapping of Snoop onto AXI user bits lives in
-// test_rtl_sim_tlb_window.cpp, which is necessarily gated on TT_UMD_BUILD_SIMULATION; this file
+// test_rtl_sim_tlb_window.cpp, which only a build with simulation support compiles; this file
 // covers the base-class behavior that every implementation inherits.
 
 #include <gtest/gtest.h>

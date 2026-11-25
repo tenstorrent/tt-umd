@@ -134,15 +134,17 @@ target_sources(
         src/simulation/simulation_server_transport.cpp
         # The public simulator queries answer in every build; they reach the simulator through the backend seam.
         src/simulation/simulator_info.cpp
-        # A SimulationConnector::Server is destroyed in every build (Cluster holds one); serving is simulation-only.
+        # SimulationConnector and the simulation device factory answer in every build; what needs a simulator goes
+        # through the backend seam.
+        src/simulation/simulation_connector.cpp
         src/simulation/simulation_connector_server.cpp
+        src/tt_device/simulation_device_factory.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         tt-umd-base
         PRIVATE
-            src/simulation/simulation_connector.cpp
             src/simulation/simulation_server_protocol.cpp
             src/simulation/simulation_device_identity.cpp
             src/simulation/simulation_backend.cpp
@@ -164,7 +166,6 @@ if(TT_UMD_BUILD_SIMULATION)
             # Composes the protocol above, so it cannot be built without it. Every user of it is a
             # simulation device, all of which are in this block too.
             src/tt_device_model/simulation_tt_device_model.cpp
-            src/tt_device/simulation_device_factory.cpp
             src/pcie/tt_sim_tlb_window.cpp
             src/pcie/tt_sim_tlb_handle.cpp
             src/pcie/rtl_sim_tlb_window.cpp

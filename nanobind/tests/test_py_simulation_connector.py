@@ -10,17 +10,7 @@ import unittest
 from pathlib import Path
 
 import tt_umd
-
-# The simulation bindings only exist when UMD is built with TT_UMD_BUILD_SIMULATION.
-SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
-
-# Setting TT_UMD_SIMULATOR means the simulator tests are expected to run.
-# If tt-umd is built without simulation and TT_UMD_SIMULATOR is set, tests will fail.
-# Otherwise tests will be skipped
-if os.environ.get("TT_UMD_SIMULATOR") and not SIMULATION_BUILT:
-    raise ImportError(
-        "TT_UMD_SIMULATOR is set, but tt_umd was built without simulation support"
-    )
+from test_py_simulator_info import QUASAR_SOC_DESCRIPTOR, SIMULATION_SUPPORTED
 
 # A host's per-chip sockets are named tt-umd-sim-<chip_id>.sock; a directory holding one is what
 # makes UMD classify a path as a live server to attach to.
@@ -40,8 +30,9 @@ def leave_stale_socket(path):
         sock.close()
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 class TestSimulationConnector(unittest.TestCase):
+    """The server-directory calls, which need no simulator and work in every build."""
+
     def test_role_for_directory_without_sockets_is_host(self):
         with tempfile.TemporaryDirectory() as directory:
             self.assertEqual(
@@ -145,7 +136,6 @@ class TestSimulationConnector(unittest.TestCase):
             shutil.rmtree(directory, ignore_errors=True)
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 @unittest.skipUnless(os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR is not set")
 class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
     """Mirrors tests/api/test_simulation_connector.cpp; needs a real simulator build."""
@@ -294,7 +284,6 @@ class ServingTestCase(unittest.TestCase):
         return self.client_devices
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 @unittest.skipUnless(os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR is not set")
 class TestSimulationConnectorServe(ServingTestCase):
     """SimulationConnector.serve over the devices of a private simulator host."""
@@ -356,7 +345,6 @@ class TestSimulationConnectorServe(ServingTestCase):
             )
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 @unittest.skipUnless(os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR is not set")
 class TestSimulationConnectorDiscoverServing(ServingTestCase):
     """discover(serve_over_sockets) serves until the last device it returned is dropped."""
@@ -388,7 +376,7 @@ class TestSimulationConnectorDiscoverServing(ServingTestCase):
         self.assertFalse(self.socket_path.exists())
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+@unittest.skipUnless(SIMULATION_SUPPORTED, "UMD was built without simulation support")
 @unittest.skipIf(
     os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR selects a simulator"
 )
@@ -429,6 +417,40 @@ class TestSimulationConnectorServeSilicon(ServingTestCase):
             tt_umd.get_simulation_backend(client_devices[0]),
             tt_umd.SimulationBackendType.TTSIM,
         )
+
+
+@unittest.skipIf(SIMULATION_SUPPORTED, "UMD was built with simulation support")
+class TestSimulationConnectorWithoutSimulationSupport(unittest.TestCase):
+    """Without simulation support the bindings still exist, and every call that needs a simulator raises."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        # A simulator as a TTSim build ships: the library with its SoC descriptor beside it.
+        self.library = Path(directory.name) / "libttsim.so"
+        self.library.touch()
+        shutil.copyfile(
+            QUASAR_SOC_DESCRIPTOR, Path(directory.name) / "soc_descriptor.yaml"
+        )
+
+    def test_discover_raises(self):
+        options = tt_umd.SimulationConnectorOptions()
+        options.simulator_directory = self.library
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.SimulationConnector.discover(options)
+
+    def test_create_simulation_tt_device_raises(self):
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.create_simulation_tt_device(str(self.library))
+
+    def test_serve_raises(self):
+        if not tt_umd.PCIDevice.enumerate_devices():
+            self.skipTest("No Tenstorrent card.")
+        cluster_descriptor, devices = tt_umd.TopologyDiscovery.discover()
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.SimulationConnector.serve(devices, cluster_descriptor)
 
 
 if __name__ == "__main__":

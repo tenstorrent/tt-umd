@@ -9,10 +9,14 @@
 // The MMIO id tests run on any CI host (no hardware required).
 // The communicator tests require TT_UMD_SIMULATOR and are skipped otherwise.
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -23,45 +27,29 @@
 #include <utility>
 #include <vector>
 
-#include "tests/test_utils/fetch_local_files.hpp"
-#include "tt-umd/coordinates/coordinate_manager.hpp"
-#include "tt-umd/soc_arch_descriptor.hpp"
-#include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/types/arch.hpp"
-#include "tt-umd/types/cluster_descriptor_types.hpp"
-#include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/xy_pair.hpp"
-
-#ifdef TT_UMD_BUILD_SIMULATION
-#include <fmt/format.h>
-#include <unistd.h>
-
-#include <exception>
-#include <functional>
-
 #include "simulation/simulator_paths.hpp"
+#include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
+#include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
-#endif
 
 using namespace tt;
 using namespace tt::umd;
-
-// ---------------------------------------------------------------------------
-// TTSimCommunicator: shared dlopen
-// These tests require a running simulator (TT_UMD_SIMULATOR env var).
-// ---------------------------------------------------------------------------
-
-#ifdef TT_UMD_BUILD_SIMULATION
 
 // ---------------------------------------------------------------------------
 // TTSimProtocol's MMIO id
@@ -718,5 +706,3 @@ TEST_F(TTSimDiscoveryTest, ExplicitHostMemChannelsAreHonoured) {
             << "MMIO chip " << chip << " did not keep the explicitly requested channel count";
     }
 }
-
-#endif  // TT_UMD_BUILD_SIMULATION

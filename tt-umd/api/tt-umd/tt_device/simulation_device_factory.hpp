@@ -17,6 +17,9 @@ namespace tt::umd {
 class SocDescriptor;
 class TTDevice;
 
+// Declared and linkable in every build; in a build without simulation support, each of these throws
+// error::RuntimeError saying so.
+
 /**
  * Creates a simulation TTDevice from a simulator path.
  * If the path ends with ".so", creates a TTSimTTDevice (functional simulator).

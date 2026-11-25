@@ -28,9 +28,8 @@ namespace nb = nanobind;
 // from multiple Python threads.
 using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
+using namespace tt;
 using namespace tt::umd;
-
-#ifdef TT_UMD_BUILD_SIMULATION
 
 namespace {
 
@@ -77,7 +76,9 @@ void bind_simulation_connector(nb::module_ &m) {
         m,
         "SimulationConnector",
         "Entry point for opening simulated devices, mirroring silicon TopologyDiscovery. The role is decided purely "
-        "from what simulator_directory points at.");
+        "from what simulator_directory points at. Bound in every build: when UMD was built without simulation "
+        "support, discover() and serve() raise error.UmdBaseException, while the server-directory calls "
+        "(role_for, allocate_server_directory, scan_servers, list_servers, prune_dead_servers) work.");
 
     nb::enum_<SimulationConnector::Role>(simulation_connector, "Role")
         .value("HOST", SimulationConnector::Role::Host, "This process runs the simulation.")
@@ -209,8 +210,9 @@ void bind_simulation_connector(nb::module_ &m) {
             "device. server_directory is an existing directory to serve in; empty claims a fresh one. Returns the "
             "Server, which serves until dropped and keeps the devices it serves alive until then, even when they "
             "are removed from the devices dict. Raises "
-            "error.UmdBaseException when devices is empty, when a chip id is not a chip of cluster_descriptor, or "
-            "when a live server already serves one of the chips in server_directory.")
+            "error.UmdBaseException when devices is empty, when a chip id is not a chip of cluster_descriptor, "
+            "when a live server already serves one of the chips in server_directory, or when UMD was built without "
+            "simulation support.")
         .def_static(
             "allocate_server_directory",
             &SimulationConnector::allocate_server_directory,
@@ -242,17 +244,6 @@ void bind_simulation_connector(nb::module_ &m) {
 }
 
 }  // namespace
-
-#else
-
-namespace {
-
-// Simulation support is not built; the module exposes no SimulationConnector.
-void bind_simulation_connector(nb::module_ &) {}
-
-}  // namespace
-
-#endif
 
 void bind_simulation(nb::module_ &m) {
     nb::enum_<SimulationBackendType>(m, "SimulationBackendType")

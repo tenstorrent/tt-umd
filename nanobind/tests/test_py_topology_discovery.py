@@ -11,10 +11,6 @@ import tt_umd
 from test_py_simulation_connector import leave_stale_socket
 from test_py_simulator_info import find_soc_descriptor
 
-# The simulator only runs when UMD is built with TT_UMD_BUILD_SIMULATION.
-SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
-
-
 # One chip of each architecture, for an image of the other one to be declared with.
 DECLARED_WORMHOLE_N150 = """arch:
   0: wormhole_b0
@@ -147,7 +143,6 @@ class TestSimulationDiscoveryOptions(unittest.TestCase):
         self.assertEqual(options.target_devices, {0, 1})
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 class TestSimulationDiscovery(unittest.TestCase):
     """Discovery of the Wormhole or Blackhole TTSim image TT_UMD_SIMULATOR names."""
 
@@ -207,7 +202,6 @@ class TestSimulationDiscovery(unittest.TestCase):
             tt_umd.TopologyDiscovery.discover(self.discovery_options(library))
 
 
-@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
 class TestSimulationServerDiscovery(unittest.TestCase):
     """Discovery attaching to a simulation server that serves the TTSim image TT_UMD_SIMULATOR names."""
 

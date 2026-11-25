@@ -9,9 +9,6 @@ from pathlib import Path
 
 import tt_umd
 
-# The simulator itself only runs when UMD is built with TT_UMD_BUILD_SIMULATION; the queries exist in every build.
-SIMULATION_BUILT = hasattr(tt_umd, "SimulationConnector")
-
 
 def find_soc_descriptor(name):
     """A SoC descriptor UMD ships, for a simulator to ship as its soc_descriptor.yaml.
@@ -28,6 +25,11 @@ def find_soc_descriptor(name):
 
 
 QUASAR_SOC_DESCRIPTOR = find_soc_descriptor("quasar_32_arch.yaml")
+
+
+# Every simulation call is bound in every build; the simulation TTDevice classes are bound only in a build that can run
+# a simulator. Gating on them keeps the probe off the calls the gated tests check.
+SIMULATION_SUPPORTED = hasattr(tt_umd, "RtlSimulationTTDevice")
 
 
 def simulator_under_test():
@@ -62,7 +64,9 @@ class TestSimulatorArch(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.directory = Path(directory.name)
 
-    @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+    @unittest.skipUnless(
+        SIMULATION_SUPPORTED, "UMD was built without simulation support"
+    )
     def test_rtl_directory_reports_the_shipped_arch(self):
         shutil.copyfile(QUASAR_SOC_DESCRIPTOR, self.directory / "soc_descriptor.yaml")
 
@@ -70,12 +74,14 @@ class TestSimulatorArch(unittest.TestCase):
             tt_umd.get_simulator_arch(str(self.directory)), tt_umd.ARCH.QUASAR
         )
 
-    @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+    @unittest.skipUnless(
+        SIMULATION_SUPPORTED, "UMD was built without simulation support"
+    )
     def test_rtl_directory_without_soc_descriptor_raises(self):
         with self.assertRaises(tt_umd.error.UmdBaseException):
             tt_umd.get_simulator_arch(str(self.directory))
 
-    @unittest.skipIf(SIMULATION_BUILT, "UMD was built with simulation support")
+    @unittest.skipIf(SIMULATION_SUPPORTED, "UMD was built with simulation support")
     def test_raises_without_simulation_support(self):
         shutil.copyfile(QUASAR_SOC_DESCRIPTOR, self.directory / "soc_descriptor.yaml")
 
@@ -98,7 +104,6 @@ class TestSimulationBackend(unittest.TestCase):
 
         self.assertIsNone(tt_umd.get_simulation_backend(device))
 
-    @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
     def test_ttsim_device_is_backed_by_ttsim(self):
         simulator = simulator_under_test()
         if not simulator or not os.path.isfile(simulator):

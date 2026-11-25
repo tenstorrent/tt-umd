@@ -571,7 +571,7 @@ Cluster::Cluster(ClusterOptions options) {
         for (const auto& [chip_id, chip] : chips_) {
             served_devices.emplace(chip_id, chip->get_tt_device());
         }
-        simulation_server_ = simulation_backend().serve(
+        simulation_server_ = SimulationConnector::serve(
             served_devices, *cluster_desc, options.simulator_server_directory, options.simulation_shutdown_handler);
     }
     // Overwrite with the final options: num_host_mem_ch_per_mmio_device may have been auto-detected above.

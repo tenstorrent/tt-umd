@@ -41,6 +41,7 @@
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
@@ -458,9 +459,11 @@ DiscoveredTopology discover_served_simulation_topology(const TopologyDiscoveryOp
     const SimulationDiscoveryOptions& simulation = *options.simulation;
     // Resolved first, so that an illegal cluster id is refused before anything attaches to the server.
     std::optional<std::string> cluster_id = utils::resolve_cluster_id(options.cluster_id);
-    SimulationBackend::AttachedServer server = simulation_backend().attach_to_server(simulation.simulator_path);
+    SimulationConnectorOptions connector_options;
+    connector_options.simulator_directory = simulation.simulator_path;
+    SimulationConnector::Result server = SimulationConnector::discover(connector_options);
 
-    ClusterDescription description = parse_cluster_description_yaml(server.topology_yaml);
+    ClusterDescription description = parse_cluster_description_yaml(server.cluster_descriptor->serialize());
     description.cluster_id = std::move(cluster_id);
     if (!options.discover_remote_devices) {
         drop_remote_chips(description);

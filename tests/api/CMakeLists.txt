@@ -7,7 +7,6 @@ set(API_TESTS_SRCS
     test_device_memcpy.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
-    test_sim_multichip.cpp
     test_frame_pointer.cpp
     test_tt_device.cpp
     test_noc.cpp
@@ -15,10 +14,12 @@ set(API_TESTS_SRCS
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
     test_simulator_info.cpp
+    test_simulation_server_directory.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
+    list(APPEND API_TESTS_SRCS test_sim_multichip.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_connector.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_server_protocol.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_device_identity.cpp)
@@ -31,6 +32,7 @@ if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_simulation_serve.cpp)
 else()
     list(APPEND API_TESTS_SRCS test_simulator_info_without_simulation.cpp)
+    list(APPEND API_TESTS_SRCS test_simulation_connector_without_simulation.cpp)
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})

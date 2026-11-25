@@ -11,12 +11,9 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <string>
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -24,13 +21,6 @@
 #include "simulation/simulation_connector_server.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
-#include "tt-umd/simulation/simulation_server_protocol.hpp"
-#include "tt-umd/simulation/simulator_info.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
-#include "tt-umd/tt_device/simulation_tt_device.hpp"
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -45,25 +35,20 @@ namespace {
 //                                      identity from the host over the wire;
 //   - any other directory          -> host, running the RTL backend from that build directory.
 //
-// Role and backend are orthogonal -- a client can attach to either backend -- so they are kept as
-// separate fields rather than collapsed into one enum. The sockets are carried alongside so
-// discover() doesn't scan the directory a second time; a second scan would also be a TOCTOU race,
-// since a host that exited in between would leave the role at Client while discover() built zero
-// devices from a now-empty listing and returned silently.
+// The host's backend follows from the path the same way, so it is left to the host to tell. The
+// sockets are carried alongside so discover() doesn't scan the directory a second time; a second
+// scan would also be a TOCTOU race, since a host that exited in between would leave the role at
+// Client while discover() built zero devices from a now-empty listing.
 struct Classification {
     SimulationConnector::Role role = SimulationConnector::Role::Host;
-    // Which backend this process would host. Empty for a client: a client runs no local backend,
-    // and takes the host's backend_type from the device info it fetches over the wire (see
-    // make_client_device).
-    std::optional<SimulationBackendType> backend;
-    // Client only: the per-chip sockets found in the directory.
+    // Client only: the live per-chip sockets found in the directory.
     std::map<ChipId, std::filesystem::path> sockets;
 };
 
 Classification classify(const std::filesystem::path& simulator_path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
-        return {SimulationConnector::Role::Host, SimulationBackendType::TTSIM, {}};
+        return {SimulationConnector::Role::Host, {}};
     }
     UMD_ASSERT(
         std::filesystem::is_directory(simulator_path, ec),
@@ -73,7 +58,7 @@ Classification classify(const std::filesystem::path& simulator_path) {
     // attach as a client; any other directory is an RTL build we host.
     const auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
     if (sockets.empty()) {
-        return {SimulationConnector::Role::Host, SimulationBackendType::RTL, {}};
+        return {SimulationConnector::Role::Host, {}};
     }
     // A socket file on disk only proves someone bound the path once, not that anyone is still
     // serving it: a crashed host leaves one behind that is indistinguishable by stat(). Count only
@@ -102,7 +87,7 @@ Classification classify(const std::filesystem::path& simulator_path) {
             "prune` to clear them, or point at a simulator to host one.",
             sockets.size(),
             simulator_path.string()));
-    return {SimulationConnector::Role::Client, std::nullopt, std::move(live_sockets)};
+    return {SimulationConnector::Role::Client, std::move(live_sockets)};
 }
 
 // A server is gone when it published sockets and not one of them still has a listener: the host
@@ -129,140 +114,6 @@ bool remove_server_directory(const SimulationServerInfo& server) {
     return true;
 }
 
-// Host path: bring up the in-process backend (the direct hot path). Serving, if requested, is
-// started afterwards by the caller, once the host's topology is known -- it is part of what is served.
-std::unique_ptr<SimulationTTDevice> make_host_device(
-    SimulationBackendType backend, const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
-    if (backend == SimulationBackendType::TTSIM) {
-        return TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
-    }
-    return RtlSimulationTTDevice::create(simulator_directory, num_host_mem_channels);
-}
-
-// The topology the opened devices sit in. A simulator build, or a host serving one, may ship a
-// cluster descriptor; when it does not, the chips that were actually opened are the whole topology,
-// so a mock over exactly those says the same thing the rest of UMD says about a descriptor-less
-// simulator.
-std::shared_ptr<ClusterDescriptor> build_topology(
-    const std::string& yaml,
-    const std::map<ChipId, std::unique_ptr<TTDevice>>& devices,
-    tt::ARCH arch,
-    bool noc_translation_enabled) {
-    if (!yaml.empty()) {
-        return ClusterDescriptor::create_from_yaml_content(yaml);
-    }
-    std::unordered_set<ChipId> chip_ids;
-    for (const auto& [chip_id, device] : devices) {
-        chip_ids.insert(chip_id);
-    }
-    return ClusterDescriptor::create_mock_cluster(chip_ids, arch, noc_translation_enabled);
-}
-
-// Client path: build the device class the host reports over the wire. A client runs no local
-// backend, so the class mostly just names the device; the backend kind still comes from the host so
-// the right class is instantiated (and so this stays correct if the classes diverge).
-std::unique_ptr<TTDevice> make_client_device(
-    ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& info) {
-    switch (info.backend_type) {
-        case SimulationBackendType::TTSIM:
-            return TTSimTTDevice::create_client(chip_id, std::move(client), info);
-        case SimulationBackendType::RTL:
-            return RtlSimulationTTDevice::create_client(chip_id, std::move(client), info);
-    }
-    // A value outside the enum means a corrupt/incompatible reply from the host; fail loudly rather
-    // than silently defaulting to a backend class.
-    UMD_THROW(
-        error::RuntimeError,
-        fmt::format("Host reported an unknown simulation backend kind ({})", static_cast<int>(info.backend_type)));
-}
-
-// What every socket of one Server answers alike. Shared by their request handlers, which outlive serve().
-struct ServedTopology {
-    std::string cluster_descriptor_yaml;
-    std::function<void()> shutdown_handler;
-};
-
-// The identity a client builds its device from. A device reached through another chip runs on no simulator directly,
-// so it is described without a simulator path.
-SimulationServerDeviceInfo describe_served_device(const TTDevice& device) {
-    const std::optional<SimulationBackend::DeviceConnection> connection =
-        simulation_backend().get_device_connection(device);
-    return describe_device(
-        device.get_soc_descriptor(),
-        get_simulation_backend(device).value_or(SimulationBackendType::TTSIM),
-        connection.has_value() ? connection->simulator : std::filesystem::path{});
-}
-
-// Serves one socket request against device: decodes the wire request, runs it and encodes the reply. Runs on the
-// socket's connection threads, one per attached client; device_mutex keeps their accesses to device one at a time.
-std::vector<uint8_t> handle_request(
-    TTDevice& device,
-    std::mutex& device_mutex,
-    const ServedTopology& served,
-    const std::vector<uint8_t>& request_bytes) {
-    const SimulationServerRequest request = decode_request(request_bytes);
-
-    // Device info and the cluster descriptor have reply messages of their own.
-    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
-        try {
-            return encode(describe_served_device(device));
-        } catch (const std::exception& e) {
-            log_warning(LogUMD, "Simulation server failed to serve device info: {}", e.what());
-            SimulationServerDeviceInfo info;
-            info.status = -1;
-            return encode(info);
-        }
-    }
-    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
-        SimulationServerClusterDescriptor cluster_descriptor;
-        cluster_descriptor.status = 0;
-        cluster_descriptor.yaml = served.cluster_descriptor_yaml;
-        return encode(cluster_descriptor);
-    }
-    // The handler only signals the owner; the owner tears the Server down from its own thread, which joins this one
-    // after the acknowledgement is sent.
-    if (request.command == SimulationServerCommand::SHUTDOWN) {
-        if (served.shutdown_handler) {
-            served.shutdown_handler();
-        }
-        return encode(SimulationServerResponse{});
-    }
-
-    // The client already translated the coordinate, so it must not be translated again.
-    const CoreCoord core{request.x, request.y, CoreType::UNSPECIFIED, CoordSystem::LITERAL};
-
-    SimulationServerResponse response;
-    try {
-        const std::lock_guard<std::mutex> lock(device_mutex);
-        switch (request.command) {
-            case SimulationServerCommand::READ:
-                response.data.resize(request.size);
-                device.read_from_device(response.data.data(), core, request.address, request.size);
-                break;
-            case SimulationServerCommand::WRITE:
-                UMD_ASSERT(
-                    request.data.size() >= request.size,
-                    error::RuntimeError,
-                    fmt::format(
-                        "Write request payload ({} bytes) is smaller than its size field ({})",
-                        request.data.size(),
-                        request.size));
-                device.write_to_device(request.data.data(), core, request.address, request.size);
-                break;
-            default:
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format("Unknown simulation server command {}", static_cast<int>(request.command)));
-        }
-    } catch (const std::exception& e) {
-        // A failed access is the client's to handle, as a silicon access error would be; the connection stays up.
-        log_warning(LogUMD, "Simulation server failed to serve a client request: {}", e.what());
-        response.status = -1;
-        response.data.clear();
-    }
-    return encode(response);
-}
-
 }  // namespace
 
 std::unique_ptr<SimulationConnector::Server> SimulationConnector::serve(
@@ -280,6 +131,10 @@ std::unique_ptr<SimulationConnector::Server> SimulationConnector::serve(
             fmt::format("Chip {} is not a chip of the cluster descriptor it is served with.", chip_id));
     }
 
+    // Made before a directory is claimed, so that a build that cannot answer requests leaves nothing behind.
+    std::map<ChipId, SimulationServerSocket::RequestHandler> request_handlers =
+        simulation_backend().make_server_request_handlers(devices, cluster_descriptor, std::move(shutdown_handler));
+
     auto impl = std::make_unique<Server::Impl>();
     impl->server_directory =
         server_directory.empty() ? SimulationServerSocket::allocate_server_directory() : server_directory;
@@ -291,15 +146,9 @@ std::unique_ptr<SimulationConnector::Server> SimulationConnector::serve(
         impl->sockets.push_back(SimulationServerSocket::create(socket_path));
         impl->socket_paths.emplace(chip_id, socket_path);
     }
-
-    const auto served = std::make_shared<const ServedTopology>(
-        ServedTopology{cluster_descriptor.serialize(), std::move(shutdown_handler)});
     auto socket = impl->sockets.begin();
     for (const auto& [chip_id, device] : devices) {
-        (*socket++)->serve([device = device, served, device_mutex = std::make_shared<std::mutex>()](
-                               const std::vector<uint8_t>& request_bytes) {
-            return handle_request(*device, *device_mutex, *served, request_bytes);
-        });
+        (*socket++)->serve(std::move(request_handlers.at(chip_id)));
     }
     log_info(LogUMD, "Serving {} simulation device(s) in {}", devices.size(), impl->server_directory.string());
     return std::unique_ptr<Server>(new Server(std::move(impl)));
@@ -343,116 +192,11 @@ std::vector<SimulationServerInfo> SimulationConnector::list_servers() { return s
 std::vector<SimulationServerInfo> SimulationConnector::prune_dead_servers() { return scan_servers().removed; }
 
 SimulationConnector::Result SimulationConnector::discover(const SimulationConnectorOptions& options) {
-    Result result;
-    std::map<ChipId, std::unique_ptr<TTDevice>>& devices = result.devices;
-    const std::filesystem::path& simulator_path = options.simulator_directory;
-
-    const Classification classification = classify(simulator_path);
-
+    const Classification classification = classify(options.simulator_directory);
     if (classification.role == Role::Client) {
-        // Taken from the first socket that answers, alongside the identity already fetched there:
-        // one host serves the whole directory, so its topology describes every chip in it.
-        std::string served_topology_yaml;
-        bool noc_translation_enabled = false;
-        // Multi-chip: one client device per per-chip socket in the directory (enumerated by
-        // classify()). Chip ids come from the socket names, so they match the host's. A failure on
-        // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
-        // the healthy ones.
-        for (const auto& [chip_id, socket_file] : classification.sockets) {
-            try {
-                auto client = std::make_unique<SimulationClient>(socket_file);
-                // The connector owns the single GET_DEVICE_INFO fetch: it needs the backend type to
-                // pick the device class, and passes the fetched identity into create_client so it is
-                // not fetched again.
-                const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
-                // A server directory is claimed atomically by one host (see
-                // allocate_server_directory), so every socket in it is served by one process
-                // running one simulator: the first socket that answers describes the whole
-                // directory. Warn rather than silently describing only the first if that ever
-                // fails to hold -- a hand-assembled directory mixing two servers' sockets is the
-                // only way it can, and it should not pass unnoticed.
-                if (result.devices.empty()) {
-                    result.connection.simulator = info.simulator_path;
-                    result.connection.backend = info.backend_type;
-                    result.connection.arch = static_cast<tt::ARCH>(info.arch);
-                    noc_translation_enabled = info.noc_translation_enabled;
-                    // Fetched here, while this client is still ours to send on: it is moved into
-                    // the device below.
-                    served_topology_yaml = fetch_cluster_descriptor_yaml(*client);
-                } else if (
-                    info.simulator_path != result.connection.simulator.string() ||
-                    info.backend_type != result.connection.backend ||
-                    static_cast<tt::ARCH>(info.arch) != result.connection.arch) {
-                    log_warning(
-                        LogUMD,
-                        "Simulation socket {} (chip {}) reports a different simulation than the rest of {}: "
-                        "{} ({}/{}) instead of {} ({}/{}). Reporting the first; the directory is serving more "
-                        "than one host.",
-                        socket_file.string(),
-                        chip_id,
-                        simulator_path.string(),
-                        info.simulator_path,
-                        arch_to_str(static_cast<tt::ARCH>(info.arch)),
-                        info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl",
-                        result.connection.simulator.string(),
-                        arch_to_str(result.connection.arch),
-                        result.connection.backend == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
-                }
-                devices.emplace(chip_id, make_client_device(chip_id, std::move(client), info));
-                // Only once the device is in: make_client_device() throws on a backend kind this
-                // build doesn't know, and the catch below skips the chip. Recording the socket
-                // first would leave connection.sockets naming a chip that has no device.
-                result.connection.sockets.emplace(chip_id, socket_file);
-            } catch (const std::exception& e) {
-                log_warning(
-                    LogUMD, "Skipping simulation socket {} (chip {}): {}", socket_file.string(), chip_id, e.what());
-            }
-        }
-        // Every socket was present but none answered -- surface it rather than returning an empty,
-        // successful-looking cluster.
-        UMD_ASSERT(
-            !devices.empty(),
-            error::RuntimeError,
-            fmt::format("No reachable simulation hosts among the sockets in {}", simulator_path.string()));
-        result.connection.role = Role::Client;
-        result.connection.server_directory = simulator_path;
-        result.cluster_descriptor =
-            build_topology(served_topology_yaml, devices, result.connection.arch, noc_translation_enabled);
-        return result;
+        return simulation_backend().discover_as_client(options.simulator_directory, classification.sockets);
     }
-
-    // Host: single chip for now. By default the host device stays private in-process (the direct hot path); serving
-    // it is opt-in.
-    constexpr ChipId chip_id = 0;
-    // value() rather than operator*: classify() always sets a backend for the host role, and this
-    // makes that invariant explicit instead of reading an empty optional if it ever stops holding.
-    const SimulationBackendType backend = classification.backend.value();
-    devices.emplace(chip_id, make_host_device(backend, simulator_path, options.num_host_mem_channels));
-
-    result.connection.role = Role::Host;
-    result.connection.simulator = simulator_path;
-    result.connection.backend = backend;
-    const SocDescriptor& soc_descriptor = devices.at(chip_id)->get_soc_descriptor();
-    result.connection.arch = soc_descriptor.arch;
-    // The host's topology is what the simulator build describes, never one a caller hands in: the
-    // simulator was not configured from it, so it could name chips that have no device here.
-    if (options.cluster_descriptor != nullptr) {
-        log_warning(
-            LogUMD,
-            "Ignoring the cluster descriptor passed to the simulation host for {}; reporting the simulator's own "
-            "topology instead.",
-            simulator_path.string());
-    }
-    result.cluster_descriptor = build_topology(
-        describe_cluster(simulator_path).yaml, devices, result.connection.arch, soc_descriptor.noc_translation_enabled);
-    // Serve that same topology, so every client that attaches sees the cluster this host reports.
-    if (options.serve_over_sockets) {
-        result.server =
-            serve({{chip_id, devices.at(chip_id).get()}}, *result.cluster_descriptor, options.server_directory);
-        result.connection.server_directory = result.server->server_directory();
-        result.connection.sockets = result.server->sockets();
-    }
-    return result;
+    return simulation_backend().discover_as_host(options);
 }
 
 }  // namespace tt::umd

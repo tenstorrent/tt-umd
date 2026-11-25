@@ -5,29 +5,16 @@
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 
 #include <map>
-#include <string>
-#include <tt-logger/tt-logger.hpp>
-#include <vector>
+#include <memory>
 
-#include "simulation/rtl_sim_att_program.hpp"
-#include "simulation/rtl_sim_ip_block_layout.hpp"
-#include "simulation/rtl_sim_ip_layout_devices.hpp"
-#include "tt-umd/simulation/rtl_sim_session.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
-#include "tt-umd/soc_arch_descriptor.hpp"
-#include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
-#include "tt-umd/utils/error.hpp"
+#include "simulation/simulation_backend.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<TTDevice> create_simulation_tt_device(
     const std::filesystem::path &simulator_path, int num_host_mem_channels) {
-    if (simulator_path.extension() == ".so") {
-        return TTSimTTDevice::create(simulator_path, num_host_mem_channels);
-    }
-    return RtlSimulationTTDevice::create(simulator_path, num_host_mem_channels);
+    return simulation_backend().create_simulation_tt_device(simulator_path, num_host_mem_channels);
 }
 
 std::unique_ptr<TTDevice> create_simulation_tt_device(
@@ -36,82 +23,13 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels) {
-    if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimTTDevice>(
-            simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips);
-    }
-    log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
-    return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
+    return simulation_backend().create_simulation_tt_device(
+        simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels);
 }
 
 std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
     const std::filesystem::path &simulator_path, int num_host_mem_channels) {
-    UMD_ASSERT(
-        simulator_path.extension() == ".so",
-        error::RuntimeError,
-        fmt::format(
-            "Enumerating a simulator's endpoints needs a libttsim .so; {} is not one. An RTL "
-            "simulator exposes no PCI config space to enumerate.",
-            simulator_path.string()));
-
-    // Ask the image which endpoints it has, before anything is brought up -- config space only
-    // answers while the image runs, and starting an already-running image is fatal.
-    const std::vector<uint32_t> bdfs = TTSimCommunicator::enumerate_mmio_device_bdfs(simulator_path);
-    UMD_ASSERT(
-        !bdfs.empty(),
-        error::RuntimeError,
-        fmt::format("Simulator {} exposes no host-visible PCI endpoints.", simulator_path.string()));
-
-    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    for (size_t index = 0; index < bdfs.size(); ++index) {
-        // Chips are numbered densely in BDF order, as silicon numbers them in enumeration order; for
-        // a linear image (chip N at bus 0, device N) that is the device number. The BDF travels with
-        // the chip, so its communicator reaches its own endpoint however sparse the layout is.
-        const auto chip_id = static_cast<ChipId>(index);
-        devices.emplace(
-            chip_id,
-            TTSimTTDevice::create_for_chip(simulator_path, chip_id, num_host_mem_channels, bdfs.size(), bdfs[index]));
-    }
-    log_debug(tt::LogEmulationDriver, "Simulator {} exposes {} endpoint(s)", simulator_path.string(), bdfs.size());
-    return devices;
-}
-
-std::map<ChipId, std::unique_ptr<TTDevice>> create_rtl_sim_ip_layout_tt_devices(
-    const std::filesystem::path &simulator_directory,
-    const RtlSimIpBlockLayout &layout,
-    const std::map<ChipId, IpDeviceId> &ip_devices,
-    int num_host_mem_channels,
-    bool launch_simulator) {
-    // Each device adds the socket it talks over to the session, which serves them once every device
-    // exists.
-    auto session = std::make_shared<RtlSimSession>(simulator_directory, std::vector<std::string>{}, launch_simulator);
-    const std::map<IpDeviceId, std::vector<AccessPointId>> layout_devices = layout.get_devices();
-    std::map<ChipId, std::unique_ptr<RtlSimulationTTDevice>> rtl_devices;
-    for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        RtlSimDeviceAccess layout_device{ip_device_id, {}};
-        for (const AccessPointId access_point : layout_devices.at(ip_device_id)) {
-            layout_device.access_points.push_back(
-                {access_point, layout.get_host_access(access_point), layout.get_location(access_point).flat_address});
-        }
-        const SocDescriptor soc_descriptor(
-            std::make_shared<SocArchDescriptor>(layout.get_soc_descriptor(ip_device_id).string()));
-        rtl_devices[chip_id] = std::make_unique<RtlSimulationTTDevice>(
-            session, layout_device, simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
-    }
-    session->start();
-
-    // The build's ATT programming, if it ships one, goes in before any core runs.
-    const std::optional<RtlSimAttProgram> att_program = RtlSimAttProgram::load(simulator_directory);
-
-    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    for (const auto &[chip_id, ip_device_id] : ip_devices) {
-        if (att_program.has_value()) {
-            att_program->apply(ip_device_id, *rtl_devices.at(chip_id)->get_communicator());
-        }
-        rtl_devices.at(chip_id)->check_att_matches_map();
-        devices[chip_id] = std::move(rtl_devices.at(chip_id));
-    }
-    return devices;
+    return simulation_backend().create_local_simulation_tt_devices(simulator_path, num_host_mem_channels);
 }
 
 }  // namespace tt::umd

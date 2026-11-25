@@ -26,7 +26,6 @@ void bind_cluster(nb::module_ &m) {
         .def(nb::init<>(), release_gil())
         .def("get_target_device_ids", &Cluster::get_target_device_ids, release_gil())
         .def("get_clocks", &Cluster::get_clocks, release_gil())
-#ifdef TT_UMD_BUILD_SIMULATION
         .def(
             "get_simulation_connection",
             &Cluster::get_simulation_connection,
@@ -35,7 +34,5 @@ void bind_cluster(nb::module_ &m) {
             "serving devices reports its directory and sockets. "
             "What simulation this cluster was constructed over (role, simulator, server directory), or None when "
             "it is not a simulation cluster. Its sockets are keyed by this cluster's chip ids. A host that stops "
-            "serving afterwards does not change a client's answer.")
-#endif
-        ;
+            "serving afterwards does not change a client's answer.");
 }

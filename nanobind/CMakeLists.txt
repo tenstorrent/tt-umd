@@ -10,6 +10,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
 
     include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
+    # Bind what the installed UMD was built with.
+    set(TT_UMD_BUILD_SIMULATION "${umd_BUILD_SIMULATION}")
 endif()
 
 # https://cmake.org/cmake/help/latest/module/FindPython.html
@@ -26,8 +28,11 @@ find_package(
 
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_error.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp py_api_warm_reset.cpp py_api_soc_descriptor.cpp py_api_logging.cpp py_api_simulation.cpp py_api_mutex.cpp)
+# The simulation TTDevice subclasses are defined only in a build with simulation support, so only that build binds them.
 if(TT_UMD_BUILD_SIMULATION)
-    target_compile_definitions(nanobind_tt_umd PRIVATE TT_UMD_BUILD_SIMULATION)
+    target_sources(nanobind_tt_umd PRIVATE py_api_simulation_tt_device.cpp)
+else()
+    target_sources(nanobind_tt_umd PRIVATE py_api_simulation_tt_device_unavailable.cpp)
 endif()
 
 # Generate stub file for type checking

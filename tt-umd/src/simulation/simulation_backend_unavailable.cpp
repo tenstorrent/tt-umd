@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstdint>
 #include <functional>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,10 +24,6 @@ constexpr const char* simulation_not_built_message =
 class UnavailableSimulationBackend final : public SimulationBackend {
 public:
     bool is_server_directory(const std::filesystem::path& /*simulator_path*/) const override {
-        UMD_THROW(error::RuntimeError, simulation_not_built_message);
-    }
-
-    AttachedServer attach_to_server(const std::filesystem::path& /*server_directory*/) const override {
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 
@@ -63,6 +62,11 @@ public:
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 
+    std::unique_ptr<TTDevice> create_simulation_tt_device(
+        const std::filesystem::path& /*simulator_path*/, int /*num_host_mem_channels*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
     // No simulator exists in this build, so no device is simulated.
     std::optional<uint32_t> get_pci_bdf(const TTDevice& /*tt_device*/) const override { return std::nullopt; }
 
@@ -76,11 +80,20 @@ public:
         return std::nullopt;
     }
 
-    std::unique_ptr<SimulationConnector::Server> serve(
+    SimulationConnector::Result discover_as_host(const SimulationConnectorOptions& /*options*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    SimulationConnector::Result discover_as_client(
+        const std::filesystem::path& /*server_directory*/,
+        const std::map<ChipId, std::filesystem::path>& /*sockets*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
+    }
+
+    std::map<ChipId, std::function<std::vector<uint8_t>(const std::vector<uint8_t>&)>> make_server_request_handlers(
         const std::map<ChipId, TTDevice*>& /*devices*/,
         const ClusterDescriptor& /*cluster_descriptor*/,
-        const std::filesystem::path& /*server_directory*/,
-        const std::function<void()>& /*shutdown_handler*/) const override {
+        std::function<void()> /*shutdown_handler*/) const override {
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 };

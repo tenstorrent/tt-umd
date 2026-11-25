@@ -56,6 +56,10 @@ struct SimulationServerInfo {
 //     simulation sockets          each attaching to a live host and sourcing its SoC descriptor
 //                                 (and backend kind) from that host over the wire;
 //   - any other directory     -> host running the RTL backend from that build directory.
+//
+// Declared and linkable in every build. In a build without simulation support, discover() and serve() throw
+// error::RuntimeError saying so; the server-directory calls (role_for, allocate_server_directory, scan_servers,
+// list_servers, prune_dead_servers) work in every build.
 class SimulationConnector {
 public:
     // Host vs client, decided from simulator_directory (the two host backends collapse to Host).
@@ -164,8 +168,9 @@ public:
     //        (allocate_server_directory).
     // @param shutdown_handler What a client's SHUTDOWN request asks the owner to do; may be empty.
     // @throws error::RuntimeError when devices is empty or holds a null device, when a chip id is
-    //         not a chip of cluster_descriptor, or when a live server already serves one of the
-    //         chips in server_directory. Nothing is served then.
+    //         not a chip of cluster_descriptor, when a live server already serves one of the
+    //         chips in server_directory, or when UMD was built without simulation support. Nothing
+    //         is served then.
     static std::unique_ptr<Server> serve(
         const std::map<ChipId, TTDevice*>& devices,
         const ClusterDescriptor& cluster_descriptor,

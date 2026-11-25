@@ -241,8 +241,11 @@ reports its own directory and sockets.
 
 ### From Python
 
-`SimulationConnector` is bound in the `tt_umd` wheel whenever UMD is built with simulation support,
-and behaves exactly as it does in C++ — including deciding the role from the path.
+`SimulationConnector` is bound in every `tt_umd` build and behaves exactly as it does in C++ —
+including deciding the role from the path. When UMD was built without simulation support,
+`discover()` and `serve()` raise `error.UmdBaseException`, while the server-directory calls
+(`role_for`, `allocate_server_directory`, `scan_servers`, `list_servers`, `prune_dead_servers`) still
+work.
 
 ```python
 import tt_umd

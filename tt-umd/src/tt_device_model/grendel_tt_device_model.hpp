@@ -42,7 +42,8 @@ public:
      * A window served from the same scalar accesses the protocol uses, because the TLB path
      * TTDevice takes otherwise allocates a hardware mapping and this architecture exposes none.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
     PCIDevice *get_pci_device() override;
@@ -51,11 +52,23 @@ public:
     SocArchDescriptor *get_soc_arch_descriptor() override;
 
     /**
+     * Null, so TTDevice reports reset as unavailable: UMD's RiscReset implementations address a
+     * tile by coordinate, which a Quasar access does not carry, and how the host resets Quasar
+     * RISCs is not settled yet.
+     */
+    RiscReset *get_risc_reset() override;
+
+    /**
+     * Null: the driver exposes no DMA path for this architecture yet, so the device cannot reach host memory.
+     */
+    SystemMemoryAllocator *get_system_memory_allocator() override;
+
+    /**
      * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile
      * and a tile-local offset, so a caller's coordinate has to be folded into the address before
      * the access is issued. Offering the resolver is what asks TTDevice to do that.
      */
-    const att::EndpointResolver *get_endpoint_resolver() override;
+    const att::EndpointResolver *get_endpoint_resolver() const override;
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
 private:

@@ -44,7 +44,7 @@ inline constexpr tt_xy_pair GRID_SIZE = {12, 8};
 // NOC0_Y_TO_NOC1_Y[noc0_y] is the NOC1 y coordinate corresponding to NOC0 y coordinate noc0_y.
 static const std::vector<uint32_t> NOC0_X_TO_NOC1_X = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 static const std::vector<uint32_t> NOC0_Y_TO_NOC1_Y = {11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-const static tt_xy_pair TENSIX_GRID_SIZE = {8, 4};
+inline constexpr tt_xy_pair TENSIX_GRID_SIZE = {8, 4};
 // clang-format off
 const static std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {
     {2, 2},  {3, 2},  {4, 2},  {5, 2},  {6, 2},  {7, 2},  {8, 2},  {9, 2}, 
@@ -328,9 +328,7 @@ public:
         return 0;
     }  // grendel does not support staggered start ??
 
-    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
-        return grendel::HARVESTING_NOC_LOCATIONS;
-    }
+    std::vector<uint32_t> get_harvesting_noc_locations() const override { return grendel::HARVESTING_NOC_LOCATIONS; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
 };

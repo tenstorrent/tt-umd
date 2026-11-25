@@ -16,20 +16,27 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -41,7 +48,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<uint32_t> data_read(data_write.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -71,7 +78,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     std::vector<uint32_t> data_read(data_write0.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         uint64_t address = get_architecture_registers(tt_device->get_arch()).riscv_debug_bus_cntl_reg;
@@ -96,7 +103,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
 TEST(ApiTTDeviceTest, TTDeviceReg64BitAccessThrowsOutsideQuasar) {
     for (int pci_device_id : PCIDevice::enumerate_devices()) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->init_tt_device();
         if (tt_device->get_arch() == tt::ARCH::QUASAR) {
             continue;
@@ -115,7 +122,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -137,7 +144,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
 TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -152,6 +159,17 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     }
 }
 
+TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
+    for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        PcieInterface* pcie_interface = tt_device->get_pcie_interface();
+        if (pcie_interface == nullptr) {
+            continue;
+        }
+        EXPECT_EQ(pcie_interface->get_physical_slot(), device_info.physical_slot);
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -159,10 +177,10 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     const uint64_t address_thread0 = SAFE_IO_L1_ADDRESS;
     const uint64_t address_thread1 = address_thread0 + data_write.size() * sizeof(uint32_t);
-    const uint32_t num_loops = 1000;
+    constexpr uint32_t num_loops = 1000;
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -209,12 +227,14 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
+    // Host memory channels are mapped only while the cluster is started.
+    test_utils::safe_test_cluster_start(cluster.get());
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     auto chip_locations = cluster_desc->get_chip_locations();
 
-    const uint32_t buf_size = 1 << 20;
+    constexpr uint32_t buf_size = 1 << 20;
     std::vector<uint8_t> zero_out_buffer(buf_size, 0);
 
     std::vector<uint8_t> pattern_buf(buf_size);
@@ -245,6 +265,50 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
             EXPECT_EQ(pattern_buf, readback_buf);
         }
     }
+
+    cluster->close_device();
+}
+
+TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote devices found in cluster.";
+    }
+    for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
+    }
+}
+
+TEST(ApiTTDeviceTest, SystemMemoryAllocatorPinsForItsDevice) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (ChipId chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const int communication_id = tt_device->get_communication_device_id();
+
+        SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
+        ASSERT_NE(allocator, nullptr);
+        EXPECT_EQ(allocator->get_communication_id(), communication_id);
+
+        std::unique_ptr<SysmemBuffer> buffer = allocator->allocate_buffer(4096);
+        ASSERT_NE(buffer, nullptr);
+        EXPECT_EQ(buffer->get_communication_id(), communication_id);
+    }
+}
+
+// A remote device reaches the host only through its gateway chip, so it has no host memory of its own.
+TEST(ApiTTDeviceTest, RemoteDeviceHasNoSystemMemoryAllocator) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips in the cluster.";
+    }
+
+    for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(chip_id)->get_tt_device()->get_system_memory_allocator(), nullptr);
+    }
 }
 
 TEST(ApiTTDeviceTest, MulticastIO) {
@@ -269,12 +333,12 @@ TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<uint8_t> data_read(data_write.size(), 0);
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
@@ -290,8 +354,8 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
         tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, SAFE_IO_L1_ADDRESS);
 
-        for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
-            for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
+        for (size_t x = xy_start.x; x <= xy_end.x; x++) {
+            for (size_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());
@@ -311,7 +375,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -349,7 +413,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
 TEST(ApiTTDeviceTest, UninitializedError) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
         // These methods should work without initialization.
@@ -398,7 +462,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
 TEST(ApiTTDeviceTest, UninitializedIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
@@ -407,12 +471,12 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
             tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
         tt_device.reset();
 
-        tt_device = TTDevice::create(pci_device_id);
+        tt_device = create_tt_device(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         using err = error::UmdException<error::UnresolvableCoordinateError>;
 
-        const uint32_t value = 0xAABB;
-        const uint32_t bad_value = 0xCCDD;
+        constexpr uint32_t value = 0xAABB;
+        constexpr uint32_t bad_value = 0xCCDD;
         EXPECT_NO_THROW(tt_device->write_to_device(&value, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
         EXPECT_THROW(tt_device->write_to_device(&bad_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof bad_value), err);
         uint32_t readback = 0;
@@ -421,3 +485,15 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         EXPECT_EQ(value, readback);
     }
 }
+
+class ApiTTDeviceUnsupportedTypeTest : public ::testing::TestWithParam<IODeviceType> {};
+
+TEST_P(ApiTTDeviceUnsupportedTypeTest, CreateRejectsDeviceType) {
+    EXPECT_THROW(TTDevice::create(0, GetParam()), error::UmdException<error::RuntimeError>);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    UnsupportedTypes,
+    ApiTTDeviceUnsupportedTypeTest,
+    ::testing::Values(IODeviceType::AXI, IODeviceType::UNDEFINED),
+    [](const ::testing::TestParamInfo<IODeviceType>& info) { return DeviceTypeToString.at(info.param); });

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
 #include <optional>
 
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
@@ -74,6 +75,8 @@ private:
 
     DeviceProtocol* device_protocol_ = nullptr;
     TscResetLayout layout_;
+    // Serializes each read-modify-write so concurrent resets of different RISCs on one tile keep each other's bits.
+    std::mutex reset_register_mutex_;
 };
 
 }  // namespace tt::umd

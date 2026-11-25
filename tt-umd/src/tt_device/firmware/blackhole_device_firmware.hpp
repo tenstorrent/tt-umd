@@ -10,8 +10,8 @@
 #include <memory>
 #include <vector>
 
-#include "tt-umd/arc/blackhole_arc_message_queue.hpp"
 #include "tt-umd/tt_device/firmware/blackhole_arc_apb.hpp"
+#include "tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/noc_id.hpp"

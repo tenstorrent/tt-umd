@@ -168,13 +168,13 @@ TEST_F(QuasarIoWindow, NonCacheableFlagIsCarriedToTheWindow) {
 
     // Relaxed because nothing on this architecture programs ordering, so asking for Strict would
     // promise a guarantee the window was never configured for.
-    ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::RELAXED));
     EXPECT_NE(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None)
         << "the window should report the flag it was configured with";
 
     // Clear it before touching the window again, then confirm the window still works.
     target.flags = WindowFlags::None;
-    ASSERT_NO_THROW(window_->configure(target, IoOrdering::Relaxed));
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::RELAXED));
     EXPECT_EQ(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None);
 
     constexpr uint32_t SENTINEL = 0x5000FEEDu;

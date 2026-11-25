@@ -203,7 +203,7 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
         std::vector<uint64_t> addresses;
         for (const AccessPointId access_point : device->get_access_points()) {
             const std::optional<uint64_t> address = device->get_flat_address(
-                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::Strict, L1_ADDR);
+                access_point, tensix(chip), WindowFlags::Bidirectional, IoOrdering::STRICT, L1_ADDR);
             if (address.has_value()) {
                 addresses.push_back(*address);
             }
@@ -213,11 +213,14 @@ TEST_F(RtlSimIpPartitionTest, AccessPointsReachTheSameTile) {
         }
         checked = true;
         for (size_t writer = 0; writer < addresses.size(); writer++) {
-            const auto data = marker(0xC0000000u | (static_cast<uint32_t>(chip) << 20) | (writer << 16));
-            device->get_communicator()->global_write_words(addresses[writer], data.data(), bytes);
+            const auto data =
+                marker(0xC0000000u | (static_cast<uint32_t>(chip) << 20) | (static_cast<uint32_t>(writer) << 16));
+            device->get_communicator()->global_write_words(
+                addresses[writer], data.data(), static_cast<uint32_t>(bytes));
             for (size_t reader = 0; reader < addresses.size(); reader++) {
                 std::vector<uint32_t> readback(data.size());
-                device->get_communicator()->global_read_words(addresses[reader], readback.data(), bytes);
+                device->get_communicator()->global_read_words(
+                    addresses[reader], readback.data(), static_cast<uint32_t>(bytes));
                 EXPECT_EQ(readback, data) << "chip " << chip << ": written through access point " << writer << " at 0x"
                                           << std::hex << addresses[writer] << ", read through " << std::dec << reader
                                           << " at 0x" << std::hex << addresses[reader];

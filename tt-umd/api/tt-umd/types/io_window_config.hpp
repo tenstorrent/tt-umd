@@ -4,9 +4,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 
 #include "tt-umd/types/noc_id.hpp"
@@ -30,10 +33,27 @@ enum class HostMemoryCaching {
  * translating between the two is a cast rather than a switch.
  */
 enum class IoOrdering : uint8_t {
-    Relaxed = 0,  ///< No ordering guarantees between transactions.
-    Strict = 1,   ///< Transactions complete in issue order.
-    Posted = 2,   ///< Writes are posted; no completion acknowledgement.
+    RELAXED = 0,  ///< No ordering guarantees between transactions.
+    STRICT = 1,   ///< Transactions complete in issue order.
+    POSTED = 2,   ///< Writes are posted; no completion acknowledgement.
+
+    // Pre-spec spellings, kept until external users migrate.
+    Relaxed [[deprecated("Use IoOrdering::RELAXED")]] = RELAXED,
+    Strict [[deprecated("Use IoOrdering::STRICT")]] = STRICT,
+    Posted [[deprecated("Use IoOrdering::POSTED")]] = POSTED,
 };
+
+inline std::string to_str(IoOrdering ordering) {
+    switch (ordering) {
+        case IoOrdering::RELAXED:
+            return "RELAXED";
+        case IoOrdering::STRICT:
+            return "STRICT";
+        case IoOrdering::POSTED:
+            return "POSTED";
+    }
+    return "Unknown";
+}
 
 /**
  * @brief Type-safe transaction attributes for an IoWindow target.
@@ -106,3 +126,10 @@ struct HostIoWindowConfig {
 };
 
 }  // namespace tt::umd
+
+template <>
+struct fmt::formatter<tt::umd::IoOrdering> : fmt::formatter<std::string> {
+    auto format(tt::umd::IoOrdering ordering, fmt::format_context& ctx) const {
+        return fmt::formatter<std::string>::format(tt::umd::to_str(ordering), ctx);
+    }
+};

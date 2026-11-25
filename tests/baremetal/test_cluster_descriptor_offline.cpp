@@ -28,16 +28,18 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tt-umd-utils/internal/disjoint_set.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/cluster_description.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(
+size_t count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {
     size_t count = 0;
@@ -58,7 +60,7 @@ protected:
 };
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
-    for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+    for (const std::string& cluster_desc_yaml : test_utils::get_all_cluster_descs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_yaml);
 
@@ -71,7 +73,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
         // Check that cluster_id is always the same for the same cluster.
         // Cluster id takes the value of the smallest chip_id in the cluster.
         for (auto const& [chip, coord] : eth_chip_coords) {
-            if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
+            if (cluster_desc_yaml != test_utils::get_cluster_desc_path("wormhole_2xN300_unconnected.yaml")) {
                 EXPECT_EQ(coord.cluster_id, 0);
             } else {
                 EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 2);
@@ -81,7 +83,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
 }
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
-    for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
+    for (const std::string& cluster_desc_yaml : test_utils::get_all_cluster_descs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
 
         // Load file content.
@@ -103,7 +105,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
         // Check that cluster_id is always the same for the same cluster.
         // Cluster id takes the value of the smallest chip_id in the cluster.
         for (auto const& [chip, coord] : eth_chip_coords) {
-            if (cluster_desc_yaml != test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml")) {
+            if (cluster_desc_yaml != test_utils::get_cluster_desc_path("wormhole_2xN300_unconnected.yaml")) {
                 EXPECT_EQ(coord.cluster_id, 0);
             } else {
                 EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 2);
@@ -114,7 +116,7 @@ TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptorsContent) {
 
 TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_2xN300_unconnected.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
     utils::DisjointSet<ChipId> chip_clusters;
@@ -143,7 +145,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
 
 TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, ConstrainedTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("t3k_cluster_desc.yaml"));
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
@@ -195,7 +197,7 @@ TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, ConstrainedTopology) {
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("t3k_cluster_desc.yaml"));
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
@@ -248,7 +250,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
 TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, NoBoardExpansion) {
     // Load the 6u cluster descriptor (Galaxy-style with many chips per board).
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("6u_cluster_desc.yaml"));
     ASSERT_NE(cluster_desc, nullptr) << "Failed to load cluster descriptor";
 
     // Test 1: With explicit target_chip_ids, should NOT expand to include all chips on the same boards.
@@ -301,7 +303,7 @@ TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, NoBoardExpansion) {
 
 TEST(ApiClusterDescriptorOfflineTest, RemoteEthernetConnectionsPreservedWhenConstrained) {
     // Load descriptor that has ethernet_connections_to_remote_devices (N300 with remote links).
-    std::string cluster_desc_path = test_utils::GetClusterDescAbsPath("wormhole_N300_with_remote_connections.yaml");
+    std::string cluster_desc_path = test_utils::get_cluster_desc_path("wormhole_N300_with_remote_connections.yaml");
     std::unique_ptr<ClusterDescriptor> full_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
     ASSERT_NE(full_desc, nullptr);
 
@@ -334,7 +336,7 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
     // Connections from visible chips to non-visible chips (2-7, except 1) should become remote connections.
     // Chip IDs are remapped to 0-based indices, so we match by unique_id to map constrained chips to original.
     std::unique_ptr<ClusterDescriptor> full_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("t3k_cluster_desc.yaml"));
     ASSERT_NE(full_desc, nullptr);
 
     std::unordered_set<ChipId> target_chips = {0};
@@ -397,7 +399,7 @@ TEST(ApiClusterDescriptorOfflineTest, LocalConnectionsConvertedToRemoteWhenFilte
 }
 
 TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
-    for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
+    for (const auto& descriptor_file : test_utils::get_all_cluster_descs()) {
         log_info(LogUMD, "Testing mock cluster creation from: {}", descriptor_file);
         std::unique_ptr<ClusterDescriptor> cluster_desc;
         ASSERT_NO_THROW(cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file))
@@ -430,7 +432,7 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
 // Recreates tt-metal's device-init codepath on a mock cluster for every descriptor: construct the
 // mock Cluster and run start_device(init_device=true), as MeshDevice::create does.
 TEST(ApiMockClusterTest, StartDeviceFromAllDescriptors) {
-    for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
+    for (const auto& descriptor_file : test_utils::get_all_cluster_descs()) {
         log_info(LogUMD, "Starting mock cluster from: {}", descriptor_file);
 
         std::unique_ptr<ClusterDescriptor> cluster_desc;
@@ -452,24 +454,76 @@ TEST(ApiMockClusterTest, StartDeviceFromAllDescriptors) {
 }
 
 TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
-    auto cluster_desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+    auto cluster_desc = ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150.yaml"));
     Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});
     EXPECT_THROW(cluster.refresh_cluster_description(), std::runtime_error);
 }
 
 TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsLoadedFromYaml) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N300_pci_bdf.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N300_pci_bdf.yaml"));
     const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, 16}};
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
 }
 
 TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("blackhole_P150.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("blackhole_P150.yaml"));
     const std::unordered_map<ChipId, std::optional<uint32_t>> expected = {{0, std::nullopt}};
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
 }
+
+class ClusterDescriptorRejectedIoDeviceTypeTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(ClusterDescriptorRejectedIoDeviceTypeTest, YamlIsRejected) {
+    std::ifstream fdesc(test_utils::get_cluster_desc_path("blackhole_P150.yaml"));
+    ASSERT_FALSE(fdesc.fail());
+    std::stringstream buffer;
+    buffer << fdesc.rdbuf();
+
+    EXPECT_THROW(
+        ClusterDescriptor::create_from_yaml_content("io_device_type: " + GetParam() + "\n" + buffer.str()),
+        error::UmdException<error::RuntimeError>);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    UndefinedAndUnknownNames, ClusterDescriptorRejectedIoDeviceTypeTest, ::testing::Values("Undefined", "Bogus"));
+
+TEST(ApiClusterDescriptorOfflineTest, CreateFromDescription) {
+    ClusterDescription description;
+    ChipDescription& chip = description.chips[0];
+    chip.arch = tt::ARCH::BLACKHOLE;
+    chip.mmio_device_id = 3;
+    chip.pci_bdf = "0000:04:00.0";
+
+    std::unique_ptr<ClusterDescriptor> cluster_desc = create_cluster_descriptor(std::move(description));
+
+    EXPECT_EQ(cluster_desc->get_number_of_chips(), 1);
+    EXPECT_EQ(cluster_desc->get_arch(0), tt::ARCH::BLACKHOLE);
+    EXPECT_EQ(cluster_desc->get_board_type(0), BoardType::UNKNOWN);
+    EXPECT_EQ(cluster_desc->get_chips_with_mmio().at(0), 3);
+    EXPECT_EQ(cluster_desc->get_chip_pci_bdfs().at(0), "0000:04:00.0");
+    EXPECT_TRUE(cluster_desc->get_ethernet_connections().at(0).empty());
+}
+
+class MockClusterBoardTypeTest : public ::testing::TestWithParam<std::tuple<tt::ARCH, BoardType>> {};
+
+// A simulation client builds its devices from the descriptor its host serializes, so the round trip must
+// keep the board type the host uses.
+TEST_P(MockClusterBoardTypeTest, SurvivesSerializeRoundTrip) {
+    const auto [arch, board_type] = GetParam();
+    std::unique_ptr<ClusterDescriptor> reloaded = ClusterDescriptor::create_from_yaml_content(
+        ClusterDescriptor::create_mock_cluster({0}, arch, false)->serialize());
+    EXPECT_EQ(reloaded->get_board_type(0), board_type);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MockArchs,
+    MockClusterBoardTypeTest,
+    ::testing::Values(
+        std::make_tuple(tt::ARCH::WORMHOLE_B0, BoardType::N150),
+        std::make_tuple(tt::ARCH::BLACKHOLE, BoardType::UNKNOWN),
+        std::make_tuple(tt::ARCH::QUASAR, BoardType::UNKNOWN)));
 
 class ClusterDescriptorPcieLaneCountsTest : public ::testing::TestWithParam<std::string> {};
 
@@ -496,7 +550,7 @@ TEST_P(ClusterDescriptorPcieLaneCountsTest, SurvivesSerializeRoundTrip) {
 INSTANTIATE_TEST_SUITE_P(
     AllClusterDescs,
     ClusterDescriptorPcieLaneCountsTest,
-    ::testing::ValuesIn(test_utils::GetAllClusterDescs()),
+    ::testing::ValuesIn(test_utils::get_all_cluster_descs()),
     [](const ::testing::TestParamInfo<std::string>& info) {
         std::string name = std::filesystem::path(info.param).stem().string();
         std::replace_if(

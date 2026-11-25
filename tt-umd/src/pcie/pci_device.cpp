@@ -18,12 +18,14 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
@@ -56,7 +58,9 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         attribute_name);
     std::ifstream attribute_file(sysfs_path);
     std::string value_str;
-    T value;
+    // operator>> reads single-byte types as characters, so those are parsed as numbers and range-checked.
+    using ParsedT = std::conditional_t<sizeof(T) == 1, unsigned int, T>;
+    ParsedT value;
 
     if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
         return std::nullopt;
@@ -75,7 +79,13 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         return std::nullopt;
     }
 
-    return value;
+    if constexpr (sizeof(T) == 1) {
+        if (value > std::numeric_limits<T>::max()) {
+            return std::nullopt;
+        }
+    }
+
+    return static_cast<T>(value);
 }
 
 template <typename T>
@@ -388,43 +398,61 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
-static int open_pci_device(const std::string &device_path) {
-    // O_APPEND is temporarily disabled to investigate NOC1 issues. See
-    // https://github.com/tenstorrent/tt-umd/issues/2531.
-    int flags = O_RDWR | O_CLOEXEC;
-    log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
+// O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states. A power
+// aware fd contributes nothing to the device's power state until set_power_state() is called on it. Only Blackhole
+// is opted in, since set_power_state() is a no-op on other architectures and they would never leave low power.
+static int power_aware_open_flags(tt::ARCH arch, const SemVer &kmd_version) {
+    return (arch == tt::ARCH::BLACKHOLE && kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+}
+
+static int open_pci_device(const std::string &device_path, tt::ARCH arch, const SemVer &kmd_version) {
+    int flags = O_RDWR | O_CLOEXEC | power_aware_open_flags(arch, kmd_version);
+    log_debug(
+        LogUMD,
+        fmt::format(
+            "Opening device {} in {} mode regarding device power.",
+            device_path,
+            (flags & O_APPEND) ? "power aware" : "legacy"));
     return open(device_path.c_str(), flags);
 }
 
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint8_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
+    // The destructor does not run for a constructor that throws, so release whatever was acquired before the throw.
+    try {
+        construct_resources();
+    } catch (...) {
+        release_resources();
+        throw;
+    }
+}
+
+void PCIDevice::construct_resources() {
+    pci_device_file_desc = open_pci_device(device_path, arch, kmd_version);
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
-    int extra_flags = 0;
+    int extra_flags = power_aware_open_flags(arch, kmd_version);
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
-        if (tt_device_handle != nullptr) {
-            tt_device_close(tt_device_handle);
-        }
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "tt_device_open failed with error code {} for PCI device with device ID {}.",
+                "tt_device_open failed with error code {} for PCI device with device ID {} ({}).",
                 ret_code,
-                pci_device_number));
+                pci_device_num,
+                info.pci_bdf));
     }
 
     uint64_t driver_api_version = 0;
@@ -450,7 +478,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     if (mappings_ret != 0) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Query mappings failed on device {}: {}", pci_device_num, strerror(-mappings_ret)));
+            fmt::format(
+                "Query mappings failed on device {} ({}): {}", pci_device_num, info.pci_bdf, strerror(-mappings_ret)));
     }
 
     const tt_bar_mapping_t &bar0_uc_mapping = bar_mappings.resource0_uc;
@@ -526,11 +555,11 @@ PCIDevice::PCIDevice(int pci_device_number) :
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
+        // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
         }
 
-        // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
@@ -548,18 +577,24 @@ PCIDevice::PCIDevice(int pci_device_number) :
     allocate_pcie_dma_buffer();
 }
 
-PCIDevice::~PCIDevice() {
-    int ret_code = tt_device_close(tt_device_handle);
-
-    if (ret_code != 0) {
-        log_warning(
-            LogUMD,
-            "tt_device_close failed with error code {} for PCI device with device ID {}.",
-            ret_code,
-            pci_device_num);
+void PCIDevice::release_resources() {
+    // Closes the tt_device handle, the device file descriptor and every BAR mapping. Safe to call
+    // on a partially constructed device: every member is default-initialized to a null/empty state.
+    if (tt_device_handle != nullptr) {
+        int ret_code = tt_device_close(tt_device_handle);
+        if (ret_code != 0) {
+            log_warning(
+                LogUMD,
+                "tt_device_close failed with error code {} for PCI device with device ID {}.",
+                ret_code,
+                pci_device_num);
+        }
+        tt_device_handle = nullptr;
     }
 
-    close(pci_device_file_desc);
+    if (pci_device_file_desc >= 0) {
+        close(pci_device_file_desc);
+    }
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
@@ -578,6 +613,8 @@ PCIDevice::~PCIDevice() {
         munmap(dma_buffer.buffer, dma_buffer.size + static_cast<size_t>(sysconf(_SC_PAGESIZE)));
     }
 }
+
+PCIDevice::~PCIDevice() { release_resources(); }
 
 uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     const uint64_t virtual_address = reinterpret_cast<std::uintptr_t>(buffer);
@@ -771,8 +808,8 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 }
 
 SemVer PCIDevice::read_kmd_version() {
-    static const std::string path = "/sys/module/tenstorrent/version";
-    std::ifstream file(path);
+    constexpr std::string_view path = "/sys/module/tenstorrent/version";
+    std::ifstream file{std::string(path)};
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);

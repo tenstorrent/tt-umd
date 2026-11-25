@@ -23,8 +23,6 @@ namespace tt::umd {
 class Cluster;
 }  // namespace tt::umd
 
-// static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
-
 using namespace tt;
 using namespace tt::umd;
 
@@ -42,12 +40,11 @@ struct tt_multichip_core_addr {
 
 // SIMPLE DATAMOVEMENT API BASED ON UMD
 // send one contiguous chunk of data from one sender core to a receiver core
-void move_data(
-    Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
+void move_data(Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, size_t size);
 
 // send one contiguous chunk of data to a vector of receiver cores
 void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
     const std::vector<tt_multichip_core_addr>& receiver_cores,
-    uint32_t size);
+    size_t size);

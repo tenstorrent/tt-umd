@@ -30,8 +30,8 @@ TEST(ApiEmuleClusterTest, CreateEmuleSingleChipClusters) {
     // - wormhole_N150.yaml (1 chip)
     // - wormhole_N150_unique_ids.yaml (1 chip, exercises chip_unique_ids parsing path)
     const std::vector<std::string> single_chip_descs = {
-        test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"),
-        test_utils::GetClusterDescAbsPath("wormhole_N150_unique_ids.yaml"),
+        test_utils::get_cluster_desc_path("wormhole_N150.yaml"),
+        test_utils::get_cluster_desc_path("wormhole_N150_unique_ids.yaml"),
     };
 
     for (const auto& descriptor_file : single_chip_descs) {
@@ -74,7 +74,7 @@ TEST(ApiEmuleClusterTest, UnsupportedSharedPoolRequestFailsExplicitly) {
 
     ASSERT_EQ(::setenv("TT_EMULE_CHIP_SHM", "1", 1), 0);
     const SocDescriptor soc(
-        std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml")));
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml")));
     try {
         SWEmuleChip chip(soc, 123);
         FAIL() << "Unsupported shared backing was accepted";
@@ -84,7 +84,7 @@ TEST(ApiEmuleClusterTest, UnsupportedSharedPoolRequestFailsExplicitly) {
 }
 
 TEST(ApiEmuleClusterTest, EmuleRoundtripIO) {
-    std::string descriptor_file = test_utils::GetClusterDescAbsPath("wormhole_N150.yaml");
+    std::string descriptor_file = test_utils::get_cluster_desc_path("wormhole_N150.yaml");
     std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file);
     ASSERT_NE(cluster_desc, nullptr);
 
@@ -123,7 +123,7 @@ TEST(ApiEmuleClusterTest, EmuleRoundtripIO) {
 
 TEST(ApiEmuleClusterTest, WorkerSlotMapIsDeterministicAndDense) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150.yaml"));
     auto cluster = std::make_unique<Cluster>(
         ClusterOptions{.chip_type = ChipType::SWEMULE, .cluster_descriptor = cluster_desc.get()});
     ChipId chip_id = *cluster->get_target_device_ids().begin();
@@ -153,7 +153,7 @@ TEST(ApiEmuleClusterTest, WorkerSlotMapIsDeterministicAndDense) {
 
 TEST(ApiEmuleClusterTest, PoolIsSizedToTensixCount) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150.yaml"));
     auto cluster = std::make_unique<Cluster>(
         ClusterOptions{.chip_type = ChipType::SWEMULE, .cluster_descriptor = cluster_desc.get()});
     ChipId chip_id = *cluster->get_target_device_ids().begin();
@@ -167,7 +167,7 @@ TEST(ApiEmuleClusterTest, PoolIsSizedToTensixCount) {
 
 TEST(ApiEmuleClusterTest, NonTranslatedCoreNamingStillResolvesToAPoolSlot) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150.yaml"));
     auto cluster = std::make_unique<Cluster>(
         ClusterOptions{.chip_type = ChipType::SWEMULE, .cluster_descriptor = cluster_desc.get()});
     ChipId chip_id = *cluster->get_target_device_ids().begin();
@@ -203,7 +203,8 @@ namespace {
 std::unique_ptr<Cluster> make_quasar_2x3_cluster(ClusterDescriptor& cluster_desc) {
     ClusterOptions options{};
     options.chip_type = ChipType::SWEMULE;
-    options.sdesc_path = test_utils::GetSocDescAbsPath("quasar_simulation_2x3.yaml");
+    options.topology_discovery_options.soc_descriptor_path =
+        test_utils::get_soc_desc_path("quasar_simulation_2x3.yaml");
     options.cluster_descriptor = &cluster_desc;
     return std::make_unique<Cluster>(options);
 }
@@ -257,11 +258,11 @@ TEST(ApiEmuleClusterTest, SharedBackingRefusesASynthesizedUniqueId) {
     // -- stable within a process, but it names no physical chip. Two ranks each holding a different
     // chip 0 would compute the same segment key, so sharing must refuse it rather than collide.
     std::unique_ptr<ClusterDescriptor> synthesized =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150.yaml"));
     EXPECT_FALSE(synthesized->has_authentic_chip_unique_ids());
 
     std::unique_ptr<ClusterDescriptor> authentic =
-        ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150_unique_ids.yaml"));
+        ClusterDescriptor::create_from_yaml(test_utils::get_cluster_desc_path("wormhole_N150_unique_ids.yaml"));
     EXPECT_TRUE(authentic->has_authentic_chip_unique_ids());
 
     // Mock descriptors synthesize too, and their ids are bare logical ids -- the worst case.

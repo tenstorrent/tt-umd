@@ -75,7 +75,7 @@ protected:
         const ChipId chip = *cluster_->get_target_mmio_device_ids().begin();
         tt_device_ = cluster_->get_chip(chip)->get_tt_device();
         dram_cores_ = cluster_->get_soc_descriptor(chip).get_cores(CoreType::DRAM);
-        buffer_ = cluster_->get_chip(chip)->get_sysmem_manager()->allocate_sysmem_buffer(2 * TRANSFER_SIZE);
+        buffer_ = cluster_->get_chip(chip)->get_system_memory_allocator()->allocate_buffer(2 * TRANSFER_SIZE);
         host_ = static_cast<uint8_t*>(buffer_->get_va());
     }
 

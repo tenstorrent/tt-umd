@@ -82,8 +82,8 @@ private:
         void* dest, const void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
 
     void write_regs(
-        volatile uint32_t* dest, const uint32_t* src, uint32_t word_len, const std::function<bool()>& on_timeout);
-    void read_regs(void* src_reg, uint32_t word_len, void* data, const std::function<bool()>& on_timeout);
+        volatile uint32_t* dest, const uint32_t* src, size_t word_len, const std::function<bool()>& on_timeout);
+    void read_regs(void* src_reg, size_t word_len, void* data, const std::function<bool()>& on_timeout);
 
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);

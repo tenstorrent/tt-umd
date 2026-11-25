@@ -25,9 +25,9 @@ namespace tt::umd {
 // window API and IoOrdering is what callers pass all the way down. tlb_data itself stays either way --
 // it is the hardware register descriptor (see tlb_data::apply_offset) and remains internal to the
 // handle/PCI layer.
-static_assert(static_cast<uint64_t>(IoOrdering::Relaxed) == tlb_data::Relaxed);
-static_assert(static_cast<uint64_t>(IoOrdering::Strict) == tlb_data::Strict);
-static_assert(static_cast<uint64_t>(IoOrdering::Posted) == tlb_data::Posted);
+static_assert(static_cast<uint64_t>(IoOrdering::RELAXED) == tlb_data::Relaxed);
+static_assert(static_cast<uint64_t>(IoOrdering::STRICT) == tlb_data::Strict);
+static_assert(static_cast<uint64_t>(IoOrdering::POSTED) == tlb_data::Posted);
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
     tlb_handle(std::move(handle)), io_safety_(io_safety) {
@@ -101,7 +101,7 @@ void TlbWindow::configure(const TargetIoWindowConfig& config) {
     // Strict where the entry has no ordering field would record a guarantee the window never got.
     configure(
         config,
-        get_architecture_tlbs(handle_ref().get_arch()).carries_ordering ? IoOrdering::Strict : IoOrdering::Relaxed);
+        get_architecture_tlbs(handle_ref().get_arch()).carries_ordering ? IoOrdering::STRICT : IoOrdering::RELAXED);
 }
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
@@ -117,7 +117,7 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
     // An ordering this window's entry has no field for is refused rather than recorded and silently
     // not applied.
     UMD_ASSERT(
-        ordering == IoOrdering::Relaxed || get_architecture_tlbs(handle_ref().get_arch()).carries_ordering,
+        ordering == IoOrdering::RELAXED || get_architecture_tlbs(handle_ref().get_arch()).carries_ordering,
         error::RuntimeError,
         "This TLB-backed IoWindow carries no transaction ordering, so only Relaxed can be honored.");
 

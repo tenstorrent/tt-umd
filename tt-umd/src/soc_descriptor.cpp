@@ -73,7 +73,7 @@ void SocDescriptor::write_core_locations(void *out, const CoreType &core_type) c
 void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
-    const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
+    const size_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid.
@@ -269,7 +269,7 @@ xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core, 
     return translate_chip_coord_to_translated_coord(core, noc_id).to_pair();
 }
 
-int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
+int SocDescriptor::get_num_dram_channels() const { return static_cast<int>(get_grid_size(CoreType::DRAM).x); }
 
 CoreCoord SocDescriptor::get_dram_core_for_channel(
     int dram_chan, int subchannel, const CoordSystem coord_system) const {
@@ -316,7 +316,7 @@ std::unordered_set<tt_xy_pair> SocDescriptor::get_eth_xy_pairs_for_channels(
 }
 
 uint32_t SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
-    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
+    return static_cast<uint32_t>(translate_coord_to(core_coord, CoordSystem::LOGICAL).y);
 }
 
 std::pair<int, int> SocDescriptor::get_dram_channel_for_core(
@@ -440,11 +440,6 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     return translated_cores;
 }
 
-bool SocDescriptor::is_core_of_type(const tt_xy_pair &core, CoreType core_type, CoordSystem coord_system) const {
-    const auto &cores = get_cores(core_type, coord_system);
-    return std::any_of(cores.begin(), cores.end(), [&core](const auto &c) { return c.x == core.x && c.y == core.y; });
-}
-
 std::vector<CoreCoord> SocDescriptor::get_cores(
     const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
     std::vector<CoreCoord> cores = coordinate_manager->get_cores(core_type);
@@ -542,10 +537,12 @@ std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const {
     return dram_cores_per_bank;
 }
 
-uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
+uint32_t SocDescriptor::get_num_eth_channels() const {
+    return static_cast<uint32_t>(coordinate_manager->get_num_eth_channels());
+}
 
 uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
-    return coordinate_manager->get_num_harvested_eth_channels();
+    return static_cast<uint32_t>(coordinate_manager->get_num_harvested_eth_channels());
 }
 
 std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
@@ -557,19 +554,19 @@ std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
             fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
     }
 
-    CoreCoord upper_left = cores.front();
-    CoreCoord lower_right = cores.front();
+    // Extremes are taken per axis, so a corner need not be one of the cores when the set is not a full grid.
+    size_t min_x = cores.front().x;
+    size_t min_y = cores.front().y;
+    size_t max_x = cores.front().x;
+    size_t max_y = cores.front().y;
     for (const CoreCoord &core : cores) {
-        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
-        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
-            upper_left = core;
-        }
-        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
-            lower_right = core;
-        }
+        min_x = std::min(min_x, core.x);
+        min_y = std::min(min_y, core.y);
+        max_x = std::max(max_x, core.x);
+        max_y = std::max(max_y, core.y);
     }
 
-    return {upper_left, lower_right};
+    return {CoreCoord(min_x, min_y, core_type, coord_system), CoreCoord(max_x, max_y, core_type, coord_system)};
 }
 
 }  // namespace tt::umd

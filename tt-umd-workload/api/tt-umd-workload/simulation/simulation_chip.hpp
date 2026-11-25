@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -47,8 +46,7 @@ public:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
-        int num_host_mem_channels = 0,
-        std::optional<uint32_t> image_endpoint_count = std::nullopt);
+        int num_host_mem_channels = 0);
 
     SimulationChip(
         const std::filesystem::path& simulator_directory,
@@ -61,13 +59,14 @@ public:
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     // Common interface methods - most have simple implementations.
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
+    std::size_t get_num_host_channels() override;
+    std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
     TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
+    SystemMemoryAllocator* get_system_memory_allocator() override;
+    const HostMemChannels* get_host_mem_channels() override;
 
     bool is_mmio_capable() const override { return false; }
 
@@ -108,9 +107,9 @@ public:
         const void* src,
         uint64_t l1_dest,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict) override;
+        IoOrdering ordering = IoOrdering::STRICT) override;
     void read_from_device(
-        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::Strict) override;
+        CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering = IoOrdering::STRICT) override;
 
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;

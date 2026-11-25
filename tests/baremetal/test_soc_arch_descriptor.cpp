@@ -87,7 +87,7 @@ TEST(SocArchDescriptor, QuasarFromArch) {
 
 // Test SocArchDescriptor creation from YAML for Wormhole.
 TEST(SocArchDescriptor, WormholeFromYaml) {
-    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
+    auto desc = SocArchDescriptor(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_grid_size(), wormhole::GRID_SIZE);
@@ -101,7 +101,7 @@ TEST(SocArchDescriptor, WormholeFromYaml) {
 
 // Test SocArchDescriptor creation from YAML for Blackhole.
 TEST(SocArchDescriptor, BlackholeFromYaml) {
-    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
+    auto desc = SocArchDescriptor(test_utils::get_soc_desc_path("blackhole_140_arch_no_eth.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_grid_size(), blackhole::GRID_SIZE);
@@ -112,7 +112,7 @@ TEST(SocArchDescriptor, BlackholeFromYaml) {
 // Test that arch enum and YAML produce consistent results for Wormhole.
 TEST(SocArchDescriptor, WormholeArchAndYamlConsistency) {
     auto from_arch = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
-    auto from_yaml = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
+    auto from_yaml = SocArchDescriptor(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml"));
 
     EXPECT_EQ(from_arch.get_arch(), from_yaml.get_arch());
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
@@ -135,7 +135,7 @@ TEST(SocArchDescriptor, WormholeArchAndYamlConsistency) {
 // Test that arch enum and YAML produce consistent results for Blackhole.
 TEST(SocArchDescriptor, BlackholeArchAndYamlConsistency) {
     auto from_arch = SocArchDescriptor(tt::ARCH::BLACKHOLE);
-    auto from_yaml = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
+    auto from_yaml = SocArchDescriptor(test_utils::get_soc_desc_path("blackhole_140_arch_no_eth.yaml"));
 
     EXPECT_EQ(from_arch.get_arch(), from_yaml.get_arch());
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
@@ -239,19 +239,19 @@ TEST(SocArchDescriptor, BlackholeWorkerGridSize) {
 // Test static helpers.
 TEST(SocArchDescriptor, GetArchFromPath) {
     EXPECT_EQ(
-        SocArchDescriptor::get_arch_from_path(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml")),
+        SocArchDescriptor::get_arch_from_path(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml")),
         tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(
-        SocArchDescriptor::get_arch_from_path(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml")),
+        SocArchDescriptor::get_arch_from_path(test_utils::get_soc_desc_path("blackhole_140_arch_no_eth.yaml")),
         tt::ARCH::BLACKHOLE);
 }
 
 TEST(SocArchDescriptor, GetGridSizeFromPath) {
     EXPECT_EQ(
-        SocArchDescriptor::get_grid_size_from_path(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml")),
+        SocArchDescriptor::get_grid_size_from_path(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml")),
         wormhole::GRID_SIZE);
     EXPECT_EQ(
-        SocArchDescriptor::get_grid_size_from_path(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml")),
+        SocArchDescriptor::get_grid_size_from_path(test_utils::get_soc_desc_path("blackhole_140_arch_no_eth.yaml")),
         blackhole::GRID_SIZE);
 }
 
@@ -311,7 +311,7 @@ TEST(SocArchDescriptor, BlackholeHasSecurityAndL2CPU) {
 
 // Test Blackhole simulation 1x2 YAML descriptor.
 TEST(SocArchDescriptor, BlackholeSimulation1x2) {
-    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"));
+    auto desc = SocArchDescriptor(test_utils::get_soc_desc_path("blackhole_simulation_1x2.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(2, 2));
@@ -354,7 +354,7 @@ TEST(SocArchDescriptor, BlackholeSimulation1x2) {
 
 // Test Quasar simulation 1x1 YAML descriptor.
 TEST(SocArchDescriptor, QuasarSimulation1x1) {
-    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml"));
+    auto desc = SocArchDescriptor(test_utils::get_soc_desc_path("quasar_simulation_1x1.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(1, 3));
@@ -388,7 +388,7 @@ TEST(SocArchDescriptor, QuasarSimulation1x1) {
 
 // Test Wormhole B0 1x1 YAML descriptor.
 TEST(SocArchDescriptor, WormholeB01x1) {
-    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"));
+    auto desc = SocArchDescriptor(test_utils::get_soc_desc_path("wormhole_b0_1x1.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(10, 12));
@@ -432,7 +432,7 @@ TEST(SocArchDescriptor, WormholeB01x1) {
 
 // Test all available YAML descriptors can be loaded.
 TEST(SocArchDescriptor, AllSocDescriptors) {
-    for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
+    for (const std::string& soc_desc_yaml : test_utils::get_all_soc_descs()) {
         EXPECT_NO_THROW(SocArchDescriptor{soc_desc_yaml}) << "Failed to load: " << soc_desc_yaml;
     }
 }
@@ -441,13 +441,13 @@ TEST(SocArchDescriptor, AllSocDescriptors) {
 static std::filesystem::path write_quasar_with_ip_variant(const std::string& ip_variant) {
     const std::filesystem::path path = std::filesystem::temp_directory_path() / ("quasar_" + ip_variant + ".yaml");
     std::filesystem::copy_file(
-        test_utils::GetSocDescAbsPath("quasar_32_arch.yaml"), path, std::filesystem::copy_options::overwrite_existing);
+        test_utils::get_soc_desc_path("quasar_32_arch.yaml"), path, std::filesystem::copy_options::overwrite_existing);
     std::ofstream(path, std::ios::app) << "\nip_variant: " << ip_variant << "\n";
     return path;
 }
 
 TEST(SocArchDescriptor, IpVariant) {
-    EXPECT_FALSE(SocArchDescriptor(test_utils::GetSocDescAbsPath("quasar_32_arch.yaml")).get_ip_variant().has_value());
+    EXPECT_FALSE(SocArchDescriptor(test_utils::get_soc_desc_path("quasar_32_arch.yaml")).get_ip_variant().has_value());
 
     const std::vector<std::pair<std::string, tt::IpVariant>> variants = {
         {"grendel", tt::IpVariant::GRENDEL},

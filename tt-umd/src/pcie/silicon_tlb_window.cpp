@@ -271,14 +271,13 @@ void SiliconTlbWindow::memcpy_to_device(
 }
 
 void SiliconTlbWindow::write_regs(
-    volatile uint32_t *dest, const uint32_t *src, uint32_t word_len, const std::function<bool()> &on_timeout) {
+    volatile uint32_t *dest, const uint32_t *src, size_t word_len, const std::function<bool()> &on_timeout) {
     while (word_len-- != 0) {
         write32_to_device(dest++, *src++, on_timeout);
     }
 }
 
-void SiliconTlbWindow::read_regs(
-    void *src_reg, uint32_t word_len, void *data, const std::function<bool()> &on_timeout) {
+void SiliconTlbWindow::read_regs(void *src_reg, size_t word_len, void *data, const std::function<bool()> &on_timeout) {
     auto *src = static_cast<const volatile uint32_t *>(src_reg);
     auto *dest = reinterpret_cast<uint32_t *>(data);
 

@@ -15,7 +15,7 @@
 namespace tt::umd {
 
 /**
- * @brief Peer device access to device memory, such as an RDMA NIC writing into it directly.
+ * @brief Peer device access to device memory, such as an RDMA NIC reading from or writing into it directly.
  *
  * Optional: available only on devices whose transport can hand a memory window to a peer.
  */
@@ -24,7 +24,7 @@ public:
     virtual ~PeerDmaInterface() = default;
 
     /**
-     * @brief Exports a device memory window as a Linux dma-buf file descriptor a peer device can DMA into.
+     * @brief Exports a device memory window as a Linux dma-buf file descriptor a peer device can DMA to and from.
      *
      * @param core Core to target.
      * @param addr Address within the core the window starts at; must be host-page-aligned.

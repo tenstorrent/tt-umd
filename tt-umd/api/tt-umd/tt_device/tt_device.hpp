@@ -573,7 +573,7 @@ public:
     }
 
     /**
-     * Export a NOC-addressable region as a dma-buf file descriptor a peer device can DMA into. See
+     * Export a NOC-addressable region as a dma-buf file descriptor a peer device can DMA to and from. See
      * PeerDmaInterface::export_window for the full contract; the caller owns the returned fd and
      * must close() it.
      *

@@ -167,9 +167,5 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& ch
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* RemoteChip::get_sysmem_manager() {
-    UMD_THROW(error::RuntimeError, "RemoteChip::get_sysmem_manager is not available for this chip.");
-}
-
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }
 }  // namespace tt::umd

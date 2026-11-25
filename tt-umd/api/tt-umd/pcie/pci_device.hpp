@@ -26,6 +26,7 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
+struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -323,17 +324,23 @@ public:
         const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
-     * Configure TLB register in user space by writing directly to BAR0.
+     * Point a TLB window at the target described by tlb_config.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_config The TLB configuration data
+     * @param tlb_handle The window's driver handle. Required on architectures whose windows only
+     *                   the driver can program; may be null on the others.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
+     *                   window's size. On architectures whose windows only the driver can program,
+     *                   the address is flat and already names its target, so a coordinate or
+     *                   multicast is refused.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip.
+     *               PCIe round trip. Ignored where the driver programs the window.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(
+        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.
@@ -392,21 +399,6 @@ public:
      * @param size Page-aligned byte count to export; must be nonzero.
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
-
-    /**
-     * Map @p length bytes at @p offset of BAR @p bar of @p peer for this device to reach by
-     * peer-to-peer PCIe DMA. The mapping lasts until this device is closed. Supported only on Blackhole.
-     *
-     * The mapping covers BAR bytes only. Where a write to a TLB window's range lands is set by that
-     * window on @p peer, and nothing ties the window to this mapping: keep the window allocated and
-     * aimed for as long as this device uses the range, or its writes reach the window's next owner.
-     * Re-aiming the window redirects this device's writes without remapping, but writes still in
-     * flight land at whichever target the window has when they arrive, so drain them first.
-     *
-     * @return The address this device uses to reach the range.
-     * @throws error::RuntimeError if this device is not a Blackhole, or KMD refuses the mapping.
-     */
-    uint64_t map_peer_bar(const PCIDevice &peer, uint32_t bar, uint32_t offset, uint32_t length);
 
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;

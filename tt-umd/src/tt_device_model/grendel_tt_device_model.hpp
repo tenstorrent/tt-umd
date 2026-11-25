@@ -42,7 +42,8 @@ public:
      * A window served from the same scalar accesses the protocol uses, because the TLB path
      * TTDevice takes otherwise allocates a hardware mapping and this architecture exposes none.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
     PCIDevice *get_pci_device() override;
@@ -56,6 +57,11 @@ public:
      * RISCs is not settled yet.
      */
     RiscReset *get_risc_reset() override;
+
+    /**
+     * Null: the driver exposes no DMA path for this architecture yet, so the device cannot reach host memory.
+     */
+    SystemMemoryAllocator *get_system_memory_allocator() override;
 
     /**
      * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile

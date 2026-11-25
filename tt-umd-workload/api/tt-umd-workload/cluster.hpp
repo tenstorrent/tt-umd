@@ -306,6 +306,9 @@ public:
      * - Set power state to busy (ramp up AICLK)
      *
      * @param device_params Object specifying initialization configuration.
+     * @throws error::RuntimeError if a chip's host memory channels cannot be allocated or are not bound at their
+     * expected NOC addresses. The chip that failed is left as if it was never started; chips started before it stay
+     * started until close_device().
      */
     void start_device(const DeviceParams& device_params);
 
@@ -514,15 +517,19 @@ public:
      *                           @p use_translated_coords is false, or in translated-index space when true.
      * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
      *                              @p columns_to_exclude; callers must supply values in the matching space.
+     * @param is_reg_write Write a register: without ethernet broadcast, each core is written through the uncached
+     *                     register path (write_to_device_reg) instead of write_to_device. @p size_in_bytes and
+     *                     @p address must then be multiples of 4. Ignored with ethernet broadcast.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
-        uint32_t size_in_bytes,
+        size_t size_in_bytes,
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
-        std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude,
-        bool use_translated_coords);
+        std::set<size_t>& rows_to_exclude,
+        std::set<size_t>& columns_to_exclude,
+        bool use_translated_coords,
+        bool is_reg_write = false);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
@@ -539,7 +546,7 @@ public:
      * @return dma-buf file descriptor; the caller owns it and must close() it when done.
      */
     int export_dmabuf(
-        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering = IoOrdering::RELAXED);
 
     //---------- Functions for synchronization and memory barriers.
 

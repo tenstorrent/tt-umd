@@ -1,0 +1,19 @@
+@startuml umd_device_lifecycle
+' Device lifecycle: each transition is labelled with what triggers it.
+' Explicit arrow directions keep the main flow top to bottom; the recovery loop (warm reset) points up so it does not reorder the ranks.
+hide empty description
+skinparam shadowing false
+
+[*] -down-> Discovered : discover()
+Discovered -down-> Constructed : TTDevice(model)
+Constructed -down-> Initialized : init_tt_device()
+Constructed -left-> Failed : firmware timeout / version mismatch
+Initialized -down-> Operational : start_device()
+Operational -right-> Faulted : exception (hang, SIGBUS, timeout)
+Faulted -up-> Constructed : warm reset + re-open
+Operational -down-> Closed : close_device() / destructor
+Failed -down-> [*]
+Closed -down-> [*]
+
+Operational : read / write, firmware commands, DMA
+@enduml

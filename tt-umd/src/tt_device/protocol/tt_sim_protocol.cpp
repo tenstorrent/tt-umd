@@ -108,18 +108,11 @@ int TTSimProtocol::get_numa_node() const { return -1; }
 // A simulator has no physical link to train.
 std::optional<uint32_t> TTSimProtocol::get_lane_count() const { return std::nullopt; }
 
+std::optional<int> TTSimProtocol::get_physical_slot() const { return std::nullopt; }
+
 void TTSimProtocol::set_power_state(PowerState /*state*/) {
     // A simulator models no power domains. Silently ignored rather than thrown: the firmware sets a
     // power state during startup, and refusing would fail bringup over something inconsequential.
-}
-
-int TTSimProtocol::export_dmabuf(
-    tt_xy_pair /*core*/, uint64_t /*addr*/, size_t /*size*/, uint64_t /*ordering*/, NocId /*noc_id*/) {
-    UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for simulation devices.");
-}
-
-void TTSimProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {
-    // No bus to time out: an access reaches the simulator in-process or throws outright.
 }
 
 }  // namespace tt::umd

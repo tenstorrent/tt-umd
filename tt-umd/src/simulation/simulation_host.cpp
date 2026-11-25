@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <random>
@@ -21,11 +22,11 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/utils/error.hpp"
+#include "tt-umd-utils/error.hpp"
 
 namespace tt::umd {
 
-bool is_port_free(int port) {
+bool is_port_free(uint16_t port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         return false;
@@ -68,16 +69,21 @@ void SimulationHost::init(const std::string &suffix) {
         strcpy(hostname, "localhost");
     }
 
-    int port;
+    uint16_t port;
 
     if (local_socket_port_str) {
-        port = atoi(local_socket_port_str);
+        const int parsed_port = atoi(local_socket_port_str);
+        UMD_ASSERT(
+            parsed_port >= 0 && parsed_port < UINT16_MAX,
+            error::RuntimeError,
+            fmt::format("Given port {} must be in range 0-{}.", local_port_var, UINT16_MAX));
+        port = static_cast<uint16_t>(parsed_port);
         log_info(tt::LogEmulationDriver, "Using specified {}: {}", local_port_var, port);
     } else {
         // Generate random port in range 50000-59999.
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dis(50000, 59999);
+        std::uniform_int_distribution<uint16_t> dis(50000, 59999);
 
         do {
             port = dis(gen);

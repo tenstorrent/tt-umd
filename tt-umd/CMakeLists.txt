@@ -132,6 +132,8 @@ target_sources(
         # Length-prefixed message framing over the socket (uses asio, a core dependency; no
         # FlatBuffers), so it is always built and unit-tested in the same no-card baremetal lane.
         src/simulation/simulation_server_transport.cpp
+        # The public simulator queries answer in every build; they reach the simulator through the backend seam.
+        src/simulation/simulator_info.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -143,7 +145,6 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/simulation_device_identity.cpp
             src/simulation/simulation_backend.cpp
             src/simulation/simulation_host.cpp
-            src/simulation/simulator_paths.cpp
             src/simulation/tt_sim_communicator.cpp
             src/simulation/rtl_sim_channel.cpp
             src/simulation/rtl_sim_communicator.cpp
@@ -257,6 +258,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/simulation/simulation_client.hpp
                 api/tt-umd/simulation/simulation_device_identity.hpp
                 api/tt-umd/simulation/simulation_server_protocol.hpp
+                api/tt-umd/simulation/simulator_info.hpp
                 api/tt-umd/simulation/tt_sim_communicator.hpp
                 api/tt-umd/soc_arch_descriptor.hpp
                 api/tt-umd/soc_descriptor.hpp

@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 
@@ -18,7 +19,8 @@ namespace tt::umd {
 class TTDevice;
 
 /**
- * What topology discovery needs from a simulator, so that discovery compiles the same with and without simulation.
+ * What always-built code (topology discovery and the public simulator queries) needs from a simulator, so that it
+ * compiles the same with and without simulation.
  *
  * In a build without simulation, every call that needs a simulator throws error::RuntimeError saying UMD was built
  * without simulation support, and calls that ask about an existing device answer as for a device no simulator
@@ -29,8 +31,8 @@ public:
     virtual ~SimulationBackend() = default;
 
     /**
-     * The architecture the simulator at simulator_path models. When this may be called first, and what it throws, is
-     * as for get_simulator_arch in simulator_paths.hpp.
+     * The architecture the simulator at simulator_path models, with the contract of the public get_simulator_arch in
+     * tt-umd/simulation/simulator_info.hpp.
      */
     virtual tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path) const = 0;
 
@@ -49,6 +51,12 @@ public:
      * std::nullopt when tt_device drives no endpoint a simulator image enumerated (silicon, remote and RTL devices).
      */
     virtual std::optional<uint32_t> get_pci_bdf(const TTDevice& tt_device) const = 0;
+
+    /**
+     * Which simulator tt_device itself runs on, in this process or in the simulation server it is attached to, or
+     * std::nullopt when tt_device is not a simulated device (silicon, and devices reached through another device).
+     */
+    virtual std::optional<SimulationBackendType> get_backend_type(const TTDevice& tt_device) const = 0;
 };
 
 /**

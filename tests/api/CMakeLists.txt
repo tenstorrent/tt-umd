@@ -14,6 +14,7 @@ set(API_TESTS_SRCS
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
+    test_simulator_info.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -22,6 +23,9 @@ if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_simulation_server_protocol.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_device_identity.cpp)
     list(APPEND API_TESTS_SRCS test_rtl_sim_ip_partition.cpp)
+    list(APPEND API_TESTS_SRCS test_simulator_info_simulation.cpp)
+else()
+    list(APPEND API_TESTS_SRCS test_simulator_info_without_simulation.cpp)
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})

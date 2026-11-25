@@ -293,6 +293,14 @@ jobs:
           export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
 
+      # Its own process: the simulator's architecture has to be asked before any simulator runs in it.
+      - name: Run UMD SimulatorInfo tests on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          export TT_UMD_SIM_EXPECTED_ARCH=blackhole
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulatorInfo*"
+
       # Python mirror of the C++ SimulationConnector coverage above: nanobind/tests only runs in the
       # pytest lane (no simulator) elsewhere, so its host/client test against a real simulator has
       # never run anywhere. Only the simulator-gated test file runs here -- the rest of nanobind/tests
@@ -305,7 +313,7 @@ jobs:
           # unittest rather than pytest: this file sits inside tt-metal's tree, and pytest would
           # adopt tt-metal's config and conftest.py, which need tt-metal's own test harness.
           cd tt-metal/tt_metal/third_party/umd/nanobind/tests
-          python3 -m unittest -v test_py_simulation_connector
+          python3 -m unittest -v test_py_simulation_connector test_py_simulator_info
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -685,6 +693,42 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
           build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+
+      # One process per image: the architecture of an image without a soc_descriptor.yaml (sim_wh, sim_bh here) is
+      # read from the image, which has to happen before any simulator runs in the process.
+      # TT_UMD_SIM_EXPECTED_ARCH is the architecture each image models, which only the job staging it knows.
+      - name: Run UMD SimulatorInfo tests on tt-sim wormhole
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_UMD_SIM_EXPECTED_ARCH: wormhole_b0
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="SimulatorInfo*"
+
+      - name: Run UMD SimulatorInfo tests on tt-sim blackhole
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_UMD_SIM_EXPECTED_ARCH: blackhole
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="SimulatorInfo*"
+
+      - name: Run UMD SimulatorInfo tests on tt-sim quasar
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+          TT_UMD_SIM_EXPECTED_ARCH: quasar
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="SimulatorInfo*"
+
+      # wh_x2 models a remote chip, reached over Ethernet through the one the simulator backs.
+      - name: Run UMD SimulatorInfo tests on tt-sim wormhole x2
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+          TT_UMD_SIM_EXPECTED_ARCH: wormhole_b0
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="SimulatorInfo*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
         timeout-minutes: 1

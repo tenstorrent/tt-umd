@@ -36,7 +36,10 @@ class SocDescriptor;
 // in the held TTDevice subtype, not in this class.
 class SimulationChip : public Chip {
 public:
-    static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
+    // Returns the path where the simulator's soc_descriptor.yaml would live, even when the simulator ships none
+    // (find_simulator_soc_descriptor_path returns an empty string then).
+    [[deprecated("Use find_simulator_soc_descriptor_path (tt-umd/simulation/simulator_info.hpp).")]] static std::string
+    get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
     // An optional cluster_descriptor.yaml beside the simulator describes a (possibly multichip) topology.
     // Returns the path where it would live; the file is not required to exist.
     static std::string get_cluster_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);

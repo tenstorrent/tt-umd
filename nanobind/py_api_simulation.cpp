@@ -17,6 +17,7 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 
 namespace nb = nanobind;
@@ -31,7 +32,9 @@ using namespace tt::umd;
 
 #ifdef TT_UMD_BUILD_SIMULATION
 
-void bind_simulation(nb::module_ &m) {
+namespace {
+
+void bind_simulation_connector(nb::module_ &m) {
     nb::class_<SimulationConnectorOptions>(m, "SimulationConnectorOptions")
         .def(nb::init<>())
         .def_rw(
@@ -67,10 +70,6 @@ void bind_simulation(nb::module_ &m) {
                 self.directory.string(),
                 self.sockets.size());
         });
-
-    nb::enum_<SimulationBackendType>(m, "SimulationBackendType")
-        .value("TTSIM", SimulationBackendType::TTSIM, "The functional simulator (a libttsim .so).")
-        .value("RTL", SimulationBackendType::RTL, "An RTL simulator build.");
 
     nb::class_<SimulationConnector> simulation_connector(
         m,
@@ -165,9 +164,49 @@ void bind_simulation(nb::module_ &m) {
             "removed. A directory that has published no socket yet is never swept.");
 }
 
+}  // namespace
+
 #else
 
-// Simulation support is not built; the module exposes no simulation API.
-void bind_simulation(nb::module_ &) {}
+namespace {
+
+// Simulation support is not built; the module exposes no SimulationConnector.
+void bind_simulation_connector(nb::module_ &) {}
+
+}  // namespace
 
 #endif
+
+void bind_simulation(nb::module_ &m) {
+    nb::enum_<SimulationBackendType>(m, "SimulationBackendType")
+        .value("TTSIM", SimulationBackendType::TTSIM, "The functional simulator (a libttsim .so).")
+        .value("RTL", SimulationBackendType::RTL, "An RTL simulator build.");
+
+    m.def(
+        "get_simulator_arch",
+        &get_simulator_arch,
+        nb::arg("simulator_path"),
+        release_gil(),
+        "The architecture the simulator at simulator_path (a TTSim .so or an RTL simulator directory) models: the one "
+        "its soc_descriptor.yaml declares, else the one its libttsim image reports. The first call for an image "
+        "without a soc_descriptor.yaml has to come before any simulator runs in this process. Raises "
+        "error.UmdBaseException if UMD was built without simulation support or the architecture cannot be told.");
+
+    m.def(
+        "find_simulator_soc_descriptor_path",
+        &find_simulator_soc_descriptor_path,
+        nb::arg("simulator_path"),
+        "The soc_descriptor.yaml the simulator at simulator_path ships (beside a TTSim .so, or inside an RTL simulator "
+        "directory), or an empty string when it ships none.");
+
+    m.def(
+        "get_simulation_backend",
+        &get_simulation_backend,
+        nb::arg("device"),
+        "Which simulator backs device, whether it runs in this process or in a simulation server device is attached "
+        "to; a remote device is backed by whatever backs the device it is reached through. None for a device no "
+        "simulator backs, such as silicon reached through the KMD, and for every device when UMD was built without "
+        "simulation support.");
+
+    bind_simulation_connector(m);
+}

@@ -24,8 +24,12 @@ public:
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 
-    // No simulator exists in this build, so no device drives a simulated endpoint.
+    // No simulator exists in this build, so no device is simulated.
     std::optional<uint32_t> get_pci_bdf(const TTDevice& /*tt_device*/) const override { return std::nullopt; }
+
+    std::optional<SimulationBackendType> get_backend_type(const TTDevice& /*tt_device*/) const override {
+        return std::nullopt;
+    }
 };
 
 }  // namespace

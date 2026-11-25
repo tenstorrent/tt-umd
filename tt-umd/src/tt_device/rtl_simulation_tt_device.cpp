@@ -247,10 +247,11 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     std::optional<RtlSimDeviceAccess> layout_device,
     std::unique_ptr<RtlSimCommunicator> communicator) :
     SimulationTTDevice(
-        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
-        simulator_directory,
-        std::make_unique<SimulationSysmemManager>(
-            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(
+            soc_descriptor,
+            std::make_unique<SimulationSysmemManager>(
+                num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id)))),
+        simulator_directory),
     session_socket_(std::move(socket)),
     communicator_(std::move(communicator)),
     layout_device_(std::move(layout_device)) {
@@ -267,7 +268,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)) {
+    SimulationTTDevice(
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*sysmem_manager=*/nullptr)),
+        std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     // A client-mode device drives no backend of its own, so it has no communicator to reset through.
     get_simulation_model()->set_risc_reset(
@@ -410,7 +413,7 @@ bool RtlSimulationTTDevice::should_use_cached_tlb_window() {
 void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
     // Register sysmem callbacks so the simulator can read/write host memory.
     if (num_host_mem_channels > 0) {
-        SimulationSysmemManager* mgr = sysmem_manager_.get();
+        SimulationSysmemManager* mgr = sysmem_manager_;
         size_t num_channels = mgr->get_num_host_mem_channels();
         communicator_->set_ram_callbacks(
             // Write callback: simulator writes data into host sysmem.
@@ -490,7 +493,8 @@ void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void
         });
         return;
     }
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_read_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
@@ -508,7 +512,8 @@ void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, con
             [this](uint64_t a, const void* d, uint32_t n) { communicator_->global_write_words(a, d, n); });
         return;
     }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 bool RtlSimulationTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
@@ -523,7 +528,8 @@ bool RtlSimulationTTDevice::smn_read(void* mem_ptr, tt_xy_pair core, uint64_t ad
     NocId noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
     if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->smn_tile_read_bytes(
+            static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
         return true;
     }
     return false;
@@ -534,7 +540,8 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     NocId noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
     if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->smn_tile_write_bytes(
+            static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
         return true;
     }
     return false;

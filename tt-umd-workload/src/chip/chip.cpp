@@ -17,6 +17,7 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -50,6 +51,17 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
+SysmemManager* Chip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(get_system_memory_allocator()); }
+
+// Only a chip whose host memory is pinned for its own DMA engine can serve these.
+void Chip::dma_write_zero_copy(const SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+    UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
+}
+
+void Chip::dma_read_zero_copy(SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {
+    UMD_THROW(error::RuntimeError, "Zero-copy DMA is not available on this chip.");
+}
+
 void Chip::wait_chip_to_be_ready() {
     ZoneScopedC(tracy::Color::DarkGreen);
     wait_eth_cores_training();
@@ -80,7 +92,7 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
         if (dram_harvesting_mask & (size_t{1} << dram_channel)) {
             continue;
         }
-        tt_device->wait_dram_channel_training(dram_channel);
+        tt_device->wait_dram_channel_training(static_cast<uint32_t>(dram_channel));
     }
 }
 

@@ -334,9 +334,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     for (int i = 0; i < vec1.size(); i++) {
         vec1.at(i) = i;
     }
-    for (int i = 0; i < vec2.size(); i++) {
-        vec2.at(i) = vec1.size() + i;
-    }
+    std::iota(vec2.begin(), vec2.end(), vec1.size());
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
@@ -353,7 +351,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     });
 
     std::thread th2 = std::thread([&] {
-        std::uint32_t address = base_addr + vec1.size() * 4;
+        std::uint64_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
@@ -398,11 +396,11 @@ TEST(ClusterWH, BroadcastWrite) {
     test_utils::safe_test_cluster_start(&cluster);
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks in noc0 coords.
-    std::set<uint32_t> rows_to_exclude = {0, 6};
-    std::set<uint32_t> cols_to_exclude = {0, 5};
+    std::set<size_t> rows_to_exclude = {0, 6};
+    std::set<size_t> cols_to_exclude = {0, 5};
     // This excludes all tensix columns in noc0 coords.
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 6, 7, 8, 9};
+    std::set<size_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<size_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 6, 7, 8, 9};
 
     // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
     // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
@@ -522,11 +520,11 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
-    std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
-    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
+    std::set<size_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
+    std::set<size_t> cols_to_exclude = {16, 17, 20};
     // This excludes all tensix columns 18-25 in translated space.
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
+    std::set<size_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<size_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
 
     // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
     // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
@@ -646,11 +644,11 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
-    std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
-    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
+    std::set<size_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
+    std::set<size_t> cols_to_exclude = {16, 17, 20};
     // This excludes all tensix columns 18-25 in translated space.
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
+    std::set<size_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<size_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
 
     // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
     // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
@@ -794,8 +792,8 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
-    std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
-    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
+    std::set<size_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
+    std::set<size_t> cols_to_exclude = {16, 17, 20};
 
     for (auto chip_id : remote_devices) {
         RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
@@ -998,9 +996,7 @@ TEST(TestDeviceIO, DMA3) {
                                      << " size=" << std::dec << readback_zeros.size();
 
     std::vector<uint8_t> pattern(buf_size, 0);
-    for (size_t i = 0; i < buf_size; ++i) {
-        pattern[i] = i % 256;
-    }
+    std::iota(pattern.begin(), pattern.end(), uint8_t{0});
 
     cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, eth_core, 254304);
 

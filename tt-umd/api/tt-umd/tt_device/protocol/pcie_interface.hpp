@@ -6,12 +6,10 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <optional>
 
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/power_state.hpp"
-#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -52,6 +50,12 @@ public:
     virtual std::optional<uint32_t> get_lane_count() const = 0;
 
     /**
+     * @brief Returns the motherboard slot this device sits in.
+     * @return std::optional<int> Slot number, or std::nullopt if the platform does not report one.
+     */
+    virtual std::optional<int> get_physical_slot() const = 0;
+
+    /**
      * @brief Requests a hardware power domain state change through the kernel driver.
      *
      * A no-op on architectures or KMD versions without power state management.
@@ -59,35 +63,6 @@ public:
      * @param state The requested power state.
      */
     virtual void set_power_state(PowerState state) = 0;
-
-    /**
-     * @brief Exports (core, addr) as a dma-buf fd for peer-to-peer PCIe DMA, backed by a dedicated
-     * TLB window.
-     *
-     * Temporary: this is not part of the Base API spec. It lives here only until the spec covers
-     * dma-buf export; move it at that point.
-     *
-     * @param core Core to target.
-     * @param addr Address within the core to aim the exported region at; must be page-aligned.
-     * @param size Number of bytes to export; must be page-aligned and non-zero.
-     * @param ordering Ordering mode for the TLB window backing the export.
-     * @param noc_id NOC to route the exported traffic over.
-     * @return int The dma-buf fd; the caller owns it and must close() it.
-     */
-    virtual int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) = 0;
-
-    /**
-     * @brief Registers the callback consulted on an IO-op timeout to distinguish a hung NOC from a
-     * slow one.
-     *
-     * Temporary: this is an implementation detail rather than
-     * something the Base API spec should own. It lives here only until we align api
-     * with TTDeviceModel; move/remove it at that point.
-     *
-     * @param hang_check Callback invoked with the NOC id of the in-flight op; an empty callback
-     * disables hang detection.
-     */
-    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
 };
 
 }  // namespace tt::umd

@@ -53,7 +53,7 @@ public:
         }
     }
 
-    bool wait_for(int slot, int timeout_seconds = 5) {
+    bool wait_for(size_t slot, int timeout_seconds = 5) {
         fd_set read_set;
         struct timeval timeout;
         int ret;

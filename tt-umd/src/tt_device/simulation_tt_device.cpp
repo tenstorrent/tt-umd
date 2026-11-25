@@ -13,12 +13,10 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
-#include "simulation/simulation_server_socket.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -30,9 +28,8 @@
 
 namespace tt::umd {
 
-// The constructor and destructor are defined out-of-line so that socket_
-// (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
-// public header only forward-declares SimulationServerSocket.
+// The constructors and destructor are defined out-of-line so that client_ (unique_ptr<SimulationClient>) is
+// constructed/destroyed where the type is complete; the public header only forward-declares SimulationClient.
 SimulationTTDevice::ModelHandle::ModelHandle(std::unique_ptr<SimulationTTDeviceModel> simulation_model) :
     simulation_model(simulation_model.get()), model(std::move(simulation_model)) {}
 
@@ -55,10 +52,7 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::~SimulationTTDevice() = default;
 
 std::filesystem::path SimulationTTDevice::socket_path() const {
-    if (client_mode()) {
-        return client_->socket_path();
-    }
-    return socket_ != nullptr ? socket_->socket_path() : std::filesystem::path{};
+    return client_mode() ? client_->socket_path() : std::filesystem::path{};
 }
 
 void SimulationTTDevice::attach_client() { client_->attach(); }
@@ -67,95 +61,6 @@ void SimulationTTDevice::detach_client() {
     if (client_) {
         client_->detach();
     }
-}
-
-void SimulationTTDevice::adopt_socket(
-    std::unique_ptr<SimulationServerSocket> socket,
-    std::string cluster_descriptor_yaml,
-    std::function<void()> shutdown_handler) {
-    socket_ = std::move(socket);
-    served_cluster_descriptor_yaml_ = std::move(cluster_descriptor_yaml);
-    // Begin serving remote clients now that the backend is up. The shutdown handler is captured into
-    // the request handler here, before serving starts, so it is fixed for the socket's lifetime and
-    // the serving threads read it without synchronization.
-    socket_->serve([this, shutdown_handler = std::move(shutdown_handler)](const std::vector<uint8_t>& request_bytes) {
-        return handle_request(request_bytes, shutdown_handler);
-    });
-}
-
-std::vector<uint8_t> SimulationTTDevice::handle_request(
-    const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler) {
-    const SimulationServerRequest request = decode_request(request_bytes);
-
-    // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
-    // read/write skeleton below (SimulationServerResponse), so it is handled up front.
-    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
-        try {
-            return encode(describe_device(get_soc_descriptor(), backend_type(), simulator_directory_));
-        } catch (const std::exception& e) {
-            log_warning(tt::LogUMD, "Simulation host failed to serve device info: {}", e.what());
-            SimulationServerDeviceInfo info;
-            info.status = -1;
-            return encode(info);
-        }
-    }
-
-    // GetClusterDescriptor also returns its own wire message; serve the topology the host was handed
-    // in adopt_socket(), rather than re-deriving one here, so every client sees the host's cluster.
-    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
-        SimulationServerClusterDescriptor cluster_descriptor;
-        cluster_descriptor.status = 0;
-        cluster_descriptor.yaml = served_cluster_descriptor_yaml_;
-        return encode(cluster_descriptor);
-    }
-
-    // Shutdown: invoke the opt-in handler (a dedicated server passes one to adopt_socket() to signal
-    // its main thread to exit and tear down; an embedded host passes none, making this a no-op) and
-    // ack. The handler was fixed before serving started, so it is read here without locking; it must
-    // only signal -- it must not tear down from this serving thread. The ack is sent before any
-    // teardown, and this serving thread hits EOF and is joined during that teardown.
-    if (request.command == SimulationServerCommand::SHUTDOWN) {
-        if (shutdown_handler) {
-            shutdown_handler();
-        }
-        return encode(SimulationServerResponse{});  // status 0
-    }
-
-    // The client already translated the coordinate (translation is stateless and client-side), so
-    // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate
-    // again. CoreCoord defaults to CoreType::UNSPECIFIED + CoordSystem::LITERAL.
-    const CoreCoord core{request.x, request.y};
-
-    SimulationServerResponse response;
-    try {
-        switch (request.command) {
-            case SimulationServerCommand::READ:
-                response.data.resize(request.size);
-                read_from_device(response.data.data(), core, request.address, request.size);
-                break;
-            case SimulationServerCommand::WRITE:
-                UMD_ASSERT(
-                    request.data.size() >= request.size,
-                    error::RuntimeError,
-                    fmt::format(
-                        "Write request payload ({} bytes) is smaller than its size field ({})",
-                        request.data.size(),
-                        request.size));
-                write_to_device(request.data.data(), core, request.address, request.size);
-                break;
-            default:
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format("Unknown simulation server command {}", static_cast<int>(request.command)));
-        }
-    } catch (const std::exception& e) {
-        // A failed op surfaces to the client as a nonzero status rather than dropping the
-        // connection, mirroring how a silicon access error is reported rather than fatal.
-        log_warning(tt::LogUMD, "Simulation host failed to serve a client request: {}", e.what());
-        response.status = -1;
-        response.data.clear();
-    }
-    return encode(response);
 }
 
 void SimulationTTDevice::write_to_device(

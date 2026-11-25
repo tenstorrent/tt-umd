@@ -3,22 +3,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Topology discovery attaching to a simulation server: SimulationDiscoveryOptions::simulator_path names the server
-// directory of a host that serves its chips over per-chip sockets. The host is a Cluster in this process serving the
-// TTSim image TT_UMD_SIMULATOR names; SimulationServerDirectory needs no simulator.
+// directory of a host that serves its chips over per-chip sockets. The host runs in this process on the TTSim image
+// TT_UMD_SIMULATOR names: a Cluster serving with its deprecated serve flag, or (SimulationServerShippedSocDescriptor)
+// the devices TopologyDiscovery opened, served with SimulationConnector::serve. SimulationServerDirectory needs no
+// simulator.
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "tests/test_utils/declared_topologies.hpp"
@@ -28,7 +34,9 @@
 #include "tests/test_utils/simulator_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
@@ -80,12 +88,13 @@ protected:
         image_ = simulator_path;
     }
 
-    void serve(const std::filesystem::path& simulator) {
+    void serve(const std::filesystem::path& simulator, std::function<void()> shutdown_handler = {}) {
         ClusterOptions options;
         options.chip_type = ChipType::SIMULATION;
         options.simulator_directory = simulator;
         options.serve_simulation_devices_over_sockets = true;
         options.simulator_server_directory = server_directory_.path();
+        options.simulation_shutdown_handler = std::move(shutdown_handler);
         host_ = std::make_unique<Cluster>(options);
     }
 
@@ -96,8 +105,7 @@ protected:
     // Leaves the socket of a served chip as a host that is gone leaves it: present, but nothing listens on it.
     void make_socket_stale(ChipId chip) const { leave_stale_socket(served_sockets().at(chip)); }
 
-    // Whether every chip of the served topology has a socket: a chip the host reaches over Ethernet (wh_x2's chip 1)
-    // has none.
+    // Whether every chip of the served topology has a socket.
     bool every_served_chip_has_a_socket() const {
         const auto sockets = served_sockets();
         const auto& chips = host_->get_cluster_description()->get_all_chips();
@@ -142,11 +150,11 @@ protected:
             return;
         }
         serve(image_);
-        if (!every_served_chip_has_a_socket()) {
-            GTEST_SKIP() << "A chip of the served topology has no socket; SimulationServerRemoteChip covers it.";
-        }
     }
 };
+
+// The deprecated serve flag serves every chip of the cluster, including one the host reaches over Ethernet.
+TEST_F(SimulationServerDiscovery, EveryServedChipHasASocket) { EXPECT_TRUE(every_served_chip_has_a_socket()); }
 
 TEST_F(SimulationServerDiscovery, DiscoveryReturnsTheServedTopology) {
     const auto [cluster_desc, devices] = TopologyDiscovery::discover(client_options());
@@ -283,7 +291,8 @@ TEST_F(SimulationServerDiscovery, ClusterGivenAClusterDescriptorIsRefused) {
     EXPECT_THROW(Cluster{options}, error::UmdException<error::RuntimeError>);
 }
 
-// The image served with a SoC descriptor shipped beside it whose cores differ from its architecture's built-in one.
+// The image served with a SoC descriptor shipped beside it whose cores differ from its architecture's built-in one. The
+// host is TopologyDiscovery serving the devices it built from that descriptor.
 class SimulationServerShippedSocDescriptor : public SimulationServerTest {
 protected:
     void SetUp() override {
@@ -291,44 +300,34 @@ protected:
         if (IsSkipped()) {
             return;
         }
-        // The serving host is a Cluster, which refuses Blackhole's reduced descriptor (no Ethernet cores) on a full
-        // Blackhole chip, although discovery builds devices from it.
-        if (get_simulator_arch(image_) != tt::ARCH::WORMHOLE_B0) {
-            GTEST_SKIP() << "Only a Wormhole host Cluster serves a reduced SoC descriptor.";
+        const tt::ARCH arch = get_simulator_arch(image_);
+        if (shipped_soc_descriptors().count(arch) == 0) {
+            GTEST_SKIP() << "No reduced SoC descriptor is declared for this architecture.";
         }
-        shipped_ = shipped_soc_descriptors().at(tt::ARCH::WORMHOLE_B0);
+        shipped_ = shipped_soc_descriptors().at(arch);
         layout_.add_cluster_descriptor(shipped_.cluster_yaml);
         layout_.add_soc_descriptor(shipped_.soc_descriptor_name);
-        serve(layout_.add_ttsim_library(image_));
+        std::tie(served_topology_, served_devices_) =
+            TopologyDiscovery::discover(simulation_discovery_options(layout_.add_ttsim_library(image_)));
+        std::map<ChipId, TTDevice*> devices;
+        for (const auto& [chip, device] : served_devices_) {
+            devices[chip] = device.get();
+        }
+        server_ = SimulationConnector::serve(devices, *served_topology_, server_directory_.path());
     }
 
     SimulatorLayout layout_;
     ShippedSocDescriptorCase shipped_{};
+    std::unique_ptr<ClusterDescriptor> served_topology_;
+    std::map<ChipId, std::unique_ptr<TTDevice>> served_devices_;
+    // Declared after the devices so serving stops before they go.
+    std::unique_ptr<SimulationConnector::Server> server_;
 };
 
 TEST_F(SimulationServerShippedSocDescriptor, ClientDeviceIsBuiltFromTheServersSocDescriptor) {
     const auto [cluster_desc, devices] = TopologyDiscovery::discover(client_options());
 
     EXPECT_EQ(devices.at(0)->get_soc_descriptor().get_cores(shipped_.core_type).size(), shipped_.cores);
-}
-
-// The image served with a chip that has no socket: wh_x2's host serves chip 0 only, and reaches chip 1 over Ethernet.
-class SimulationServerRemoteChip : public SimulationServerTest {
-protected:
-    void SetUp() override {
-        SimulationServerTest::SetUp();
-        if (IsSkipped()) {
-            return;
-        }
-        serve(image_);
-        if (every_served_chip_has_a_socket()) {
-            GTEST_SKIP() << "Every chip of the served topology has a socket.";
-        }
-    }
-};
-
-TEST_F(SimulationServerRemoteChip, ChipWithoutASocketIsRefused) {
-    EXPECT_THROW(TopologyDiscovery::discover(client_options()), error::UmdException<error::RuntimeError>);
 }
 
 // The image served with a chip the host reaches only over Ethernet, as wh_x2's chip 1.
@@ -355,6 +354,15 @@ TEST_F(SimulationServerNonMmioChip, WithoutRemoteDiscoveryOnlyMmioChipsAreAttach
 
     EXPECT_EQ(cluster_desc->get_all_chips(), (std::unordered_set<ChipId>{0}));
     EXPECT_EQ(chips_of(devices), (std::set<ChipId>{0}));
+}
+
+// wh_x2's chip 1 is the chip without MMIO.
+TEST_F(SimulationServerNonMmioChip, ClientReadsWhatTheHostWroteOnTheChipWithoutMmio) {
+    host_->write_to_device(PATTERN.data(), PATTERN.size(), 1, first_tensix(1), L1_ADDRESS);
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(client_options());
+
+    EXPECT_EQ(read_l1(*devices.at(1), first_tensix(1)), PATTERN);
 }
 
 // The bh_x2 image served with its chips declared as two single-chip boards, so a client can select one chip without
@@ -466,6 +474,21 @@ TEST_F(SimulationServerHost, PrivateClusterReportsNoServerDirectory) {
     EXPECT_EQ(connection->backend, SimulationBackendType::TTSIM);
     EXPECT_TRUE(connection->server_directory.empty());
     EXPECT_TRUE(connection->sockets.empty());
+}
+
+// The deprecated shutdown handler is what a served chip's SHUTDOWN request calls.
+TEST_F(SimulationServerHost, ShutdownCallsTheClustersShutdownHandler) {
+    std::atomic<int> shutdown_requests{0};
+    serve(image_, [&shutdown_requests] { shutdown_requests++; });
+    SimulationClient client(served_sockets().at(0));
+    client.attach();
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::SHUTDOWN;
+
+    const SimulationServerResponse response = decode_response(client.transact(encode(request)));
+
+    EXPECT_EQ(response.status, 0);
+    EXPECT_EQ(shutdown_requests.load(), 1);
 }
 
 TEST(SimulationServerDirectory, DirectoryOfOnlyStaleSocketsIsRefused) {

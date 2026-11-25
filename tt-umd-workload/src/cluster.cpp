@@ -30,7 +30,6 @@
 
 #include "hugepage.hpp"
 #include "simulation/simulation_backend.hpp"
-#include "simulation/simulation_server_socket.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"
@@ -38,7 +37,6 @@
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
-#include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
@@ -563,21 +561,24 @@ Cluster::Cluster(ClusterOptions options) {
                 std::move(tt_device)));
     }
 
-#ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
-        // Kept with the options, so that get_simulation_connection() reports a directory allocated here too.
-        options.simulator_server_directory = serve_simulation_devices_over_sockets(
-            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
-    }
-#endif  // TT_UMD_BUILD_SIMULATION
-
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+
+    // Served once the cluster is whole, so that the remote chips are reachable too. A client cluster's devices are
+    // already another process's served ones.
+    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets &&
+        !simulation_backend().is_server_directory(options.simulator_directory)) {
+        std::map<ChipId, TTDevice*> served_devices;
+        for (const auto& [chip_id, chip] : chips_) {
+            served_devices.emplace(chip_id, chip->get_tt_device());
+        }
+        simulation_server_ = simulation_backend().serve(
+            served_devices, *cluster_desc, options.simulator_server_directory, options.simulation_shutdown_handler);
+    }
     // Overwrite with the final options: num_host_mem_ch_per_mmio_device may have been auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
 }
 
-#ifdef TT_UMD_BUILD_SIMULATION
 std::optional<SimulationConnector::Connection> Cluster::get_simulation_connection() const {
     if (options_.chip_type != ChipType::SIMULATION) {
         return std::nullopt;
@@ -603,7 +604,7 @@ std::optional<SimulationConnector::Connection> Cluster::get_simulation_connectio
             connection.arch = tt_device->get_soc_descriptor().arch;
             described = true;
         }
-        if (!device_connection->socket.empty()) {
+        if (device_connection->role == SimulationConnector::Role::Client) {
             connection.sockets.emplace(chip_id, device_connection->socket);
         }
     }
@@ -619,45 +620,12 @@ std::optional<SimulationConnector::Connection> Cluster::get_simulation_connectio
     }
     if (connection.role == SimulationConnector::Role::Client) {
         connection.server_directory = options_.simulator_directory;
-    } else if (options_.serve_simulation_devices_over_sockets) {
-        connection.server_directory = options_.simulator_server_directory;
+    } else if (simulation_server_ != nullptr) {
+        connection.server_directory = simulation_server_->server_directory();
+        connection.sockets = simulation_server_->sockets();
     }
     return connection;
 }
-
-std::filesystem::path Cluster::serve_simulation_devices_over_sockets(
-    const std::filesystem::path& simulator_directory,
-    const std::filesystem::path& simulator_server_directory,
-    const std::function<void()>& shutdown_handler) {
-    // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
-    // build), so role_for returns Client. On the host, expose each simulation chip's device on its
-    // per-chip socket so a separate client process (a Cluster pointed at the socket directory) can
-    // attach and drive it. Each device serves device-memory I/O plus GET_DEVICE_INFO and
-    // GET_CLUSTER_DESCRIPTOR (handle_request); create() throws if a live host already holds a chip's
-    // socket. The optional shutdown_handler (e.g. from the sim_server tool) is handed to each device
-    // so a client's SHUTDOWN can signal the owner to stop.
-    if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
-        return simulator_server_directory;
-    }
-    // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
-    // machine never collide even when they serve the same chip id.
-    const std::filesystem::path server_directory = simulator_server_directory.empty()
-                                                       ? SimulationServerSocket::allocate_server_directory()
-                                                       : simulator_server_directory;
-    log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
-    for (const auto& [chip_id, chip] : chips_) {
-        if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
-            // Serve this Cluster's own topology, so a client attaching to any chip sees the cluster
-            // this host was built over.
-            sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
-                cluster_desc->serialize(),
-                shutdown_handler);
-        }
-    }
-    return server_directory;
-}
-#endif  // TT_UMD_BUILD_SIMULATION
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
@@ -871,6 +839,9 @@ std::map<int, int> Cluster::get_clocks() {
 
 Cluster::~Cluster() {
     log_info(LogUMD, "Cluster destructor started.");
+
+    // Clients are cut off before the devices they reach start going away.
+    simulation_server_.reset();
 
     if (needs_close_) {
         try {

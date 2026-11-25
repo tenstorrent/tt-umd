@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -48,7 +49,8 @@ int count_directory(const std::vector<SimulationServerInfo>& servers, const std:
 }  // namespace
 
 // Integration: with no live host, discovery creates a host device that binds + exposes its
-// socket, and tears it down with the device. Requires TT_UMD_SIMULATOR.
+// socket, and tears the socket and the claimed server directory down with it. Requires
+// TT_UMD_SIMULATOR.
 TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
     const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
     if (simulator_path == nullptr) {
@@ -56,23 +58,23 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
     }
 
     // Each server gets its own directory, so a fresh one never collides with a concurrent run.
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
+    const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory.path(), 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;  // this test exercises the socket-serving host path
-    options.server_directory = server_directory;
+    options.server_directory = server_directory.path();
 
     {
-        auto devices = SimulationConnector::discover(options).devices;
-        ASSERT_EQ(devices.size(), 1u);
-        ASSERT_NE(devices.at(0), nullptr);
+        SimulationConnector::Result host = SimulationConnector::discover(options);
+        ASSERT_EQ(host.devices.size(), 1u);
+        ASSERT_NE(host.devices.at(0), nullptr);
         EXPECT_TRUE(std::filesystem::exists(socket));  // host exposed it
     }
 
-    EXPECT_FALSE(std::filesystem::exists(socket));                  // torn down with the device
-    EXPECT_FALSE(std::filesystem::is_directory(server_directory));  // and its now-empty directory removed
+    EXPECT_FALSE(std::filesystem::exists(socket));                   // torn down with the devices
+    EXPECT_FALSE(std::filesystem::exists(server_directory.path()));  // claimed and left empty, so removed
 }
 
 // With serving off (the default), discover() still creates a working host device, but it is private
@@ -114,7 +116,7 @@ TEST(SimulationConnector, ThrowsOnUnrecognizedSimulatorPath) {
 
 // End to end: the host device serves device-memory requests over its socket. A client (same
 // process here) reads back what the host wrote, and a client write is visible to the host --
-// exercising handle_request + the protocol + the transport against a real backend. Coordinates
+// exercising the serving host + the protocol + the transport against a real backend. Coordinates
 // are translated client-side and passed through the host verbatim. Requires TT_UMD_SIMULATOR.
 TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
@@ -122,14 +124,18 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
     const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
-    auto devices = SimulationConnector::discover(options).devices;
+    // Kept whole: the Result's server serves only as long as the Result lives.
+    const SimulationConnector::Result host_result = SimulationConnector::discover(options);
+    const auto& devices = host_result.devices;
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
     ASSERT_NE(host, nullptr);
@@ -183,14 +189,18 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
     const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
-    auto devices = SimulationConnector::discover(options).devices;
+    // Kept whole: the Result's server serves only as long as the Result lives.
+    const SimulationConnector::Result host_result = SimulationConnector::discover(options);
+    const auto& devices = host_result.devices;
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
     ASSERT_NE(host, nullptr);
@@ -232,7 +242,9 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
@@ -241,7 +253,9 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
 
     // The .so path hosts and publishes its per-chip socket; pointing discovery at that server's
     // directory takes the client path, attaching one client device per socket.
-    auto host_devices = SimulationConnector::discover(host_options).devices;
+    // Kept whole: the Result's server serves only as long as the Result lives.
+    const SimulationConnector::Result host_result = SimulationConnector::discover(host_options);
+    const auto& host_devices = host_result.devices;
     ASSERT_EQ(host_devices.size(), 1u);
     TTDevice* host = host_devices.at(0).get();
     ASSERT_NE(host, nullptr);
@@ -281,7 +295,9 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
 
     ClusterOptions host_options;
     host_options.chip_type = ChipType::SIMULATION;
@@ -290,14 +306,6 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     // private); this test is specifically the host/client-over-socket path, so it opts in.
     host_options.serve_simulation_devices_over_sockets = true;
     host_options.simulator_server_directory = server_directory;
-    // A simulator that ships a cluster_descriptor.yaml is enumerated from it, and an empty
-    // target_devices then means "every chip in it". Without one the topology is discovered, which
-    // reaches every chip the image models -- including, on wh_x2, one reached over ethernet that has
-    // no simulator socket of its own for a client to attach to. Name chip 0 in that case, and only
-    // that case, so the host serves exactly the chips the client can reconstruct.
-    if (!std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path))) {
-        host_options.target_devices = {0};
-    }
     Cluster host_cluster(host_options);
 
     ClusterOptions client_options;
@@ -305,14 +313,9 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     client_options.simulator_directory = server_directory;  // the server directory => client role
     Cluster client_cluster(client_options);
 
-    // The client reconstructed the same chips the host serves. Those are the host's simulator-backed
-    // chips, one socket each -- not necessarily all of its chips: a chip reached over ethernet from
-    // another, as wh_x2's second chip is, has no simulator of its own to serve one.
-    std::set<tt::ChipId> host_served_chips;
-    for (const auto& mmio_entry : host_cluster.get_cluster_description()->get_chips_with_mmio()) {
-        host_served_chips.insert(mmio_entry.first);
-    }
-    EXPECT_EQ(client_cluster.get_target_device_ids(), host_served_chips);
+    // The host serves every chip of its cluster, one socket each -- a chip it reaches over Ethernet,
+    // as wh_x2's second chip, too -- so the client reconstructs all of them.
+    EXPECT_EQ(client_cluster.get_target_device_ids(), host_cluster.get_target_device_ids());
 
     // Each Cluster can say what it is connected to: the host names the simulator it runs and the
     // directory it serves in; the client names the directory it attached to and the simulator the
@@ -354,7 +357,9 @@ TEST(SimulationConnector, ReportsServingHostConnection) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
@@ -372,6 +377,8 @@ TEST(SimulationConnector, ReportsServingHostConnection) {
     EXPECT_EQ(connection.server_directory, server_directory);
     EXPECT_EQ(connection.sockets.size(), result.devices.size());
     EXPECT_EQ(connection.sockets.at(0), SimulationServerSocket::default_socket_path(server_directory, 0));
+    ASSERT_NE(result.server, nullptr);
+    EXPECT_EQ(result.server->sockets(), connection.sockets);
 }
 
 // The point of reporting the connection on the host side: with server_directory left empty the
@@ -388,7 +395,10 @@ TEST(SimulationConnector, ReportsTheServerDirectoryItAllocated) {
     options.serve_over_sockets = true;
     // server_directory deliberately left empty: the connector allocates one.
 
+    // Holds the directory the connector allocated, so it is removed even when an assertion returns early.
+    std::optional<test_utils::ScopedServerDirectory> allocated;
     const SimulationConnector::Result result = SimulationConnector::discover(options);
+    allocated.emplace(result.connection.server_directory);
 
     ASSERT_FALSE(result.connection.server_directory.empty());
     EXPECT_TRUE(std::filesystem::is_directory(result.connection.server_directory));
@@ -416,6 +426,7 @@ TEST(SimulationConnector, ReportsPrivateHostConnection) {
     EXPECT_NE(result.connection.arch, tt::ARCH::Invalid);
     EXPECT_TRUE(result.connection.server_directory.empty());
     EXPECT_TRUE(result.connection.sockets.empty());
+    EXPECT_EQ(result.server, nullptr);
 }
 
 // A client reports the directory it attached to and the simulator the host runs -- the latter comes
@@ -426,7 +437,9 @@ TEST(SimulationConnector, ReportsClientConnection) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    // Declared before the host, so the directory is removed even when an assertion returns early.
+    const test_utils::ScopedServerDirectory scoped_directory(SimulationServerSocket::allocate_server_directory());
+    const std::filesystem::path& server_directory = scoped_directory.path();
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
@@ -471,8 +484,8 @@ TEST(SimulationConnector, IgnoresAStaleSocketBesideALiveOne) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    // The stale socket below keeps the host's teardown from removing the directory (it only rmdir's
-    // an empty one), and the ASSERT_EQ can return before any cleanup line: the guard covers both.
+    // The host's teardown leaves the stale socket below, and with it the directory, and the
+    // ASSERT_EQ can return before any cleanup line: the guard covers both.
     const test_utils::ScopedServerDirectory server_directory(SimulationServerSocket::allocate_server_directory());
 
     SimulationConnectorOptions host_options;

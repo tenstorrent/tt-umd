@@ -294,8 +294,8 @@ jobs:
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
             --gtest_filter="SimulationConnector.*:SimulationServer*.*"
 
-      # Discovery attaching to a server directory, one process per image: wh_x2's host serves no socket for the chip
-      # it reaches over Ethernet, and bh_x2 is served as two single-chip boards to select one of them.
+      # Discovery attaching to a server directory, one process per image: wh_x2 serves a chip the host reaches over
+      # Ethernet, and bh_x2 is served as two single-chip boards to select one of them.
       - name: Run UMD SimulationServerDiscovery on tt-sim wormhole
         timeout-minutes: 2
         env:

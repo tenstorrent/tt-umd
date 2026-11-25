@@ -134,6 +134,8 @@ target_sources(
         src/simulation/simulation_server_transport.cpp
         # The public simulator queries answer in every build; they reach the simulator through the backend seam.
         src/simulation/simulator_info.cpp
+        # A SimulationConnector::Server is destroyed in every build (Cluster holds one); serving is simulation-only.
+        src/simulation/simulation_connector_server.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

@@ -28,9 +28,8 @@ namespace tt::umd {
 // sockets left by crashed owners are automatically reclaimed. On destruction the host closes
 // the socket and removes the file.
 //
-// Request handling is split from binding, so the owner can claim the socket first and begin
-// serving only once its backend is ready (the handler dispatches into that backend, which does
-// not exist at bind time -- see the host device's adopt_socket()):
+// Request handling is split from binding, so the owner can claim its sockets first and begin
+// serving only once all of them are claimed (see SimulationConnector::serve):
 //   - bind (create): the socket is bound and connectable -- pure presence/liveness --
 //     but accepts nothing until serve() is called.
 //   - serve(handler): starts the accept loop; each accepted connection is served on its own

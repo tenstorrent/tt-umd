@@ -7,10 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <mutex>
-#include <string>
 #include <vector>
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
@@ -27,7 +25,6 @@ namespace tt::umd {
 
 class SimulationSysmemManager;
 class SimulationTlbAllocator;
-class SimulationServerSocket;
 class SimulationClient;
 class SimulationTTDeviceModel;
 class TlbWindow;
@@ -40,24 +37,6 @@ class TlbWindow;
 class SimulationTTDevice : public TTDevice {
 public:
     ~SimulationTTDevice() override;
-
-    // Takes ownership of the serving socket that exposes this device (created by discovery) and
-    // begins serving. cluster_descriptor_yaml is the host's own topology, served verbatim to every
-    // client that asks, so a client sees exactly the cluster the host that opened this device does.
-    // An optional shutdown_handler is invoked when a client sends SHUTDOWN: a
-    // dedicated server (e.g. the sim_server tool) passes one to signal its main thread to exit and
-    // tear this device down; a host that passes none acks SHUTDOWN as a no-op, so a simulation
-    // embedded in another program can't be torn down by a stray client. The handler is fixed here,
-    // before serving starts, and never mutated afterwards -- so it needs no locking.
-    //
-    // The handler runs on a serving thread and MUST be non-blocking -- it must only signal (set a
-    // flag / notify a condition variable / write a self-pipe); tearing down from within it would
-    // join the serving threads from one of them and deadlock. It must also be safe to call more than
-    // once and concurrently: every attached client that sends SHUTDOWN invokes it.
-    void adopt_socket(
-        std::unique_ptr<SimulationServerSocket> socket,
-        std::string cluster_descriptor_yaml,
-        std::function<void()> shutdown_handler = {});
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
     void read_from_device(
@@ -120,8 +99,7 @@ public:
     // reports it runs (empty for a host that does not report it).
     const std::filesystem::path& simulator_path() const { return simulator_directory_; }
 
-    // The socket this device is served on to other processes (empty when it is not served) or, in
-    // client mode, reaches its host through.
+    // In client mode, the socket this device reaches its host through; empty otherwise.
     std::filesystem::path socket_path() const;
 
     // NOC access at an already-translated coordinate: the special-case fast paths, the
@@ -219,10 +197,6 @@ protected:
     // The map interpreter, present when global_address_mode_ is set.
     std::unique_ptr<att::EndpointResolver> noc_address_resolver_ = nullptr;
 
-    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
-    // The host keeps its own direct in-process fast path; the socket is for remote clients.
-    std::unique_ptr<SimulationServerSocket> socket_;
-
     // Set only in client mode: the remote host this device talks to, instead of owning a local
     // backend. Pulled up here from the derived devices (both held an identical member) since it is
     // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
@@ -232,19 +206,6 @@ protected:
     SimulationTTDeviceModel* simulation_model_ = nullptr;
 
 private:
-    // Serves one socket request against this host device: decodes the wire request, runs it
-    // through read_from_device/write_to_device -- the client has already translated coordinates,
-    // so they are passed as LITERAL (no re-translation) -- and encodes the reply. Runs on the
-    // socket's connection threads; read/write take device_lock, so concurrent host + client
-    // access is serialized. The socket layer stays protocol-agnostic; this is where the protocol
-    // is (de)serialized.
-    std::vector<uint8_t> handle_request(
-        const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler);
-
-    // The host's topology, as handed to adopt_socket(). Set before serving starts and never changed
-    // afterwards, so the serving threads read it without locking.
-    std::string served_cluster_descriptor_yaml_;
-
     // Host-mode device memory access: run the transfer against the local backend (cached TLB
     // window or direct tile access), guarded by is_device_closed() and device_lock.
     void host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size);
@@ -252,7 +213,7 @@ private:
 
     // Client-mode device memory access: translate the coordinate (client-side, stateless), send
     // the encoded request to the host over client_, and apply the decoded reply. The host runs
-    // the access against the real backend and answers (see handle_request). Serialized by
+    // the access against the real backend and answers (see SimulationConnector::serve). Serialized by
     // device_lock so concurrent callers don't interleave request/response on the one socket.
     void client_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size);
     void client_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size);

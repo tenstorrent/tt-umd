@@ -20,7 +20,6 @@
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
-#include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "simulation/word_access.hpp"
 #include "tt-umd-utils/internal/host.hpp"
@@ -475,8 +474,6 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {
-    // Stop serving (and remove the socket) before tearing the backend down.
-    socket_.reset();
     // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
     // destructor is implicitly noexcept, so this is best-effort.
     if (teardown_) {

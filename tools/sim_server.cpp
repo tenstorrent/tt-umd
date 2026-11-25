@@ -25,10 +25,13 @@
 #include <chrono>
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cxxopts.hpp>
 #include <filesystem>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -37,14 +40,16 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "tt-umd-workload/cluster.hpp"
-#include "tt-umd-workload/simulation/simulation_chip.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery_options.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/types/cluster_types.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 
 using namespace tt::umd;
 
@@ -114,8 +119,8 @@ void redirect_standard_streams(const std::filesystem::path& log) {
 }
 
 int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
-    // Claim the directory up front rather than letting Cluster pick one: it names the log, it is
-    // reported on stdout in a form a caller can parse (Cluster logs it too, but a log line is not an
+    // Claim the directory up front rather than letting serve() pick one: it names the log, it is
+    // reported on stdout in a form a caller can parse (serve() logs it too, but a log line is not an
     // interface), and failing to claim one stays visible in the foreground.
     const std::filesystem::path server_directory = SimulationConnector::allocate_server_directory();
 
@@ -163,21 +168,22 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     std::signal(SIGINT, [](int) { request_stop(); });
     std::signal(SIGTERM, [](int) { request_stop(); });
 
-    ClusterOptions options;
-    options.chip_type = ChipType::SIMULATION;
-    options.simulator_directory = simulator_path;
-    // A simulator that ships a cluster_descriptor.yaml serves every chip it declares. Without one,
-    // only chip 0 is served: every chip of a one-chip simulator, but only device 0 of an
-    // ip_layout.yaml build and only chip 0's board of an enumerated TTSim image.
-    if (!std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path))) {
-        options.target_devices = {0};
-    }
-    // Serving the per-chip sockets is opt-in, and it is this tool's whole job.
-    options.serve_simulation_devices_over_sockets = true;
-    options.simulation_shutdown_handler = request_stop;
-    options.simulator_server_directory = server_directory;
+    TopologyDiscoveryOptions discovery_options;
+    SimulationDiscoveryOptions& simulation = discovery_options.simulation.emplace();
+    simulation.simulator_path = simulator_path.string();
+    // As for any process sharing an RTL simulator run with others: exactly one of them launches it.
+    const char* launch_env = std::getenv("TT_UMD_SIMULATOR_LAUNCH");
+    simulation.launch_simulator = launch_env == nullptr || std::string(launch_env) != "0";
+    const auto [cluster_descriptor, devices] = TopologyDiscovery::discover(discovery_options);
 
-    Cluster cluster(options);
+    // Every chip discovered is served, those reached through another chip included. Declared after the devices, so the
+    // server stops before they go.
+    std::map<tt::ChipId, TTDevice*> served_devices;
+    for (const auto& [chip_id, device] : devices) {
+        served_devices.emplace(chip_id, device.get());
+    }
+    const std::unique_ptr<SimulationConnector::Server> server =
+        SimulationConnector::serve(served_devices, *cluster_descriptor, server_directory, request_stop);
 
     // Printed only once the sockets are actually serving, so a caller can treat this line -- and not
     // the process merely existing -- as the signal that clients may attach.
@@ -194,7 +200,7 @@ int cmd_start(const std::filesystem::path& simulator_path, bool detach) {
     }
 
     log_info(tt::LogUMD, "Shutting down; closing client connections.");
-    return 0;  // ~Cluster tears the host down gracefully.
+    return 0;  // The server stops before the devices are closed.
 }
 
 int cmd_list() {

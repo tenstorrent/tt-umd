@@ -39,7 +39,8 @@ std::string find_simulator_soc_descriptor_path(const std::filesystem::path& simu
 
 /**
  * Which simulator backs device, whether it runs in this process or in a simulation server device is attached to. A
- * remote device is backed by whatever backs the device it is reached through.
+ * remote device is backed by whatever backs the device it is reached through. A device attached to a simulation server
+ * that serves a device no simulator backs answers TTSIM, because the server protocol has no other kind.
  *
  * @return std::nullopt for a device no simulator backs, such as silicon reached through the KMD (including a card a
  * ttsim-qemu VM emulates) and every device in a build of UMD without simulation support.

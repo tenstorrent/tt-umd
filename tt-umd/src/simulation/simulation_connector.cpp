@@ -8,8 +8,10 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -18,11 +20,14 @@
 #include <utility>
 #include <vector>
 
+#include "simulation/simulation_backend.hpp"
+#include "simulation/simulation_connector_server.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
+#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
@@ -171,7 +176,134 @@ std::unique_ptr<TTDevice> make_client_device(
         fmt::format("Host reported an unknown simulation backend kind ({})", static_cast<int>(info.backend_type)));
 }
 
+// What every socket of one Server answers alike. Shared by their request handlers, which outlive serve().
+struct ServedTopology {
+    std::string cluster_descriptor_yaml;
+    std::function<void()> shutdown_handler;
+};
+
+// The identity a client builds its device from. A device reached through another chip runs on no simulator directly,
+// so it is described without a simulator path.
+SimulationServerDeviceInfo describe_served_device(const TTDevice& device) {
+    const std::optional<SimulationBackend::DeviceConnection> connection =
+        simulation_backend().get_device_connection(device);
+    return describe_device(
+        device.get_soc_descriptor(),
+        get_simulation_backend(device).value_or(SimulationBackendType::TTSIM),
+        connection.has_value() ? connection->simulator : std::filesystem::path{});
+}
+
+// Serves one socket request against device: decodes the wire request, runs it and encodes the reply. Runs on the
+// socket's connection threads, one per attached client; device_mutex keeps their accesses to device one at a time.
+std::vector<uint8_t> handle_request(
+    TTDevice& device,
+    std::mutex& device_mutex,
+    const ServedTopology& served,
+    const std::vector<uint8_t>& request_bytes) {
+    const SimulationServerRequest request = decode_request(request_bytes);
+
+    // Device info and the cluster descriptor have reply messages of their own.
+    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
+        try {
+            return encode(describe_served_device(device));
+        } catch (const std::exception& e) {
+            log_warning(LogUMD, "Simulation server failed to serve device info: {}", e.what());
+            SimulationServerDeviceInfo info;
+            info.status = -1;
+            return encode(info);
+        }
+    }
+    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
+        SimulationServerClusterDescriptor cluster_descriptor;
+        cluster_descriptor.status = 0;
+        cluster_descriptor.yaml = served.cluster_descriptor_yaml;
+        return encode(cluster_descriptor);
+    }
+    // The handler only signals the owner; the owner tears the Server down from its own thread, which joins this one
+    // after the acknowledgement is sent.
+    if (request.command == SimulationServerCommand::SHUTDOWN) {
+        if (served.shutdown_handler) {
+            served.shutdown_handler();
+        }
+        return encode(SimulationServerResponse{});
+    }
+
+    // The client already translated the coordinate, so it must not be translated again.
+    const CoreCoord core{request.x, request.y, CoreType::UNSPECIFIED, CoordSystem::LITERAL};
+
+    SimulationServerResponse response;
+    try {
+        const std::lock_guard<std::mutex> lock(device_mutex);
+        switch (request.command) {
+            case SimulationServerCommand::READ:
+                response.data.resize(request.size);
+                device.read_from_device(response.data.data(), core, request.address, request.size);
+                break;
+            case SimulationServerCommand::WRITE:
+                UMD_ASSERT(
+                    request.data.size() >= request.size,
+                    error::RuntimeError,
+                    fmt::format(
+                        "Write request payload ({} bytes) is smaller than its size field ({})",
+                        request.data.size(),
+                        request.size));
+                device.write_to_device(request.data.data(), core, request.address, request.size);
+                break;
+            default:
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Unknown simulation server command {}", static_cast<int>(request.command)));
+        }
+    } catch (const std::exception& e) {
+        // A failed access is the client's to handle, as a silicon access error would be; the connection stays up.
+        log_warning(LogUMD, "Simulation server failed to serve a client request: {}", e.what());
+        response.status = -1;
+        response.data.clear();
+    }
+    return encode(response);
+}
+
 }  // namespace
+
+std::unique_ptr<SimulationConnector::Server> SimulationConnector::serve(
+    const std::map<ChipId, TTDevice*>& devices,
+    const ClusterDescriptor& cluster_descriptor,
+    const std::filesystem::path& server_directory,
+    std::function<void()> shutdown_handler) {
+    UMD_ASSERT(!devices.empty(), error::RuntimeError, "Serving simulation devices needs at least one device.");
+    for (const auto& [chip_id, device] : devices) {
+        UMD_ASSERT(
+            device != nullptr, error::RuntimeError, fmt::format("The device to serve as chip {} is null.", chip_id));
+        UMD_ASSERT(
+            cluster_descriptor.get_all_chips().count(chip_id) != 0,
+            error::RuntimeError,
+            fmt::format("Chip {} is not a chip of the cluster descriptor it is served with.", chip_id));
+    }
+
+    auto impl = std::make_unique<Server::Impl>();
+    impl->server_directory =
+        server_directory.empty() ? SimulationServerSocket::allocate_server_directory() : server_directory;
+    // Every socket is bound before any serves, so a chip a live server already serves there fails the call before a
+    // client of this one is answered; the sockets bound until then are removed as the call unwinds.
+    for (const auto& [chip_id, device] : devices) {
+        const std::filesystem::path socket_path =
+            SimulationServerSocket::default_socket_path(impl->server_directory, chip_id);
+        impl->sockets.push_back(SimulationServerSocket::create(socket_path));
+        impl->socket_paths.emplace(chip_id, socket_path);
+    }
+
+    const auto served = std::make_shared<const ServedTopology>(
+        ServedTopology{cluster_descriptor.serialize(), std::move(shutdown_handler)});
+    auto socket = impl->sockets.begin();
+    for (const auto& [chip_id, device] : devices) {
+        (*socket++)->serve([device = device, served, device_mutex = std::make_shared<std::mutex>()](
+                               const std::vector<uint8_t>& request_bytes) {
+            return handle_request(*device, *device_mutex, *served, request_bytes);
+        });
+    }
+    log_info(LogUMD, "Serving {} simulation device(s) in {}", devices.size(), impl->server_directory.string());
+    return std::unique_ptr<Server>(new Server(std::move(impl)));
+}
 
 SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
     return classify(simulator_directory).role;
@@ -289,31 +421,13 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
         return result;
     }
 
-    // Host: single chip for now. Serving over sockets is opt-in: by default the host device stays
-    // private in-process (the direct hot path). When requested, serve in a dedicated server
-    // directory -- the caller's, or a fresh one -- so two hosts never collide even when they serve
-    // the same chip id; create() throws if a live host already owns this chip's socket there.
+    // Host: single chip for now. By default the host device stays private in-process (the direct hot path); serving
+    // it is opt-in.
     constexpr ChipId chip_id = 0;
-    std::unique_ptr<SimulationServerSocket> socket;
-    if (options.serve_over_sockets) {
-        const std::filesystem::path server_directory = options.server_directory.empty()
-                                                           ? SimulationServerSocket::allocate_server_directory()
-                                                           : options.server_directory;
-        const std::filesystem::path socket_path =
-            SimulationServerSocket::default_socket_path(server_directory, chip_id);
-        socket = SimulationServerSocket::create(socket_path);
-        // Report where this host ended up serving -- the allocated directory is otherwise known
-        // only in here, so a caller that did not pre-allocate one could never name it.
-        result.connection.server_directory = server_directory;
-        result.connection.sockets.emplace(chip_id, socket_path);
-    }
     // value() rather than operator*: classify() always sets a backend for the host role, and this
     // makes that invariant explicit instead of reading an empty optional if it ever stops holding.
     const SimulationBackendType backend = classification.backend.value();
-    std::unique_ptr<SimulationTTDevice> device =
-        make_host_device(backend, simulator_path, options.num_host_mem_channels);
-    SimulationTTDevice& host_device = *device;
-    devices.emplace(chip_id, std::move(device));
+    devices.emplace(chip_id, make_host_device(backend, simulator_path, options.num_host_mem_channels));
 
     result.connection.role = Role::Host;
     result.connection.simulator = simulator_path;
@@ -332,8 +446,11 @@ SimulationConnector::Result SimulationConnector::discover(const SimulationConnec
     result.cluster_descriptor = build_topology(
         describe_cluster(simulator_path).yaml, devices, result.connection.arch, soc_descriptor.noc_translation_enabled);
     // Serve that same topology, so every client that attaches sees the cluster this host reports.
-    if (socket) {
-        host_device.adopt_socket(std::move(socket), result.cluster_descriptor->serialize());
+    if (options.serve_over_sockets) {
+        result.server =
+            serve({{chip_id, devices.at(chip_id).get()}}, *result.cluster_descriptor, options.server_directory);
+        result.connection.server_directory = result.server->server_directory();
+        result.connection.sockets = result.server->sockets();
     }
     return result;
 }

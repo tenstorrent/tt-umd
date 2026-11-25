@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 # SPDX-License-Identifier: Apache-2.0
 
+import gc
 import os
 import shutil
 import socket
@@ -247,6 +248,187 @@ class TestSimulationConnectorAgainstSimulator(unittest.TestCase):
             self.assertEqual(connection.sockets[0].parent, connection.server_directory)
         finally:
             shutil.rmtree(connection.server_directory, ignore_errors=True)
+
+
+def write_and_read_back(writer, reader):
+    """Write a word through writer to its first Tensix core's L1, and read it back through reader."""
+    soc = writer.get_soc_descriptor()
+    tensix = soc.get_cores(tt_umd.CoreType.TENSIX)[0]
+    core = soc.translate_chip_coord_to_translated(tensix)
+    writer.noc_write32(core.x, core.y, 0x1000, 0xDEADBEEF)
+    return reader.noc_read32(core.x, core.y, 0x1000)
+
+
+def attach_client(server_directory):
+    """The devices of a client attached to the server serving in server_directory."""
+    options = tt_umd.SimulationConnectorOptions()
+    options.simulator_directory = server_directory
+    _connection, devices, _cluster = tt_umd.SimulationConnector.discover(options)
+    return devices
+
+
+class ServingTestCase(unittest.TestCase):
+    """Keeps every client, server and device on self and drops them after each test, failed or not.
+
+    A failing test's traceback would otherwise keep its devices alive into the next test's setUp.
+    """
+
+    def setUp(self):
+        self.server_directory = tt_umd.SimulationConnector.allocate_server_directory()
+        self.addCleanup(shutil.rmtree, self.server_directory, ignore_errors=True)
+        self.client_devices = None
+        self.server = None
+        self.devices = None
+        # Cleanups run last-registered first, so the directory is removed after everything is dropped.
+        self.addCleanup(self.drop_clients_server_and_devices)
+
+    def drop_clients_server_and_devices(self):
+        # Clients before the server they attach to, the server before the devices it serves.
+        self.client_devices = None
+        self.server = None
+        self.devices = None
+        gc.collect()
+
+    def attach_client(self):
+        self.client_devices = attach_client(self.server_directory)
+        return self.client_devices
+
+
+@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+@unittest.skipUnless(os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR is not set")
+class TestSimulationConnectorServe(ServingTestCase):
+    """SimulationConnector.serve over the devices of a private simulator host."""
+
+    def setUp(self):
+        super().setUp()
+        options = tt_umd.SimulationConnectorOptions()
+        options.simulator_directory = os.environ["TT_UMD_SIMULATOR"]
+        _connection, self.devices, self.cluster_descriptor = (
+            tt_umd.SimulationConnector.discover(options)
+        )
+
+    def serve(self):
+        self.server = tt_umd.SimulationConnector.serve(
+            self.devices, self.cluster_descriptor, self.server_directory
+        )
+        return self.server
+
+    def test_serves_a_socket_for_every_device_in_the_directory_given(self):
+        server = self.serve()
+
+        self.assertEqual(server.server_directory(), self.server_directory)
+        self.assertEqual(sorted(server.sockets()), sorted(self.devices))
+        self.assertEqual(server.sockets()[0], self.server_directory / SOCKET_NAME)
+
+    def test_client_reads_what_the_served_device_wrote(self):
+        self.serve()
+        client_devices = self.attach_client()
+
+        self.assertEqual(
+            write_and_read_back(self.devices[0], client_devices[0]), 0xDEADBEEF
+        )
+
+    def test_serves_devices_removed_from_the_dict_it_was_given(self):
+        self.serve()
+        self.devices.clear()
+        gc.collect()
+
+        client_devices = self.attach_client()
+
+        self.assertEqual(
+            write_and_read_back(client_devices[0], client_devices[0]), 0xDEADBEEF
+        )
+
+    def test_dropping_the_server_removes_its_sockets_and_claimed_directory(self):
+        socket_path = self.serve().sockets()[0]
+
+        self.server = None
+        gc.collect()
+
+        self.assertFalse(socket_path.exists())
+        # Claimed by allocate_server_directory and left empty, so it goes too.
+        self.assertFalse(self.server_directory.exists())
+
+    def test_empty_device_map_raises(self):
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.SimulationConnector.serve(
+                {}, self.cluster_descriptor, self.server_directory
+            )
+
+
+@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+@unittest.skipUnless(os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR is not set")
+class TestSimulationConnectorDiscoverServing(ServingTestCase):
+    """discover(serve_over_sockets) serves until the last device it returned is dropped."""
+
+    def setUp(self):
+        super().setUp()
+        options = tt_umd.SimulationConnectorOptions()
+        options.simulator_directory = os.environ["TT_UMD_SIMULATOR"]
+        options.serve_over_sockets = True
+        options.server_directory = self.server_directory
+        _connection, self.devices, _cluster = tt_umd.SimulationConnector.discover(
+            options
+        )
+        self.socket_path = self.server_directory / SOCKET_NAME
+
+    def test_serves_while_one_device_is_kept(self):
+        self.devices = {0: self.devices[0]}
+        gc.collect()
+
+        client_devices = self.attach_client()
+        self.assertEqual(
+            write_and_read_back(self.devices[0], client_devices[0]), 0xDEADBEEF
+        )
+
+    def test_stops_serving_when_every_device_is_dropped(self):
+        self.devices = None
+        gc.collect()
+
+        self.assertFalse(self.socket_path.exists())
+
+
+@unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
+@unittest.skipIf(
+    os.environ.get("TT_UMD_SIMULATOR"), "TT_UMD_SIMULATOR selects a simulator"
+)
+class TestSimulationConnectorServeSilicon(ServingTestCase):
+    """SimulationConnector.serve over silicon devices: any TTDevice can be served."""
+
+    def setUp(self):
+        if not tt_umd.PCIDevice.enumerate_devices():
+            self.skipTest("No Tenstorrent card.")
+        super().setUp()
+        self.cluster_descriptor, self.devices = tt_umd.TopologyDiscovery.discover()
+        self.server = tt_umd.SimulationConnector.serve(
+            self.devices, self.cluster_descriptor, self.server_directory
+        )
+
+    def test_client_reads_what_the_served_device_wrote(self):
+        client_devices = self.attach_client()
+
+        self.assertEqual(
+            write_and_read_back(self.devices[0], client_devices[0]), 0xDEADBEEF
+        )
+
+    def test_served_device_reads_what_the_client_wrote(self):
+        client_devices = self.attach_client()
+
+        self.assertEqual(
+            write_and_read_back(client_devices[0], self.devices[0]), 0xDEADBEEF
+        )
+
+    def test_client_of_served_silicon_is_backed_by_ttsim(self):
+        # The served device itself is silicon, which no simulator backs.
+        self.assertIsNone(tt_umd.get_simulation_backend(self.devices[0]))
+
+        client_devices = self.attach_client()
+
+        # The server protocol has no other kind than the simulators', so served silicon answers TTSIM.
+        self.assertEqual(
+            tt_umd.get_simulation_backend(client_devices[0]),
+            tt_umd.SimulationBackendType.TTSIM,
+        )
 
 
 if __name__ == "__main__":

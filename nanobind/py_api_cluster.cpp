@@ -31,6 +31,8 @@ void bind_cluster(nb::module_ &m) {
             "get_simulation_connection",
             &Cluster::get_simulation_connection,
             release_gil(),
+            "Deprecated: get_simulation_backend(device) tells what backs a device, and the SimulationConnector.Server "
+            "serving devices reports its directory and sockets. "
             "What simulation this cluster was constructed over (role, simulator, server directory), or None when "
             "it is not a simulation cluster. Its sockets are keyed by this cluster's chip ids. A host that stops "
             "serving afterwards does not change a client's answer.")

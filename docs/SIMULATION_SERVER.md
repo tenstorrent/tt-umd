@@ -21,15 +21,34 @@ server's directory (see [Where things live](#where-things-live)).
 
 ### Any UMD process can be the host
 
-Hosting is a `Cluster` option, not something special to the tool:
+Hosting is a call, not something special to the tool: open the devices with `TopologyDiscovery`
+and hand them to `SimulationConnector::serve`, which serves them until the returned `Server` is
+destroyed.
 
 ```cpp
-options.serve_simulation_devices_over_sockets = true;   // default: false
+#include "tt-umd/simulation/simulation_connector.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+
+using namespace tt::umd;
+
+TopologyDiscoveryOptions discovery_options;
+discovery_options.simulation.emplace().simulator_path = "/path/to/libttsim.so";
+auto [cluster_descriptor, devices] = TopologyDiscovery::discover(discovery_options);
+
+std::map<ChipId, TTDevice*> served;
+for (auto& [chip_id, device] : devices) {
+    served.emplace(chip_id, device.get());
+}
+// Empty server directory: serve() claims a fresh one; server->server_directory() says which.
+std::unique_ptr<SimulationConnector::Server> server =
+    SimulationConnector::serve(served, *cluster_descriptor);
+// Serving until `server` is destroyed; destroy it before the devices.
 ```
 
-It is **off by default**, so an ordinary simulator run — a UMD or tt-metal test pointed at a
-`libttsim.so` — hosts a private in-process simulation and publishes nothing. `sim_server` is just a
-host that sets the flag and stays alive.
+Nothing is served unless you call it, so an ordinary simulator run — a UMD or tt-metal test pointed
+at a `libttsim.so` — hosts a private in-process simulation and publishes nothing. `sim_server` is
+just such a host that stays alive. The `ClusterOptions::serve_simulation_devices_over_sockets` flag,
+which makes a `Cluster` serve its own devices, is deprecated.
 
 ```mermaid
 flowchart TB
@@ -216,7 +235,9 @@ for (auto& [chip_id, device] : result.devices) {
 it (as a host, the build you named; as a client, the one the host reports it runs), its backend and
 arch, and -- for a host that serves -- the directory and per-chip sockets it serves on. That last
 part matters when you leave `server_directory` empty: UMD allocates one, and this is the only place
-it tells you which. `Cluster::get_simulation_connection()` reports the same thing for a cluster.
+it tells you which. `Cluster::get_simulation_connection()`, which reports the same thing for a
+cluster, is deprecated: `get_simulation_backend(device)` tells what backs a device, and a `Server`
+reports its own directory and sockets.
 
 ### From Python
 

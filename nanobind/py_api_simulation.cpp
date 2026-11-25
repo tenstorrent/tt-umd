@@ -45,12 +45,14 @@ void bind_simulation_connector(nb::module_ &m) {
         .def_rw(
             "serve_over_sockets",
             &SimulationConnectorOptions::serve_over_sockets,
-            "Host path only: publish each simulated chip over a per-chip socket so other processes can attach as "
-            "clients. Off by default, so discover() yields private in-process devices.")
+            "Host path only: serve the opened devices with SimulationConnector.serve so other processes can attach "
+            "as clients; they are served until every device discover() returned is dropped. Off by default, so "
+            "discover() yields private in-process devices.")
         .def_rw(
             "server_directory",
             &SimulationConnectorOptions::server_directory,
-            "Host path only: the directory to serve the per-chip sockets in. Empty means allocate a fresh one.")
+            "Host path only: the server directory passed to serve() when serve_over_sockets is set. Empty means claim "
+            "a fresh one.")
         .def_rw(
             "cluster_descriptor",
             &SimulationConnectorOptions::cluster_descriptor,
@@ -114,6 +116,28 @@ void bind_simulation_connector(nb::module_ &m) {
                 self.server_directory.string());
         });
 
+    nb::class_<SimulationConnector::Server>(
+        simulation_connector,
+        "Server",
+        "Devices served to other processes by SimulationConnector.serve(): one per-chip socket in one server "
+        "directory. Serves until it is dropped; dropping it stops accepting, closes every client connection, waits "
+        "for the requests in flight and removes the socket files, and then the server directory too when it is one "
+        "allocate_server_directory claims and nothing else is left in it.")
+        .def(
+            "server_directory",
+            &SimulationConnector::Server::server_directory,
+            "The directory the sockets are in: the one passed to serve(), or the one it claimed.")
+        .def(
+            "sockets",
+            &SimulationConnector::Server::sockets,
+            "The per-chip sockets served: chip id -> path, one for each device served.")
+        .def("__repr__", [](const SimulationConnector::Server &self) {
+            return fmt::format(
+                "SimulationConnector.Server(server_directory='{}', chips={})",
+                self.server_directory().string(),
+                self.sockets().size());
+        });
+
     simulation_connector
         .def_static(
             "role_for",
@@ -125,15 +149,68 @@ void bind_simulation_connector(nb::module_ &m) {
         .def_static(
             "discover",
             [](const SimulationConnectorOptions &options) {
-                SimulationConnector::Result result = SimulationConnector::discover(options);
-                return std::make_tuple(
-                    std::move(result.connection), std::move(result.devices), std::move(result.cluster_descriptor));
+                SimulationConnector::Result result;
+                {
+                    nb::gil_scoped_release release;
+                    result = SimulationConnector::discover(options);
+                }
+                if (result.server == nullptr) {
+                    return nb::cast(std::make_tuple(
+                        std::move(result.connection), std::move(result.devices), std::move(result.cluster_descriptor)));
+                }
+                // A served Result must stop serving before its devices go, which handing the devices to Python one
+                // by one cannot guarantee. So the Result stays whole, owned by a capsule that every returned device
+                // keeps alive: the last device dropped destroys it, server first.
+                auto *served = new SimulationConnector::Result(std::move(result));
+                nb::capsule owner(
+                    served, [](void *owned) noexcept { delete static_cast<SimulationConnector::Result *>(owned); });
+                nb::dict devices;
+                for (const auto &[chip_id, device] : served->devices) {
+                    nb::object py_device = nb::cast(device.get(), nb::rv_policy::reference);
+                    nb::detail::keep_alive(py_device.ptr(), owner.ptr());
+                    devices[nb::cast(chip_id)] = py_device;
+                }
+                return nb::cast(std::make_tuple(served->connection, devices, served->cluster_descriptor));
             },
             nb::arg("options"),
-            release_gil(),
             "Opens the simulated devices for these options. Returns (connection, {chip_id: TTDevice}, "
             "cluster_descriptor) -- the connection says which role this process took and what simulator is behind "
-            "it, and the cluster descriptor is the topology those devices sit in.")
+            "it, and the cluster descriptor is the topology those devices sit in. With options.serve_over_sockets, "
+            "the devices are served until every one of them is dropped.")
+        .def_static(
+            "serve",
+            [](const nb::typed<nb::dict, ChipId, TTDevice> &devices,
+               const ClusterDescriptor &cluster_descriptor,
+               const std::filesystem::path &server_directory) {
+                std::map<ChipId, TTDevice *> device_map;
+                if (!nb::try_cast(devices, device_map)) {
+                    throw nb::type_error("devices must map chip ids to TTDevice");
+                }
+                std::unique_ptr<SimulationConnector::Server> server;
+                {
+                    nb::gil_scoped_release release;
+                    server = SimulationConnector::serve(device_map, cluster_descriptor, server_directory);
+                }
+                nb::typed<nb::object, SimulationConnector::Server> py_server = nb::cast(std::move(server));
+                // Pins the device objects rather than the dict: the caller may empty the dict while serving
+                // threads still use the devices. values() is a fresh list only this keep-alive holds.
+                nb::detail::keep_alive(py_server.ptr(), devices.values().ptr());
+                return py_server;
+            },
+            nb::arg("devices"),
+            nb::arg("cluster_descriptor"),
+            nb::arg("server_directory") = std::filesystem::path(),
+            "Serves devices ({chip_id: TTDevice}, keyed by the chip id of cluster_descriptor each one is) to other "
+            "processes, one per-chip socket each in one server directory, so a client (TopologyDiscovery or "
+            "discover() pointed at that directory) can attach to them. Any TTDevice can be served, and stays usable "
+            "while served. Client requests reach each device's read_from_device / write_to_device, one request per "
+            "device at a time; GET_CLUSTER_DESCRIPTOR answers cluster_descriptor as it was at this call; SHUTDOWN is "
+            "acknowledged and does nothing else. A device no simulator backs is described to clients as a TTSim "
+            "device. server_directory is an existing directory to serve in; empty claims a fresh one. Returns the "
+            "Server, which serves until dropped and keeps the devices it serves alive until then, even when they "
+            "are removed from the devices dict. Raises "
+            "error.UmdBaseException when devices is empty, when a chip id is not a chip of cluster_descriptor, or "
+            "when a live server already serves one of the chips in server_directory.")
         .def_static(
             "allocate_server_directory",
             &SimulationConnector::allocate_server_directory,
@@ -206,7 +283,8 @@ void bind_simulation(nb::module_ &m) {
         "Which simulator backs device, whether it runs in this process or in a simulation server device is attached "
         "to; a remote device is backed by whatever backs the device it is reached through. None for a device no "
         "simulator backs, such as silicon reached through the KMD, and for every device when UMD was built without "
-        "simulation support.");
+        "simulation support. A device attached to a simulation server that serves a device no simulator backs "
+        "answers TTSIM, because the server protocol has no other kind.");
 
     bind_simulation_connector(m);
 }

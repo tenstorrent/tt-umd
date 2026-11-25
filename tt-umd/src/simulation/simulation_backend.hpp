@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -20,6 +21,7 @@
 
 namespace tt::umd {
 
+class ClusterDescriptor;
 class SocDescriptor;
 class TTDevice;
 
@@ -52,7 +54,7 @@ public:
         // The simulator behind the device; as a client, the one the host reports it runs.
         std::filesystem::path simulator;
         SimulationBackendType backend = SimulationBackendType::TTSIM;
-        // The socket a host serves the device on (empty when it is not served), or a client reaches its host through.
+        // The socket a client reaches its host through; empty for a host.
         std::filesystem::path socket;
     };
 
@@ -148,6 +150,15 @@ public:
      * devices reached through another device).
      */
     virtual std::optional<DeviceConnection> get_device_connection(const TTDevice& tt_device) const = 0;
+
+    /**
+     * SimulationConnector::serve, with its contract.
+     */
+    virtual std::unique_ptr<SimulationConnector::Server> serve(
+        const std::map<ChipId, TTDevice*>& devices,
+        const ClusterDescriptor& cluster_descriptor,
+        const std::filesystem::path& server_directory,
+        const std::function<void()>& shutdown_handler) const = 0;
 };
 
 /**

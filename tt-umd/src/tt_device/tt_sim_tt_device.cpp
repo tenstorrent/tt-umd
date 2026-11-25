@@ -17,7 +17,6 @@
 #include "pcie/io_window_reconfigure.hpp"
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "pcie/tt_sim_tlb_window.hpp"
-#include "simulation/simulation_server_socket.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -242,8 +241,6 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::create_tlb_window(
 }
 
 TTSimTTDevice::~TTSimTTDevice() {
-    // Stop serving (and remove the socket) before tearing the backend down.
-    socket_.reset();
     // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
     // destructor is implicitly noexcept, so this is best-effort -- a throw here would call
     // std::terminate during unwinding.

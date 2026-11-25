@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -167,6 +168,14 @@ public:
         connection.backend = simulation_device->backend_type();
         connection.socket = simulation_device->socket_path();
         return connection;
+    }
+
+    std::unique_ptr<SimulationConnector::Server> serve(
+        const std::map<ChipId, TTDevice*>& devices,
+        const ClusterDescriptor& cluster_descriptor,
+        const std::filesystem::path& server_directory,
+        const std::function<void()>& shutdown_handler) const override {
+        return SimulationConnector::serve(devices, cluster_descriptor, server_directory, shutdown_handler);
     }
 };
 

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,14 @@ public:
 
     std::optional<DeviceConnection> get_device_connection(const TTDevice& /*tt_device*/) const override {
         return std::nullopt;
+    }
+
+    std::unique_ptr<SimulationConnector::Server> serve(
+        const std::map<ChipId, TTDevice*>& /*devices*/,
+        const ClusterDescriptor& /*cluster_descriptor*/,
+        const std::filesystem::path& /*server_directory*/,
+        const std::function<void()>& /*shutdown_handler*/) const override {
+        UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 };
 

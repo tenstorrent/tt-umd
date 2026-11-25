@@ -25,10 +25,8 @@
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/soc_descriptor.hpp"
-#ifdef TT_UMD_BUILD_SIMULATION
 #include "tt-umd/simulation/simulation_connector.hpp"
-#endif  // TT_UMD_BUILD_SIMULATION
+#include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
@@ -119,24 +117,27 @@ struct ClusterOptions {
     std::filesystem::path simulator_directory = "";
 
     /**
-     * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
-     * processes can attach as clients. Disabled by default so ordinary in-process simulator runs
-     * remain private and can run independently in parallel.
+     * Deprecated: serve devices with SimulationConnector::serve, or run the sim_server tool.
+     *
+     * Host SIMULATION chip type only: serve every chip of this cluster with SimulationConnector::serve, together with
+     * the cluster descriptor, for as long as the cluster lives, so other processes can attach as clients. Disabled by
+     * default so ordinary in-process simulator runs remain private and can run independently in parallel.
      */
     bool serve_simulation_devices_over_sockets = false;
 
     /**
-     * Host SIMULATION chip type only: optional callback invoked when a client sends SHUTDOWN over a
-     * chip's socket, so a long-running host (e.g. the sim_server tool) can be stopped in-band. It is
-     * fixed when the host starts serving and must only signal (be non-blocking) and be safe to call
-     * more than once. Empty means SHUTDOWN is acknowledged as a no-op.
+     * Deprecated: pass the handler to SimulationConnector::serve.
+     *
+     * Host SIMULATION chip type only, with serve_simulation_devices_over_sockets: the shutdown_handler passed to
+     * SimulationConnector::serve. Empty means SHUTDOWN is acknowledged as a no-op.
      */
     std::function<void()> simulation_shutdown_handler;
 
     /**
-     * Host SIMULATION chip type only: the directory this host serves its per-chip sockets in.
-     * Empty means allocate a fresh one, so distinct hosts on the same machine never collide; set it
-     * to serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+     * Deprecated: pass the directory to SimulationConnector::serve.
+     *
+     * Host SIMULATION chip type only, with serve_simulation_devices_over_sockets: the server_directory passed to
+     * SimulationConnector::serve. Empty means claim a fresh one.
      */
     std::filesystem::path simulator_server_directory = "";
 
@@ -293,8 +294,10 @@ public:
     void configure_active_ethernet_cores_for_mmio_device(
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
-#ifdef TT_UMD_BUILD_SIMULATION
     /**
+     * Deprecated: get_simulation_backend (tt-umd/simulation/simulator_info.hpp) tells what backs a chip's device, and
+     * the SimulationConnector::Server serving devices reports its directory and sockets.
+     *
      * What simulation this cluster is connected to: whether this process hosts the simulation or
      * attached to one another process hosts, which simulator sits behind it, and -- for a host that
      * serves -- the directory and sockets it serves on, including one UMD allocated itself.
@@ -307,7 +310,6 @@ public:
      * std::nullopt for a cluster that is not a simulation cluster.
      */
     std::optional<SimulationConnector::Connection> get_simulation_connection() const;
-#endif  // TT_UMD_BUILD_SIMULATION
 
     //---------- Start and stop the device and tensix cores.
 
@@ -788,16 +790,6 @@ private:
         ClusterDescriptor* cluster_desc,
         const SocDescriptor& soc_desc,
         std::unique_ptr<TTDevice> remote_tt_device = nullptr);
-
-    // Host simulation Cluster only: exposes each simulation chip's device on its per-chip socket so a
-    // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
-    // no-op for a client Cluster. Called once from the constructor after the chips are built.
-    // Returns the directory it serves in: simulator_server_directory, or the one it allocated when
-    // that is empty.
-    std::filesystem::path serve_simulation_devices_over_sockets(
-        const std::filesystem::path& simulator_directory,
-        const std::filesystem::path& simulator_server_directory,
-        const std::function<void()>& shutdown_handler);
 #endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
@@ -821,6 +813,9 @@ private:
 
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;
+
+    // Serves the chips' devices when ClusterOptions::serve_simulation_devices_over_sockets asks for it; null otherwise.
+    std::unique_ptr<SimulationConnector::Server> simulation_server_;
 
     bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.

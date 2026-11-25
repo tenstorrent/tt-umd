@@ -28,8 +28,6 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/noc_id.hpp"
-#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -221,18 +219,16 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
     cluster->set_clock_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->allocate_buffer(200 * ONE_MIB);
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
-    const xy_pair dram_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(dram_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
+        cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, dram_core, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core_xy, ADDRESS);
+            cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, dram_core, ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -258,18 +254,16 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     cluster->set_clock_state(DevicePowerState::BUSY);
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->allocate_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    const xy_pair tensix_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+        cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+            cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -280,35 +274,31 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 // and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
-
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     constexpr uint64_t ADDRESS = 0x0;
     const size_t BUFFER_SIZE = ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SystemMemoryAllocator* allocator = cluster->get_chip(mmio_chip)->get_system_memory_allocator();
+    if (!allocator->is_user_buffer_mapping_supported()) {
+        GTEST_SKIP() << "Mapping user buffers needs an IOMMU.";
+    }
     const bool d2h_supported = cluster->get_cluster_description()->get_arch() != ARCH::BLACKHOLE;
     cluster->set_clock_state(DevicePowerState::BUSY);
-    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     void* mapping =
         mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    const xy_pair tensix_core_xy =
-        cluster->get_soc_descriptor(mmio_chip).translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->map_user_buffer(mapping, BUFFER_SIZE);
+        cluster->get_chip(mmio_chip)->dma_write_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core_xy, ADDRESS);
+            std::unique_ptr<SysmemBuffer> sysmem_buffer = allocator->map_user_buffer(mapping, BUFFER_SIZE);
+            cluster->get_chip(mmio_chip)->dma_read_zero_copy(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
         });
     }
     munmap(mapping, BUFFER_SIZE);

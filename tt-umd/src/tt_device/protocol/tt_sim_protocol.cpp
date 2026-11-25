@@ -108,13 +108,11 @@ int TTSimProtocol::get_numa_node() const { return -1; }
 // A simulator has no physical link to train.
 std::optional<uint32_t> TTSimProtocol::get_lane_count() const { return std::nullopt; }
 
+std::optional<int> TTSimProtocol::get_physical_slot() const { return std::nullopt; }
+
 void TTSimProtocol::set_power_state(PowerState /*state*/) {
     // A simulator models no power domains. Silently ignored rather than thrown: the firmware sets a
     // power state during startup, and refusing would fail bringup over something inconsequential.
-}
-
-void TTSimProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {
-    // No bus to time out: an access reaches the simulator in-process or throws outright.
 }
 
 }  // namespace tt::umd

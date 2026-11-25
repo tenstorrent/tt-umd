@@ -59,6 +59,10 @@ private:
         bool secondary_bus_reset = true);
 
     static bool galaxy_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
+
+    // Resets all devices over IPMI and waits for them to come back, resetting the PCIe link first if reset_pcie_link
+    // is set. Returns false if the reset command fails or a device does not reappear.
+    static bool ubb_ipmi_reset_and_wait_for_devices(std::chrono::milliseconds timeout_ms, bool reset_pcie_link);
 };
 
 /**

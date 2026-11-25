@@ -41,7 +41,7 @@ constexpr uint32_t RESPONSE_WPTR_OFFSET = 5;
 constexpr uint64_t QUEUE_BASE = 0x40000;
 constexpr uint64_t QUEUE_ENTRIES = 4;
 
-uint64_t word_address(uint32_t word_offset) { return QUEUE_BASE + word_offset * sizeof(uint32_t); }
+uint64_t word_address(size_t word_offset) { return QUEUE_BASE + word_offset * sizeof(uint32_t); }
 
 // Both dimensions the queue actually reads: the NOC each call routes over, and whether NOC
 // translation is on -- together they decide which ARC core get_arc_core() returns.

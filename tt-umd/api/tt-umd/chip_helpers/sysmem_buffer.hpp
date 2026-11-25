@@ -11,10 +11,8 @@
 #include <optional>
 
 #include "tt-umd/types/host_memory.hpp"
-#include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
-class TTDevice;
 
 /**
  * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
@@ -31,30 +29,12 @@ class TTDevice;
 class SysmemBuffer {
 public:
     /**
-     * Cleanup callable invoked on destruction, receiving the page-aligned start of the buffer.
+     * Cleanup callable invoked on destruction, receiving the buffer's virtual address.
      *
      * The allocator is its sole author and states the ownership model outright: unpin-and-free for
      * memory UMD owns, unpin-only for memory the client owns.
      */
     using Deleter = std::function<void(void*)>;
-
-    /**
-     * A buffer's page-aligned extent. The pages an allocator pins must cover the whole user range, so an
-     * unaligned start is rounded down and the size grown to match.
-     */
-    struct AlignedRange {
-        void* base = nullptr;           // Page-aligned start. This is what gets pinned and released.
-        size_t mapped_size = 0;         // Page-rounded size covering the user's whole range.
-        uint64_t offset_from_base = 0;  // Distance from base to the user's virtual address.
-    };
-
-    /**
-     * Computes the page-aligned extent covering [buffer_va, buffer_va + buffer_size).
-     *
-     * Allocators use this to pin exactly the range the buffer will report offsets against. It is a pure
-     * function of its arguments, so the allocator and the buffer independently agree on the extent.
-     */
-    static AlignedRange page_align(void* buffer_va, size_t buffer_size);
 
     /**
      * Callable that programs the hardware address translation binding this buffer to the NOC, returning
@@ -119,8 +99,8 @@ public:
     }
 
     /**
-     * Returns the NOC address through which every tile on the device can reach this buffer, or std::nullopt
-     * until the buffer is bound, either at pin time or by bind_noc_address().
+     * Returns the NOC address through which every tile on the device can reach this buffer's first byte, or
+     * std::nullopt until the buffer is bound, either at pin time or by bind_noc_address().
      */
     std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
 
@@ -147,28 +127,6 @@ public:
      */
     int get_communication_id() const { return communication_id_; }
 
-    /**
-     * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer to the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core to which the data will be transferred.
-     * @param addr Address on the core to which the data will be transferred.
-     */
-    void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
-
-    /**
-     * Does zero copy DMA transfer from the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer from the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core from which the data will be transferred.
-     * @param addr Address on the core from which the data will be transferred.
-     */
-    void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
-
 private:
     // Buffers are created only by an allocator, which pins the pages and therefore knows the IOVA, the NOC
     // address and how the memory has to be released.
@@ -177,23 +135,20 @@ private:
     /**
      * Constructs a buffer over host memory the allocator has already pinned for the device.
      *
-     * Alignment stays invisible to the user: get_va() and get_size() report what was passed in, and
-     * offsets are bounded by that size. The allocator must pin the same aligned range, which it
-     * computes with page_align().
+     * The buffer covers exactly the user's range: get_va(), get_size() and get_iova() report what was
+     * passed in, and offsets are bounded by that size. Any page alignment the pinning needed is the
+     * allocator's to track.
      *
-     * @param tt_device Device this buffer belongs to, used for the zero-copy DMA helpers. May be null for
-     * buffers never used for DMA, such as the simulator's.
      * @param buffer_va Virtual address of the buffer as the user sees it.
      * @param buffer_size Size of the buffer requested by the user.
-     * @param device_io_addr IOVA of the page-aligned start, as returned by the allocator's pinning call.
+     * @param device_io_addr IOVA of buffer_va.
      * @param communication_id Identifier of the device this buffer's IOVA is valid for.
-     * @param deleter Cleanup callable invoked on destruction with the page-aligned start.
-     * @param noc_addr NOC address, if the pages were pinned with NOC access.
+     * @param deleter Cleanup callable invoked on destruction with buffer_va.
+     * @param noc_addr NOC address of buffer_va, if the pages were pinned with NOC access.
      * @param device_access Whether the device may write the mapping or only read it.
      * @param noc_binder Optional callable for deferred NOC binding.
      */
     SysmemBuffer(
-        TTDevice* tt_device,
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
@@ -212,23 +167,14 @@ private:
      */
     void validate(const size_t offset, const size_t size = 0) const;
 
-    TTDevice* tt_device_;
-
     // Virtual address in process addr space.
     void* buffer_va_;
 
-    // Size of the memory that is mapped through KMD to be visible to the device.
-    size_t mapped_buffer_size_;
-
-    // Size of the buffer requested by user. If the buffer is not aligned to the page size, size of the memory
-    // mapped through KMD will be larger than this. This is used to return the size of the buffer requested by the user.
-    // Offsets in other SysmemBuffer functions are not allowed to be larger than this size.
+    // Size of the buffer requested by user. Offsets in other SysmemBuffer functions are bounded by it.
     size_t buffer_size_;
 
-    // Address that is used on the system bus to access the beginning of the mapped buffer.
+    // Address that is used on the system bus to access buffer_va_.
     uint64_t device_io_addr_;
-
-    uint64_t offset_from_aligned_addr_ = 0;
 
     // Address that is used on the NOC to access the buffer.  NOC target must be
     // the PCIE core that is connected to the host and this address.
@@ -237,8 +183,8 @@ private:
     // Programs the NOC translation on demand. Empty when the buffer cannot be bound after construction.
     NocBinder noc_binder_;
 
-    // Owns the buffer's page-aligned start. Releasing it runs the deleter composed at construction,
-    // which unpins the pages from the device and, for buffers this class allocated, frees them.
+    // Owns buffer_va_. Releasing it runs the deleter composed at construction, which unpins the pages
+    // from the device and, for buffers the allocator allocated, frees them.
     std::unique_ptr<void, Deleter> system_memory_ptr_;
 
     DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;

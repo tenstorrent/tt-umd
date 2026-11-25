@@ -100,8 +100,8 @@ public:
         if (request->command() == DEVICE_COMMAND_EXIT) {
             exits++;
         } else if (request->command() == DEVICE_COMMAND_READ) {
-            const uint32_t x = request->core()->x();
-            const uint32_t y = request->core()->y();
+            const uint32_t x = static_cast<uint32_t>(request->core()->x());
+            const uint32_t y = static_cast<uint32_t>(request->core()->y());
             std::vector<uint32_t> words(request->size() / sizeof(uint32_t));
             for (size_t i = 0; i < words.size(); i++) {
                 words[i] = expected_word(x, y, request->address() + i * sizeof(uint32_t));

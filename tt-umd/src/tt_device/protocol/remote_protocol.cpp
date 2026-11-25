@@ -6,6 +6,9 @@
 
 #include "tt_device/protocol/remote_protocol.hpp"
 
+#include <fmt/format.h>
+
+#include <limits>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -15,8 +18,23 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// The remote wire API carries the size as uint32_t; reject a transfer that would wrap instead of
+// silently skipping or truncating it.
+uint32_t to_wire_size(size_t size) {
+    UMD_ASSERT(
+        size <= std::numeric_limits<uint32_t>::max(),
+        error::RuntimeError,
+        fmt::format("Remote transfer size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
+    return static_cast<uint32_t>(size);
+}
+
+}  // namespace
 
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {}
@@ -28,12 +46,12 @@ void RemoteProtocol::write_data(
     size_t size,
     NocId noc_id,
     [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, to_wire_size(size));
 }
 
 void RemoteProtocol::read_data(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
+    remote_communication_->read_non_mmio(core, mem_ptr, addr, to_wire_size(size));
 }
 
 void RemoteProtocol::write_ctrl(
@@ -54,7 +72,7 @@ bool RemoteProtocol::write_to_core_range(
     size_t size_in_bytes,
     NocId noc_id) {
     // Construct EthernetBroadcast lazily on the first use. During the constructor the sysmem might not be set yet.
-    if (ethernet_broadcast_ == nullptr && remote_communication_->has_sysmem_manager() &&
+    if (ethernet_broadcast_ == nullptr && remote_communication_->has_host_mem_channels() &&
         remote_communication_->get_local_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(remote_communication_.get());
     }
@@ -66,8 +84,8 @@ bool RemoteProtocol::write_to_core_range(
 
     const bool use_translated_coords = core_start.x >= wormhole::tensix_translated_coordinate_start_x;
 
-    std::set<uint32_t> rows_to_exclude;
-    std::set<uint32_t> columns_to_exclude;
+    std::set<size_t> rows_to_exclude;
+    std::set<size_t> columns_to_exclude;
 
     if (!use_translated_coords) {
         // NOC0 coordinates: only the full tensix grid is supported.

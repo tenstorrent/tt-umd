@@ -91,6 +91,8 @@ if(TARGET nanobind-static)
             C_CLANG_TIDY
                 ""
     )
+    # Third-party sources are not ours to fix for -Wconversion.
+    target_compile_options(nanobind-static PRIVATE -Wno-conversion)
 endif()
 
 # Link the Python interface target to libtt-umd and nanobind

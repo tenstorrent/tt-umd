@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ios>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -65,7 +66,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
         std::unique_ptr<RemoteCommunicationLegacyFirmware> remote_comm =
             std::make_unique<RemoteCommunicationLegacyFirmware>(
-                local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+                local_chip->get_tt_device(), remote_eth_coord, local_chip->get_host_mem_channels());
         remote_comm->set_remote_transfer_ethernet_cores(local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id), CoordSystem::TRANSLATED));
 
@@ -73,7 +74,10 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             CoreCoord translated_core =
                 cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
             remote_comm->write_to_non_mmio(
-                translated_core.to_pair(), data_to_write.data(), address0, data_to_write.size() * sizeof(uint32_t));
+                translated_core.to_pair(),
+                data_to_write.data(),
+                address0,
+                static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)));
 
             cluster->write_to_device(
                 data_to_write.data(), data_to_write.size() * sizeof(uint32_t), remote_chip_id, core, address1);
@@ -81,7 +85,10 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush();
 
             remote_comm->read_non_mmio(
-                translated_core.to_pair(), data_read.data(), address1, data_read.size() * sizeof(uint32_t));
+                translated_core.to_pair(),
+                data_read.data(),
+                address1,
+                static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";
@@ -141,7 +148,7 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
     ChipId remote_chip_id = *cluster->get_target_remote_device_ids().begin();
     EthCoord remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
     RotatableRemoteCommunication remote_comm(
-        local_chip->get_tt_device(), remote_eth_coord, local_chip->get_sysmem_manager());
+        local_chip->get_tt_device(), remote_eth_coord, local_chip->get_host_mem_channels());
 
     remote_comm.set_remote_transfer_ethernet_cores(all_cores);
     // One rotation moves the index to 1, which is past the end of the single-core set below.
@@ -159,15 +166,21 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
     std::vector<uint32_t> data_to_write = {0xdead, 0xbeef, 1, 2, 3, 4, 5, 6};
     std::vector<uint32_t> data_read(data_to_write.size(), 0);
     remote_comm.write_to_non_mmio(
-        translated_core.to_pair(), data_to_write.data(), address, data_to_write.size() * sizeof(uint32_t));
+        translated_core.to_pair(),
+        data_to_write.data(),
+        address,
+        static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)));
     remote_comm.wait_for_non_mmio_flush();
     remote_comm.read_non_mmio(
-        translated_core.to_pair(), data_read.data(), address, data_read.size() * sizeof(uint32_t));
+        translated_core.to_pair(),
+        data_read.data(),
+        address,
+        static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)));
     EXPECT_EQ(data_to_write, data_read);
 }
 
 // Test large transfers (> 1024 bytes) to remote chips without sysmem
-// This test verifies that chunking works correctly when sysmem_manager is nullptr.
+// This test verifies that chunking works correctly when there are no host memory channels.
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     // Discover cluster topology.
     auto [cluster_desc, devices] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
@@ -213,9 +226,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     }
 
     // Now write some random data.
-    for (size_t i = 0; i < data_to_write.size(); i++) {
-        data_to_write[i] = i;
-    }
+    std::iota(data_to_write.begin(), data_to_write.end(), uint32_t{0});
     remote_tt_device->write_to_device(data_to_write.data(), tensix_core_xy, test_address, test_size);
     remote_tt_device->wait_for_non_mmio_flush();
     remote_tt_device->read_from_device(data_read.data(), tensix_core_xy, test_address, test_size);

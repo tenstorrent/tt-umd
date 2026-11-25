@@ -11,14 +11,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
-#include <vector>
 
+#include "arch/tlb_window_size.hpp"
 #include "noc_access.hpp"
-#include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
@@ -34,6 +32,7 @@
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/tt_device/protocol/remote_interface.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
@@ -49,7 +48,6 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
-#include "tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "tt_device/protocol/dma_interface.hpp"
 #include "tt_device/protocol/pcie_protocol.hpp"
 #include "tt_device/protocol/remote_protocol.hpp"
@@ -62,7 +60,7 @@ enum class RiscType : std::uint64_t;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) { wire_hang_detector(); }
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {}
 
 DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
@@ -114,6 +112,8 @@ ArchitectureImplementation *TTDevice::get_architecture_implementation() { return
 // providing callers with an explicit way to check validity rather than relying on nullptr semantics.
 PCIDevice *TTDevice::get_pci_device() { return model_->get_pci_device(); }
 
+SystemMemoryAllocator *TTDevice::get_system_memory_allocator() { return model_->get_system_memory_allocator(); }
+
 RemoteCommunication *TTDevice::get_remote_communication() {
     RemoteInterface *remote_interface = model_->get_remote_interface();
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();
@@ -141,8 +141,10 @@ bool TTDevice::get_noc_translation_enabled() const {
 
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 
-PcieInterface *TTDevice::get_pcie_interface() {
-    PcieInterface *pcie_interface = model_->get_pcie_interface();
+PcieInterface *TTDevice::get_pcie_interface() { return model_->get_pcie_interface(); }
+
+PcieInterface *TTDevice::require_pcie_interface() {
+    PcieInterface *pcie_interface = get_pcie_interface();
     if (!pcie_interface) {
         UMD_THROW(error::RuntimeError, "PCIe interface is not available for this device.");
     }
@@ -215,76 +217,8 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
-std::function<bool(NocId)> TTDevice::make_io_timeout_hang_check() {
-    return [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); };
-}
-
-void TTDevice::wire_hang_detector() {
-    HangDetector *hang_detector = model_->get_hang_detector();
-
-    // The per-op timed MMIO path is PCIe-specific, so the hang-check wiring only applies to PCIe devices.
-    if (model_->get_pcie_interface() == nullptr) {
-        return;
-    }
-
-    // A null detector disables hang detection: clear any previously wired callback and stop before
-    // dereferencing it below.
-    if (hang_detector == nullptr) {
-        get_pcie_interface()->set_io_timeout_callback({});
-        return;
-    }
-
-    // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
-    // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
-    get_pcie_interface()->set_io_timeout_callback(make_io_timeout_hang_check());
-
-    // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
-    // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
-    // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
-    //
-    // get_io_window() is virtual and this runs during TTDevice's own construction, so it resolves to the
-    // base implementation. That is the right one: only a PCIe device gets this far (the guard above), and
-    // the sole override belongs to the simulation backends, which have no PCIe interface.
-    auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
-    auto window_lock = std::make_shared<std::mutex>();
-    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector);
-    UMD_ASSERT(
-        hang_detector_impl != nullptr,
-        error::RuntimeError,
-        "HangDetectorImplementation is required to wire the NOC register reader for hang detection.");
-    hang_detector_impl->set_noc_reg_reader(
-        [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
-            std::lock_guard<std::mutex> lock(*window_lock);
-            // The probe window has no hang check wired, so an overrun is treated as a false alarm and the read
-            // completes rather than throwing; a hung NOC surfaces as HANG_READ_VALUE in `value`. A
-            // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
-            // rather than silently masking it as a hang.
-            uint32_t value = 0;
-            read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
-            return value;
-        });
-}
-
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    PCIDevice *pci = get_pci_device();
-    UMD_ASSERT(
-        pci != nullptr, error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
-
-    if (size != 0) {
-        return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size, mapping), config);
-    }
-
-    // Caller didn't specify a size — try arch-supported sizes in preference order.
-    for (const TlbSizeClass &size_class : get_architecture_tlbs(get_arch()).size_classes) {
-        try {
-            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size_class.size, mapping), config);
-        } catch (const std::exception &e) {
-            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
-        }
-    }
-
-    UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+    UMD_THROW(error::RuntimeError, "I/O windows are not supported on this device.");
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
@@ -305,53 +239,19 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
 
-    // Resolved before the model is asked, so a model serving its own window sees the same target
-    // the TLB path below would have used.
+    // Resolved before the model is asked, so every window sees the same target whoever builds it.
     if (!target.noc.has_value()) {
         target.noc = get_selected_noc_id();
     }
 
-    // A model whose architecture has no mappable aperture serves the window itself. The ordering
-    // argument does not travel with it: the Base API's signature takes target and host only, and a
-    // window with nothing mapped behind it has nothing weaker than Strict to offer anyway.
-    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host)) {
+    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host, ordering)) {
         return window;
     }
 
+    // The simulation devices serve windows from their own TLB allocator.
     const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
-
-    // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a
-    // request is served by the smallest one that covers it and get_size() reports what the caller got.
-    // This keeps the caller from having to know the architecture's window sizes; a request of 0 leaves
-    // the choice to the backend entirely.
-    size_t size = host.size;
-    if (size != 0) {
-        // A mapping is anchored at the start of an aligned block of its own size, so the span reachable
-        // from target.addr is what is left of that block -- the class has to cover the address's offset
-        // into it as well. Size classes are ordered smallest first, so the first fit is the smallest.
-        const std::vector<TlbSizeClass> &size_classes = get_architecture_tlbs(get_arch()).size_classes;
-        auto size_class =
-            std::find_if(size_classes.begin(), size_classes.end(), [&target, size](const TlbSizeClass &candidate) {
-                // Written as a subtraction so a huge requested size cannot overflow the sum.
-                return size <= candidate.size - (target.addr % candidate.size);
-            });
-        UMD_ASSERT(
-            size_class != size_classes.end(),
-            error::RuntimeError,
-            fmt::format(
-                "Requested I/O window of {} bytes at address {:#x} does not fit in the largest window {} provides "
-                "({} bytes).",
-                size,
-                target.addr,
-                tt::arch_to_str(get_arch()),
-                size_classes.back().size));
-        size = size_class->size;
-    }
-
-    std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, size);
-    // A caller-owned window carries the same per-op timeout hang check as the cached ones: an overrun
-    // aborts only on a confirmed NOC hang. Installed once here, so the I/O path never mutates state.
-    window->set_io_timeout_hang_check(make_io_timeout_hang_check());
+    std::unique_ptr<TlbWindow> window =
+        get_io_window({}, mapping, fit_tlb_window_size(get_arch(), target.addr, host.size));
     window->configure(target, ordering);
     return window;
 }
@@ -402,9 +302,9 @@ EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
-void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return require_pcie_interface()->bar_write32(addr, data); }
 
-uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
+uint32_t TTDevice::bar_read32(uint32_t addr) { return require_pcie_interface()->bar_read32(addr); }
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
     FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();
@@ -595,11 +495,12 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
-int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
-    if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for remote device.");
+int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    PeerDmaInterface *peer_dma_interface = model_->get_peer_dma_interface();
+    if (!peer_dma_interface) {
+        UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for this device.");
     }
-    return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+    return peer_dma_interface->export_window(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {

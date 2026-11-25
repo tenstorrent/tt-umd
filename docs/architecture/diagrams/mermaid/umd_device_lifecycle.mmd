@@ -1,0 +1,14 @@
+stateDiagram-v2
+  direction TB
+  [*] --> Discovered: discover()
+  Discovered --> Constructed: TTDevice(model)
+  Constructed --> Initialized: init_tt_device()
+  Constructed --> Failed: firmware timeout / version mismatch
+  Initialized --> Operational: start_device()
+  Operational --> Faulted: exception (hang, SIGBUS, timeout)
+  Faulted --> Constructed: warm reset + re-open
+  Operational --> Closed: close_device() / destructor
+  Failed --> [*]
+  Closed --> [*]
+  Operational: Operational
+  Operational: read / write, firmware commands, DMA

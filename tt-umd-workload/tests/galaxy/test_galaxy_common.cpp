@@ -11,8 +11,7 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 
-void move_data(
-    Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size) {
+void move_data(Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, size_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(
         device,
@@ -36,7 +35,7 @@ void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
     const std::vector<tt_multichip_core_addr>& receiver_cores,
-    uint32_t size) {
+    size_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(
         device,

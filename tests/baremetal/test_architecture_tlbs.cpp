@@ -135,6 +135,6 @@ TEST(ArchitectureTlbs, AxiAttributesAreCarriedOnlyWhereTheEntryHasRoomForThem) {
     EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).carries_axi_attributes);
     EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).carries_axi_attributes);
 
-    // Quasar's entry carries attr[4:0]: the non-cacheable bit and the AxQOS id.
+    // Quasar's entry carries the non-cacheable bit.
     EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::QUASAR).carries_axi_attributes);
 }

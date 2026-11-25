@@ -10,8 +10,8 @@
 // they wrote through, so they do not prove that the window reaches the same address as the driver's
 // scalar access. The flag case checks that a window reports WindowFlags::NonCacheable once
 // configured with it. The refusal cases check that a window configured with a coordinate,
-// multicast, a NOC selector, an ordering, linking, a static virtual channel or an AXI attribute
-// wider than its field is refused.
+// multicast, a NOC selector, an ordering, linking, a static virtual channel or a noncacheable value
+// wider than its bit is refused.
 //
 // Nothing here proves that the attribute values reach the driver: no documented way exists to read
 // an entry's programmed attributes back, and a window with a non-zero attribute cannot be accessed
@@ -191,8 +191,8 @@ struct RefusedConfig {
 
 // A Quasar address is flat and already names its target, so a window configured with a NOC
 // coordinate, multicast, NOC selector, ordering, linking or virtual channel is refused rather than
-// silently mapped to the flat address alone. An AXI attribute wider than its field (noncacheable is
-// one bit, qos_id four) is refused rather than truncated into a different valid attribute.
+// silently mapped to the flat address alone. A noncacheable value wider than its one bit is refused
+// rather than truncated into a different valid attribute.
 class QuasarIoWindowRefusal : public QuasarIoWindow, public ::testing::WithParamInterface<RefusedConfig> {};
 
 TEST_P(QuasarIoWindowRefusal, ConfigureIsRefused) {
@@ -219,8 +219,7 @@ INSTANTIATE_TEST_SUITE_P(
         RefusedConfig{"Ordering", [](tlb_data& config) { config.ordering = tlb_data::Strict; }},
         RefusedConfig{"Linked", [](tlb_data& config) { config.linked = 1; }},
         RefusedConfig{"StaticVc", [](tlb_data& config) { config.static_vc = 1; }},
-        RefusedConfig{"NonCacheableOutOfRange", [](tlb_data& config) { config.noncacheable = 2; }},
-        RefusedConfig{"QosIdOutOfRange", [](tlb_data& config) { config.qos_id = 16; }}),
+        RefusedConfig{"NonCacheableOutOfRange", [](tlb_data& config) { config.noncacheable = 2; }}),
     [](const ::testing::TestParamInfo<RefusedConfig>& info) { return std::string(info.param.name); });
 
 }  // namespace

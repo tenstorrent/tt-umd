@@ -127,7 +127,7 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
 
     // One bank of equal-sized windows, and no virtual channel to choose: the driver programs
     // the window, and the configuration it accepts carries an address and the AXI attributes its
-    // accesses carry (noncacheable, qos_id). The register layout is empty for the same reason --
+    // accesses carry (noncacheable). The register layout is empty for the same reason --
     // nothing here is ever packed into a register.
     static const ArchitectureTlbs grendel_tlbs = {
         .size_classes = {{

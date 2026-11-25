@@ -49,12 +49,10 @@ struct tlb_data {
     uint64_t static_vc_buddy = 0;
     uint64_t static_vc_class = 0;
 
-    // The AXI cache and user bits a window's accesses carry: whether they are
-    // non-cacheable (AxCACHE 0 rather than 0xF), and the AxQOS id they carry. Only
-    // architectures that configure a window through the driver carry these; where a
-    // window has nowhere to put them, they are ignored.
+    // Whether a window's accesses are non-cacheable (AxCACHE 0 rather than 0xF). Only
+    // architectures that configure a window through the driver carry it; where a window
+    // has nowhere to put it, it is ignored.
     uint64_t noncacheable = 0;
-    uint64_t qos_id = 0;
 
     // Orderings.
     static constexpr uint64_t Relaxed = 0;

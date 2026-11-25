@@ -49,7 +49,6 @@ typedef struct tt_noc_addr_config_t {
     uint8_t ordering;     /**< Ordering semantics; see `enum tt_noc_ordering` */
     uint8_t static_vc;    /**< 1 to enable static virtual channel */
     uint8_t noncacheable; /**< 1 for non-cacheable accesses (AxCACHE 0 instead of 0xF) */
-    uint8_t qos_id;       /**< AxQOS the accesses carry, 0-15 */
 } tt_noc_addr_config_t;
 
 /**

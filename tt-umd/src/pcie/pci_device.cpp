@@ -881,7 +881,7 @@ void PCIDevice::configure_tlb(
                 arch_to_str(arch)));
 
         // A window the driver programs is flat over system physical address space: the entry is a
-        // target address plus the AXI attributes its accesses carry (noncacheable, qos_id). The
+        // target address plus the AXI attributes its accesses carry (noncacheable). The
         // address already names its target, so a coordinate or multicast is refused rather than
         // dropped, which would map the window somewhere the caller did not ask for. The entry has no
         // NOC selector, ordering, linking or virtual channel either, so a caller that set one asked
@@ -919,26 +919,19 @@ void PCIDevice::configure_tlb(
         refuse("static_vc_buddy", tlb_config.static_vc_buddy);
         refuse("static_vc_class", tlb_config.static_vc_class);
 
-        // These two the entry does carry, but only in the width of its AXI attribute field.
-        // Range-check before narrowing, so an out-of-range value is reported rather than silently
-        // becoming a different, valid-looking attribute.
-        const auto narrow = [&](const char *name, const uint64_t value, const uint64_t limit) {
-            UMD_ASSERT(
-                value <= limit,
-                error::RuntimeError,
-                fmt::format(
-                    "TLB index {}: {} is {:#x}, but the entry's AXI attribute field allows at most {:#x}.",
-                    tlb_index,
-                    name,
-                    value,
-                    limit));
-            return static_cast<uint8_t>(value);
-        };
+        // The entry does carry the non-cacheable bit, but only as one bit. Range-check before
+        // narrowing, so an out-of-range value is reported rather than silently truncated.
+        UMD_ASSERT(
+            tlb_config.noncacheable <= 1,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {}: noncacheable is {:#x}, but the entry carries it as a single bit.",
+                tlb_index,
+                tlb_config.noncacheable));
 
         tt_noc_addr_config_t config = {};
         config.addr = tlb_config.local_offset;
-        config.noncacheable = narrow("noncacheable", tlb_config.noncacheable, 1);
-        config.qos_id = narrow("qos_id", tlb_config.qos_id, 0xF);
+        config.noncacheable = static_cast<uint8_t>(tlb_config.noncacheable);
 
         const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
         UMD_ASSERT(

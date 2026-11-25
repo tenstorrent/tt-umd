@@ -54,13 +54,13 @@ struct ArchitectureTlbs {
 
     // Whether a window's entry has a field for transaction ordering at all. Wormhole and Blackhole
     // pack ordering into the entry's non-address bits; a Quasar entry is a target address plus the
-    // AXI attributes its accesses carry (noncacheable, qos_id), so it has no ordering field and
-    // asking for one cannot be honoured.
+    // AXI attributes its accesses carry (noncacheable), so it has no ordering field and asking for
+    // one cannot be honoured.
     bool carries_ordering;
 
     // Whether a window's configuration carries per-window AXI transaction attributes -- the
-    // non-cacheable bit and the AxQOS id every access through it carries. Where it does not,
-    // those fields have nowhere to go and a window cannot honor WindowFlags::NonCacheable.
+    // non-cacheable bit every access through it carries. Where it does not, the bit has nowhere
+    // to go and a window cannot honor WindowFlags::NonCacheable.
     bool carries_axi_attributes;
 
     // Configuration of the window at the given index.

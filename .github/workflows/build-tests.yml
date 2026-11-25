@@ -42,7 +42,7 @@ on:
       use-sccache:
         required: false
         type: boolean
-        default: true
+        default: false
       image-tag:
         required: false
         type: string

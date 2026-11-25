@@ -1,0 +1,18 @@
+sequenceDiagram
+  autonumber
+  participant C as Caller
+  participant TD as TopologyDiscovery
+  participant K as KMD
+  participant TT as TTDevice
+  participant FW as DeviceFirmware
+  C->>TD: discover(options)
+  TD->>K: open device, read KMD version
+  Note over TD,K: KMD < 2.0.0: throw
+  TD->>TT: construct(TTDeviceModel)
+  TD->>TT: init_tt_device()
+  TT->>FW: init_firmware()
+  FW-->>TT: ready
+  Note over TT,FW: not ready after 300 s: throw
+  TD->>FW: read firmware versions, ETH heartbeat
+  Note over TD,FW: mismatch: throw
+  TD-->>C: ClusterDescriptor + TTDevices

@@ -60,6 +60,10 @@ protected:
     // transaction attributes; elsewhere there is no field for it and the base class refuses it.
     WindowFlags supported_window_flags() const override;
 
+    // A silicon window programs a real TLB entry, so it carries ordering only where the architecture's
+    // entry has a field for it.
+    bool carries_ordering() const override;
+
 private:
     // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
     // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.

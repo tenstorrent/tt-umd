@@ -390,4 +390,8 @@ WindowFlags SiliconTlbWindow::supported_window_flags() const {
                                                                                  : WindowFlags::None;
 }
 
+bool SiliconTlbWindow::carries_ordering() const {
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_ordering;
+}
+
 }  // namespace tt::umd

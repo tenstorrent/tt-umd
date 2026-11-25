@@ -1240,6 +1240,7 @@ int PCIDevice::export_tlb_dmabuf(
     noc_config.mcast = static_cast<uint8_t>(config.mcast);
     noc_config.ordering = static_cast<uint8_t>(config.ordering);
     noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+    noc_config.noncacheable = static_cast<uint8_t>(config.noncacheable);
 
     ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
     if (ret != 0) {

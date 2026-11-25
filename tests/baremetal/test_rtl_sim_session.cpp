@@ -38,6 +38,7 @@
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/io_window_config.hpp"
+#include "tt-umd/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -219,6 +220,20 @@ TEST_F(RtlSimSessionTest, AckTimeoutComesFromTheVariable) {
 
     EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::seconds(7200));
 }
+
+class RtlSimSessionAckTimeoutVariableTest : public RtlSimSessionTest,
+                                            public ::testing::WithParamInterface<std::string> {};
+
+TEST_P(RtlSimSessionAckTimeoutVariableTest, RejectsAnInvalidValue) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", GetParam().c_str(), 1);
+
+    EXPECT_THROW(RtlSimSession::get_ack_timeout(), error::UmdException<error::RuntimeError>);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    NotPositiveWholeSeconds,
+    RtlSimSessionAckTimeoutVariableTest,
+    ::testing::Values("", "abc", "1.5", "2h", "0", "-30", "99999999999"));
 
 TEST_F(RtlSimSessionTest, RejectsAWrongAck) {
     const std::string address = add_socket("ut_a");

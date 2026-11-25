@@ -881,11 +881,11 @@ void PCIDevice::configure_tlb(
                 arch_to_str(arch)));
 
         // A window the driver programs is flat over system physical address space: the entry is a
-        // target address plus an attribute field reaching only the NOC security header. The address
-        // already names its target, so a coordinate or multicast is refused rather than dropped,
-        // which would map the window somewhere the caller did not ask for. The entry has no NOC
-        // selector, ordering or virtual channel either, so a caller that set one asked for
-        // something this window cannot do.
+        // target address plus the AXI attributes its accesses carry (noncacheable, qos_id). The
+        // address already names its target, so a coordinate or multicast is refused rather than
+        // dropped, which would map the window somewhere the caller did not ask for. The entry has no
+        // NOC selector, ordering, linking or virtual channel either, so a caller that set one asked
+        // for something this window cannot do.
         UMD_ASSERT(
             tlb_config.x_start == 0 && tlb_config.y_start == 0 && tlb_config.x_end == 0 && tlb_config.y_end == 0,
             error::RuntimeError,
@@ -919,7 +919,7 @@ void PCIDevice::configure_tlb(
         refuse("static_vc_buddy", tlb_config.static_vc_buddy);
         refuse("static_vc_class", tlb_config.static_vc_class);
 
-        // These two the entry does carry, but only in the width the security header gives them.
+        // These two the entry does carry, but only in the width of its AXI attribute field.
         // Range-check before narrowing, so an out-of-range value is reported rather than silently
         // becoming a different, valid-looking attribute.
         const auto narrow = [&](const char *name, const uint64_t value, const uint64_t limit) {
@@ -927,7 +927,7 @@ void PCIDevice::configure_tlb(
                 value <= limit,
                 error::RuntimeError,
                 fmt::format(
-                    "TLB index {}: {} is {:#x}, but the NOC security header allows at most {:#x}.",
+                    "TLB index {}: {} is {:#x}, but the entry's AXI attribute field allows at most {:#x}.",
                     tlb_index,
                     name,
                     value,

@@ -386,9 +386,7 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
 }
 
 WindowFlags SiliconTlbWindow::supported_window_flags() const {
-    // The non-cacheable bit lives in the window's configuration, so a window can honor it only
-    // where the architecture's entries carry AXI transaction attributes at all. Snoop is not one
-    // of them: a Keraunos inbound TLB entry cannot reach the NOC security header.
+    // Snoop is not among the AXI transaction attributes the entries carry, so it is never advertised.
     return get_architecture_tlbs(handle_ref().get_arch()).carries_axi_attributes ? WindowFlags::NonCacheable
                                                                                  : WindowFlags::None;
 }

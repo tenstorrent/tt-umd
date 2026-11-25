@@ -56,8 +56,8 @@ public:
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
 protected:
-    // Snoop lives in the window's configuration on an architecture whose entries carry the NOC
-    // security header; elsewhere there is no field for it and the base class refuses it.
+    // NonCacheable lives in the window's configuration on an architecture whose entries carry AXI
+    // transaction attributes; elsewhere there is no field for it and the base class refuses it.
     WindowFlags supported_window_flags() const override;
 
 private:

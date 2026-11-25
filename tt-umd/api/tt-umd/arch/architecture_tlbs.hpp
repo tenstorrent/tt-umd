@@ -53,8 +53,8 @@ struct ArchitectureTlbs {
     bool cfg_registers_host_writable;
 
     // Whether a window's entry has a field for transaction ordering at all. Wormhole and Blackhole
-    // pack ordering into the entry's non-address bits; a Quasar entry is a target address plus an
-    // attribute field that reaches only the NOC security header, so it carries no ordering and
+    // pack ordering into the entry's non-address bits; a Quasar entry is a target address plus the
+    // AXI attributes its accesses carry (noncacheable, qos_id), so it has no ordering field and
     // asking for one cannot be honoured.
     bool carries_ordering;
 

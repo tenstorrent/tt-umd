@@ -39,18 +39,17 @@ typedef struct tt_dma_t tt_dma_t;
  * into transactions on the device's NOC. See `tt_tlb_map()` for details.
  */
 typedef struct tt_noc_addr_config_t {
-    uint64_t addr;     /**< Local address aligned to the TLB window size */
-    uint16_t x_end;    /**< X coord for unicast; rectangle end for multicast */
-    uint16_t y_end;    /**< Y coord for unicast; rectangle end for multicast */
-    uint16_t x_start;  /**< 0 for unicast; rectangle start for multicast */
-    uint16_t y_start;  /**< 0 for unicast; rectangle start for multicast */
-    uint8_t noc;       /**< 0 or 1 */
-    uint8_t mcast;     /**< 1 to enable multicast */
-    uint8_t ordering;  /**< Ordering semantics; see `enum tt_noc_ordering` */
-    uint8_t static_vc; /**< 1 to enable static virtual channel */
-    /** 1 drives AxCACHE to 0, marking accesses through the window non-cacheable. */
-    uint8_t noncacheable;
-    uint8_t qos_id; /**< AxQOS the accesses carry, 0-15 */
+    uint64_t addr;        /**< Local address aligned to the TLB window size */
+    uint16_t x_end;       /**< X coord for unicast; rectangle end for multicast */
+    uint16_t y_end;       /**< Y coord for unicast; rectangle end for multicast */
+    uint16_t x_start;     /**< 0 for unicast; rectangle start for multicast */
+    uint16_t y_start;     /**< 0 for unicast; rectangle start for multicast */
+    uint8_t noc;          /**< 0 or 1 */
+    uint8_t mcast;        /**< 1 to enable multicast */
+    uint8_t ordering;     /**< Ordering semantics; see `enum tt_noc_ordering` */
+    uint8_t static_vc;    /**< 1 to enable static virtual channel */
+    uint8_t noncacheable; /**< 1 for non-cacheable accesses (AxCACHE 0 instead of 0xF) */
+    uint8_t qos_id;       /**< AxQOS the accesses carry, 0-15 */
 } tt_noc_addr_config_t;
 
 /**

@@ -332,7 +332,9 @@ public:
      * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
      *                   window's size. On architectures whose windows only the driver can program,
      *                   the address is flat and already names its target, so a coordinate,
-     *                   multicast, NOC selector, ordering or virtual channel is refused.
+     *                   multicast, NOC selector, ordering, linking or virtual channel is refused,
+     *                   and an AXI attribute (noncacheable, qos_id) wider than the entry's field
+     *                   for it is refused rather than truncated.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not

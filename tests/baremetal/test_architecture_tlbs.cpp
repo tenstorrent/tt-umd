@@ -114,8 +114,8 @@ TEST(ArchitectureTlbs, OrderingIsCarriedOnlyWhereTheEntryHasAFieldForIt) {
     EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::WORMHOLE_B0).carries_ordering);
     EXPECT_TRUE(get_architecture_tlbs(tt::ARCH::BLACKHOLE).carries_ordering);
 
-    // A Quasar entry is a target address plus an attribute field that reaches only the NOC security
-    // header; there is nowhere in it for ordering.
+    // A Quasar entry is a target address plus the AXI attributes its accesses carry; there is nowhere
+    // in it for ordering.
     EXPECT_FALSE(get_architecture_tlbs(tt::ARCH::QUASAR).carries_ordering);
 }
 

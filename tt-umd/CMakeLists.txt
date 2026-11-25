@@ -141,6 +141,7 @@ if(TT_UMD_BUILD_SIMULATION)
             src/simulation/simulation_connector.cpp
             src/simulation/simulation_server_protocol.cpp
             src/simulation/simulation_device_identity.cpp
+            src/simulation/simulation_backend.cpp
             src/simulation/simulation_host.cpp
             src/simulation/simulator_paths.cpp
             src/simulation/tt_sim_communicator.cpp
@@ -168,6 +169,8 @@ if(TT_UMD_BUILD_SIMULATION)
             ${FBS_GENERATED_HEADERS}
     )
     target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
+else()
+    target_sources(tt-umd-base PRIVATE src/simulation/simulation_backend_unavailable.cpp)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)

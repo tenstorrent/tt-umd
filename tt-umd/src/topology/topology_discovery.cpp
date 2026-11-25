@@ -22,7 +22,7 @@
 
 #include "common/utils.hpp"
 #include "firmware/erisc_firmware.hpp"
-#include "simulation/simulator_paths.hpp"
+#include "simulation/simulation_backend.hpp"
 #include "topology/topology_discovery_base.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
@@ -39,7 +39,6 @@
 #include "tt-umd/topology/topology_discovery_error.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
-#include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -52,24 +51,9 @@
 #include "tt-umd/utils/timeouts.hpp"
 #include "utils.hpp"
 
-#ifdef TT_UMD_BUILD_SIMULATION
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
-#endif
-
 namespace tt::umd {
 
 namespace {
-
-// A simulated device has no PCIDevice behind it; the BDF it answers at is the endpoint its
-// simulator image enumerated, which the device carries itself.
-std::optional<uint32_t> simulated_pci_bdf(TTDevice* tt_device) {
-#ifdef TT_UMD_BUILD_SIMULATION
-    if (auto* sim_device = dynamic_cast<TTSimTTDevice*>(tt_device)) {
-        return sim_device->get_pci_bdf();
-    }
-#endif
-    return std::nullopt;
-}
 
 // Probe the architecture from the host bus. Returns ARCH::Invalid when the bus has no devices.
 tt::ARCH probe_bus_architecture(IODeviceType io_device_type) {
@@ -98,12 +82,7 @@ std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_di
     if (!options.simulation.has_value()) {
         current_arch = probe_bus_architecture(options.io_device_type);
     } else {
-#ifdef TT_UMD_BUILD_SIMULATION
-        current_arch = get_simulator_arch(options.simulation->simulator_path);
-#else
-        UMD_THROW(
-            error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");
-#endif
+        current_arch = simulation_backend().get_simulator_arch(options.simulation->simulator_path);
     }
     if (current_arch == ARCH::Invalid) {
         return nullptr;
@@ -249,7 +228,6 @@ void TopologyDiscoveryBase::get_connected_devices() {
     // as its transport, but create_tt_device(device_id, ...) would try to open /dev/tenstorrent for
     // it. A simulator image enumerates its own endpoints instead.
     if (options.simulation.has_value()) {
-#ifdef TT_UMD_BUILD_SIMULATION
         // A simulator models PCIe and nothing else, so the devices created below are PCIe-modelled
         // whatever the caller asked for. Accepting JTAG here would label the cluster descriptor with
         // a transport none of its devices speak; refuse instead of misreporting it.
@@ -259,16 +237,12 @@ void TopologyDiscoveryBase::get_connected_devices() {
             fmt::format(
                 "Simulation topology discovery models PCIe, but {} was requested.",
                 DeviceTypeToString.at(options.io_device_type)));
-        for (auto& [chip_id, tt_device] : create_local_simulation_tt_devices(
+        for (auto& [chip_id, tt_device] : simulation_backend().create_local_simulation_tt_devices(
                  options.simulation->simulator_path, options.simulation->num_host_mem_channels)) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());
         return;
-#else
-        UMD_THROW(
-            error::RuntimeError, "Simulation topology discovery requires a build with -DTT_UMD_BUILD_SIMULATION=ON.");
-#endif
     }
 
     std::vector<int> local_device_ids;
@@ -539,7 +513,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
 
         if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
             chip.pci_bus_id = pci_info->pci_bus;
-        } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
+        } else if (const std::optional<uint32_t> bdf = simulation_backend().get_pci_bdf(*tt_device)) {
             // Whatever bus the simulator placed the endpoint on, so tray and ASIC positions derive
             // from it as they do from a real bus id.
             chip.pci_bus_id = static_cast<uint16_t>((*bdf >> 8) & 0xFF);
@@ -551,7 +525,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
             if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
                 chip.pci_bdf = pci_info->pci_bdf;
                 chip.pcie_lane_count = tt_device->get_pcie_interface()->get_lane_count();
-            } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
+            } else if (const std::optional<uint32_t> bdf = simulation_backend().get_pci_bdf(*tt_device)) {
                 // A simulated link has no trained lane count.
                 chip.pci_bdf =
                     fmt::format("{:04x}:{:02x}:{:02x}.{:x}", 0, (*bdf >> 8) & 0xFF, (*bdf >> 3) & 0x1F, *bdf & 0x7);

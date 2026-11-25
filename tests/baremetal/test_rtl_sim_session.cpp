@@ -202,21 +202,22 @@ TEST_F(RtlSimSessionTest, TimesOutWithoutAck) {
     EXPECT_THROW(session.start(std::chrono::milliseconds(200)), std::exception);
 }
 
-// Without the variable, start() would wait 60 min for this ack.
-TEST_F(RtlSimSessionTest, TakesTheAckTimeoutFromTheEnvironment) {
-    add_socket("ut_a");
-    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "1", 1);
-    RtlSimSession session(dir_, {"ut_a"});
+TEST_F(RtlSimSessionTest, AckTimeoutDefaultsToAnHour) {
+    unsetenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S");
 
-    EXPECT_THROW(session.start(), std::exception);
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::hours(1));
 }
 
-TEST_F(RtlSimSessionTest, RejectsAnAckTimeoutThatIsNotSeconds) {
-    add_socket("ut_a");
-    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "2h", 1);
-    RtlSimSession session(dir_, {"ut_a"});
+TEST_F(RtlSimSessionTest, AckTimeoutPassedInWinsOverTheVariable) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "7200", 1);
 
-    EXPECT_THROW(session.start(), std::exception);
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(std::chrono::seconds(30)), std::chrono::seconds(30));
+}
+
+TEST_F(RtlSimSessionTest, AckTimeoutComesFromTheVariable) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "7200", 1);
+
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::seconds(7200));
 }
 
 TEST_F(RtlSimSessionTest, RejectsAWrongAck) {

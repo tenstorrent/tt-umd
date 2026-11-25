@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "device_memcpy.hpp"
+#include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -381,6 +382,16 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
         return;
     }
     configure_impl(new_config);
+}
+
+WindowFlags SiliconTlbWindow::supported_window_flags() const {
+    // Snoop is not among the AXI transaction attributes the entries carry, so it is never advertised.
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_axi_attributes ? WindowFlags::NonCacheable
+                                                                                 : WindowFlags::None;
+}
+
+bool SiliconTlbWindow::carries_ordering() const {
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_ordering;
 }
 
 }  // namespace tt::umd

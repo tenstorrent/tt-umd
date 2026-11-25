@@ -49,6 +49,11 @@ struct tlb_data {
     uint64_t static_vc_buddy = 0;
     uint64_t static_vc_class = 0;
 
+    // Whether a window's accesses are non-cacheable (AxCACHE 0 rather than 0xF). Only
+    // architectures that configure a window through the driver carry it; where a window
+    // has nowhere to put it, it is ignored.
+    uint64_t noncacheable = 0;
+
     // Orderings.
     static constexpr uint64_t Relaxed = 0;
     static constexpr uint64_t Strict = 1;

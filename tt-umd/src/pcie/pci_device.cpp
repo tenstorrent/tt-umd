@@ -906,12 +906,8 @@ void PCIDevice::configure_tlb(
     auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
 
     // Where the configuration registers are not reachable from the host, the driver owns them and
-    // programs the window for us. The address is flat and already names its target, so only the
-    // address is passed on; a coordinate or multicast is refused here rather than dropped, which
-    // would map the window somewhere the caller did not ask for. Ordering, NOC and VC are dropped
-    // rather than refused: they do not change which address the window reaches, and every window
-    // configure carries an ordering. The driver rejects an address that is not aligned to the
-    // window. Nothing is posted, so there is no read-back to do.
+    // programs the window for us. The driver rejects an address that is not aligned to the window.
+    // Nothing is posted, so there is no read-back to do.
     if (!arch_tlbs.cfg_registers_host_writable) {
         UMD_ASSERT(
             tlb_handle != nullptr,
@@ -920,6 +916,13 @@ void PCIDevice::configure_tlb(
                 "TLB index {} has no driver handle, and {} cannot configure a window without one.",
                 tlb_index,
                 arch_to_str(arch)));
+
+        // A window the driver programs is flat over system physical address space: the entry is a
+        // target address plus the AXI attributes its accesses carry (noncacheable). The
+        // address already names its target, so a coordinate or multicast is refused rather than
+        // dropped, which would map the window somewhere the caller did not ask for. The entry has no
+        // NOC selector, ordering, linking or virtual channel either, so a caller that set one asked
+        // for something this window cannot do.
         UMD_ASSERT(
             tlb_config.x_start == 0 && tlb_config.y_start == 0 && tlb_config.x_end == 0 && tlb_config.y_end == 0,
             error::RuntimeError,
@@ -935,8 +938,37 @@ void PCIDevice::configure_tlb(
             error::RuntimeError,
             "There is no multicast on this path, so a window cannot cover a grid of cores.");
 
+        const auto refuse = [&](const char *name, const uint64_t value) {
+            UMD_ASSERT(
+                value == 0,
+                error::RuntimeError,
+                fmt::format(
+                    "TLB index {}: a window the driver programs is flat over system physical address "
+                    "space and cannot carry {} (got {:#x}).",
+                    tlb_index,
+                    name,
+                    value));
+        };
+        refuse("noc_sel", tlb_config.noc_sel);
+        refuse("ordering", tlb_config.ordering);
+        refuse("linked", tlb_config.linked);
+        refuse("static_vc", tlb_config.static_vc);
+        refuse("static_vc_buddy", tlb_config.static_vc_buddy);
+        refuse("static_vc_class", tlb_config.static_vc_class);
+
+        // The entry does carry the non-cacheable bit, but only as one bit. Range-check before
+        // narrowing, so an out-of-range value is reported rather than silently truncated.
+        UMD_ASSERT(
+            tlb_config.noncacheable <= 1,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {}: noncacheable is {:#x}, but the entry carries it as a single bit.",
+                tlb_index,
+                tlb_config.noncacheable));
+
         tt_noc_addr_config_t config = {};
         config.addr = tlb_config.local_offset;
+        config.noncacheable = static_cast<uint8_t>(tlb_config.noncacheable);
 
         const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
         UMD_ASSERT(
@@ -1208,6 +1240,7 @@ int PCIDevice::export_tlb_dmabuf(
     noc_config.mcast = static_cast<uint8_t>(config.mcast);
     noc_config.ordering = static_cast<uint8_t>(config.ordering);
     noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+    noc_config.noncacheable = static_cast<uint8_t>(config.noncacheable);
 
     ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
     if (ret != 0) {

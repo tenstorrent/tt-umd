@@ -154,8 +154,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::create_ethernet_map() 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscoveryBase::run(
     const TopologyDiscoveryOptions& options) {
     ZoneScopedC(tracy::Color::DarkGreen);
+
+    TopologyDiscoveryOptions options_stateful_noc = options;
+    options_stateful_noc.noc_id = get_selected_noc_id();
+
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options);
+    std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options_stateful_noc);
     if (td == nullptr) {
         // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
         // Callers and the Python bindings go through discover() even on an empty machine.

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/noc_id.hpp"
 
 namespace tt::umd {
 /**
@@ -150,5 +151,10 @@ struct TopologyDiscoveryOptions {
      * the settings it needs, nor those settings supplied for a host that will not read them.
      */
     std::optional<SimulationDiscoveryOptions> simulation;
+
+    /**
+     * @brief NOC to use during device discovery.
+     */
+    NocId noc_id = NocId::DEFAULT_NOC;
 };
 }  // namespace tt::umd

@@ -52,6 +52,7 @@ target_sources(
         src/arch/architecture_implementation.cpp
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
+        src/arch/tlb_window_size.cpp
         src/chip_helpers/host_mem_channels.cpp
         src/chip_helpers/sysmem_manager.cpp
         src/chip_helpers/simulation_sysmem_manager.cpp
@@ -235,6 +236,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/simulation_device_factory.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
+                api/tt-umd/tt_device/protocol/peer_dma_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp

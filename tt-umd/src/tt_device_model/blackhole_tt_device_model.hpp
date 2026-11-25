@@ -14,6 +14,7 @@ class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
+class IoWindowFactory;
 class SocArchDescriptor;
 class SystemMemoryAllocator;
 class RemoteCommunication;
@@ -30,7 +31,8 @@ public:
 
     ~BlackholeTTDeviceModel() override;
 
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
 
@@ -52,6 +54,8 @@ public:
 
     DmaInterface *get_dma_interface() override;
 
+    PeerDmaInterface *get_peer_dma_interface() override;
+
     JtagInterface *get_jtag_interface() override;
 
     RemoteInterface *get_remote_interface() override;
@@ -69,6 +73,8 @@ private:
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;
     DmaInterface *dma_interface_ = nullptr;
+    IoWindowFactory *io_window_factory_ = nullptr;
+    PeerDmaInterface *peer_dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().

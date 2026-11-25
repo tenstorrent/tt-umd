@@ -50,8 +50,11 @@ struct PciDeviceInfo {
     std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
-    // TODO: does it make sense to move attributes that we can read from sysfs
-    // onto this struct as methods?  e.g. current_link_width etc.
+
+    /**
+     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
+     */
+    std::optional<uint32_t> get_current_link_width() const;
 };
 
 struct DmaBuffer {
@@ -208,11 +211,6 @@ public:
      * @return which NUMA node this device is associated with, or -1 if non-NUMA
      */
     int get_numa_node() const { return numa_node; }
-
-    /**
-     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
-     */
-    std::optional<uint32_t> get_current_link_width() const;
 
     /**
      * @return N in /dev/tenstorrent/N

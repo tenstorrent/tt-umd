@@ -171,7 +171,9 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
-std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
+std::optional<uint32_t> PcieProtocol::get_lane_count() const {
+    return pci_device_->get_device_info().get_current_link_width();
+}
 
 std::optional<int> PcieProtocol::get_physical_slot() const { return pci_device_->get_device_info().physical_slot; }
 

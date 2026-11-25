@@ -37,7 +37,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(
+size_t count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {
     size_t count = 0;
@@ -89,7 +89,8 @@ TEST(TestClusterDescriptor, PcieLaneCounts) {
     const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
     for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
         ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
-        EXPECT_EQ(lane_counts.at(chip), cluster->get_tt_device(chip)->get_pcie_interface()->get_lane_count());
+        PcieInterface* pcie_interface = cluster->get_tt_device(chip)->get_pcie_interface();
+        EXPECT_EQ(lane_counts.at(chip), pcie_interface != nullptr ? pcie_interface->get_lane_count() : std::nullopt);
     }
 }
 
@@ -359,11 +360,11 @@ TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
-        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        const size_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
         for (const auto& [channel, remote_chip_and_channel] : connections) {
             auto [remote_chip, remote_channel] = remote_chip_and_channel;
 
-            const uint32_t num_channels_remote_chip =
+            const size_t num_channels_remote_chip =
                 cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
 
             EXPECT_TRUE(channel < num_channels_local_chip);

@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <optional>
 
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -72,9 +71,9 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
     std::optional<uint32_t> get_lane_count() const override;
+    std::optional<int> get_physical_slot() const override;
     void set_power_state(PowerState state) override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
-    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
 
 private:
     // BAR0's physical base, read from the simulator's config space on first use. The simulator

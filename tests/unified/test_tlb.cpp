@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <vector>
 
@@ -420,9 +421,7 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     PCIDevice pci_device(cluster->get_tt_device(chip)->get_communication_device_id());
 
     std::vector<uint8_t> write_pattern(0x100, 0);
-    for (size_t i = 0; i < write_pattern.size(); ++i) {
-        write_pattern[i] = (i % 256);
-    }
+    std::iota(write_pattern.begin(), write_pattern.end(), uint8_t{0});
 
     for (CoreCoord core : tensix_cores) {
         cluster->write_to_device(write_pattern.data(), write_pattern.size(), chip, core, one_mb);

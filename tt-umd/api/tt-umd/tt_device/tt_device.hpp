@@ -54,6 +54,7 @@ class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
 class PCIDevice;
@@ -105,7 +106,10 @@ public:
 
     RemoteCommunication *get_remote_communication();
 
+    SystemMemoryAllocator *get_system_memory_allocator();
+
     DeviceProtocol *get_device_protocol();
+    // Null when the device is not reached over PCIe.
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -614,9 +618,8 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
-    // check, and gives the detector a separately-locked window to probe through.
-    void wire_hang_detector();
+    // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
+    PcieInterface *require_pcie_interface();
 
     // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
     // confirmed only when the in-flight op's NOC is hung.

@@ -15,6 +15,8 @@
 
 #include "tt-umd-utils/mutex_interface.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -26,6 +28,7 @@
 namespace tt::umd {
 class SocDescriptor;
 class SysmemManager;
+class SystemMemoryAllocator;
 
 class LocalChip : public Chip {
 public:
@@ -39,7 +42,8 @@ public:
     void close_device() override;
 
     TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
+    SystemMemoryAllocator* get_system_memory_allocator() override;
+    const HostMemChannels* get_host_mem_channels() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
@@ -65,6 +69,9 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void dma_write_zero_copy(
+        const SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_zero_copy(SysmemBuffer& buffer, size_t offset, size_t size, CoreCoord core, uint64_t addr) override;
 
     int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering);
 
@@ -79,9 +86,22 @@ public:
     int get_numa_node() override;
 
 private:
-    LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager);
+    LocalChip(std::unique_ptr<TTDevice> tt_device, uint32_t num_host_mem_channels, bool host_mem_in_single_buffer);
 
-    std::unique_ptr<SysmemManager> sysmem_manager_;
+    // Allocates the channels' memory and binds channel N to NOC address noc_base + N * CHANNEL_STRIDE.
+    void map_host_mem_channels();
+    void unmap_host_mem_channels();
+
+    // Owned by the device model; null when the device has no host memory access.
+    SystemMemoryAllocator* system_memory_allocator_ = nullptr;
+
+    HostMemChannels host_mem_channels_;
+
+    // Whether the channels share one buffer, or each has its own.
+    bool host_mem_in_single_buffer_ = false;
+
+    // Memory behind host_mem_channels_ while the chip is started.
+    std::vector<std::unique_ptr<SysmemBuffer>> host_mem_channel_buffers_;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.

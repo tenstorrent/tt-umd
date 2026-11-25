@@ -806,26 +806,6 @@ int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
     return 0;
 }
 
-int tt_device_map_peer_bar(
-    tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr) {
-    if (dev == NULL || peer == NULL || out_dma_addr == NULL) {
-        return -EINVAL;
-    }
-
-    struct tenstorrent_map_peer_bar map = {0};
-    map.in.peer_fd = peer->fd;
-    map.in.peer_bar_index = bar;
-    map.in.peer_bar_offset = offset;
-    map.in.peer_bar_length = length;
-
-    if (ioctl(dev->fd, TENSTORRENT_IOCTL_MAP_PEER_BAR, &map) != 0) {
-        return -errno;
-    }
-
-    *out_dma_addr = map.out.dma_address;
-    return 0;
-}
-
 int tt_device_reset(tt_device_t* dev, uint32_t reset_flags) {
     struct tenstorrent_reset_device reset_info = {0};
 

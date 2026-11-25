@@ -629,9 +629,6 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
-    PcieInterface *require_pcie_interface();
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc) const;
 
     /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */

@@ -869,9 +869,8 @@ void PCIDevice::configure_tlb(
     auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
 
     // Where the configuration registers are not reachable from the host, the driver owns them and
-    // programs the window for us. The address stays a byte address: the driver aligns it to the
-    // window itself, and it refuses a coordinate, because on such an architecture the address is
-    // flat and already carries its target. Nothing is posted, so there is no read-back to do.
+    // programs the window for us. The driver rejects an address that is not aligned to the window.
+    // Nothing is posted, so there is no read-back to do.
     if (!arch_tlbs.cfg_registers_host_writable) {
         UMD_ASSERT(
             tlb_handle != nullptr,
@@ -882,9 +881,26 @@ void PCIDevice::configure_tlb(
                 arch_to_str(arch)));
 
         // A window the driver programs is flat over system physical address space: the entry is a
-        // target address plus an attribute field reaching only the NOC security header. It has no
-        // coordinate, no multicast group, no NOC selector, no ordering and no virtual channel, so a
-        // caller that set one asked for something this window cannot do.
+        // target address plus an attribute field reaching only the NOC security header. The address
+        // already names its target, so a coordinate or multicast is refused rather than dropped,
+        // which would map the window somewhere the caller did not ask for. The entry has no NOC
+        // selector, ordering or virtual channel either, so a caller that set one asked for
+        // something this window cannot do.
+        UMD_ASSERT(
+            tlb_config.x_start == 0 && tlb_config.y_start == 0 && tlb_config.x_end == 0 && tlb_config.y_end == 0,
+            error::RuntimeError,
+            fmt::format(
+                "A flat address already names its target, so a window travels with no coordinate; cores ({}, {}) to "
+                "({}, {}) cannot be honoured.",
+                tlb_config.x_start,
+                tlb_config.y_start,
+                tlb_config.x_end,
+                tlb_config.y_end));
+        UMD_ASSERT(
+            tlb_config.mcast == 0,
+            error::RuntimeError,
+            "There is no multicast on this path, so a window cannot cover a grid of cores.");
+
         const auto refuse = [&](const char *name, const uint64_t value) {
             UMD_ASSERT(
                 value == 0,
@@ -896,12 +912,7 @@ void PCIDevice::configure_tlb(
                     name,
                     value));
         };
-        refuse("x_end", tlb_config.x_end);
-        refuse("y_end", tlb_config.y_end);
-        refuse("x_start", tlb_config.x_start);
-        refuse("y_start", tlb_config.y_start);
         refuse("noc_sel", tlb_config.noc_sel);
-        refuse("mcast", tlb_config.mcast);
         refuse("ordering", tlb_config.ordering);
         refuse("linked", tlb_config.linked);
         refuse("static_vc", tlb_config.static_vc);

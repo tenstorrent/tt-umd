@@ -98,13 +98,6 @@ std::unique_ptr<TTDevice> TTDevice::create(
     return create_tt_device(std::move(remote_communication), soc_arch_descriptor);
 }
 
-#ifdef TT_UMD_BUILD_SIMULATION
-std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
-    std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor) {
-    return create_simulation_remote_tt_device(std::move(remote_communication), soc_descriptor);
-}
-#endif  // TT_UMD_BUILD_SIMULATION
-
 ArchitectureImplementation *TTDevice::get_architecture_implementation() { return model_->get_architecture_impl(); }
 
 // The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication

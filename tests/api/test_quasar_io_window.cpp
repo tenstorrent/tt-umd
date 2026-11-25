@@ -8,8 +8,14 @@
 // The data cases check that a round trip through one window returns what was written, and that
 // reconfiguring a window moves the address its offsets land on. Both read back through the window
 // they wrote through, so they do not prove that the window reaches the same address as the driver's
-// scalar access. The refusal cases check that a window configured with a coordinate or multicast is
-// refused.
+// scalar access. The flag case checks that a window reports WindowFlags::NonCacheable once
+// configured with it. The refusal cases check that a window configured with a coordinate,
+// multicast, a NOC selector, an ordering, linking, a static virtual channel or a noncacheable value
+// wider than its bit is refused.
+//
+// Nothing here proves that the attribute values reach the driver: no documented way exists to read
+// an entry's programmed attributes back, and a window with a non-zero attribute cannot be accessed
+// on the simulator to observe an effect.
 //
 // SAFETY. On the emulator a touch of an unproven address can hang the machine for everyone on it.
 // The cases write only cold scratch registers that tt-kmd's tools/keraunos_read32.c permits writes
@@ -27,6 +33,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"
 
 using namespace tt::umd;
@@ -145,29 +152,52 @@ TEST_F(QuasarIoWindow, ReconfiguringTheWindowMovesWhereItsOffsetsLand) {
     EXPECT_EQ(window_->read32(4), 0xC0FFEE02u);
 }
 
-// A window configuration the driver must refuse. Each case is applied on top of the home address,
+// A window configured with WindowFlags::NonCacheable accepts it and reports it back. This checks
+// the window's own record of the flag, not what reached the driver. Snoop is not tested: a Quasar
+// window does not advertise it.
+//
+// The window is deliberately not accessed while the flag is set. ttsim before #1074 aborted the
+// whole VM on an access through an entry whose attributes are not zero -- programming it was
+// fine, reading through it was not. So the flag is set, checked, and cleared before data moves.
+TEST_F(QuasarIoWindow, NonCacheableFlagIsCarriedToTheWindow) {
+    TargetIoWindowConfig target;
+    target.core_start = tt_xy_pair(0, 0);  // the address is flat; a coordinate is refused
+    target.addr = HOME_SCRATCH;
+    target.noc = NocId::NOC0;
+    target.flags = WindowFlags::NonCacheable;
+
+    // Relaxed because nothing on this architecture programs ordering, so asking for Strict would
+    // promise a guarantee the window was never configured for.
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::RELAXED));
+    EXPECT_NE(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None)
+        << "the window should report the flag it was configured with";
+
+    // Clear it before touching the window again, then confirm the window still works.
+    target.flags = WindowFlags::None;
+    ASSERT_NO_THROW(window_->configure(target, IoOrdering::RELAXED));
+    EXPECT_EQ(window_->get_target_config().flags & WindowFlags::NonCacheable, WindowFlags::None);
+
+    constexpr uint32_t SENTINEL = 0x5000FEEDu;
+    window_->write32(offset_of(WRITABLE_COLD_SCRATCH[1].address), SENTINEL);
+    EXPECT_EQ(window_->read32(offset_of(WRITABLE_COLD_SCRATCH[1].address)), SENTINEL);
+}
+
+// A window configuration that configure() must refuse: one field set on top of the home address,
 // so even a regression that accepted it would map only the scratch block.
 struct RefusedConfig {
     const char* name;
-    uint64_t x_start;
-    uint64_t y_start;
-    uint64_t x_end;
-    uint64_t y_end;
-    uint64_t mcast;
+    void (*set_field)(tlb_data& config);
 };
 
 // A Quasar address is flat and already names its target, so a window configured with a NOC
-// coordinate or multicast is refused rather than silently mapped to the flat address alone.
+// coordinate, multicast, NOC selector, ordering, linking or virtual channel is refused rather than
+// silently mapped to the flat address alone. A noncacheable value wider than its one bit is refused
+// rather than truncated into a different valid attribute.
 class QuasarIoWindowRefusal : public QuasarIoWindow, public ::testing::WithParamInterface<RefusedConfig> {};
 
 TEST_P(QuasarIoWindowRefusal, ConfigureIsRefused) {
-    const RefusedConfig& refused = GetParam();
     tlb_data config = home();
-    config.x_start = refused.x_start;
-    config.y_start = refused.y_start;
-    config.x_end = refused.x_end;
-    config.y_end = refused.y_end;
-    config.mcast = refused.mcast;
+    GetParam().set_field(config);
 
     EXPECT_THROW(window_->configure(config), std::runtime_error);
 }
@@ -175,7 +205,21 @@ TEST_P(QuasarIoWindowRefusal, ConfigureIsRefused) {
 INSTANTIATE_TEST_SUITE_P(
     QuasarIoWindow,
     QuasarIoWindowRefusal,
-    ::testing::Values(RefusedConfig{"Coordinate", 1, 1, 1, 1, 0}, RefusedConfig{"Multicast", 0, 0, 0, 0, 1}),
+    ::testing::Values(
+        RefusedConfig{
+            "Coordinate",
+            [](tlb_data& config) {
+                config.x_start = 1;
+                config.y_start = 1;
+                config.x_end = 1;
+                config.y_end = 1;
+            }},
+        RefusedConfig{"Multicast", [](tlb_data& config) { config.mcast = 1; }},
+        RefusedConfig{"NocSelector", [](tlb_data& config) { config.noc_sel = 1; }},
+        RefusedConfig{"Ordering", [](tlb_data& config) { config.ordering = tlb_data::Strict; }},
+        RefusedConfig{"Linked", [](tlb_data& config) { config.linked = 1; }},
+        RefusedConfig{"StaticVc", [](tlb_data& config) { config.static_vc = 1; }},
+        RefusedConfig{"NonCacheableOutOfRange", [](tlb_data& config) { config.noncacheable = 2; }}),
     [](const ::testing::TestParamInfo<RefusedConfig>& info) { return std::string(info.param.name); });
 
 }  // namespace

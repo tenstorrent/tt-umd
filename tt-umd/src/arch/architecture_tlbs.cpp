@@ -91,6 +91,8 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
         .static_cfg_addr = wormhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = wormhole::TLB_CFG_REG_SIZE_BYTES,
         .cfg_registers_host_writable = true,
+        .carries_ordering = true,
+        .carries_axi_attributes = false,
     };
 
     static const ArchitectureTlbs blackhole_tlbs = {
@@ -119,11 +121,14 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
         .static_cfg_addr = blackhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = blackhole::TLB_CFG_REG_SIZE_BYTES,
         .cfg_registers_host_writable = true,
+        .carries_ordering = true,
+        .carries_axi_attributes = false,
     };
 
     // One bank of equal-sized windows, and no virtual channel to choose: the driver programs
-    // the window, and the configuration it accepts carries an address and nothing else. The
-    // register layout is empty for the same reason -- nothing here is ever packed into a register.
+    // the window, and the configuration it accepts carries an address and the AXI attributes its
+    // accesses carry (noncacheable). The register layout is empty for the same reason --
+    // nothing here is ever packed into a register.
     static const ArchitectureTlbs grendel_tlbs = {
         .size_classes = {{
             .size = grendel::TLB_16M_SIZE,
@@ -139,6 +144,8 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
         .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = grendel::TLB_CFG_REG_SIZE_BYTES,
         .cfg_registers_host_writable = false,
+        .carries_ordering = false,
+        .carries_axi_attributes = true,
     };
 
     switch (arch) {

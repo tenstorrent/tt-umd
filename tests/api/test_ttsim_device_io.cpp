@@ -20,6 +20,7 @@
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/system_memory_allocator.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -28,6 +29,7 @@
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -118,6 +120,19 @@ TEST_F(TTSimDeviceFixture, SystemMemoryAllocatorIsTheDevicesHostMemory) {
     EXPECT_EQ(allocator, tt_device->get_sysmem_manager());
 
     EXPECT_NE(allocator->allocate_buffer(4096), nullptr);
+}
+
+// Every simulated architecture serves a window created without an explicit ordering.
+TEST_F(TTSimDeviceFixture, CreateIoWindowWithoutOrderingReadsAndWrites) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
+
+    std::unique_ptr<IoWindow> window = tt_device->create_io_window({.core_start = core, .addr = 0x100}, {.size = 4096});
+    ASSERT_NE(window, nullptr);
+
+    window->write32(0, 0xCAFEF00D);
+    EXPECT_EQ(window->read32(0), 0xCAFEF00D);
 }
 
 // ---------------------------------------------------------------------------

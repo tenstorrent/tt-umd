@@ -291,7 +291,7 @@ void TopologyDiscoveryBase::get_connected_devices() {
         std::unique_ptr<TTDevice> tt_device =
             create_tt_device(device_id, options.io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
-            tt_device->set_power_state(TTDevice::PowerState::BUSY);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY, options.noc);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
@@ -533,11 +533,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         ChipDescription& chip = description.chips[chip_id];
         chip.arch = tt_device->get_arch();
         chip.unique_id = current_device_asic_id;
-        chip.board_type = tt_device->get_chip_info().board_type;
-        chip.board_id = tt_device->get_chip_info().board_id;
-        chip.noc_translation_enabled = tt_device->get_chip_info().noc_translation_enabled;
-        chip.harvesting_masks = tt_device->get_chip_info().harvesting_masks;
-        chip.asic_location = tt_device->get_chip_info().asic_location;
+        ChipInfo chip_info = tt_device->get_chip_info(options.noc);
+        chip.board_type = chip_info.board_type;
+        chip.board_id = chip_info.board_id;
+        chip.noc_translation_enabled = chip_info.noc_translation_enabled;
+        chip.harvesting_masks = chip_info.harvesting_masks;
+        chip.asic_location = chip_info.asic_location;
 
         if (!tt_device->is_remote()) {
             chip.mmio_device_id = tt_device->get_communication_device_id();
@@ -647,7 +648,8 @@ uint64_t TopologyDiscoveryBase::get_asic_id(TTDevice* tt_device) {
 void TopologyDiscoveryBase::patch_eth_connections() {}
 
 void TopologyDiscoveryBase::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
-    FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
+    FirmwareBundleVersion fw_bundle_version =
+        tt_device->get_firmware_info_provider()->get_firmware_version(options.noc);
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
@@ -845,7 +847,7 @@ bool TopologyDiscoveryBase::eth_heartbeat_running(TTDevice* tt_device, uint64_t 
 }
 
 bool TopologyDiscoveryBase::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core, options.noc) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

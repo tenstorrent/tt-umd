@@ -386,10 +386,6 @@ public:
         const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT,
         NocId noc = NocId::DEFAULT_NOC);
 
-    void bar_write32(uint32_t addr, uint32_t data);
-
-    uint32_t bar_read32(uint32_t addr);
-
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;

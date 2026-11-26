@@ -262,7 +262,8 @@ public:
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
         for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
-            read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
+            read_data(
+                static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
         });
     }
 
@@ -270,7 +271,13 @@ public:
         const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
         override {
         for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
-            write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
+            write_data(
+                static_cast<const uint8_t*>(src) + offset,
+                core,
+                addr + offset,
+                access_size,
+                noc_id,
+                IoOrdering::STRICT);
         });
     }
 
@@ -293,8 +300,8 @@ public:
 
     void init_firmware(std::chrono::milliseconds, NocId) override {}
 
-    DeviceCommandResult send_device_command(uint32_t, const std::vector<uint32_t>&, std::chrono::milliseconds, NocId)
-        override {
+    DeviceCommandResult send_device_command(
+        uint32_t, const std::vector<uint32_t>&, std::chrono::milliseconds, NocId) override {
         return DeviceCommandResult{};
     }
 

@@ -51,11 +51,6 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, Cor
 
 uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (galaxy_mode) {
-        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
-        // from the ClusterOptions will work correctly on 6U.
-        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
-        // fetched through another function when cluster descriptor is being filled up.
         return get_local_asic_id(tt_device, eth_core);
     }
 

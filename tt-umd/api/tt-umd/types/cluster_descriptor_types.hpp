@@ -37,6 +37,8 @@ enum BoardType : uint32_t {
     UBB_BLACKHOLE_CF,
     QUASAR_BOARD,
     UNKNOWN,
+    // Appended after UNKNOWN so existing values keep their numbering.
+    UBB_BLACKHOLE_2,
 };
 
 static_assert(N150 == 3, "N150 must be 3");
@@ -51,6 +53,7 @@ static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
 static_assert(UBB_BLACKHOLE_CF == 11, "BH_UBB_CF must be 11");
 static_assert(QUASAR_BOARD == 12, "QUASAR must be 12");
 static_assert(UNKNOWN == 13, "UNKNOWN must be 13");
+static_assert(UBB_BLACKHOLE_2 == 14, "BH_UBB_2 must be 14");
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
@@ -104,6 +107,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"ubb", BoardType::UBB},
     {"ubb_blackhole", BoardType::UBB_BLACKHOLE},
     {"ubb_blackhole_cf", BoardType::UBB_BLACKHOLE_CF},
+    {"ubb_blackhole_2", BoardType::UBB_BLACKHOLE_2},
     {"ubb_wormhole", BoardType::UBB_WORMHOLE},
     {"quasar", BoardType::QUASAR_BOARD},
     {"unknown", BoardType::UNKNOWN},
@@ -124,6 +128,7 @@ inline const std::unordered_map<BoardType, std::string_view> board_type_canonica
     {BoardType::UBB, "ubb"},
     {BoardType::UBB_BLACKHOLE, "ubb_blackhole"},
     {BoardType::UBB_BLACKHOLE_CF, "ubb_blackhole_cf"},
+    {BoardType::UBB_BLACKHOLE_2, "ubb_blackhole_2"},
     {BoardType::UBB_WORMHOLE, "ubb_wormhole"},
     {BoardType::QUASAR_BOARD, "quasar"},
     {BoardType::UNKNOWN, "unknown"},
@@ -196,6 +201,8 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::UBB_BLACKHOLE:
         case BoardType::UBB_BLACKHOLE_CF:
             return 32;
+        // Galaxy 2 is built from single-chip boards, each with its own board ID.
+        case BoardType::UBB_BLACKHOLE_2:
         case BoardType::QUASAR_BOARD:  // Mock device only
             return 1;
         default:
@@ -218,6 +225,7 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     {0x35, BoardType::UBB},
     {0x47, BoardType::UBB_BLACKHOLE},
     {0x202, BoardType::UBB_BLACKHOLE_CF},
+    {0x78, BoardType::UBB_BLACKHOLE_2},
     {0x50, BoardType::QUASAR_BOARD}};  // Fictional board UPI for Quasar mock device
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
@@ -240,6 +248,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_u
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 1},
     {BoardType::UBB_BLACKHOLE_CF, 1},
+    {BoardType::UBB_BLACKHOLE_2, 1},
 };
 
 static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_units_map = {
@@ -253,6 +262,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_uni
     // The sole difference from the chips populating a UBB_BLACKHOLE is one
     // harvested GDDR channel.
     {BoardType::UBB_BLACKHOLE_CF, 1},
+    {BoardType::UBB_BLACKHOLE_2, 0},
 };
 
 static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_units_map = {
@@ -264,6 +274,7 @@ static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_unit
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 2},
     {BoardType::UBB_BLACKHOLE_CF, 2},
+    {BoardType::UBB_BLACKHOLE_2, 2},
 };
 
 struct HarvestingMasks {

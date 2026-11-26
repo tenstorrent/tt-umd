@@ -114,13 +114,20 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(std::chrono::milliseconds(0), std::chrono::milliseconds(-30000)));
 
 TEST_F(DeviceEventReaderBh, ReadWaitsForRecordPublishedDuringIt) {
-    // Published only after the read has had time to start waiting.
-    std::future<void> publisher = std::async(std::launch::async, [this] {
+    std::promise<void> read_done;
+    std::future<void> publisher = std::async(std::launch::async, [this, read_finished = read_done.get_future()] {
+        // Published only after the read has had time to start waiting.
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         publish_test_event(0, 0, 0, 0, 5);
+        // A record that never arrives, including one whose publish failed, ends the read empty and fails the
+        // size check below, instead of hanging the test binary.
+        if (read_finished.wait_for(EVENT_READ_TIMEOUT) == std::future_status::timeout) {
+            reader->cancel();
+        }
     });
 
     DeviceEventBatch batch = reader->read(4);
+    read_done.set_value();
     publisher.get();
 
     ASSERT_EQ(batch.events.size(), 1u);

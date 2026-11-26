@@ -264,21 +264,21 @@ void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     void* buffer,
-    size_t sysmem_buffer_size,
-    const bool map_to_noc,
+    size_t size,
+    const bool bind_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory) {
     UMD_ASSERT(buffer != nullptr, error::RuntimeError, "Cannot map a null simulation buffer.");
-    const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
+    const uint64_t extent = mapped_extent(buffer, size);
     check_arena_capacity(extent);
 
     // The arena hands out whole pages, so the buffer's address keeps its offset into the first one.
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t host_offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
     const uint64_t device_io_addr = pcie_base_ + registry_->next_arena_offset + host_offset;
-    const std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
+    const std::optional<uint64_t> noc_addr = bind_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
-    registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});
+    registry_->buffers.push_back({device_io_addr, buffer, size});
     // The registry covers only the requested bytes, not the padding on either side of the mapping.
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     try {
@@ -301,8 +301,8 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
                     release(buffer_va);
                 }
             };
-        auto result = create_buffer(
-            buffer, sysmem_buffer_size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
+        auto result =
+            create_buffer(buffer, size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
         registry_->next_arena_offset += extent;
         return result;
     } catch (...) {

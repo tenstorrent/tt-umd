@@ -157,8 +157,8 @@ private:
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
     std::unique_ptr<SysmemBuffer> register_and_wrap(
         void* buffer,
-        size_t sysmem_buffer_size,
-        const bool map_to_noc,
+        size_t size,
+        const bool bind_to_noc,
         DeviceBufferAccess device_access,
         SysmemBuffer::Deleter release_backing_memory);
 

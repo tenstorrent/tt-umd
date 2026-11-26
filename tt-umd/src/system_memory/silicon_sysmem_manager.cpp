@@ -218,7 +218,7 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     void *buffer_va,
     size_t buffer_size,
-    const bool map_to_noc,
+    const bool bind_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory,
     const bool hugepage) {
@@ -228,7 +228,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
 
     uint64_t aligned_iova = 0;
     std::optional<uint64_t> noc_addr = std::nullopt;
-    if (map_to_noc) {
+    if (bind_to_noc) {
         std::tie(noc_addr, aligned_iova) =
             hugepage ? pci_device_->map_hugepage_to_noc(range.base, range.mapped_size)
                      : pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
@@ -398,7 +398,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_channel_buffer(uint
 
     try {
         return pin_and_wrap(
-            mapping, size, /*map_to_noc=*/true, DeviceBufferAccess::READ_WRITE, release_mapping, /*hugepage=*/true);
+            mapping, size, /*bind_to_noc=*/true, DeviceBufferAccess::READ_WRITE, release_mapping, /*hugepage=*/true);
     } catch (...) {
         log_warning(
             LogUMD,

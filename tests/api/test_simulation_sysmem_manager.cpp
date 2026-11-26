@@ -533,7 +533,6 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     // Mappings are read-write unless the caller asks otherwise.
     EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
 
-    // bind_to_noc reaches the same path as the concrete map_to_noc flag.
     auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
     ASSERT_NE(bound, nullptr);
     EXPECT_TRUE(bound->get_noc_address().has_value());

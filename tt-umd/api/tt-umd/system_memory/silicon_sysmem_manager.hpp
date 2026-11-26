@@ -63,7 +63,7 @@ private:
     std::unique_ptr<SysmemBuffer> pin_and_wrap(
         void* buffer_va,
         size_t buffer_size,
-        const bool map_to_noc,
+        const bool bind_to_noc,
         DeviceBufferAccess device_access,
         SysmemBuffer::Deleter release_backing_memory,
         const bool hugepage = false);

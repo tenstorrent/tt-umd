@@ -67,8 +67,8 @@ public:
     //
     // In a server directory (see allocate_server_directory) this process must hold the directory's
     // claim: one it allocated already does, and one whose owner is gone is taken over. Throws when
-    // another live process holds it. Tearing down the directory's last socket removes the
-    // directory and releases the claim.
+    // another live process holds it. A claim this call takes is given back if the call then fails.
+    // Tearing down the directory's last socket removes the directory and releases the claim.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
@@ -112,9 +112,11 @@ public:
     // Removes a server directory whose owner is gone: no live process holds its claim and none of
     // its sockets has a listener (a host from a UMD that predates claims takes none). The verdict
     // and the removal are made holding that claim, taken here for a directory that has no claim
-    // file yet, so no host can take the directory over in between. A directory with neither a claim
-    // file nor a socket is kept, as one still being allocated, and so is one whose claim cannot be
-    // taken.
+    // file yet, so no host that takes the claim can take the directory over in between. A host from
+    // a UMD that predates claims is judged by its sockets alone, as its own UMD's sweep judges it, so
+    // one binding a socket during a sweep can still lose its directory. A directory with neither a
+    // claim file nor a socket is kept, as one still being allocated, and so is one whose claim
+    // cannot be taken.
     static SweepResult sweep_server_directory(const std::filesystem::path& directory);
 
     // The simulation server directories under the system temp dir that belong to this process's
@@ -175,6 +177,9 @@ private:
     // True only after a successful bind_and_listen(); gates teardown so a never-bound
     // object never removes a live owner's socket file.
     bool bound_ = false;
+    // The server directory's claim file when bind_and_listen() took the claim itself (-1 when it was
+    // already held or there is none), so a never-bound object gives back only a claim it took.
+    int taken_claim_fd_ = -1;
 
     // Holds the asio transport (io_context, acceptor, accept-loop thread). Defined in the .cpp
     // so asio stays out of this header; owns the listen fd (RAII) and the shutdown handshake

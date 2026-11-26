@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -663,6 +664,34 @@ TEST(SimulationConnector, KeepsAServerWhoseHostServesWithoutAClaim) {
     EXPECT_TRUE(std::filesystem::exists(socket));
 
     std::filesystem::remove_all(directory.path());
+}
+
+// A failed attempt to host beside a host that serves without a claim gives back the claim it took, so
+// once the other host is gone its directory is cleared up while this process still runs. Needs no simulator.
+TEST(SimulationConnector, PruneClearsUpAServerThisProcessFailedToHostIn) {
+    test_utils::ServerDirectoryOfAnotherProcess directory;
+    directory.kill_owner();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(directory.path(), 0);
+    {
+        const test_utils::ListenerWithoutClaim host(socket);
+        EXPECT_THROW(SimulationServerSocket::create(socket), std::exception);
+    }
+    ASSERT_TRUE(std::filesystem::exists(socket));  // left behind by the host that is gone
+
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory.path()), 1);
+    EXPECT_FALSE(std::filesystem::exists(directory.path()));
+}
+
+// A failed attempt to host does not give up a claim the process held before it: a directory it
+// allocated stays claimed for its whole life, so the sweep keeps it. Needs no simulator.
+TEST(SimulationConnector, KeepsAServerDirectoryThisProcessAllocatedAfterAFailedHost) {
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(directory, 0);
+    { std::ofstream(socket) << "not a socket"; }
+    EXPECT_THROW(SimulationServerSocket::create(socket), std::exception);
+
+    EXPECT_EQ(count_directory(SimulationConnector::prune_dead_servers(), directory), 0);
+    EXPECT_TRUE(std::filesystem::is_directory(directory));
 }
 
 // A directory made by a UMD that predates claims has no claim file at all, so a socket its host

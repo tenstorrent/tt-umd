@@ -168,13 +168,20 @@ ClaimAttempt try_take_claim(const std::filesystem::path& directory, bool create)
     }
 }
 
-// The claims this process holds, one open claim file each. A claim is released only by closing its
+// A claim this process holds, as its open claim file. A claim is released only by closing that
 // fd, never by LOCK_UN: the lock belongs to the open file description, which a forked child shares,
 // and must stay held for a detached sim_server host that serves on after its parent exits. Exit
 // releases whatever is left.
+struct HeldClaim {
+    int fd;
+    // Set once a caller other than the one that took it relies on it (another socket hosting in the
+    // directory), so the attempt that took it no longer gives it back if it fails.
+    bool shared;
+};
+
 struct HeldClaims {
     std::mutex mutex;
-    std::vector<int> fds;
+    std::vector<HeldClaim> held;
 };
 
 HeldClaims& held_claims() {
@@ -182,28 +189,45 @@ HeldClaims& held_claims() {
     return claims;
 }
 
-// This process's claim on directory, or the end of claims.fds. Caller holds claims.mutex.
-std::vector<int>::iterator find_held_claim(HeldClaims& claims, const std::filesystem::path& directory) {
+// This process's claim on directory, or the end of claims.held. Caller holds claims.mutex.
+std::vector<HeldClaim>::iterator find_held_claim(HeldClaims& claims, const std::filesystem::path& directory) {
     const std::filesystem::path claim_path = directory / kClaimFileName;
-    return std::find_if(
-        claims.fds.begin(), claims.fds.end(), [&claim_path](int fd) { return refers_to(fd, claim_path); });
+    return std::find_if(claims.held.begin(), claims.held.end(), [&claim_path](const HeldClaim& claim) {
+        return refers_to(claim.fd, claim_path);
+    });
 }
 
-// Makes sure this process holds directory's claim, taking it when no live process does. Returns
-// Taken once it is held (already or now), HeldElsewhere when another live process holds it, and
-// Missing when the directory went away (a sweep removed it) before it was taken. Throws otherwise.
-ClaimAttempt::Status hold_claim(const std::filesystem::path& directory) {
+struct Hold {
+    enum class Status {
+        AlreadyHeld,    // this process held the claim before the call
+        TakenNow,       // the call took it
+        HeldElsewhere,  // another live process holds it
+        Missing,        // the directory went away (a sweep removed it) before it was taken
+    };
+    Status status;
+    int fd = -1;  // TakenNow only: the claim file, which give_back_claim() takes
+};
+
+// Makes sure this process holds directory's claim, taking it when no live process does. Throws when
+// the claim can be neither taken nor found held.
+Hold hold_claim(const std::filesystem::path& directory) {
     HeldClaims& claims = held_claims();
     std::lock_guard<std::mutex> lock(claims.mutex);
-    if (find_held_claim(claims, directory) != claims.fds.end()) {
-        return ClaimAttempt::Status::Taken;
+    if (const auto held = find_held_claim(claims, directory); held != claims.held.end()) {
+        held->shared = true;
+        return {Hold::Status::AlreadyHeld};
     }
     const ClaimAttempt claim = try_take_claim(directory, /*create=*/true);
-    if (claim.status == ClaimAttempt::Status::Taken) {
-        claims.fds.push_back(claim.fd);
-    }
-    if (claim.status != ClaimAttempt::Status::Failed) {
-        return claim.status;
+    switch (claim.status) {
+        case ClaimAttempt::Status::Taken:
+            claims.held.push_back({claim.fd, /*shared=*/false});
+            return {Hold::Status::TakenNow, claim.fd};
+        case ClaimAttempt::Status::HeldElsewhere:
+            return {Hold::Status::HeldElsewhere};
+        case ClaimAttempt::Status::Missing:
+            return {Hold::Status::Missing};
+        case ClaimAttempt::Status::Failed:
+            break;
     }
     UMD_THROW(
         error::RuntimeError,
@@ -219,7 +243,7 @@ void release_claim(const std::filesystem::path& directory) {
     HeldClaims& claims = held_claims();
     std::lock_guard<std::mutex> lock(claims.mutex);
     const auto held = find_held_claim(claims, directory);
-    if (held == claims.fds.end()) {
+    if (held == claims.held.end()) {
         return;
     }
     std::error_code ec;
@@ -230,8 +254,24 @@ void release_claim(const std::filesystem::path& directory) {
     }
     std::filesystem::remove(directory / kClaimFileName, ec);
     std::filesystem::remove(directory, ec);
-    ::close(*held);
-    claims.fds.erase(held);
+    ::close(held->fd);
+    claims.held.erase(held);
+}
+
+// Gives back a claim that hold_claim() took for an attempt to host that then failed, so the process
+// does not keep a directory it does not serve in. Kept once shared: another caller relies on it.
+// The claim file stays, free, so the next sweep can judge the directory; a directory with neither a
+// claim file nor a socket would read as one still being allocated and never be swept.
+void give_back_claim(int fd) {
+    HeldClaims& claims = held_claims();
+    std::lock_guard<std::mutex> lock(claims.mutex);
+    const auto held =
+        std::find_if(claims.held.begin(), claims.held.end(), [fd](const HeldClaim& claim) { return claim.fd == fd; });
+    if (held == claims.held.end() || held->shared) {
+        return;
+    }
+    ::close(held->fd);
+    claims.held.erase(held);
 }
 
 bool has_live_socket(const std::map<ChipId, std::filesystem::path>& sockets) {
@@ -456,8 +496,10 @@ bool SimulationServerSocket::bind_and_listen() {
     // Claimed before binding, so a sweep cannot judge the directory abandoned and remove it from
     // under the socket about to be bound in it.
     if (const auto server_directory = resolve_server_directory(socket_path_.parent_path())) {
-        const ClaimAttempt::Status claim = hold_claim(*server_directory);
-        if (claim == ClaimAttempt::Status::HeldElsewhere) {
+        const Hold claim = hold_claim(*server_directory);
+        // Given back by the destructor if this call fails from here on.
+        taken_claim_fd_ = claim.fd;
+        if (claim.status == Hold::Status::HeldElsewhere) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
@@ -465,7 +507,7 @@ bool SimulationServerSocket::bind_and_listen() {
                     "process that allocated it (or a child it forked), or let that process exit first.",
                     server_directory->string()));
         }
-        if (claim == ClaimAttempt::Status::Missing) {
+        if (claim.status == Hold::Status::Missing) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
@@ -574,8 +616,12 @@ SimulationServerSocket::~SimulationServerSocket() {
     // Only a successfully-bound owner tears down and removes the file. A never-bound object
     // (try_create() lost to a live owner and returned nullptr) must not delete the live
     // owner's socket. The throwing ctor is safe either way: if bind_and_listen() throws,
-    // bound_ is still false, so this destructor is a no-op for the file.
+    // bound_ is still false, so this destructor is a no-op for the file. It gives back only a
+    // claim that attempt took.
     if (!bound_) {
+        if (taken_claim_fd_ >= 0) {
+            give_back_claim(taken_claim_fd_);
+        }
         return;
     }
 
@@ -623,7 +669,7 @@ std::filesystem::path SimulationServerSocket::allocate_server_directory() {
         }
         // The claim is lost only to a sweep that judged the directory abandoned in the instant
         // before it was locked; that index is going away, so move on.
-        if (hold_claim(dir) == ClaimAttempt::Status::Taken) {
+        if (hold_claim(dir).status == Hold::Status::TakenNow) {
             return dir;
         }
     }
@@ -655,8 +701,9 @@ SimulationServerSocket::SweepResult SimulationServerSocket::sweep_server_directo
             return SweepResult::Live;
         case ClaimAttempt::Status::Taken: {
             // A listener next to a free claim belongs to a host that takes no claim (an older UMD).
-            // Judged and removed while holding the claim, so no host can take the directory over in
-            // between.
+            // Judged and removed while holding the claim, so no host that takes the claim can take
+            // the directory over in between. A host that takes none is judged by its sockets alone,
+            // as its own UMD's sweep judges it: one binding a socket meanwhile can still lose it.
             const SweepResult result = has_live_socket(sockets_in_directory(directory))
                                            ? SweepResult::Live
                                            : remove_claimed_server_directory(directory);

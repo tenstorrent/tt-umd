@@ -13,7 +13,7 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"

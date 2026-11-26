@@ -23,7 +23,7 @@
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -202,7 +202,7 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
 }
 
 // This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
-// and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+// and no copying is done. It uses the system memory allocator to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -271,7 +271,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 }
 
 // This test measures bandwidth of IO using PCIe DMA engine where user buffer is mapped through IOMMU
-// and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+// and no copying is done. It uses the system memory allocator to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");

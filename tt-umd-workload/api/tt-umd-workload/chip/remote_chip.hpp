@@ -12,9 +12,10 @@
 #include <unordered_set>
 
 #include "tt-umd-workload/chip/chip.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 namespace tt {

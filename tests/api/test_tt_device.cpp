@@ -16,14 +16,18 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
+#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
@@ -155,6 +159,17 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     }
 }
 
+TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
+    for (const auto& [pci_device_id, device_info] : PCIDevice::enumerate_devices_info()) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        PcieInterface* pcie_interface = tt_device->get_pcie_interface();
+        if (pcie_interface == nullptr) {
+            continue;
+        }
+        EXPECT_EQ(pcie_interface->get_physical_slot(), device_info.physical_slot);
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -212,6 +227,8 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
+    // Host memory channels are mapped only while the cluster is started.
+    test_utils::safe_test_cluster_start(cluster.get());
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -248,6 +265,8 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
             EXPECT_EQ(pattern_buf, readback_buf);
         }
     }
+
+    cluster->close_device();
 }
 
 TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
@@ -257,6 +276,38 @@ TEST(ApiTTDeviceTest, RemoteTTDeviceHasNoPcieInterface) {
     }
     for (ChipId remote_chip_id : cluster->get_target_remote_device_ids()) {
         EXPECT_EQ(cluster->get_chip(remote_chip_id)->get_tt_device()->get_pcie_interface(), nullptr);
+    }
+}
+
+TEST(ApiTTDeviceTest, SystemMemoryAllocatorPinsForItsDevice) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No PCI devices found.";
+    }
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (ChipId chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const int communication_id = tt_device->get_communication_device_id();
+
+        SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
+        ASSERT_NE(allocator, nullptr);
+        EXPECT_EQ(allocator->get_communication_id(), communication_id);
+
+        std::unique_ptr<SysmemBuffer> buffer = allocator->allocate_buffer(4096);
+        ASSERT_NE(buffer, nullptr);
+        EXPECT_EQ(buffer->get_communication_id(), communication_id);
+    }
+}
+
+// A remote device reaches the host only through its gateway chip, so it has no host memory of its own.
+TEST(ApiTTDeviceTest, RemoteDeviceHasNoSystemMemoryAllocator) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips in the cluster.";
+    }
+
+    for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
+        EXPECT_EQ(cluster->get_chip(chip_id)->get_tt_device()->get_system_memory_allocator(), nullptr);
     }
 }
 

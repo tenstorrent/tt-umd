@@ -8,9 +8,12 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <vector>
 
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/types/cluster_types.hpp"
 
 namespace tt {
 enum class ARCH;
@@ -43,9 +46,20 @@ public:
 
     uint64_t get_mapped_arena_size() const;
 
-    bool pin_or_map_sysmem_to_device() override;
+    // The simulated device's host memory channels, which its simulator reaches by address. They are the device's
+    // own, unlike a silicon chip's, which the chip layer builds from buffers.
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size);
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size);
 
-    void unpin_or_unmap_sysmem() override;
+    size_t get_num_host_mem_channels() const { return host_mem_channels_.get_num_channels(); }
+
+    HugepageMapping get_hugepage_mapping(size_t channel) const;
+
+    /**
+     * The same channels as a HostMemChannels, for the chip that owns this device. The object lives as long as this
+     * manager; growing the channels remaps it in place.
+     */
+    const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
 
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
@@ -56,6 +70,10 @@ public:
         const bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
+    std::optional<size_t> get_max_buffer_count(size_t size) const override;
+
+    bool is_user_buffer_mapping_supported() const override { return true; }
+
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
     //
@@ -63,12 +81,12 @@ public:
     // range covers [device_io_addr, device_io_addr + size).  On a hit the
     // memcpy is performed and true is returned.  On a miss (the address falls
     // in the regular hugepage arena) false is returned and the caller should
-    // forward to the base-class write_to_sysmem / read_from_sysmem with the
-    // correct channel and within-channel offset.
+    // forward to write_to_sysmem / read_from_sysmem with the correct channel
+    // and within-channel offset.
     //
     // This keeps the mapped-buffer fast path out of write_to_sysmem /
-    // read_from_sysmem so those methods retain the same semantics as the base
-    // class (sysmem_dest is a within-channel offset, not an absolute address).
+    // read_from_sysmem so those methods keep sysmem_dest a within-channel
+    // offset, not an absolute address.
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, size_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, size_t size);
 
@@ -78,7 +96,7 @@ public:
     // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
     // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
     // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
-    // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
+    // mapped: the caller must not retain it across the manager's or the SysmemBuffer's
     // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
     // This is a pure address translation — the caller owns the access length (the returned bare
     // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
@@ -95,10 +113,9 @@ public:
     // channels are slices of one mapping, so growing replaces it and every existing channel moves.
     bool grow_host_mem_channels(uint32_t num_host_mem_channels);
 
-protected:
-    bool init_sysmem(uint32_t num_host_mem_channels) override;
-
 private:
+    void init_sysmem(uint32_t num_host_mem_channels);
+
     // Caller holds registry_->mutex for capacity checks and registration.
     void check_arena_capacity(uint64_t extent) const;
 
@@ -139,6 +156,7 @@ private:
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
+    HostMemChannels host_mem_channels_;
     uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
     std::shared_ptr<MappedBufferRegistry> registry_;
 };

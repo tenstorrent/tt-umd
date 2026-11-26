@@ -28,7 +28,6 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
-#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -87,10 +86,10 @@ TEST(TestClusterDescriptor, PcieLaneCounts) {
     }
 
     const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
-    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+    const std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    for (const auto& [chip, device_id] : cluster_desc->get_chips_with_mmio()) {
         ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
-        PcieInterface* pcie_interface = cluster->get_tt_device(chip)->get_pcie_interface();
-        EXPECT_EQ(lane_counts.at(chip), pcie_interface != nullptr ? pcie_interface->get_lane_count() : std::nullopt);
+        EXPECT_EQ(lane_counts.at(chip), pci_devices_info.at(device_id).get_current_link_width());
     }
 }
 

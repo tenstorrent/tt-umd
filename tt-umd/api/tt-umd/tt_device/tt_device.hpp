@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -54,9 +53,9 @@ class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
@@ -99,11 +98,9 @@ public:
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
-
-    // Being removed (#3530): do not add new callers. PCIe queries go through get_pcie_interface().
-    PCIDevice *get_pci_device();
-
     RemoteCommunication *get_remote_communication();
+
+    SystemMemoryAllocator *get_system_memory_allocator();
 
     DeviceProtocol *get_device_protocol();
     // Null when the device is not reached over PCIe.
@@ -503,10 +500,9 @@ public:
     /**
      * Allocate a TlbWindow for use by callers.
      *
-     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
-     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their in-process bitmap and
-     * build the appropriate sim-backend TlbWindow.
+     * Simulation TTDevice subclasses override this to allocate from their in-process bitmap and build
+     * the appropriate sim-backend TlbWindow. Other devices build their windows in the model, so the
+     * default throws.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.
@@ -570,21 +566,17 @@ public:
     }
 
     /**
-     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
-     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
-     * caller owns the returned fd and must close() it.
+     * Export a NOC-addressable region as a dma-buf file descriptor a peer device can DMA to and from. See
+     * PeerDmaInterface::export_window for the full contract; the caller owns the returned fd and
+     * must close() it.
      *
-     * @param core Core to target.
-     * @param addr Address within the core to aim the exported region at; must be page-aligned.
-     * @param size Number of bytes to export; must be page-aligned and non-zero.
-     * @param ordering Ordering mode for the TLB window backing the export.
-     * @param noc_id NOC to route the exported traffic over.
+     * @throws if this device has no PeerDmaInterface.
      */
     virtual int export_dmabuf(
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        uint64_t ordering = tlb_data::Relaxed,
+        IoOrdering ordering = IoOrdering::RELAXED,
         NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
@@ -617,14 +609,6 @@ protected:
 private:
     // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
     PcieInterface *require_pcie_interface();
-
-    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
-    // check, and gives the detector a separately-locked window to probe through.
-    void wire_hang_detector();
-
-    // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
-    // confirmed only when the in-flight op's NOC is hung.
-    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 

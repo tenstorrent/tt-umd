@@ -5,6 +5,7 @@ set(API_TESTS_SRCS
     test_grendel_device_io.cpp
     test_grendel_att_fold.cpp
     test_device_memcpy.cpp
+    test_host_mem_channels.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
     test_sim_multichip.cpp
@@ -14,6 +15,7 @@ set(API_TESTS_SRCS
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
+    test_quasar_io_window.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

@@ -44,7 +44,6 @@ std::unique_ptr<TTDevice> create_tt_device(
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor = nullptr);
 
-#ifdef TT_UMD_BUILD_SIMULATION
 /**
  * @brief Creates a TTDevice for a simulated remote device, which supplies its own SoC descriptor.
  *
@@ -60,6 +59,5 @@ std::unique_ptr<TTDevice> create_tt_device(
  */
 std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
     std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor& soc_descriptor);
-#endif  // TT_UMD_BUILD_SIMULATION
 
 }  // namespace tt::umd

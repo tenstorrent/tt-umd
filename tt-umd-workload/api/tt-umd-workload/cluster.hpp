@@ -58,7 +58,8 @@ class RemoteChip;
 /**
  * Chip type to create under the Cluster class.
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
- * - Simulation is used for simulation runs.
+ * - Simulation is used for simulation runs. In a UMD built without simulation support, the Cluster constructor
+ *   throws error::RuntimeError saying so.
  * - Mock is used for testing purposes, implementation of all functions is empty.
  * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
  *   Requires TT_UMD_BUILD_EMULE=ON at build time.
@@ -779,7 +780,6 @@ private:
     // Points a remote chip's RemoteCommunication at the sysmem manager of the gateway it talks through. Topology
     // discovery creates the RemoteCommunication before sysmem managers exist, so it is completed here.
     void connect_remote_communication_to_gateway(RemoteCommunication* remote_communication);
-#ifdef TT_UMD_BUILD_SIMULATION
     // Builds the RemoteChip for a non-MMIO chip in a multichip ttsim cluster. remote_tt_device is the device
     // topology discovery created for the chip, if any; its RemoteCommunication is wired to the gateway's sysmem
     // manager here. Without one (a declared topology, with no ARC/topology discovery), the RemoteCommunication and
@@ -790,7 +790,6 @@ private:
         ClusterDescriptor* cluster_desc,
         const SocDescriptor& soc_desc,
         std::unique_ptr<TTDevice> remote_tt_device = nullptr);
-#endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 

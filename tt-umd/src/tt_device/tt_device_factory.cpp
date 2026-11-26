@@ -76,7 +76,6 @@ std::unique_ptr<TTDevice> create_tt_device(
     }
 }
 
-#ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
     std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -104,6 +103,5 @@ std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
                 fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
-#endif  // TT_UMD_BUILD_SIMULATION
 
 }  // namespace tt::umd

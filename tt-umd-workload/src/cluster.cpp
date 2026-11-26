@@ -34,11 +34,6 @@
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
-// Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
-// The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
-#ifdef TT_UMD_BUILD_SIMULATION
-#include "tt-umd/tt_device/tt_device_factory.hpp"
-#endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
@@ -55,6 +50,7 @@
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
 #include "tt-umd/tt_device/ethernet_broadcast.hpp"
+#include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -229,7 +225,6 @@ SysmemManager* usable_sysmem_manager(Chip* chip) {
 
 }  // namespace
 
-#ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
     ChipId chip_id,
     ClusterDescriptor* cluster_desc,
@@ -262,7 +257,6 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
 
     return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
 }
-#endif  // TT_UMD_BUILD_SIMULATION
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ChipId chip_id,
@@ -302,7 +296,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #endif
     }
     if (chip_type == ChipType::SIMULATION) {
-#ifdef TT_UMD_BUILD_SIMULATION
         if (tt_device != nullptr && tt_device->is_remote()) {
             // Topology discovery reached this chip over ethernet, so it is driven as a RemoteChip.
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc, std::move(tt_device));
@@ -320,12 +313,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         // Only MMIO chips are opened on the image; remote ones are reached over its ethernet links.
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_chips_with_mmio().size(), num_host_mem_channels);
-#else
-        UMD_THROW(
-            error::RuntimeError,
-            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
-            "configuration to enable simulation device.");
-#endif
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {

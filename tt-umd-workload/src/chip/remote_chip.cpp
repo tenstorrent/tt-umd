@@ -36,7 +36,6 @@ std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 
-#ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
     std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info) {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -61,8 +60,6 @@ RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_dev
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
 }
-
-#endif  // TT_UMD_BUILD_SIMULATION
 
 RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {

@@ -32,4 +32,9 @@ if(TT_UMD_BUILD_EMULE)
     target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 
+# A UMD without simulation support refuses simulators; with it, the simulator suites under tests/api cover the same calls.
+if(NOT TT_UMD_BUILD_SIMULATION)
+    target_sources(api_tests PRIVATE api/test_cluster_without_simulation.cpp)
+endif()
+
 add_subdirectory(galaxy)

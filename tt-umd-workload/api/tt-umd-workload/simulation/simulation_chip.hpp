@@ -44,6 +44,7 @@ public:
     // Returns the path where it would live; the file is not required to exist.
     static std::string get_cluster_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
+    // Opens chip_id on the simulator. Throws error::RuntimeError in a UMD built without simulation support.
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,

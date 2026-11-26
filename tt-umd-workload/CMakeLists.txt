@@ -36,6 +36,7 @@ target_sources(
         src/chip/mock_chip.cpp
         src/chip/remote_chip.cpp
         src/cluster.cpp
+        src/simulation/simulation_chip.cpp
 )
 
 target_include_directories(
@@ -64,7 +65,6 @@ target_link_libraries(
 )
 
 if(TT_UMD_BUILD_SIMULATION)
-    target_sources(tt-umd PRIVATE src/simulation/simulation_chip.cpp)
     target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 

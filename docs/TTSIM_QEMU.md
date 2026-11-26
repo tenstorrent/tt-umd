@@ -18,18 +18,16 @@ at the same path, runs the command there and returns its exit code:
 run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
 ```
 
-`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole, `512G` for Quasar.
-The Grendel CI row deliberately passes `32G` rather than `512G`: tt-kmd's mmap offset space gives each
-BAR 64 GiB with BAR4 at `4<<36` and the TLB windows at `6<<36` and `7<<36`, so a 512 GiB BAR4 reaches
-`12<<36` and swallows both TLB regions. A TLB mmap then resolves into BAR4 and the model aborts with
-`tlb_in: entry=336` -- an entry at or above 320 is the tell that an access landed in BAR4. Anything up
-to `128G` clears `6<<36`. On silicon with a real 512 GiB BAR4 the per-BAR mmap budget has to grow,
-which is a tt-kmd change.
+`--bar4-size` is the chip's BAR4 size: `32M` for Wormhole, `32G` for Blackhole and Quasar.
+The Quasar model's own BAR4 is 512 GiB, but that collides with tt-kmd's mmap layout: tt-kmd serves an
+uncached BAR4 mapping from offset `4<<36` for the BAR's whole length, so a BAR4 over 64 GiB overlaps the
+write-combined BAR4 mapping at `5<<36`, and one over 128 GiB the TLB windows at `6<<36`. A TLB mmap that
+lands in BAR4 aborts the model with `tlb_in: entry=336` -- an entry at or above 320 is the tell.
 
-The 64-bit PCI hole and the guest's physical address width are derived from it, because firmware
-places a 64-bit BAR at its natural alignment and a BAR too big for the hole is left unassigned
-with no error -- the guest simply has no `resource4`. BAR sizes take QEMU's size syntax (`32M`,
-`0.5T`, `0x2000000`), and a size QEMU would reject stops the runner before the VM starts.
+The runner gives the guest a fixed 64 GiB 64-bit PCI hole, which holds a 32 GiB BAR4 next to the other
+BARs at their natural alignment. A BAR4 over 32 GiB needs a bigger hole and a wider guest physical
+address width: firmware leaves a BAR that does not fit unassigned with no error, and the guest simply
+has no `resource4`.
 
 Two further options exist for Quasar, and are described under Grendel below: `--bar0-size` and
 `--kmd-module`.
@@ -50,7 +48,9 @@ Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
 CI runs `api_tests`, `unit_tests`, `unified_tests` and `test_pcie_device` on an N150 and a P150,
 filtered to the tests that pass in the VM; a test that reaches something ttsim does not model ends
-QEMU rather than failing, so it has to be filtered out.
+QEMU rather than failing, so it has to be filtered out. The guest has no hugepages, so a test that
+needs host memory through one, such as `UnalignedTLB_RW` or most sysmem tests, fails there and is
+filtered out too.
 
 ## Grendel
 
@@ -59,8 +59,8 @@ option for each:
 
 | Option | Why |
 | --- | --- |
-| `--bar0-size 4G` | tt-kmd reserves inbound TLB entry 164 for its own kernel window, which sits `164 << 24` = 2.56 GB into BAR0. At the default size the driver still binds, then logs `BAR0 (0x20000000) too small for AppIn0 entry 164 window; NOC access disabled` and every ioctl returns `ENODEV`. |
-| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from an unreleased commit. The released driver stays the default for every other card. |
+| `--bar0-size 4G` | tt-kmd reserves inbound TLB entry 164 for its own kernel window, which sits `164 << 24` = 2.56 GB into BAR0. At the default size the driver still binds, then logs `BAR0 (0x20000000) too small for AppIn0 entry 164 window; NOC access disabled`: NOC reads and writes then fail with `ENODEV`, and no TLB window can be allocated. |
+| `--kmd-module /opt/tenstorrent-keraunos.ko` | No tt-kmd release knows Keraunos yet, so the image carries a second module built from an unreleased commit. The released driver stays the default for every other card. The path is inside the guest; a module on the host works only under the shared working directory, which the guest sees at the same path. |
 
 ```bash
 curl -L -o libttsim_qsr.so https://github.com/tenstorrent/ttsim/releases/latest/download/libttsim_qsr.so
@@ -69,14 +69,18 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
     run-in-ttsim-vm --lib "$PWD/libttsim_qsr.so" --bar4-size 32G --bar0-size 4G \
     --kmd-module /opt/tenstorrent-keraunos.ko -- \
     env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-    --gtest_filter='GrendelAttFoldTest.*:GrendelDeviceIOTest.*:*QuasarIoWindow*'
+    --gtest_filter='Grendel*:*Quasar*:*QuasarIoWindow*'
 ```
 
-Those suites are what a Grendel function covers today: 11 device-I/O cases, 2 coordinate-fold cases
-and the Quasar I/O window cases. The window pattern is `*QuasarIoWindow*` rather than
-`QuasarIoWindow.*` so it also selects the parameterized `QuasarIoWindow/QuasarIoWindowRefusal` suite. A filter that selects nothing still exits 0, so the CI row counts what it selected before
-running it and fails the step when the count is zero -- otherwise a build missing those suites would
-report green having run nothing.
+That filter selects every Grendel and Quasar suite in `api_tests`, so a new one runs without a CI
+edit. `*QuasarIoWindow*`, Quasar's TLB window suites, is named on its own so CI fails if they stop
+being built. The other TLB suites do not apply here: `TestTlb` needs a `Cluster`, which has no Quasar
+topology discovery yet, and the `baremetal_tests` ones touch no device.
+
+A filter that selects nothing still exits 0, so CI runs it through `.github/run-gtest-checked.sh`,
+which fails the step when a positive pattern selects no test, a negative pattern excludes none, or
+the whole filter selects nothing -- otherwise a build missing those suites would report green having
+run nothing.
 
 `--bar0-size` needs a `bar0-size` property on ttsim-qemu's `ttsim` device. BAR0 used to be a
 compile-time 512 MiB constant there, and simply raising it is not an option because one image serves
@@ -84,14 +88,14 @@ every card. The property landed upstream in ttsim-qemu `aa112ebe16`, which is wh
 `TTSIM_QEMU_COMMIT` pins; it gives BAR0 the treatment BAR4 already has, so BAR0 stays 512 MiB unless
 a caller asks for more and the Wormhole and Blackhole rows are unaffected.
 
-`GrendelDmaLoopbackTest` is deliberately not in that filter. It drives an address in the host window,
-for which the model has no outbound translation, and an unmodelled access is `_Exit(1)` inside
-libttsim — which takes QEMU and the guest with it rather than failing the one case.
+A DMA loopback test has to stay out of that row until the model routes the host window. It drives an
+address in the host window, for which the model has no outbound translation, and an unmodelled access
+is `_Exit(1)` inside libttsim -- which takes QEMU and the guest with it rather than failing the one case.
 
 Binaries run inside an Ubuntu 22.04 guest, so build them on Ubuntu 22.04, for example in the
 `tt-umd-ci-ubuntu-22.04` image. The guest's console, including the command's output, goes to stdout.
-If the VM stops without running the command, for example because tt-kmd failed to load, the runner
-says so and exits with 1.
+If the VM stops without running the command, for example because tt-kmd failed to load or bound no
+chip, the runner says so and exits with 1.
 
 ## Building the image
 
@@ -101,6 +105,8 @@ docker build -f .github/ttsim-qemu.Dockerfile -t ttsim-qemu .github
 
 The Dockerfile pins the ttsim-qemu commit, the tt-kmd tag and the Keraunos tt-kmd commit as build
 arguments (`TTSIM_QEMU_COMMIT`, `TT_KMD_TAG`, `TT_KMD_KERAUNOS_COMMIT`).
+A weekly workflow (`check-keraunos-kmd-pin.yml`) opens or updates a tracking issue when tt-kmd's
+`keraunos` branch head differs from `TT_KMD_KERAUNOS_COMMIT`.
 
 ## Performance
 

@@ -39,6 +39,8 @@ cd "$WORKDIR" || fail "cannot enter the working directory"
 # yet names its own module instead of the default build.
 kmd=$(cat /ttsim-vm/kmd-module 2>/dev/null)
 insmod "${kmd:-/opt/tenstorrent.ko}" reset_limit=0 || fail "cannot load tt-kmd"
+# A driver that loads but binds no chip would otherwise surface as some unrelated failure in the command.
+[[ -e /dev/tenstorrent/0 ]] || fail "tt-kmd loaded but bound no chip: /dev/tenstorrent/0 is missing"
 
 bash /ttsim-vm/cmd
 echo $? > /ttsim-vm/exit-code

@@ -10,7 +10,7 @@ namespace tt::umd {
 
 namespace {
 
-std::vector<ChipEventBatch> to_chip_event_batches(std::vector<KeyedDeviceEventBatch>&& keyed_batches) {
+std::vector<ChipEventBatch> to_chip_event_batches(std::vector<KeyedDeviceEventBatch> keyed_batches) {
     std::vector<ChipEventBatch> batches;
     batches.reserve(keyed_batches.size());
     for (KeyedDeviceEventBatch& keyed_batch : keyed_batches) {

@@ -32,12 +32,12 @@
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
-#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/simulation_backend_type.hpp"
 #include "tt-umd/utils/error.hpp"
 
 using namespace tt::umd;
@@ -176,7 +176,7 @@ TEST_F(SimulationServerServing, DeviceInfoNamesTheDevicesArchitecture) {
 
 TEST_F(SimulationServerServing, DeviceNoSimulatorBacksIsDescribedAsTTSimWithoutASimulator) {
     const ChipId chip = devices_.begin()->first;
-    if (get_simulation_backend(*devices_.at(chip)).has_value()) {
+    if (devices_.at(chip)->get_simulation_backend().has_value()) {
         GTEST_SKIP() << "The served device is simulated.";
     }
     const auto server = serve_all();

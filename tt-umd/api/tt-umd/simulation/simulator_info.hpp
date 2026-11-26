@@ -5,15 +5,11 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
 #include <string>
 
-#include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 
 namespace tt::umd {
-
-class TTDevice;
 
 /**
  * The architecture the simulator at simulator_path models: a TTSim .so, or an RTL simulator directory.
@@ -36,15 +32,5 @@ tt::ARCH get_simulator_arch(const std::filesystem::path& simulator_path);
  * Only looks at the filesystem, so it answers the same in every build of UMD.
  */
 std::string find_simulator_soc_descriptor_path(const std::filesystem::path& simulator_path);
-
-/**
- * Which simulator backs device, whether it runs in this process or in a simulation server device is attached to. A
- * remote device is backed by whatever backs the device it is reached through. A device attached to a simulation server
- * that serves a device no simulator backs answers TTSIM, because the server protocol has no other kind.
- *
- * @return std::nullopt for a device no simulator backs, such as silicon reached through the KMD (including a card a
- * ttsim-qemu VM emulates) and every device in a build of UMD without simulation support.
- */
-std::optional<SimulationBackendType> get_simulation_backend(const TTDevice& device);
 
 }  // namespace tt::umd

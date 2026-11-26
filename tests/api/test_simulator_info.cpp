@@ -18,6 +18,7 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 using namespace tt::umd;
 using tt::umd::test_utils::SimulatorLayout;
@@ -63,5 +64,5 @@ TEST(SimulatorInfo, DeviceReachedThroughKmdHasNoSimulationBackend) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    EXPECT_EQ(get_simulation_backend(*cluster->get_tt_device(mmio_chip)), std::nullopt);
+    EXPECT_EQ(cluster->get_tt_device(mmio_chip)->get_simulation_backend(), std::nullopt);
 }

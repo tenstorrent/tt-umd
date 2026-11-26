@@ -148,10 +148,9 @@ public:
     //     that request with a nonzero status and serving goes on.
     //   - GET_DEVICE_INFO: the device's SoC descriptor (architecture, harvesting, NOC translation,
     //     and the descriptor's YAML when it was built from a file) and which simulator backs it
-    //     (get_simulation_backend in simulator_info.hpp), with that simulator's path when the
-    //     device runs on it directly rather than through another chip. A device no simulator backs
-    //     is described as a TTSim device with an empty simulator path, the wire protocol having no
-    //     other kind.
+    //     (TTDevice::get_simulation_backend), with that simulator's path when the device runs on
+    //     it directly rather than through another chip. A device no simulator backs is described
+    //     as a TTSim device with an empty simulator path, the wire protocol having no other kind.
     //   - GET_CLUSTER_DESCRIPTOR: cluster_descriptor, as it was when serve() was called.
     //   - SHUTDOWN: calls shutdown_handler, then acknowledges; without a handler it only
     //     acknowledges, so a stray client cannot stop a server that did not opt in. The handler runs

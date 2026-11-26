@@ -33,14 +33,13 @@ KmdDeviceEventListener::KmdDeviceEventListener(
             device != nullptr, error::RuntimeError, fmt::format("DeviceEventListener device for key {} is null", key));
 
         std::unique_ptr<DeviceEventReader> reader = device->create_event_reader();
-        auto* kmd_reader = dynamic_cast<KmdDeviceEventReader*>(reader.get());
-        if (kmd_reader == nullptr) {
+        if (dynamic_cast<KmdDeviceEventReader*>(reader.get()) == nullptr) {
             uncovered.insert(key);
             continue;
         }
 
-        std::unique_ptr<KmdDeviceEventReader> owned_reader(kmd_reader);
-        reader.release();
+        // The type was checked above, so this cast cannot fail and drop the released reader.
+        std::unique_ptr<KmdDeviceEventReader> owned_reader(dynamic_cast<KmdDeviceEventReader*>(reader.release()));
         entries_.push_back(Entry{key, std::move(owned_reader)});
     }
 

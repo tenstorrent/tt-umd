@@ -219,16 +219,6 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
         return;
     }
 
-    // All ETH cores are expected to run the same FW, established during device discovery.
-    if (expected_eth_fw_version.has_value() && *expected_eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
-        log_warning(
-            LogUMD,
-            "ETH FW version {} is older than minimum version needed for retraining {}. Skipping retrain.",
-            expected_eth_fw_version->to_string(),
-            wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
-        return;
-    }
-
     for (uint32_t attempt = 0; attempt < ETH_RETRAIN_ATTEMPT_COUNT; attempt++) {
         log_debug(LogUMD, "Retraining ETH cores on Wormhole B0 devices, iteration {}.", attempt + 1);
         bool all_eth_cores_trained = true;
@@ -240,6 +230,16 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                                       (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);
                 if (!should_retrain) {
                     continue;
+                }
+
+                SemVer eth_fw_version = get_eth_fw_version(tt_device.get(), eth_core);
+                if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
+                    log_warning(
+                        LogUMD,
+                        "ETH FW version {} is older than minimum version needed for retraining {}. Skipping retrain.",
+                        eth_fw_version.to_string(),
+                        wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
+                    return;
                 }
 
                 log_debug(

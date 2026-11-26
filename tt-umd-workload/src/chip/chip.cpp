@@ -17,7 +17,6 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -50,8 +49,6 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
-
-SysmemManager* Chip::get_sysmem_manager() { return dynamic_cast<SysmemManager*>(get_system_memory_allocator()); }
 
 // Only a chip whose host memory is pinned for its own DMA engine can serve these.
 void Chip::dma_write_zero_copy(const SysmemBuffer&, size_t, size_t, CoreCoord, uint64_t) {

@@ -21,7 +21,6 @@
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
@@ -112,12 +111,10 @@ class TTSimTlbWindowFixture : public TTSimDeviceFixtureBase {};
 // For the tests of the device's own components, which every simulated architecture provides.
 class TTSimDeviceFixture : public TTSimDeviceFixtureBase {};
 
-// A simulated device reaches host memory, so it has an allocator, and it is the same host memory the
-// device's sysmem manager hands out.
-TEST_F(TTSimDeviceFixture, SystemMemoryAllocatorIsTheDevicesHostMemory) {
+// A simulated device reaches host memory, so it has an allocator.
+TEST_F(TTSimDeviceFixture, HasSystemMemoryAllocator) {
     SystemMemoryAllocator* allocator = tt_device->get_system_memory_allocator();
     ASSERT_NE(allocator, nullptr);
-    EXPECT_EQ(allocator, tt_device->get_sysmem_manager());
 
     EXPECT_NE(allocator->allocate_buffer(4096), nullptr);
 }

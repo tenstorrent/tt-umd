@@ -76,8 +76,7 @@ public:
     virtual RiscReset *get_risc_reset() { return nullptr; }
 
     // Lent from the firmware component, which owns them because they read state the firmware
-    // publishes: null until DeviceFirmware::init_firmware() has run. Simulation models keep the
-    // default - a simulated device has no firmware-published state to read.
+    // publishes: a model may return null until DeviceFirmware::init_firmware() has run.
     virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() { return nullptr; }
 
     virtual FirmwareInfoProvider *get_firmware_info_provider() { return nullptr; }

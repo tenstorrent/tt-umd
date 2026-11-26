@@ -82,6 +82,9 @@ private:
     // captured as lookups read at call time. Empty while the firmware reports nothing.
     std::function<FirmwareTelemetryReader *()> telemetry_reader_lookup_;
     std::function<FirmwareInfoProvider *()> info_provider_lookup_;
+    // Served while the firmware reports nothing: the provider is a required component, and a device
+    // whose simulator models no firmware answers every query with "unavailable".
+    std::unique_ptr<FirmwareInfoProvider> simulation_firmware_info_provider_;
 };
 
 }  // namespace tt::umd

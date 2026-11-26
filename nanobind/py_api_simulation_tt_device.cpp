@@ -55,7 +55,11 @@ void bind_simulation_tt_devices(nb::module_ &m) {
             nb::rv_policy::reference_internal,
             "Get the SocDescriptor associated with this simulation device.")
 
-        .def("get_clock", &TTSimTTDevice::get_clock, release_gil(), "Get the clock frequency.")
+        .def(
+            "get_clock",
+            &TTSimTTDevice::get_clock,
+            release_gil(),
+            "Get the current AICLK frequency in MHz, or 0 when the device reports none.")
         .def(
             "get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, release_gil(), "Get the minimum clock frequency.")
         .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.")

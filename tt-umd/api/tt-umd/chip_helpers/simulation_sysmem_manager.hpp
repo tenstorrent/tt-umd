@@ -45,6 +45,9 @@ public:
 
     bool pin_or_map_sysmem_to_device() override;
 
+    // A simulator reaches host memory through this manager, not through a device mapping, so there is
+    // nothing to unbind: the host memory and the buffers mapped into it stay valid until the manager is
+    // destroyed, and a device closed and started again (unpin, then pin) keeps serving from them.
     void unpin_or_unmap_sysmem() override;
 
     std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
@@ -78,8 +81,8 @@ public:
     // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
     // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
     // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
-    // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
-    // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
+    // mapped: the caller must not retain it across its SysmemBuffer's teardown or the manager's
+    // destruction. The registry lock guards the lookup, not the returned pointer's lifetime.
     // This is a pure address translation — the caller owns the access length (the returned bare
     // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
     void* get_mapped_host_ptr(uint64_t device_io_addr);

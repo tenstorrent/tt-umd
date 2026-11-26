@@ -129,16 +129,15 @@ bool SimulationSysmemManager::grow_host_mem_channels(uint32_t num_host_mem_chann
 
 bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 
-SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
-
-void SimulationSysmemManager::unpin_or_unmap_sysmem() {
-    ZoneScopedC(tracy::Color::Yellow);
+SimulationSysmemManager::~SimulationSysmemManager() {
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
     unmap_system_memory();
 }
+
+void SimulationSysmemManager::unpin_or_unmap_sysmem() {}
 
 void SimulationSysmemManager::unmap_system_memory() {
     hugepage_mapping_per_channel.clear();

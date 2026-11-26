@@ -453,5 +453,57 @@ class TestSimulationConnectorWithoutSimulationSupport(unittest.TestCase):
             tt_umd.SimulationConnector.serve(devices, cluster_descriptor)
 
 
+@unittest.skipUnless(
+    SIMULATION_SUPPORTED and os.path.isfile(os.environ.get("TT_UMD_SIMULATOR", "")),
+    "TT_UMD_SIMULATOR does not name a TTSim library",
+)
+class TestSimulatedDeviceQueries(unittest.TestCase):
+    """What a TTSim device and a client attached to it answer; depth is in test_simulated_device_queries.cpp."""
+
+    def discover_host_device(self):
+        options = tt_umd.TopologyDiscoveryOptions()
+        options.simulation = tt_umd.SimulationDiscoveryOptions()
+        options.simulation.simulator_path = os.environ["TT_UMD_SIMULATOR"]
+        _, devices = tt_umd.TopologyDiscovery.discover(options)
+        return devices[0]
+
+    def attach_client_device(self):
+        """A client device of the image served by a host in this process; the host lives as long as the test."""
+        server_directory = tt_umd.SimulationConnector.allocate_server_directory()
+        self.addCleanup(shutil.rmtree, server_directory, ignore_errors=True)
+        host_options = tt_umd.SimulationConnectorOptions()
+        host_options.simulator_directory = os.environ["TT_UMD_SIMULATOR"]
+        host_options.serve_over_sockets = True
+        host_options.server_directory = server_directory
+        self.host = tt_umd.SimulationConnector.discover(host_options)
+        client_options = tt_umd.SimulationConnectorOptions()
+        client_options.simulator_directory = server_directory
+        _, self.client_devices, _ = tt_umd.SimulationConnector.discover(client_options)
+        return self.client_devices[0]
+
+    def tearDown(self):
+        # Clients detach before the host stops serving.
+        self.client_devices = None
+        self.host = None
+        gc.collect()
+
+    def test_wormhole_or_blackhole_device_reports_a_1000_mhz_clock(self):
+        device = self.discover_host_device()
+        if device.get_arch() == tt_umd.ARCH.QUASAR:
+            self.skipTest("Quasar TTSim devices report no AICLK.")
+        self.assertEqual(device.get_clock(), 1000)
+
+    def test_device_has_a_communication_id_of_its_own(self):
+        self.assertNotEqual(
+            self.discover_host_device().get_communication_device_id(), -1
+        )
+
+    def test_client_reports_no_clock(self):
+        self.assertEqual(self.attach_client_device().get_clock(), 0)
+
+    def test_client_has_no_communication_id_of_its_own(self):
+        self.assertEqual(self.attach_client_device().get_communication_device_id(), -1)
+
+
 if __name__ == "__main__":
     unittest.main()

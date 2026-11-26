@@ -401,9 +401,10 @@ public:
     /**
      * @brief Retrieves the current AICLK frequency, read from the telemetry the firmware publishes.
      *
-     * @return uint32_t Current AICLK frequency in MHz.
-     * @throws error::UninitializedDeviceError before init_tt_device() has run.
-     * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
+     * @return uint32_t Current AICLK frequency in MHz, or 0 when the device reports no AICLK (e.g. a
+     * simulator that models no firmware telemetry).
+     * @throws error::UninitializedDeviceError before init_tt_device() has run, on a device whose firmware
+     * publishes telemetry.
      */
     uint32_t get_clock() const;
 
@@ -443,6 +444,13 @@ public:
 
     uint64_t get_refclk_counter() const;
 
+    /**
+     * @brief Identifier of the underlying communication link: the local PCIe device index, J-Link ID or
+     * remote node ID, depending on the transport.
+     *
+     * A simulated device whose simulator this process drives answers an id unique to this process; a
+     * simulation-server client, which has no link of its own, answers -1.
+     */
     int get_communication_device_id() const;
 
     IODeviceType get_communication_device_type() const;

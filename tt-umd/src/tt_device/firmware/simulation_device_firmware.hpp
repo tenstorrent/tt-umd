@@ -53,7 +53,7 @@ public:
     // never applied.
     bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return false; }
 
-    // There is no FirmwareInfoProvider on a simulator, so the defaults mirror the ones
+    // A simulator publishes no chip info, so the defaults mirror the ones
     // TTSimTTDevice::create() uses. Blackhole SocDescriptor construction rejects an empty
     // eth_harvesting_mask ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so
     // the same 0x3000 default is applied here -- what TTSim's own ENABLED_ETH telemetry works out

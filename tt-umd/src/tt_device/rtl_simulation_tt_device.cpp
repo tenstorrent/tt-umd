@@ -43,6 +43,7 @@
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt_device/protocol/simulation_noc_protocol.hpp"
+#include "tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt_device/reset/rtl_sim_risc_reset.hpp"
 #include "tt_device/reset/tsc_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
@@ -255,8 +256,13 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     layout_device_(std::move(layout_device)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    // Only this process serves the sockets this device talks over, so its communication id has to be
+    // unique to this process.
+    if (auto* protocol = dynamic_cast<TTSimProtocol*>(get_device_protocol())) {
+        protocol->serve_in_process(static_cast<int>(chip_id));
+    }
     setup_noc_address_resolver();
-    get_simulation_model()->set_risc_reset(make_risc_reset(chip_id));
+    get_simulation_model()->set_risc_reset(make_risc_reset());
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -323,7 +329,7 @@ void RtlSimulationTTDevice::setup_noc_address_resolver() {
     global_address_mode_ = true;
 }
 
-std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset(ChipId chip_id) {
+std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset() {
     const std::optional<tt::IpVariant> variant = get_soc_descriptor().get_arch_descriptor().get_ip_variant();
     const auto* const known =
         std::find_if(std::begin(TILE_RESETS), std::end(TILE_RESETS), [&](const VariantTileReset& reset) {
@@ -332,7 +338,7 @@ std::unique_ptr<RiscReset> RtlSimulationTTDevice::make_risc_reset(ChipId chip_id
     if (known == std::end(TILE_RESETS)) {
         return std::make_unique<RtlSimRiscReset>(communicator_.get(), get_soc_descriptor().arch, device_lock);
     }
-    noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, static_cast<int>(chip_id));
+    noc_protocol_ = std::make_unique<SimulationNocProtocol>(this, get_communication_device_id());
     return std::make_unique<TscRiscReset>(noc_protocol_.get(), *known->layout);
 }
 

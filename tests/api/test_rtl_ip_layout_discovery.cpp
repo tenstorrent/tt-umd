@@ -28,6 +28,7 @@
 #include "tests/test_utils/simulator_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
@@ -215,4 +216,28 @@ TEST_F(RtlIpLayoutDiscovery, ClusterLeavesLaunchingToAnotherProcess) {
 
     EXPECT_EQ(cluster.get_target_device_ids(), (std::set<ChipId>{0, 1}));
     EXPECT_FALSE(launched_within(std::chrono::seconds(2)));
+}
+
+// An RTL simulator publishes no firmware telemetry, so its devices report no clock rather than failing to.
+TEST_F(RtlIpLayoutDiscovery, DiscoveredDeviceReportsNoClock) {
+    simulate_device(0);
+    simulate_device(1);
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(served_by_another_process());
+
+    EXPECT_EQ(devices.at(0)->get_clock(), 0u);
+    EXPECT_EQ(devices.at(0)->get_firmware_info_provider()->get_clock_freq(), std::nullopt);
+}
+
+// The cross-process locks of a device are named after its communication id, so each device of a build needs an id of
+// its own: neither the -1 of a device without a communication context nor the id of another device.
+TEST_F(RtlIpLayoutDiscovery, DiscoveredDevicesHaveCommunicationIdsOfTheirOwn) {
+    simulate_device(0);
+    simulate_device(1);
+
+    const auto [cluster_desc, devices] = TopologyDiscovery::discover(served_by_another_process());
+
+    EXPECT_NE(devices.at(0)->get_communication_device_id(), -1);
+    EXPECT_NE(devices.at(1)->get_communication_device_id(), -1);
+    EXPECT_NE(devices.at(0)->get_communication_device_id(), devices.at(1)->get_communication_device_id());
 }

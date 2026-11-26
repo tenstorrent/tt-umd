@@ -42,6 +42,11 @@ public:
     // before the TTDevice that consumes them, so this cannot be a constructor argument.
     void attach(SimulationTTDevice* device, TTSimCommunicator* communicator, int chip_id);
 
+    // Marks the device as reachable only from this process, as chip chip_id: get_mmio_id() answers
+    // process_local_mmio_id(chip_id) from here on. attach() does this for TTSim; a backend whose
+    // I/O does not go through this protocol (RTL simulation) calls it alone.
+    void serve_in_process(int chip_id);
+
     TTSimCommunicator* get_communicator() const { return communicator_; }
 
     // --- DeviceProtocol ---
@@ -83,10 +88,7 @@ private:
     SimulationTTDeviceModel* model_ = nullptr;
     SimulationTTDevice* device_ = nullptr;
     TTSimCommunicator* communicator_ = nullptr;
-    // -1 until attach() runs. RTL simulation and client mode build this model but never attach a
-    // transport to it, and a device with no MMIO endpoint is what
-    // TTDevice::get_communication_device_id() reports as -1. Defaulting to 0 would instead have
-    // those devices claim MMIO device 0.
+    // -1 until attach() runs.
     int chip_id_ = -1;
     // What get_mmio_id() answers: the endpoint's PCI device number qualified by this process -- the
     // pid, with the chip id in the low 5 bits. A simulated endpoint exists only inside the process
@@ -95,8 +97,11 @@ private:
     // with every other, and with silicon's PCI device of the same number.
     //
     // Chip ids are below 32 in BDF mode, which TTSimCommunicator asserts, and Linux caps pids at
-    // 2^22, so the composed value stays well inside an int. Resolved once at attach() rather than
-    // read live, so a process which forks after its devices are up keeps the names it registered.
+    // 2^22, so the composed value stays well inside an int. Resolved once at serve_in_process() rather
+    // than read live, so a process which forks after its devices are up keeps the names it registered.
+    //
+    // -1 for a device no simulator in this process serves (a simulation-server client): it has no
+    // MMIO endpoint of its own, and defaulting to 0 would have it claim MMIO device 0.
     int mmio_id_ = -1;
     uint64_t bar0_base_ = 0;
     bool bar0_base_read_ = false;

@@ -124,7 +124,7 @@ protected:
 private:
     // The RiscReset this device gives its model: the tile reset of the IP variant the SoC descriptor
     // names, when this build knows one, and otherwise the testbench's reset commands.
-    std::unique_ptr<RiscReset> make_risc_reset(ChipId chip_id);
+    std::unique_ptr<RiscReset> make_risc_reset();
 
     // Install the flat-address resolvers when the environment names an ATT map: each access point's,
     // and the one this device talks over for its own IO. Host mode only: a client hands the host a

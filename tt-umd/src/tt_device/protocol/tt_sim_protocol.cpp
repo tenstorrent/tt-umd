@@ -22,7 +22,7 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     device_ = device;
     communicator_ = communicator;
     chip_id_ = chip_id;
-    mmio_id_ = process_local_mmio_id(chip_id);
+    serve_in_process(chip_id);
     // The transport works from here on, so the architecture's own firmware can read this device
     // rather than a simulation firmware reporting defaults it cannot know.
     if (model_ != nullptr) {
@@ -68,6 +68,8 @@ bool TTSimProtocol::write_to_core_range(
     NocId /*noc_id*/) {
     return false;
 }
+
+void TTSimProtocol::serve_in_process(int chip_id) { mmio_id_ = process_local_mmio_id(chip_id); }
 
 int TTSimProtocol::get_mmio_id() { return mmio_id_; }
 

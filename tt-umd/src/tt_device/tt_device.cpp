@@ -425,8 +425,8 @@ void TTDevice::wait_for_non_mmio_flush() {
 
 bool TTDevice::is_remote() const { return model_->get_remote_interface() != nullptr; }
 
-// A simulation model reaches its device in-process, so it has no protocol and no communication
-// device to be addressed within.
+// The transport is what knows the communication context a device is addressed within; a model with no
+// transport has none.
 int TTDevice::get_communication_device_id() const {
     DeviceProtocol *device_protocol = model_->get_device_protocol();
     return device_protocol != nullptr ? device_protocol->get_mmio_id() : -1;
@@ -482,11 +482,7 @@ ChipInfo TTDevice::get_chip_info() {
 uint32_t TTDevice::get_max_clock_freq() const { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
 uint32_t TTDevice::get_clock() const {
-    const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
-    if (!aiclk.has_value()) {
-        UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
-    }
-    return *aiclk;
+    return get_firmware_info_provider()->get_clock_freq(get_selected_noc_id()).value_or(0);
 }
 
 uint32_t TTDevice::get_min_clock_freq() const { return model_->get_architecture_impl()->get_min_clock_freq(); }

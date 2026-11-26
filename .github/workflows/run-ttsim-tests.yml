@@ -439,7 +439,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x2
         timeout-minutes: 2
@@ -448,7 +448,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:TTSimDeclaredSingleChipBoards.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:TTSimDeclaredSingleChipBoards.*:SimulatedDeviceQueries.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
         timeout-minutes: 5
@@ -465,7 +465,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
 
       # wh_x2 is the case the remote half of the test is for: one PCI endpoint, two chips, the second
       # reached only over ethernet.
@@ -476,7 +476,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
 
       # The wormhole galaxy steps below take all 32 chips from discovery, so check it finds them.
       - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x32
@@ -530,7 +530,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="OneChipSimulatorTopology.*:TTSimDeclaredQuasar.*:RtlBuildTargetDevices.*"
+            --gtest_filter="OneChipSimulatorTopology.*:TTSimDeclaredQuasar.*:RtlBuildTargetDevices.*:SimulatedDeviceQueries.*"
 
       # RtlIpLayoutDiscovery fakes an RTL build with an ip_layout.yaml: a thread per socket plays the
       # simulator, so it needs no simulator of its own. Closing each fake device takes ~5 s.

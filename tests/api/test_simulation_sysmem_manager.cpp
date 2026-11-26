@@ -767,3 +767,32 @@ TEST_P(ApiSimulationSysmemManagerByArch, SimultaneousChipMappingsHaveDistinctHos
     EXPECT_EQ(*static_cast<uint8_t*>(a->get_va()), first_value);
     EXPECT_EQ(*static_cast<uint8_t*>(b->get_va()), second_value);
 }
+
+// A simulator reaches host memory through the manager, so unpinning unbinds nothing: a device closed and started
+// again (unpin, then pin) still serves what was written to its host memory before.
+TEST_P(ApiSimulationSysmemManagerByArch, HostMemoryKeepsItsDataAcrossUnpinAndPin) {
+    SimulationSysmemManager sysmem(1, GetParam());
+    const std::vector<uint8_t> pattern = {0xC0, 0xFF, 0xEE, 0x42};
+    sysmem.write_to_sysmem(0, pattern.data(), 0, pattern.size());
+
+    sysmem.unpin_or_unmap_sysmem();
+    sysmem.pin_or_map_sysmem_to_device();
+
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    sysmem.read_from_sysmem(0, readback.data(), 0, readback.size());
+    EXPECT_EQ(readback, pattern);
+}
+
+TEST_P(ApiSimulationSysmemManagerByArch, MappedBufferStaysReachableAcrossUnpinAndPin) {
+    SimulationSysmemManager sysmem(1, GetParam());
+    auto buffer = sysmem.allocate_sysmem_buffer(4096, /*map_to_noc=*/true);
+    const std::vector<uint8_t> pattern = {0xC0, 0xFF, 0xEE, 0x42};
+    buffer->write_to_sysmem(pattern.data(), pattern.size(), 0);
+
+    sysmem.unpin_or_unmap_sysmem();
+    sysmem.pin_or_map_sysmem_to_device();
+
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    ASSERT_TRUE(sysmem.read_mapped_buffer(buffer->get_iova(), readback.data(), readback.size()));
+    EXPECT_EQ(readback, pattern);
+}

@@ -54,12 +54,15 @@ public:
     // Named distinctly from create() because ChipId is an alias for int, which
     // would otherwise produce a duplicate signature. pci_bdf is the chip's endpoint as
     // TTSimCommunicator::enumerate_mmio_device_bdfs() reported it; unset, the communicator finds it.
+    // soc_arch_descriptor is the layout the device's SoC descriptor is built from; unset, the
+    // simulator's own (the soc_descriptor.yaml beside it, else the architecture's built-in one).
     static std::unique_ptr<TTSimTTDevice> create_for_chip(
         const std::filesystem::path &simulator_directory,
         ChipId chip_id,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        std::optional<uint32_t> pci_bdf = std::nullopt);
+        std::optional<uint32_t> pci_bdf = std::nullopt,
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr);
 
     // Builds a client-mode device from device identity the connector already fetched over the
     // socket (build_soc_descriptor(device_info)); discovery uses this for a client that talks to a

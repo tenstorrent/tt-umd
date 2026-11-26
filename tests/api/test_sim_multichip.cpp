@@ -585,9 +585,12 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsAreBuiltAsRemoteChips) {
 }
 
 // Discovery reaches a remote chip over the first trained gateway link it finds, but each link's ethernet core has its
-// own command queue, so the chip has to tunnel over all of them. wh_x2 is the only image with a chip reached over
-// ethernet: the remote half of an N300, joined to its gateway by two links.
+// own command queue, so the chip has to tunnel over every active link of its gateway. Keyed by the image's chip count
+// (specs/ttsim/multichip.md "Which images exist"): wh_x2's gateway has the 2 links of its N300, each wh_x8 gateway has
+// 2 links to each of its 3 neighbours in the 4x2 mesh.
 TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
+    static const std::map<size_t, size_t> gateway_links_by_chip_count = {{2, 2}, {8, 6}};
+
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
     options.simulator_directory = simulator_path_;
@@ -598,12 +601,14 @@ TEST_F(TTSimDiscoveryTest, RemoteChipsTunnelOverEveryActiveGatewayLink) {
     if (remote_chips.empty()) {
         GTEST_SKIP() << "This image models no chip reached over ethernet.";
     }
+    const auto gateway_links = gateway_links_by_chip_count.find(cluster.get_target_device_ids().size());
+    ASSERT_NE(gateway_links, gateway_links_by_chip_count.end()) << "no known image has this many chips";
 
     for (const ChipId chip : remote_chips) {
         RemoteCommunication* remote_communication = cluster.get_chip(chip)->get_tt_device()->get_remote_communication();
         ASSERT_NE(remote_communication, nullptr) << "remote chip " << chip << " has no RemoteCommunication";
-        EXPECT_EQ(remote_communication->get_remote_transfer_ethernet_cores().size(), 2u)
-            << "remote chip " << chip << " does not tunnel over both N300 links";
+        EXPECT_EQ(remote_communication->get_remote_transfer_ethernet_cores().size(), gateway_links->second)
+            << "remote chip " << chip << " does not tunnel over every active link of its gateway";
     }
 }
 

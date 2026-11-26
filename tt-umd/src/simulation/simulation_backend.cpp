@@ -291,7 +291,9 @@ public:
     }
 
     std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
-        const std::filesystem::path& simulator_path, int num_host_mem_channels) const override {
+        const std::filesystem::path& simulator_path,
+        int num_host_mem_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) const override {
         UMD_ASSERT(
             simulator_path.extension() == ".so",
             error::RuntimeError,
@@ -317,7 +319,7 @@ public:
             devices.emplace(
                 chip_id,
                 TTSimTTDevice::create_for_chip(
-                    simulator_path, chip_id, num_host_mem_channels, bdfs.size(), bdfs[index]));
+                    simulator_path, chip_id, num_host_mem_channels, bdfs.size(), bdfs[index], soc_arch_descriptor));
         }
         log_debug(tt::LogEmulationDriver, "Simulator {} exposes {} endpoint(s)", simulator_path.string(), bdfs.size());
         return devices;

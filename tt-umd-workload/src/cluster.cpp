@@ -142,7 +142,7 @@ void Cluster::log_pci_device_summary() {
     log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
-void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
+void Cluster::construct_cluster(const ChipType& chip_type) {
     ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
@@ -172,11 +172,20 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
     }
 
-    // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
-    // Galaxy, or P300).
-    // The ethernet firmware also requires host memory for broadcasting.
-    bool use_ethernet_broadcast = chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 &&
-                                  !remote_chip_ids_.empty() && num_host_mem_ch_per_mmio_device > 0;
+    // Broadcast through the Ethernet firmware only on WH clusters with chips reached over Ethernet: BH devices and WH
+    // clusters whose chips all have MMIO (e.g. UBB Galaxy, or P300) don't depend on the Ethernet firmware. A remote
+    // chip with no device (a mock one) has no gateway to broadcast through. The firmware stages broadcasts in the
+    // gateways' host memory, so every gateway needs some.
+    const bool has_chips_reached_over_ethernet =
+        std::any_of(remote_chip_ids_.begin(), remote_chip_ids_.end(), [this](ChipId chip_id) {
+            return chips_.at(chip_id)->get_tt_device() != nullptr;
+        });
+    const bool gateways_have_host_memory =
+        std::all_of(remote_communications_.begin(), remote_communications_.end(), [](const auto& gateway) {
+            return gateway.second->has_sysmem_manager();
+        });
+    const bool use_ethernet_broadcast =
+        arch_name == tt::ARCH::WORMHOLE_B0 && has_chips_reached_over_ethernet && gateways_have_host_memory;
     if (use_ethernet_broadcast) {
         ChipId first_mmio_chip = *local_chip_ids_.begin();
         std::unordered_map<ChipId, ChipId> chip_to_mmio_chip;
@@ -481,7 +490,7 @@ Cluster::Cluster(ClusterOptions options) {
                 std::move(tt_device)));
     }
 
-    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+    construct_cluster(options.chip_type);
 
     // Served once the cluster is whole, so that the remote chips are reachable too. A client cluster's devices are
     // already another process's served ones.
@@ -834,41 +843,51 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude,
     bool use_translated_coords) {
-    if (!ethernet_broadcast_) {
-        // Broadcast not supported. Implement this at the software level as a for loop.
-        // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
-        // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
-        // use_translated_coords is false, or in translated space when true.
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            if (use_translated_coords && arch_name == tt::ARCH::WORMHOLE_B0) {
-                // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED
-                // coordinates are requested, so we need to manually adjust the exclusion list to include NOC0
-                // coordinates of DRAM cores if they're requested in translated space.
-                if (columns_to_exclude.find(16) != columns_to_exclude.end()) {
-                    columns_to_exclude.insert(0);
-                }
-                if (columns_to_exclude.find(17) != columns_to_exclude.end()) {
-                    columns_to_exclude.insert(5);
-                }
-            }
-            for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
-                for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
-                         core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
-                    if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
-                        rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                    }
+    if (ethernet_broadcast_ != nullptr) {
+        const bool broadcast_by_firmware = ethernet_broadcast_->broadcast_write_to_cluster(
+            mem_ptr,
+            size_in_bytes,
+            address,
+            chips_to_exclude,
+            rows_to_exclude,
+            columns_to_exclude,
+            use_translated_coords);
+        if (broadcast_by_firmware) {
+            return;
+        }
+    }
+
+    // No Ethernet broadcast, or one the firmware can't deliver exactly: write each core from here.
+    // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
+    // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
+    // use_translated_coords is false, or in translated space when true.
+    // Adjusted on a copy, so the caller's sets stay valid for a later Ethernet broadcast.
+    std::set<uint32_t> columns_to_skip = columns_to_exclude;
+    if (use_translated_coords && arch_name == tt::ARCH::WORMHOLE_B0) {
+        // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED
+        // coordinates are requested, so we need to manually adjust the exclusion list to include NOC0
+        // coordinates of DRAM cores if they're requested in translated space.
+        if (columns_to_skip.find(16) != columns_to_skip.end()) {
+            columns_to_skip.insert(0);
+        }
+        if (columns_to_skip.find(17) != columns_to_skip.end()) {
+            columns_to_skip.insert(5);
+        }
+    }
+    for (const auto& chip : all_chip_ids_) {
+        if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
+            continue;
+        }
+        for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
+                     core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
+                if (columns_to_skip.find(core.x) == columns_to_skip.end() &&
+                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
                 }
             }
         }
-        return;
     }
-
-    ethernet_broadcast_->broadcast_write_to_cluster(
-        mem_ptr, size_in_bytes, address, chips_to_exclude, rows_to_exclude, columns_to_exclude, use_translated_coords);
 }
 
 void Cluster::write_to_sysmem(

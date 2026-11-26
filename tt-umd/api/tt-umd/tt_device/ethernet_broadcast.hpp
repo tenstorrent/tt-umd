@@ -33,7 +33,16 @@ public:
     // remote chip.
     EthernetBroadcast(RemoteCommunication* mmio_remote_comms);
 
-    void broadcast_write_to_cluster(
+    /**
+     * Writes the data to the cores of every chip not excluded, through the Ethernet firmware of the gateway chips.
+     *
+     * @return false, having written nothing, when the Ethernet firmware cannot deliver to exactly the requested chips
+     * and cores; the caller then writes them some other way.
+     * @throws RuntimeError, even where it would otherwise return false, when the exclusions leave both DRAM cores and
+     * Tensix or Ethernet cores in the broadcast, when, with NOC0 coordinates, they exclude some but not all Tensix
+     * rows, or when a row or column lies outside the selected coordinate space.
+     */
+    [[nodiscard]] bool broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
         uint64_t address,
@@ -75,6 +84,13 @@ private:
 
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
+
+    // Whether the gateways' Ethernet firmware writes exactly the chips and cores this broadcast selects. The
+    // exclusions are in virtual coordinates.
+    bool firmware_delivers_exactly(
+        const std::set<ChipId>& chips_to_exclude,
+        const std::set<uint32_t>& rows_to_exclude_virtual,
+        const std::set<uint32_t>& cols_to_exclude_virtual) const;
 
     bool single_remote_chip_ = false;
 

@@ -49,7 +49,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     ChipId chip_id,
     int num_host_mem_channels,
     size_t num_chips,
-    std::optional<uint32_t> pci_bdf) {
+    std::optional<uint32_t> pci_bdf,
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor) {
     const tt::ARCH arch = get_simulator_arch(simulator_directory);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
@@ -60,9 +61,11 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         // descriptor built here disagree with the one discovery builds from telemetry.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
     }
-    const std::string soc_desc_path = find_simulator_soc_descriptor_path(simulator_directory);
-    auto soc_arch_descriptor = soc_desc_path.empty() ? std::make_shared<SocArchDescriptor>(arch)
-                                                     : std::make_shared<SocArchDescriptor>(soc_desc_path);
+    if (soc_arch_descriptor == nullptr) {
+        const std::string soc_desc_path = find_simulator_soc_descriptor_path(simulator_directory);
+        soc_arch_descriptor = soc_desc_path.empty() ? std::make_shared<SocArchDescriptor>(arch)
+                                                    : std::make_shared<SocArchDescriptor>(soc_desc_path);
+    }
     SocDescriptor soc_descriptor = SocDescriptor(soc_arch_descriptor, chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, chip_id, num_host_mem_channels, num_chips, pci_bdf);

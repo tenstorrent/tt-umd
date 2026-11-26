@@ -15,7 +15,6 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
-#include "tt-umd/types/simulation_backend_type.hpp"
 
 namespace tt::umd {
 
@@ -86,21 +85,6 @@ bool RemoteProtocol::write_to_core_range(
                 "falling back to unicast");
             return false;
         }
-        // TTSim's Ethernet firmware writes a broadcast to every Tensix of the targeted chip and ignores the exclusion
-        // masks, so it is given only ranges that span the whole Tensix grid.
-        const bool spans_tensix_grid =
-            core_start.x <= wormhole::tensix_translated_coordinate_start_x &&
-            core_start.y <= wormhole::tensix_translated_coordinate_start_y &&
-            core_end.x >= wormhole::tensix_translated_coordinate_start_x + wormhole::TENSIX_GRID_SIZE.x - 1 &&
-            core_end.y >= wormhole::tensix_translated_coordinate_start_y + wormhole::TENSIX_GRID_SIZE.y - 1;
-        if (!spans_tensix_grid &&
-            remote_communication_->get_local_device()->get_simulation_backend() == SimulationBackendType::TTSIM) {
-            log_debug(
-                LogUMD,
-                "write_to_core_range: TTSim broadcasts to the whole Tensix grid, falling back to unicast for a partial "
-                "range");
-            return false;
-        }
         // Always filter out the non-TENSIX cores.
         rows_to_exclude = {16, 17};
         columns_to_exclude = {16, 17};
@@ -121,10 +105,9 @@ bool RemoteProtocol::write_to_core_range(
         }
     }
 
-    ethernet_broadcast_->broadcast_write_to_cluster(
+    // False when the Ethernet firmware can't write exactly this range; the caller then unicasts.
+    return ethernet_broadcast_->broadcast_write_to_cluster(
         mem_ptr, size_in_bytes, address, {}, rows_to_exclude, columns_to_exclude, use_translated_coords);
-
-    return true;
 }
 
 int RemoteProtocol::get_mmio_id() { return remote_communication_->get_local_device()->get_communication_device_id(); }

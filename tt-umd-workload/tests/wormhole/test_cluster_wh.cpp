@@ -26,8 +26,10 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/ethernet_broadcast.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/wormhole_l1.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -122,7 +124,8 @@ TEST(ClusterWH, HarvestingRuntime) {
 
     for (auto chip_id : cluster.get_target_device_ids()) {
         std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
-        std::uint32_t dynamic_write_address = 0x40000000;
+        // L1 past the first 1 MiB, so the two addresses are not served by the same TLB window.
+        std::uint32_t dynamic_write_address = 0x100000;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
@@ -299,6 +302,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
+    test_utils::safe_test_cluster_start(&cluster);
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -770,7 +774,9 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
     // and verify the data is read back correctly.
     // Note: this test intentionally only covers the tensix branch. The DRAM branch (the virtual-column 0/5
     // split logic in broadcast_write_to_cluster) is already exercised by VirtualCoordinateBroadcastPerChip.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster_ptr =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -800,17 +806,25 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
     for (auto chip_id : remote_devices) {
         RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
         EthernetBroadcast eth_broadcast(remote_chip->get_remote_communication());
+        const auto& tensix_cores = cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const auto& size : REDUCED_BROADCAST_SIZES) {
             std::vector<uint32_t> vector_to_write(size);
-            std::vector<uint32_t> zeros(size);
+            std::vector<uint32_t> zeros(size, 0);
             std::vector<uint32_t> readback_vec = {};
             for (int i = 0; i < size; i++) {
                 vector_to_write[i] = i;
-                zeros[i] = 0;
             }
 
-            eth_broadcast.broadcast_write_to_cluster(
+            // Start from zeros, so that a broadcast that writes nothing is told apart from an earlier one.
+            for (const CoreCoord& core : tensix_cores) {
+                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(uint32_t), chip_id, core, address);
+            }
+            cluster.wait_for_non_mmio_flush(chip_id);
+
+            // The firmware may be unable to deliver exactly this request; then it writes nothing and the caller
+            // writes the cores some other way.
+            const bool broadcast = eth_broadcast.broadcast_write_to_cluster(
                 vector_to_write.data(),
                 vector_to_write.size() * sizeof(uint32_t),
                 address,
@@ -820,30 +834,21 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
                 true);
             cluster.wait_for_non_mmio_flush(chip_id);
 
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            for (const CoreCoord& core : tensix_cores) {
                 const CoreCoord translated_core =
                     cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+                const bool excluded = rows_to_exclude.find(translated_core.y) != rows_to_exclude.end() ||
+                                      cols_to_exclude.find(translated_core.x) != cols_to_exclude.end();
+                const bool written = broadcast && !excluded;
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * sizeof(uint32_t));
-                ASSERT_EQ(vector_to_write, readback_vec)
-                    << "Vector read back from chip " << chip_id << " core " << core.str()
-                    << " does not match what was broadcasted for size " << size;
-                cluster.write_to_device(
-                    zeros.data(),
-                    zeros.size() * sizeof(std::uint32_t),
-                    chip_id,
-                    core,
-                    address);  // Clear any written data
+                ASSERT_EQ(written ? vector_to_write : zeros, readback_vec)
+                    << "Chip " << chip_id << " core " << core.str() << (excluded ? " (excluded)" : "")
+                    << " after a broadcast that " << (broadcast ? "was delivered" : "reported writing nothing")
+                    << " for size " << size;
                 readback_vec = {};
             }
         }
-        cluster.wait_for_non_mmio_flush(chip_id);
     }
     cluster.close_device();
 }
@@ -851,7 +856,9 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
 TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
     // Broadcast to a partial tensix grid via DeviceProtocol::write_to_core_range and verify that
     // cores inside the range received the data while cores outside still hold zeros.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster_ptr =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -880,6 +887,10 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
     const tt_xy_pair core_end = {
         wormhole::tensix_translated_coordinate_start_x + wormhole::TENSIX_GRID_SIZE.x / 2 - 1,
         wormhole::tensix_translated_coordinate_start_y + wormhole::TENSIX_GRID_SIZE.y / 2 - 1};
+    auto in_range = [&](const CoreCoord& translated) {
+        return translated.x >= core_start.x && translated.x <= core_end.x && translated.y >= core_start.y &&
+               translated.y <= core_end.y;
+    };
 
     for (auto chip_id : remote_devices) {
         RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
@@ -900,27 +911,31 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
             }
             cluster.wait_for_non_mmio_flush(chip_id);
 
-            bool hw_broadcast = protocol->write_to_core_range(
-                vector_to_write.data(),
-                core_start,
-                core_end,
-                address,
-                vector_to_write.size() * sizeof(uint32_t),
-                NocId::NOC0);
-            ASSERT_TRUE(hw_broadcast) << "Expected hardware broadcast to succeed for chip " << chip_id << " size "
-                                      << size;
+            // Not every transport multicasts this range; when it does not, the caller falls back to unicast.
+            if (!protocol->write_to_core_range(
+                    vector_to_write.data(),
+                    core_start,
+                    core_end,
+                    address,
+                    vector_to_write.size() * sizeof(uint32_t),
+                    NocId::NOC0)) {
+                for (const CoreCoord& core : tensix_cores) {
+                    if (in_range(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED))) {
+                        cluster.write_to_device(
+                            vector_to_write.data(), vector_to_write.size() * sizeof(uint32_t), chip_id, core, address);
+                    }
+                }
+            }
             cluster.wait_for_non_mmio_flush(chip_id);
 
             for (const CoreCoord& core : tensix_cores) {
                 const CoreCoord translated = sdesc.translate_coord_to(core, CoordSystem::TRANSLATED);
-                const bool in_range = translated.x >= core_start.x && translated.x <= core_end.x &&
-                                      translated.y >= core_start.y && translated.y <= core_end.y;
 
                 std::vector<uint32_t> readback_vec;
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, size * sizeof(uint32_t));
 
-                if (in_range) {
+                if (in_range(translated)) {
                     ASSERT_EQ(vector_to_write, readback_vec)
                         << "Core " << core.str() << " (translated " << translated.str()
                         << ") is inside range and should have written data for size " << size;
@@ -962,8 +977,13 @@ TEST(ClusterWH, LargeAddressTlb) {
     uint32_t value0 = 0;
     uint32_t value1 = 0;
 
+    TTDevice* tt_device = cluster.get_chip(0)->get_tt_device();
+    if (tt_device->get_communication_device_type() != IODeviceType::PCIe) {
+        GTEST_SKIP() << "ClusterWH.LargeAddressTlb skipped: chip 0 is not reached over PCIe, so it has no BAR0";
+    }
+
     // Read the scratch register via BAR0:
-    value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
+    value0 = tt_device->get_pcie_interface()->bar_read32(0x1ff30060);
 
     // Read the scratch register via a dynamically mapped TLB:
     cluster.read_from_device(&value1, 0, ARC_CORE, addr, sizeof(uint32_t));

@@ -559,6 +559,15 @@ jobs:
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
             --gtest_filter="TestDeviceIOFixture.*:*TestMulticastWriteFixture.*"
 
+      # Broadcast writes and the start_device reset reach the Ethernet-reached chip like on an N300.
+      - name: Run UMD cluster broadcast tests on tt-sim wormhole x2
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="*ClusterBroadcastWrite*.*:ClusterStartDeviceReset.*"
+
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1
         env:

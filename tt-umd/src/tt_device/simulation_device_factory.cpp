@@ -29,7 +29,8 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
 
 std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
     const std::filesystem::path &simulator_path, int num_host_mem_channels) {
-    return simulation_backend().create_local_simulation_tt_devices(simulator_path, num_host_mem_channels);
+    return simulation_backend().create_local_simulation_tt_devices(
+        simulator_path, num_host_mem_channels, /*soc_arch_descriptor=*/nullptr);
 }
 
 }  // namespace tt::umd

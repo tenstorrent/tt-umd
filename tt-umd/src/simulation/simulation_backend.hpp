@@ -23,6 +23,7 @@
 namespace tt::umd {
 
 class ClusterDescriptor;
+class SocArchDescriptor;
 class SocDescriptor;
 class TTDevice;
 
@@ -91,13 +92,15 @@ public:
 
     /**
      * Open one device per host-visible endpoint of the simulator image at simulator_path, each with
-     * num_host_mem_channels host memory channels: the simulator's counterpart of enumerating PCIe devices and opening
-     * each one.
+     * num_host_mem_channels host memory channels and a SoC descriptor built from soc_arch_descriptor (the simulator's
+     * own when null): the simulator's counterpart of enumerating PCIe devices and opening each one.
      *
      * @return The devices keyed by chip id, in endpoint order.
      */
     virtual std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
-        const std::filesystem::path& simulator_path, int num_host_mem_channels) const = 0;
+        const std::filesystem::path& simulator_path,
+        int num_host_mem_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) const = 0;
 
     /**
      * Open the device for chip_id, one of the num_chips MMIO-capable chips of a topology known without enumerating the

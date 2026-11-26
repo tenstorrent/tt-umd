@@ -8,6 +8,7 @@ target_sources(
     PRIVATE
         api/test_chip.cpp
         api/test_cluster.cpp
+        api/test_cluster_broadcast.cpp
         api/test_cluster_options.cpp
         api/test_device_io.cpp
         api/test_risc_program.cpp

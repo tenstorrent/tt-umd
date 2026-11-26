@@ -51,6 +51,11 @@ inline constexpr std::array<uint32_t, 6> counter_brisc_program{
     0xff5ff06f,  // jal     zero, -12        ; jump back to .L2
 };
 
+// L1 word the BRISC configuration programs below set to 1 once the TRISC and NCRISC reset PCs are
+// programmed. The host waits for it before releasing those RISCs, since BRISC runs asynchronously
+// after its own reset is deasserted.
+inline constexpr uint32_t BRISC_CONFIGURATION_DONE_ADDRESS = 0x1000;
+
 /*
 godbolt link example:
     - https://godbolt.org/z/h3snvs595
@@ -78,10 +83,12 @@ source code:
         *trisc2_code_start_reg_addr = 0x4'0000;
         *ncrisc_code_start_reg_addr = 0x5'0000;
 
+        *(unsigned int*)BRISC_CONFIGURATION_DONE_ADDRESS = 1;
+
         while (true);
     }
 */
-inline constexpr std::array<uint32_t, 14> wh_brisc_configuration_program{
+inline constexpr std::array<uint32_t, 17> wh_brisc_configuration_program{
     0xffef07b7,  // lui    a5,0xffef0       ; Load upper immediate
     0x00700713,  // li     a4,7             ; addi a4, zero, 7
     0x28e7a223,  // sw     a4,644(a5)       ; store a4 at offset 644 from a5
@@ -95,6 +102,9 @@ inline constexpr std::array<uint32_t, 14> wh_brisc_configuration_program{
     0x28e7a023,  // sw     a4,640(a5)      ; store a4 at offset 640 from a5
     0x00050737,  // lui    a4,0x50         ; load upper immediate 0x50 into a4
     0x28e7a423,  // sw     a4,648(a5)      ; store a4 at offset 648 from a5
+    0x000017b7,  // lui    a5,0x1          ; a5 = BRISC_CONFIGURATION_DONE_ADDRESS
+    0x00100713,  // li     a4,1            ; a4 = 1
+    0x00e7a023,  // sw     a4,0(a5)        ; signal that the reset PCs are set
     0x0000006f   // jal    zero, 0         ; infinite loop
 };
 
@@ -125,10 +135,12 @@ source code:
         *trisc2_code_start_reg_addr = 0x4'0000;
         *ncrisc_code_start_reg_addr = 0x5'0000;
 
+        *(unsigned int*)BRISC_CONFIGURATION_DONE_ADDRESS = 1;
+
         while (true);
     }
 */
-inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
+inline constexpr std::array<uint32_t, 17> bh_brisc_configuration_program{
     0xffb127b7,  // lui    a5,0xffb12        ; a5 = 0xffb12000
     0x00700713,  // li     a4,7              ; addi a4, zero, 7
     0x22e7aa23,  // sw     a4,564(a5)        ; *(a5 + 564) = a4 (1)
@@ -142,6 +154,9 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
     0x22e7a823,  // sw     a4,560(a5)       ; *(a5 + 560) = a4 (0x40000)
     0x00050737,  // lui    a4,0x50          ; a4 = 0x50000
     0x22e7ac23,  // sw     a4,568(a5)       ; *(a5 + 568) = a4 (0x50000)
+    0x000017b7,  // lui    a5,0x1           ; a5 = BRISC_CONFIGURATION_DONE_ADDRESS
+    0x00100713,  // li     a4,1             ; a4 = 1
+    0x00e7a023,  // sw     a4,0(a5)         ; signal that the reset PCs are set
     0x0000006f   // jal    zero, 0          ; infinite loop
 };
 

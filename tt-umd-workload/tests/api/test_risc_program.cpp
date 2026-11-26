@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -35,17 +36,56 @@
 
 using namespace tt::umd;
 
+namespace {
+
+// A released RISC runs asynchronously to the host, so its effects are polled for rather than read once.
+constexpr auto RISC_PROGRESS_TIMEOUT = std::chrono::seconds(10);
+
+bool wait_for_value(Cluster& cluster, ChipId chip_id, const CoreCoord& core, uint64_t address, uint32_t expected) {
+    const auto deadline = std::chrono::steady_clock::now() + RISC_PROGRESS_TIMEOUT;
+    uint32_t value = 0;
+    while (std::chrono::steady_clock::now() < deadline) {
+        cluster.read_from_device(&value, chip_id, core, address, sizeof(value));
+        if (value == expected) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool counter_advances(Cluster& cluster, ChipId chip_id, const CoreCoord& core, uint64_t counter_address) {
+    uint32_t first_value = 0;
+    cluster.read_from_device(&first_value, chip_id, core, counter_address, sizeof(first_value));
+    const auto deadline = std::chrono::steady_clock::now() + RISC_PROGRESS_TIMEOUT;
+    uint32_t value = 0;
+    while (std::chrono::steady_clock::now() < deadline) {
+        cluster.read_from_device(&value, chip_id, core, counter_address, sizeof(value));
+        if (value != first_value) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool has_tensix_brisc(Cluster& cluster) {
+    const tt::ARCH arch = cluster.get_tt_device(0)->get_arch();
+    return arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE;
+}
+
+}  // namespace
+
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestRiscProgram, DeassertResetBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
+    if (!has_tensix_brisc(*cluster)) {
+        GTEST_SKIP() << "The BRISC programs are Wormhole and Blackhole machine code.";
+    }
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0x20;
-
-    uint32_t readback = 0;
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
@@ -81,9 +121,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
-
-            EXPECT_EQ(a_variable_value, readback)
+            EXPECT_TRUE(wait_for_value(*cluster, chip_id, tensix_core, a_variable_address, a_variable_value))
                 << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
         }
     }
@@ -92,6 +130,9 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
+    if (!has_tensix_brisc(*cluster)) {
+        GTEST_SKIP() << "The BRISC programs are Wormhole and Blackhole machine code.";
+    }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -132,15 +173,8 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
             cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
-            cluster->read_from_device(
-                &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
-
-            cluster->read_from_device(
-                &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
-
-            // Since we expect BRISC to work and constantly increment counter in L1, we expect values to be different on
-            // two reads from device
-            EXPECT_NE(second_readback_value, first_readback_value);
+            // A running BRISC keeps incrementing the counter in L1.
+            EXPECT_TRUE(counter_advances(*cluster, chip_id, tensix_core, counter_address));
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -175,7 +209,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
-                                                       ChipId chip_id) -> std::optional<std::array<uint32_t, 14>> {
+                                                       ChipId chip_id) -> std::optional<std::array<uint32_t, 17>> {
         switch (cluster->get_cluster_description()->get_arch(chip_id)) {
             case tt::ARCH::WORMHOLE_B0:
                 return std::make_optional(wh_brisc_configuration_program);
@@ -237,6 +271,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC);
 
+            // Releasing the other RISCs before BRISC has set their reset PCs would start them in zeroed L1.
+            ASSERT_TRUE(wait_for_value(*cluster, chip_id, tensix_core, BRISC_CONFIGURATION_DONE_ADDRESS, 1))
+                << "BRISC did not finish configuring the reset PCs on " << tensix_core.str();
+
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
                 risc_cores = risc_cores | risc_core;
@@ -252,13 +290,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
 
-                cluster->read_from_device(
-                    &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
-
-                cluster->read_from_device(
-                    &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
-
-                EXPECT_NE(first_readback_value, second_readback_value);
+                EXPECT_TRUE(counter_advances(*cluster, chip_id, tensix_core, counter_address)) << risc_core;
             }
 
             cluster->l1_membar(chip_id, {tensix_core});
@@ -428,6 +460,9 @@ TEST(TestRiscProgram, SimpleApiTest) {
     }
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_tt_device(0)->get_arch() != tt::ARCH::QUASAR) {
+        GTEST_SKIP() << "SimpleApiTest releases NEO data movement cores, which only Quasar has.";
+    }
 
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
@@ -440,9 +475,7 @@ TEST(TestRiscProgram, SimpleApiTest) {
         cluster->read_from_device(rdata.data(), chip_id, core, 0x100, rdata.size() * sizeof(uint32_t));
         ASSERT_EQ(wdata, rdata);
 
-        cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
         cluster->assert_risc_reset(chip_id, core, RiscType::ALL_NEO_DMS);
-        cluster->deassert_risc_reset(chip_id, core, RiscType::BRISC, /*staggered_start=*/true);
         cluster->deassert_risc_reset(chip_id, core, RiscType::ALL_NEO_DMS, /*staggered_start=*/true);
 
         const RiscType example_dm_cores = RiscType::DM0 | RiscType::DM1 | RiscType::DM7;

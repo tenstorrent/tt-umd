@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -18,8 +19,10 @@
 
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/simulation_backend_type.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -265,7 +268,28 @@ void EthernetBroadcast::adjust_coordinates_for_ethernet_broadcast(
     }
 }
 
-void EthernetBroadcast::broadcast_write_to_cluster(
+bool EthernetBroadcast::firmware_delivers_exactly(
+    const std::set<ChipId>& chips_to_exclude,
+    const std::set<uint32_t>& rows_to_exclude_virtual,
+    const std::set<uint32_t>& cols_to_exclude_virtual) const {
+    const bool behind_ttsim =
+        std::any_of(mmio_remote_comms_.begin(), mmio_remote_comms_.end(), [](const auto& gateway) {
+            return gateway.second->get_local_device()->get_simulation_backend() == SimulationBackendType::TTSIM;
+        });
+    if (!behind_ttsim) {
+        return true;
+    }
+    // TTSim's Wormhole Ethernet base firmware (ttsim fw/eth/eth_fw.c) ignores the broadcast header: it multicasts
+    // every broadcast to the whole Tensix grid of the gateway chip and of each chip it tunnels to. That is exactly the
+    // request only when it targets every chip and precisely the Tensix grid, whose non-Tensix rows and columns are
+    // these.
+    const std::set<uint32_t> non_tensix_rows = {0, 6};
+    const std::set<uint32_t> non_tensix_cols = {0, 5};
+    return !single_remote_chip_ && chips_to_exclude.empty() && rows_to_exclude_virtual == non_tensix_rows &&
+           cols_to_exclude_virtual == non_tensix_cols;
+}
+
+bool EthernetBroadcast::broadcast_write_to_cluster(
     const void* mem_ptr,
     uint32_t size_in_bytes,
     uint64_t address,
@@ -286,12 +310,28 @@ void EthernetBroadcast::broadcast_write_to_cluster(
     adjust_coordinates_for_ethernet_broadcast(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
 
-    if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
-        cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
+    // Every request is validated before deciding who delivers it, so a cluster behind any firmware refuses the same
+    // requests.
+    const bool dram_columns_in_broadcast = cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
+                                           cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end();
+    if (dram_columns_in_broadcast) {
         UMD_ASSERT(
             !tensix_or_eth_in_broadcast(cols_to_exclude_virtual),
             error::RuntimeError,
             "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
+    } else {
+        UMD_ASSERT(
+            use_translated_coords || valid_tensix_broadcast_grid(rows_to_exclude_virtual, cols_to_exclude_virtual),
+            error::RuntimeError,
+            "Must broadcast to all tensix rows when using noc0 coordinates.");
+    }
+
+    if (!firmware_delivers_exactly(chips_to_exclude, rows_to_exclude_virtual, cols_to_exclude_virtual)) {
+        log_debug(LogUMD, "EthernetBroadcast: the Ethernet firmware cannot deliver this broadcast exactly.");
+        return false;
+    }
+
+    if (dram_columns_in_broadcast) {
         if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end()) {
             // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
             // since writing to these is unsafe ERISC FW does not exclude these.
@@ -322,10 +362,6 @@ void EthernetBroadcast::broadcast_write_to_cluster(
                 false);
         }
     } else {
-        UMD_ASSERT(
-            use_translated_coords || valid_tensix_broadcast_grid(rows_to_exclude_virtual, cols_to_exclude_virtual),
-            error::RuntimeError,
-            "Must broadcast to all tensix rows when using noc0 coordinates.");
         ethernet_broadcast_write(
             mem_ptr,
             size_in_bytes,
@@ -335,6 +371,7 @@ void EthernetBroadcast::broadcast_write_to_cluster(
             cols_to_exclude_virtual,
             use_translated_coords);
     }
+    return true;
 }
 
 }  // namespace tt::umd

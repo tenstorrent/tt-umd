@@ -706,9 +706,12 @@ void TopologyDiscoveryBase::get_connected_devices() {
     // it. A simulator image enumerates its own endpoints instead.
     if (options.simulation.has_value()) {
         // A count left to discovery starts at one channel per device and is grown in run() once the walk has shown
-        // how many chips each device serves.
+        // how many chips each device serves. As on silicon, every device is built from the same SoC descriptor, the
+        // caller's if given, so the walk crosses only the Ethernet cores that descriptor has.
         for (auto& [chip_id, tt_device] : simulation_backend().create_local_simulation_tt_devices(
-                 options.simulation->simulator_path, options.simulation->num_host_mem_channels.value_or(1))) {
+                 options.simulation->simulator_path,
+                 options.simulation->num_host_mem_channels.value_or(1),
+                 soc_arch_descriptor_)) {
             add_local_device(std::move(tt_device), chip_id);
         }
         log_debug(LogUMD, "Discovered {} simulated device(s).", devices_to_discover.size());

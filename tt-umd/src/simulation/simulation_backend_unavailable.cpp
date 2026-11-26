@@ -49,7 +49,9 @@ public:
     }
 
     std::map<ChipId, std::unique_ptr<TTDevice>> create_local_simulation_tt_devices(
-        const std::filesystem::path& /*simulator_path*/, int /*num_host_mem_channels*/) const override {
+        const std::filesystem::path& /*simulator_path*/,
+        int /*num_host_mem_channels*/,
+        const std::shared_ptr<SocArchDescriptor>& /*soc_arch_descriptor*/) const override {
         UMD_THROW(error::RuntimeError, simulation_not_built_message);
     }
 

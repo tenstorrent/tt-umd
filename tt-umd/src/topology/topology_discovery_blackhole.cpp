@@ -50,8 +50,7 @@ std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevic
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
-        // See comment in get_local_board_id.
+    if (galaxy_mode) {
         return get_remote_asic_id(tt_device, eth_core);
     }
 
@@ -65,12 +64,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, Co
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
-        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
-        // from the ClusterOptions will work correctly on 6U.
-        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
-        // fetched through another function when cluster descriptor is being filled up.
+    if (galaxy_mode) {
         return get_local_asic_id(tt_device, eth_core);
     }
 
@@ -84,7 +78,7 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, Cor
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
+    if (galaxy_mode) {
         uint32_t asic_id_hi;
         tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFD4, sizeof(asic_id_hi), get_selected_noc_id());
 
@@ -102,7 +96,7 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, Core
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
+    if (galaxy_mode) {
         uint32_t asic_id_hi;
         tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFF4, sizeof(asic_id_hi), get_selected_noc_id());
 
@@ -179,7 +173,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
 
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     const BoardType board_type = tt_device->get_board_type();
-    is_running_on_6u = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF;
+    galaxy_mode = board_type == BoardType::UBB_BLACKHOLE || board_type == BoardType::UBB_BLACKHOLE_CF;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {

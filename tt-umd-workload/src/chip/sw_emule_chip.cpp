@@ -131,9 +131,21 @@ void notify_host_write_begin(Core&, ...) {}
 
 // A tt-emule core that models its register window takes the whole access (an address past its memory reaches the
 // register model); an older one has memory only, so the access is a copy within it.
+// An access that starts in the core's memory must end there, whichever tt-emule API serves it; one past the memory
+// reaches the register model, which bounds its own blocks.
+template <typename Core>
+void check_memory_end(Core& core, uint64_t addr, size_t size) {
+    UMD_ASSERT(
+        addr >= core.l1_size() || size <= core.l1_size() - addr,
+        error::RuntimeError,
+        "SWEmuleChip: access at " + std::to_string(addr) + " of " + std::to_string(size) +
+            " bytes runs past the core's memory");
+}
+
 template <typename Core>
 auto core_write(Core& core, uint64_t addr, const void* src, size_t size, int)
     -> decltype(core.access(addr, std::declval<void*>(), size, true)) {
+    check_memory_end(core, addr, size);
     // access() takes one buffer type for both directions and only reads it on a write.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     return core.access(addr, const_cast<void*>(src), size, /*is_write=*/true);
@@ -142,6 +154,7 @@ auto core_write(Core& core, uint64_t addr, const void* src, size_t size, int)
 template <typename Core>
 auto core_read(Core& core, uint64_t addr, void* dst, size_t size, int)
     -> decltype(core.access(addr, dst, size, false)) {
+    check_memory_end(core, addr, size);
     return core.access(addr, dst, size, /*is_write=*/false);
 }
 
@@ -213,13 +226,18 @@ CoreCoord core_at_noc_xy(const SocDescriptor& soc, tt_xy_pair xy, NocId noc) {
 }
 
 // A register access is one access per register, never one wide request, as on every other protocol.
-template <typename Access>
-void for_each_register(uint64_t addr, size_t size, RegisterAccessWidth width, Access access) {
+void check_register_alignment(uint64_t addr, size_t size, RegisterAccessWidth width) {
     const size_t access_size = register_access_size(width);
     UMD_ASSERT(
         addr % access_size == 0 && size % access_size == 0,
         error::RuntimeError,
         "Register address and size must be aligned to the access width.");
+}
+
+template <typename Access>
+void for_each_register(uint64_t addr, size_t size, RegisterAccessWidth width, Access access) {
+    check_register_alignment(addr, size, width);
+    const size_t access_size = register_access_size(width);
     for (size_t offset = 0; offset < size; offset += access_size) {
         access(offset, access_size);
     }
@@ -268,7 +286,8 @@ private:
 // performs (tt-umd's SimulationDeviceFirmware, which is private to tt-umd). Keep the two in step.
 class SWEmuleDeviceFirmware final : public DeviceFirmware {
 public:
-    explicit SWEmuleDeviceFirmware(tt::ARCH arch) : arch_(arch) {}
+    // Translation and harvesting come from the chip's SocDescriptor, so the TTDevice and its descriptor agree.
+    explicit SWEmuleDeviceFirmware(const SocDescriptor& soc) : soc_(soc) {}
 
     void init_firmware(std::chrono::milliseconds, NocId) override {}
 
@@ -281,14 +300,12 @@ public:
 
     void set_power_state(PowerState, NocId) override {}
 
-    bool get_noc_translation_enabled(NocId) override { return false; }
+    bool get_noc_translation_enabled(NocId) override { return soc_.noc_translation_enabled; }
 
-    // Blackhole's SocDescriptor needs 2 or 14 harvested ETH cores; 0x3000 is what a simulated chip reports.
     ChipInfo get_chip_info(NocId) override {
         ChipInfo chip_info{};
-        if (arch_ == tt::ARCH::BLACKHOLE) {
-            chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
-        }
+        chip_info.noc_translation_enabled = soc_.noc_translation_enabled;
+        chip_info.harvesting_masks = soc_.harvesting_masks;
         return chip_info;
     }
 
@@ -309,7 +326,7 @@ public:
     }
 
 private:
-    tt::ARCH arch_;
+    const SocDescriptor& soc_;
 };
 
 // The device model of an emulated chip: no management firmware behind it (firmware that reports
@@ -320,7 +337,7 @@ public:
     explicit SWEmuleTTDeviceModel(SWEmuleChip& chip) :
         chip_(chip),
         protocol_(chip),
-        device_firmware_(chip.get_soc_descriptor().arch),
+        device_firmware_(chip.get_soc_descriptor()),
         architecture_impl_(ArchitectureImplementation::create(chip.get_soc_descriptor().arch)),
         soc_arch_descriptor_(std::make_shared<SocArchDescriptor>(chip.get_soc_descriptor().arch)) {}
 
@@ -535,6 +552,10 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 // the caller happened to pick, and only TRANSLATED has a pool slot. A LITERAL coord passes through
 // unchanged, which is the pre-existing behaviour for callers that already resolved the coordinate.
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
+    // Nothing to store; past the core's memory a zero-length access would still reach the register model.
+    if (size == 0) {
+        return;
+    }
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
@@ -549,6 +570,9 @@ void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_d
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
+    if (size == 0) {
+        return;
+    }
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
@@ -559,13 +583,29 @@ void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, 
     core_read(*target_core, l1_src, dest, size, 0);
 }
 
-// Register I/O takes the same path: an address past the core's memory reaches tt-emule's register model.
+// Register I/O has LocalChip's rules: address and size are multiples of 4 bytes. Past the core's memory each register
+// is its own access, as on the TTDevice path (for_each_register); in memory (tt-metal's launch and go messages) the
+// payload stays one host write, so the core is notified once.
 void SWEmuleChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+    check_register_alignment(reg_dest, size, RegisterAccessWidth::BITS32);
+    if (reg_dest < l1_size_) {
+        write_to_device(core, src, reg_dest, size);
+        return;
+    }
+    for_each_register(reg_dest, size, RegisterAccessWidth::BITS32, [&](size_t offset, size_t access_size) {
+        write_to_device(core, static_cast<const uint8_t*>(src) + offset, reg_dest + offset, access_size);
+    });
 }
 
 void SWEmuleChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+    check_register_alignment(reg_src, size, RegisterAccessWidth::BITS32);
+    if (reg_src < l1_size_) {
+        read_from_device(core, dest, reg_src, size);
+        return;
+    }
+    for_each_register(reg_src, size, RegisterAccessWidth::BITS32, [&](size_t offset, size_t access_size) {
+        read_from_device(core, static_cast<uint8_t*>(dest) + offset, reg_src + offset, access_size);
+    });
 }
 
 void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {

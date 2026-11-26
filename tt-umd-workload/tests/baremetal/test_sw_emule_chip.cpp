@@ -270,3 +270,59 @@ TEST(ApiEmuleClusterTest, SharedBackingRefusesASynthesizedUniqueId) {
         ClusterDescriptor::create_mock_cluster({0, 1}, tt::ARCH::WORMHOLE_B0, /*noc_translation_enabled=*/true);
     EXPECT_FALSE(mock->has_authentic_chip_unique_ids());
 }
+
+namespace {
+SocDescriptor blackhole_soc() {
+    return SocDescriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("blackhole_140_arch.yaml")),
+        ChipInfo{.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = 0x120}});
+}
+}  // namespace
+
+// The TTDevice's firmware answers from the chip's SocDescriptor, so the two never disagree.
+TEST(ApiEmuleClusterTest, DeviceFirmwareMatchesTheSocDescriptor) {
+    const SocDescriptor soc = blackhole_soc();
+    SWEmuleChip chip(soc);
+    TTDevice* device = chip.get_tt_device();
+    ASSERT_NE(device, nullptr);
+    EXPECT_EQ(device->get_noc_translation_enabled(), soc.noc_translation_enabled);
+    const ChipInfo info = device->get_chip_info();
+    EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
+    EXPECT_EQ(info.harvesting_masks.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
+    EXPECT_EQ(info.harvesting_masks.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);
+    EXPECT_EQ(info.harvesting_masks.eth_harvesting_mask, soc.harvesting_masks.eth_harvesting_mask);
+}
+
+// An access that starts in a core's memory may not run past it, on either tt-emule API.
+TEST(ApiEmuleClusterTest, AccessRunningPastL1Throws) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    std::vector<uint8_t> buf(8, 0xab);
+    const uint64_t last_word = chip.l1_size() - 4;
+    EXPECT_THROW(chip.write_to_device(core, buf.data(), last_word, buf.size()), std::exception);
+    EXPECT_THROW(chip.read_from_device(core, buf.data(), last_word, buf.size()), std::exception);
+    EXPECT_NO_THROW(chip.write_to_device(core, buf.data(), last_word, 4));
+}
+
+// A zero-length access is a no-op wherever it points, including past the core's memory.
+TEST(ApiEmuleClusterTest, ZeroLengthAccessPastL1IsANoOp) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    uint32_t word = 0;
+    EXPECT_NO_THROW(chip.write_to_device(core, &word, chip.l1_size() + 0x1000, 0));
+    EXPECT_NO_THROW(chip.read_from_device(core, &word, chip.l1_size() + 0x1000, 0));
+}
+
+// The chip-level register path has LocalChip's rules: address and size are multiples of 4 bytes.
+TEST(ApiEmuleClusterTest, RegisterAccessMustBeWordAligned) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    std::vector<uint8_t> buf(8, 0);
+    EXPECT_THROW(chip.write_to_device_reg(core, buf.data(), 0x100, 6), std::exception);
+    EXPECT_THROW(chip.read_from_device_reg(core, buf.data(), 0x102, 4), std::exception);
+    // In memory an aligned multi-word payload (a launch message) is one write and reads back whole.
+    const std::vector<uint8_t> pattern = {1, 2, 3, 4, 5, 6, 7, 8};
+    chip.write_to_device_reg(core, pattern.data(), 0x100, pattern.size());
+    chip.read_from_device_reg(core, buf.data(), 0x100, buf.size());
+    EXPECT_EQ(buf, pattern);
+}

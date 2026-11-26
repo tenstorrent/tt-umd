@@ -26,7 +26,6 @@ TEST_F(Multicast, Write) {
     const uint64_t address = 0x1000;
     const std::vector<size_t> payload_sizes = {4, 64, 1 * ONE_KIB, 16 * ONE_KIB};
     std::vector<uint8_t> data(payload_sizes.back());
-    Chip* chip = cluster->get_chip(mmio_chip);
 
     const std::vector<std::string> context_variables = {"method", "payload"};
     Bench bench;
@@ -41,7 +40,10 @@ TEST_F(Multicast, Write) {
         }
     };
 
-    benchmark("multicast", [&](size_t payload_size) { chip->noc_multicast_write(data.data(), payload_size, address); });
+    benchmark("multicast", [&](size_t payload_size) {
+        cluster->noc_multicast_write(
+            data.data(), payload_size, mmio_chip, tensix_cores.front(), tensix_cores.back(), address);
+    });
     benchmark("write_per_core", [&](size_t payload_size) {
         for (const CoreCoord& core : tensix_cores) {
             cluster->write_to_device(data.data(), payload_size, mmio_chip, core, address);

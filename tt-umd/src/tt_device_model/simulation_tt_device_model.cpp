@@ -111,7 +111,7 @@ void SimulationTTDeviceModel::use_arch_device_firmware() {
                 /*jtag_interface=*/nullptr,
                 /*remote_interface=*/nullptr,
                 architecture_impl_.get(),
-                /*kmd_lock_available=*/false));
+                /*shared_across_processes=*/false));
             break;
         case tt::ARCH::BLACKHOLE:
             install(std::make_unique<BlackholeDeviceFirmware>(
@@ -119,7 +119,7 @@ void SimulationTTDeviceModel::use_arch_device_firmware() {
                 tt_sim_protocol_.get(),
                 /*jtag_interface=*/nullptr,
                 architecture_impl_.get(),
-                /*kmd_lock_available=*/false));
+                /*shared_across_processes=*/false));
             break;
         default:
             // Quasar models no ARC, no ethernet and no host BAR path, so there is nothing to read

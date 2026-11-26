@@ -269,7 +269,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(
-        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*sysmem_manager=*/nullptr)),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*host_mem_channels=*/nullptr)),
         std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     // A client-mode device drives no backend of its own, so it has no communicator to reset through.

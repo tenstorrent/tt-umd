@@ -48,7 +48,7 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
     ArchitectureImplementation* architecture_impl,
-    bool kmd_lock_available) :
+    bool shared_across_processes) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
@@ -88,13 +88,18 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     // The type has to describe the same device as device_id_, which for a remote device is the local one the messages
     // travel through. get_io_device_type() answers for this device instead, and calls anything that is not JTAG PCIe,
     // which over a simulated gateway would name the lock after PCIe device -1.
+    const IODeviceType lock_device_type =
+        remote_interface_ != nullptr
+            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
+            : get_io_device_type();
+    // A remote chip is reachable from other processes exactly when its RemoteCommunication is, and its creator
+    // decided that.
     LockManager::initialize_mutex(
         remote_interface_ != nullptr ? MutexType::REMOTE_ARC_MSG : MutexType::ARC_MSG,
         device_id_,
-        remote_interface_ != nullptr
-            ? remote_interface_->get_remote_communication()->get_local_device()->get_communication_device_type()
-            : get_io_device_type(),
-        kmd_lock_available);
+        lock_device_type,
+        remote_interface_ != nullptr ? remote_interface_->get_remote_communication()->is_shared_across_processes()
+                                     : shared_across_processes);
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.

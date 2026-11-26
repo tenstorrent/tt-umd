@@ -37,7 +37,7 @@ enum class MutexType {
 // Name of a mutex type, for logging and diagnostics.
 std::string to_string(MutexType mutex_type);
 
-// The locks handed out here are process wide, and the underlying ones system wide, so LockManager holds them in a
+// The locks handed out here are process wide, and most underlying ones system wide, so LockManager holds them in a
 // single registry for the whole process rather than one per owner. A lock is initialized once, by whoever needs it
 // first, and lives until the process exits.
 // Besides being the honest model, this bounds how many locks a process can have open at a time. An initialized mutex
@@ -51,8 +51,11 @@ std::string to_string(MutexType mutex_type);
 // is for the lifetime of the process. Anything that removed locks again would leave every outstanding one dangling.
 //
 // Chip specific locks on a PCIe device are backed by a KMD resource lock, so that processes which share the device but
-// not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a JTAG device - is
-// backed by RobustMutex, since a KMD resource lock exists only per local PCIe device.
+// not /dev/shm still serialize against each other. Chip specific locks on a device no other process can reach are
+// backed by a mutex private to this process, since only its own threads can contend for them and a shared memory file
+// named after such a device would outlive the process with nothing left to use or remove it. Everything else - system
+// wide locks and locks on a JTAG device - is backed by RobustMutex, since a KMD resource lock exists only per local
+// PCIe device.
 class LockManager {
 public:
     LockManager() = delete;
@@ -79,13 +82,14 @@ public:
 
     // This set of functions is used to manage mutexes which are chip specific.
     //
-    // kmd_lock_available says whether the device has a KMD lock table to take the lock through. A silicon
-    // PCIe device does, and gets a lock backed by both that and shared memory; passing false selects the
-    // shared memory half alone, for a device that presents a PCIe surface with no KMD device behind it.
-    // The device type alone does not settle it: a simulated device reports IODeviceType::PCIe too.
+    // shared_across_processes says whether other processes can reach the device, and so have to be locked out as
+    // well. A silicon device can be, which is the default. Passing false declares a device private to this process,
+    // such as a simulated device modelled in-process: its locks then serialize this process's threads only and leave
+    // no file in /dev/shm. The device type alone does not settle it, since a simulated device reports
+    // IODeviceType::PCIe too.
     // Either way the lock keeps one name, so acquire_mutex() below is unaffected by the choice.
     static void initialize_mutex(
-        MutexType mutex_type, int device_id, IODeviceType device_type, bool kmd_lock_available = true);
+        MutexType mutex_type, int device_id, IODeviceType device_type, bool shared_across_processes = true);
     [[nodiscard]] static std::unique_lock<MutexInterface> acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
@@ -104,16 +108,15 @@ public:
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
-    // Locks backed by a shared memory RobustMutex, addressed by their name.
+    // Locks on a device no other process can reach, backed by a mutex private to this process.
+    static void initialize_in_process_mutex(const std::string& mutex_name);
+
+    // Locks backed by a shared memory RobustMutex.
     static void initialize_robust_mutex(const std::string& mutex_name);
-    static std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
-    static std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
 
     // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
     // well, for as long as clients on an older UMD exist which know only about that one.
     static void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
-    static std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
-    static std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);
 };
 
 }  // namespace tt::umd

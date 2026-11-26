@@ -247,7 +247,7 @@ void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(
-        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*sysmem_manager=*/nullptr)),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*host_mem_channels=*/nullptr)),
         std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);

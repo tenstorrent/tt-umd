@@ -242,8 +242,12 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
         // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
         // construct one.
+        // The simulated chip lives in this process only, so no other process needs locking out of its traffic.
         auto remote_communication = RemoteCommunication::create_remote_communication(
-            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id));
+            gateway_chip->get_tt_device(),
+            cluster_desc->get_chip_location(chip_id),
+            /*host_mem_channels=*/nullptr,
+            /*shared_across_processes=*/false);
         remote_communication->set_remote_transfer_ethernet_cores(
             gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));

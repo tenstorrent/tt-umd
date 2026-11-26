@@ -236,7 +236,7 @@ it (as a host, the build you named; as a client, the one the host reports it run
 arch, and -- for a host that serves -- the directory and per-chip sockets it serves on. That last
 part matters when you leave `server_directory` empty: UMD allocates one, and this is the only place
 it tells you which. `Cluster::get_simulation_connection()`, which reports the same thing for a
-cluster, is deprecated: `get_simulation_backend(device)` tells what backs a device, and a `Server`
+cluster, is deprecated: `TTDevice::get_simulation_backend()` tells what backs a device, and a `Server`
 reports its own directory and sockets.
 
 ### From Python

@@ -19,6 +19,7 @@
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/simulation_backend_type.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -275,16 +276,6 @@ void bind_simulation(nb::module_ &m) {
         nb::arg("simulator_path"),
         "The soc_descriptor.yaml the simulator at simulator_path ships (beside a TTSim .so, or inside an RTL simulator "
         "directory), or an empty string when it ships none.");
-
-    m.def(
-        "get_simulation_backend",
-        &get_simulation_backend,
-        nb::arg("device"),
-        "Which simulator backs device, whether it runs in this process or in a simulation server device is attached "
-        "to; a remote device is backed by whatever backs the device it is reached through. None for a device no "
-        "simulator backs, such as silicon reached through the KMD, and for every device when UMD was built without "
-        "simulation support. A device attached to a simulation server that serves a device no simulator backs "
-        "answers TTSIM, because the server protocol has no other kind.");
 
     bind_simulation_connector(m);
 }

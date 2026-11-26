@@ -27,7 +27,6 @@
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
-#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
@@ -189,7 +188,7 @@ SimulationServerDeviceInfo describe_served_device(const TTDevice& device) {
         simulation_backend().get_device_connection(device);
     return describe_device(
         device.get_soc_descriptor(),
-        get_simulation_backend(device).value_or(SimulationBackendType::TTSIM),
+        device.get_simulation_backend().value_or(SimulationBackendType::TTSIM),
         connection.has_value() ? connection->simulator : std::filesystem::path{});
 }
 

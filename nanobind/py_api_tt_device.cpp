@@ -20,6 +20,7 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/peer_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -672,6 +673,27 @@ void bind_tt_device(nb::module_ &m) {
                 "| memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
             "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).");
+
+    // The window owns its own device handles, so it needs no keep_alive on either TTDevice.
+    nb::class_<PeerWindow>(m, "PeerWindow")
+        .def(
+            nb::init<TTDevice &, TTDevice &, CoreCoord, uint64_t, size_t, IoOrdering, NocId>(),
+            nb::arg("initiator"),
+            nb::arg("target"),
+            nb::arg("core"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            nb::arg("ordering") = IoOrdering::RELAXED,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil(),
+            "Makes [addr, addr + size) of a core on target reachable by initiator over peer-to-peer PCIe. "
+            "Blackhole only; initiator and target must be different devices; addr and size must be "
+            "host-page-aligned, size non-zero, and the range must fit in one TLB window of target.")
+        .def(
+            "get_address",
+            &PeerWindow::get_address,
+            release_gil(),
+            "The address at which initiator's NOC traffic to its own PCIe core reaches addr on the target core.");
 
 #ifdef TT_UMD_BUILD_SIMULATION
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.

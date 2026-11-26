@@ -67,6 +67,7 @@ target_sources(
         src/pcie/device_memcpy.cpp
         src/pcie/silicon_tlb_window.cpp
         src/pcie/silicon_tlb_handle.cpp
+        src/pcie/peer_window.cpp
         src/tt_device_model/wormhole_tt_device_model.cpp
         src/tt_device_model/blackhole_tt_device_model.cpp
         src/tt_device_model/grendel_tt_device_model.cpp
@@ -212,6 +213,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/pcie/tlb_window.hpp
                 api/tt-umd/pcie/tlb_handle.hpp
                 api/tt-umd/pcie/silicon_tlb_handle.hpp
+                api/tt-umd/pcie/peer_window.hpp
                 api/tt-umd/io_window/io_window.hpp
                 api/tt-umd/warm_reset.hpp
                 api/tt-umd/warm_reset_with_recovery.hpp

@@ -615,3 +615,58 @@ class TestTTDevice(unittest.TestCase):
                 )
 
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+
+
+class TestPeerWindow(unittest.TestCase):
+    def open_device(self, pci_id):
+        dev = tt_umd.TTDevice.create(pci_id)
+        dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+        dev.init_tt_device()
+        self.addCleanup(dev.set_power_state, tt_umd.TTDevice.PowerState.IDLE)
+        return dev
+
+    def first_tensix(self, dev):
+        return tt_umd.SocDescriptor(dev).get_cores(
+            tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+        )[0]
+
+    def test_io_ordering_values(self):
+        orderings = {
+            tt_umd.IoOrdering.RELAXED,
+            tt_umd.IoOrdering.STRICT,
+            tt_umd.IoOrdering.POSTED,
+        }
+        self.assertEqual(len(orderings), 3)
+
+    def test_peer_window_between_two_devices(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) < 2:
+            self.skipTest("A peer window needs two devices.")
+        initiator = self.open_device(pci_ids[0])
+        target = self.open_device(pci_ids[1])
+        if (
+            initiator.get_arch() != tt_umd.ARCH.BLACKHOLE
+            or target.get_arch() != tt_umd.ARCH.BLACKHOLE
+        ):
+            self.skipTest("Peer windows are supported only on Blackhole.")
+
+        window = tt_umd.PeerWindow(
+            initiator,
+            target,
+            self.first_tensix(target),
+            0,
+            4096,
+            ordering=tt_umd.IoOrdering.STRICT,
+        )
+        self.assertNotEqual(window.get_address(), 0)
+
+    def test_peer_window_same_device_raises(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            self.skipTest("No PCI devices found.")
+        dev = self.open_device(pci_ids[0])
+        if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
+            self.skipTest("Peer windows are supported only on Blackhole.")
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.PeerWindow(dev, dev, self.first_tensix(dev), 0, 4096)

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "hugepage.hpp"
+#include "system_memory/pcie_base.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/utils/error.hpp"

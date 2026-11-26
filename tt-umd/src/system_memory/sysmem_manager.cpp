@@ -5,7 +5,6 @@
 #include "tt-umd/system_memory/sysmem_manager.hpp"
 
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -22,17 +21,6 @@ std::unique_ptr<SysmemBuffer> SysmemManager::map_user_buffer(
         error::RuntimeError,
         "This allocator cannot map user buffers; check is_user_buffer_mapping_supported() first.");
     return map_sysmem_buffer(user_ptr, size, bind_to_noc, device_access);
-}
-
-uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            return 0x800000000;
-        case tt::ARCH::BLACKHOLE:
-            return 4ULL << 58;
-        default:
-            return 0;
-    }
 }
 
 bool SysmemManager::is_read_only_page_pinning_supported() const {

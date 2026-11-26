@@ -100,10 +100,15 @@ std::chrono::milliseconds RtlSimSession::get_ack_timeout(std::optional<std::chro
     const char *value_end = value + std::strlen(value);
     int seconds = 0;
     const auto [parsed_end, parse_error] = std::from_chars(value, value_end, seconds);
-    UMD_ASSERT(
-        parse_error == std::errc() && parsed_end == value_end && seconds > 0,
-        error::RuntimeError,
-        fmt::format("{} must be a positive whole number of seconds, not '{}'.", variable, value));
+    if (parse_error != std::errc() || parsed_end != value_end || seconds <= 0) {
+        log_warning(
+            tt::LogEmulationDriver,
+            "{} must be a positive whole number of seconds, not '{}'; using the default of {} s.",
+            variable,
+            value,
+            std::chrono::seconds(timeout::RTL_SIM_ACK_TIMEOUT).count());
+        return timeout::RTL_SIM_ACK_TIMEOUT;
+    }
     return std::chrono::seconds(seconds);
 }
 

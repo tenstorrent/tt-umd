@@ -38,14 +38,14 @@ public:
     /**
      * Create every listener, launch run.sh if launching, then wait for the ack on each socket in
      * order, up to get_ack_timeout(@p ack_timeout) each. Once only.
-     * Throws if there is no socket, if get_ack_timeout() throws, or if a socket does not ack in time.
+     * Throws if there is no socket, or if a socket does not ack in time.
      */
     void start(std::optional<std::chrono::milliseconds> ack_timeout = std::nullopt);
 
     /**
      * How long start() waits for each socket's ack: @p ack_timeout if given, else
      * TT_UMD_RTL_SIM_ACK_TIMEOUT_S seconds if that variable is set, else timeout::RTL_SIM_ACK_TIMEOUT.
-     * Throws if the variable is not a positive whole number of seconds.
+     * A value of the variable that is not a positive whole number of seconds is ignored with a warning.
      */
     static std::chrono::milliseconds get_ack_timeout(
         std::optional<std::chrono::milliseconds> ack_timeout = std::nullopt);

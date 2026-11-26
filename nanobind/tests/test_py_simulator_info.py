@@ -96,7 +96,7 @@ class TestSimulationBackend(unittest.TestCase):
 
         device = tt_umd.TTDevice.create(pci_ids[0])
 
-        self.assertIsNone(tt_umd.get_simulation_backend(device))
+        self.assertIsNone(device.get_simulation_backend())
 
     @unittest.skipUnless(SIMULATION_BUILT, "UMD was built without simulation support")
     def test_ttsim_device_is_backed_by_ttsim(self):
@@ -109,7 +109,7 @@ class TestSimulationBackend(unittest.TestCase):
         _connection, devices, _cluster = tt_umd.SimulationConnector.discover(options)
 
         self.assertEqual(
-            tt_umd.get_simulation_backend(devices[0]),
+            devices[0].get_simulation_backend(),
             tt_umd.SimulationBackendType.TTSIM,
         )
 

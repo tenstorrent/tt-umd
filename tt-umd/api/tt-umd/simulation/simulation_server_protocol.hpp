@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "tt-umd/types/simulation_backend_type.hpp"
+
 namespace tt::umd {
 
 // The one place that defines the UMD <-> simulation host wire protocol: the messages a UMD
@@ -33,13 +35,6 @@ enum class SimulationServerCommand : int8_t {
     // Asks the host to shut down gracefully; the host acks with a SimulationServerResponse then tears
     // down (closing every client connection). A host that didn't opt in acks as a no-op.
     SHUTDOWN = 4,
-};
-
-// Which simulator the host runs; mirrors wire::SimulationBackendType. Served as part of the device
-// identity so a client can build the matching device class without a local simulator build.
-enum class SimulationBackendType : int8_t {
-    TTSIM = 0,
-    RTL = 1,
 };
 
 // A device-memory access request addressed by (core x/y, address, size).

@@ -77,18 +77,22 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
                 translated_core.to_pair(),
                 data_to_write.data(),
                 address0,
-                static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)));
+                static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)),
+                NocId::NOC0,
+                NocId::NOC0);
 
             cluster->write_to_device(
                 data_to_write.data(), data_to_write.size() * sizeof(uint32_t), remote_chip_id, core, address1);
 
-            remote_comm->wait_for_non_mmio_flush();
+            remote_comm->wait_for_non_mmio_flush(NocId::NOC0);
 
             remote_comm->read_non_mmio(
                 translated_core.to_pair(),
                 data_read.data(),
                 address1,
-                static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)));
+                static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)),
+                NocId::NOC0,
+                NocId::NOC0);
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";
@@ -169,13 +173,17 @@ TEST(RemoteCommunicationWormhole, SetRemoteTransferCoresResetsActiveCore) {
         translated_core.to_pair(),
         data_to_write.data(),
         address,
-        static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)));
-    remote_comm.wait_for_non_mmio_flush();
+        static_cast<uint32_t>(data_to_write.size() * sizeof(uint32_t)),
+        NocId::NOC0,
+        NocId::NOC0);
+    remote_comm.wait_for_non_mmio_flush(NocId::NOC0);
     remote_comm.read_non_mmio(
         translated_core.to_pair(),
         data_read.data(),
         address,
-        static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)));
+        static_cast<uint32_t>(data_read.size() * sizeof(uint32_t)),
+        NocId::NOC0,
+        NocId::NOC0);
     EXPECT_EQ(data_to_write, data_read);
 }
 

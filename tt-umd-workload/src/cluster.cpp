@@ -1303,7 +1303,7 @@ void Cluster::wait_for_non_mmio_flush() {
         chip->wait_for_non_mmio_flush();
     }
     for (auto& [chip_id, remote_comm] : remote_communications_) {
-        remote_comm->wait_for_non_mmio_flush();
+        remote_comm->wait_for_non_mmio_flush(get_selected_noc_id());
     }
 }
 

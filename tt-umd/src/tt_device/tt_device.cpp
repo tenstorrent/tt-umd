@@ -323,7 +323,7 @@ void TTDevice::wait_for_non_mmio_flush() {
     if (model_->get_remote_interface() == nullptr) {
         return;
     }
-    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
+    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush(get_selected_noc_id());
 }
 
 bool TTDevice::is_remote() const { return model_->get_remote_interface() != nullptr; }
@@ -448,7 +448,7 @@ void TTDevice::noc_multicast_write(
 
     // We need to flush the writes in case of remote communication.
     if (multicast_success && is_remote()) {
-        get_remote_communication()->wait_for_non_mmio_flush();
+        get_remote_communication()->wait_for_non_mmio_flush(get_selected_noc_id());
     }
 
     if (multicast_success) {
@@ -457,7 +457,7 @@ void TTDevice::noc_multicast_write(
 
     multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
     if (is_remote()) {
-        get_remote_communication()->wait_for_non_mmio_flush();
+        get_remote_communication()->wait_for_non_mmio_flush(get_selected_noc_id());
     }
 }
 

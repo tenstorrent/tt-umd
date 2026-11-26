@@ -12,7 +12,7 @@
 
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "utils.hpp"
@@ -65,8 +65,8 @@ TEST_F(DMA, IOSpeed) {
     }
 
     std::vector<uint8_t> data(max_batch_size);
-    std::unique_ptr<SysmemBuffer> pinned_buffer =
-        cluster->get_chip(mmio_chip)->get_sysmem_manager()->allocate_sysmem_buffer(max_batch_size);
+    Chip* chip = cluster->get_chip(mmio_chip);
+    std::unique_ptr<SysmemBuffer> pinned_buffer = chip->get_system_memory_allocator()->allocate_buffer(max_batch_size);
 
     const std::vector<std::string> context_variables = {"mode", "direction", "core", "coretype"};
     Bench bench;
@@ -108,13 +108,13 @@ TEST_F(DMA, IOSpeed) {
             };
         });
         benchmark("zero_copy", direction, [&](const Target& target) {
-            // The pinned buffer is addressed by the device, which expects translated coordinates.
-            const tt_xy_pair core = soc_desc.translate_chip_coord_to_translated(target.core, get_selected_noc_id());
-            return [&, core, address = target.address](size_t batch_size) {
+            return [&, core = target.core, address = target.address](size_t batch_size) {
                 if (is_write) {
-                    pinned_buffer->dma_write_to_device(0, batch_size, core, address);
+                    chip->get_tt_device()->dma_write_zero_copy(
+                        pinned_buffer->get_iova(), address, batch_size, core, get_selected_noc_id());
                 } else {
-                    pinned_buffer->dma_read_from_device(0, batch_size, core, address);
+                    chip->get_tt_device()->dma_read_zero_copy(
+                        pinned_buffer->get_iova(), address, batch_size, core, get_selected_noc_id());
                 }
             };
         });

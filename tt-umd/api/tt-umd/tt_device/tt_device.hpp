@@ -43,6 +43,7 @@
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/types/simulation_backend_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -445,6 +446,17 @@ public:
     int get_communication_device_id() const;
 
     IODeviceType get_communication_device_type() const;
+
+    /**
+     * Which simulator backs this device, whether it runs in this process or in a simulation server the device is
+     * attached to. A remote device is backed by whatever backs the device it is reached through. A device attached to a
+     * simulation server that serves a device no simulator backs answers TTSIM, because the server protocol has no other
+     * kind.
+     *
+     * @return std::nullopt for a device no simulator backs, such as silicon reached through the KMD (including a card a
+     * ttsim-qemu VM emulates) and every device in a build of UMD without simulation support.
+     */
+    std::optional<SimulationBackendType> get_simulation_backend() const;
 
     /**
      * Get the soft reset signal for the given riscs.

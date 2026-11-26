@@ -129,7 +129,7 @@ TEST(SimulatorInfo, TTSimDeviceIsBackedByTTSim) {
     }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    EXPECT_EQ(get_simulation_backend(*cluster->get_tt_device(0)), SimulationBackendType::TTSIM);
+    EXPECT_EQ(cluster->get_tt_device(0)->get_simulation_backend(), SimulationBackendType::TTSIM);
 }
 
 // A remote chip has no simulator of its own: it is reached over Ethernet through a chip the simulator backs.
@@ -144,7 +144,7 @@ TEST(SimulatorInfo, RemoteTTSimDeviceIsBackedByTTSim) {
         GTEST_SKIP() << "The simulator models no remote chip.";
     }
 
-    EXPECT_EQ(get_simulation_backend(*cluster->get_tt_device(*remote_chips.begin())), SimulationBackendType::TTSIM);
+    EXPECT_EQ(cluster->get_tt_device(*remote_chips.begin())->get_simulation_backend(), SimulationBackendType::TTSIM);
 }
 
 TEST(SimulatorInfo, RtlDeviceIsBackedByRtl) {
@@ -154,7 +154,7 @@ TEST(SimulatorInfo, RtlDeviceIsBackedByRtl) {
     }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    EXPECT_EQ(get_simulation_backend(*cluster->get_tt_device(0)), SimulationBackendType::RTL);
+    EXPECT_EQ(cluster->get_tt_device(0)->get_simulation_backend(), SimulationBackendType::RTL);
 }
 
 // A device attached to a simulation server reports the simulator the server runs, not a backend of its own.
@@ -175,7 +175,7 @@ TEST(SimulatorInfo, SimulationServerClientDeviceIsBackedByTheServersSimulator) {
         client_options.simulator_directory = server_directory;
         const SimulationConnector::Result client = SimulationConnector::discover(client_options);
 
-        EXPECT_EQ(get_simulation_backend(*client.devices.at(0)), SimulationBackendType::TTSIM);
+        EXPECT_EQ(client.devices.at(0)->get_simulation_backend(), SimulationBackendType::TTSIM);
     }
     std::filesystem::remove_all(server_directory);
 }

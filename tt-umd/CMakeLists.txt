@@ -274,6 +274,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/dma.hpp
                 api/tt-umd/types/gddr_telemetry.hpp
                 api/tt-umd/types/host_memory.hpp
+                api/tt-umd/types/simulation_backend_type.hpp
                 api/tt-umd/types/telemetry.hpp
                 api/tt-umd/types/tlb.hpp
                 api/tt-umd/types/io_window_config.hpp

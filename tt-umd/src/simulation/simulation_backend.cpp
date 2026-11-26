@@ -136,7 +136,7 @@ SimulationServerDeviceInfo describe_served_device(const TTDevice& device) {
         simulation_backend().get_device_connection(device);
     return describe_device(
         device.get_soc_descriptor(),
-        get_simulation_backend(device).value_or(SimulationBackendType::TTSIM),
+        device.get_simulation_backend().value_or(SimulationBackendType::TTSIM),
         connection.has_value() ? connection->simulator : std::filesystem::path{});
 }
 

@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "system_memory/silicon_sysmem_manager.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/process_utils.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
@@ -30,7 +31,6 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

@@ -15,8 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include "system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt_emule/device.hpp"

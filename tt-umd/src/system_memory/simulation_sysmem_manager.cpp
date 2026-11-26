@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "system_memory/simulation_sysmem_manager.hpp"
 
 #include <fmt/format.h>
 #include <sys/mman.h>  // for mmap, munmap

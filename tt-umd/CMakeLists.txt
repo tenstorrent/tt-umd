@@ -195,8 +195,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/system_memory/host_mem_channels.hpp
-                api/tt-umd/system_memory/simulation_sysmem_manager.hpp
-                api/tt-umd/system_memory/silicon_sysmem_manager.hpp
                 api/tt-umd/system_memory/system_memory_allocator.hpp
                 api/tt-umd/system_memory/sysmem_buffer.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp

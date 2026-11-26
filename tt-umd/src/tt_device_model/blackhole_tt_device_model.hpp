@@ -14,8 +14,10 @@ class ClassicTileRiscReset;
 
 class ArchitectureImplementation;
 class HangDetector;
-class JtagDevice;
+class IoWindowFactory;
+class PCIDevice;
 class SocArchDescriptor;
+class SystemMemoryAllocator;
 class RemoteCommunication;
 
 // Model for a Blackhole device, over any transport that reaches one. Each constructor builds the
@@ -27,12 +29,11 @@ public:
         std::unique_ptr<PCIDevice> pci_device,
         bool use_safe_api,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    BlackholeTTDeviceModel(
-        std::unique_ptr<JtagDevice> jtag_device, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     ~BlackholeTTDeviceModel() override;
 
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
 
@@ -54,13 +55,15 @@ public:
 
     DmaInterface *get_dma_interface() override;
 
+    PeerDmaInterface *get_peer_dma_interface() override;
+
     JtagInterface *get_jtag_interface() override;
 
     RemoteInterface *get_remote_interface() override;
 
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
 
-    PCIDevice *get_pci_device() override;
+    SystemMemoryAllocator *get_system_memory_allocator() override;
 
 private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
@@ -69,13 +72,13 @@ private:
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;
     DmaInterface *dma_interface_ = nullptr;
+    IoWindowFactory *io_window_factory_ = nullptr;
+    PeerDmaInterface *peer_dma_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
-    // Owned by the PCIe protocol; retained only to serve get_pci_device().
-    PCIDevice *pci_device_ = nullptr;
 
-    // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs
-    // the protocol's PCIDevice alive when it is released.
+    // Must come after protocol_: the detector holds the protocol's NOC probe window, which needs the
+    // protocol's PCIDevice alive when it is released.
     std::unique_ptr<HangDetector> hang_detector_;
 
     // Declared after the transports: it borrows them, so it must be destroyed first.
@@ -83,6 +86,9 @@ private:
 
     // Borrows the protocol and the architecture implementation, so it is declared after them.
     std::unique_ptr<ClassicTileRiscReset> risc_reset_;
+
+    // Pins through the protocol's PCIDevice, so it is declared after the protocol and destroyed first.
+    std::unique_ptr<SystemMemoryAllocator> system_memory_allocator_;
 };
 
 }  // namespace tt::umd

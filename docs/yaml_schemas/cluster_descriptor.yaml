@@ -1,7 +1,7 @@
 # YAML Schema for Tenstorrent Cluster Descriptors
 # This schema defines the structure and validation rules for cluster descriptor YAML files
 # used in tt-umd for describing Tenstorrent AI accelerator cluster configurations.
-# See examples in ./tests/cluster_descriptor_examples
+# See examples in ./descriptors/cluster_descriptor_examples
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Tenstorrent Cluster Descriptor Schema
@@ -154,6 +154,7 @@ properties:
     enum:
       - PCIe
       - JTAG
+      - AXI
 
   # Harvesting information for each chip
   harvesting:

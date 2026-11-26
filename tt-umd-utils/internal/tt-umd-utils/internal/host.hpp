@@ -9,6 +9,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 
 namespace tt::umd::utils {
@@ -24,7 +25,7 @@ inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
 // Coarse, host-wide check for whether any RDMA-capable port (RoCE or InfiniBand) is currently up,
 // by scanning /sys/class/infiniband/*/ports/*/state for a port whose state name is ACTIVE.
 inline bool has_any_active_rdma_port() {
-    static const std::filesystem::path infiniband_class_path = "/sys/class/infiniband";
+    constexpr std::string_view infiniband_class_path = "/sys/class/infiniband";
     std::error_code ec;
     if (!std::filesystem::is_directory(infiniband_class_path, ec)) {
         return false;

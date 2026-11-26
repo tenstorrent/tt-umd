@@ -55,6 +55,15 @@ public:
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
+protected:
+    // NonCacheable lives in the window's configuration on an architecture whose entries carry AXI
+    // transaction attributes; elsewhere there is no field for it and the base class refuses it.
+    WindowFlags supported_window_flags() const override;
+
+    // A silicon window programs a real TLB entry, so it carries ordering only where the architecture's
+    // entry has a field for it.
+    bool carries_ordering() const override;
+
 private:
     // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
     // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.
@@ -77,8 +86,8 @@ private:
         void* dest, const void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
 
     void write_regs(
-        volatile uint32_t* dest, const uint32_t* src, uint32_t word_len, const std::function<bool()>& on_timeout);
-    void read_regs(void* src_reg, uint32_t word_len, void* data, const std::function<bool()>& on_timeout);
+        volatile uint32_t* dest, const uint32_t* src, size_t word_len, const std::function<bool()>& on_timeout);
+    void read_regs(void* src_reg, size_t word_len, void* data, const std::function<bool()>& on_timeout);
 
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);

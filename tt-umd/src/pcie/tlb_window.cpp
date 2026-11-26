@@ -20,14 +20,15 @@
 namespace tt::umd {
 
 // IoOrdering carries the TLB hardware encoding directly, so translating between the two is a cast.
-// If these ever diverge, the casts in configure()/get_io_ordering() below become silently wrong.
+// If these ever diverge, the casts in configure()/get_io_ordering() below and in
+// PcieProtocol::export_window() become silently wrong.
 // TEMP: these live exactly as long as those casts do, i.e. until tlb_data is gone from the
 // window API and IoOrdering is what callers pass all the way down. tlb_data itself stays either way --
 // it is the hardware register descriptor (see tlb_data::apply_offset) and remains internal to the
 // handle/PCI layer.
-static_assert(static_cast<uint64_t>(IoOrdering::Relaxed) == tlb_data::Relaxed);
-static_assert(static_cast<uint64_t>(IoOrdering::Strict) == tlb_data::Strict);
-static_assert(static_cast<uint64_t>(IoOrdering::Posted) == tlb_data::Posted);
+static_assert(static_cast<uint64_t>(IoOrdering::RELAXED) == tlb_data::Relaxed);
+static_assert(static_cast<uint64_t>(IoOrdering::STRICT) == tlb_data::Strict);
+static_assert(static_cast<uint64_t>(IoOrdering::POSTED) == tlb_data::Posted);
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
     tlb_handle(std::move(handle)), io_safety_(io_safety) {
@@ -52,6 +53,9 @@ tlb_data TlbWindow::make_tlb_config(
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(flags));
+    // Carried in the window's own configuration rather than on the transaction, so an
+    // architecture that has nowhere to put it rejects the flag before reaching here.
+    config.noncacheable = (flags & WindowFlags::NonCacheable) != WindowFlags::None ? 1 : 0;
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;
@@ -93,7 +97,11 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
     read_register(offset, data, size);
 }
 
-void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
+void TlbWindow::configure(const TargetIoWindowConfig& config) {
+    // No ordering was asked for, so take the strongest this window can actually provide. Asking for
+    // Strict where this window carries no ordering would record a guarantee it never got.
+    configure(config, carries_ordering() ? IoOrdering::STRICT : IoOrdering::RELAXED);
+}
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
     // The direction field is encoded into the TLB mapping; anything else must be honored by the
@@ -104,6 +112,12 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         "Requested WindowFlags are not supported by this TLB-backed IoWindow.");
 
     UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
+
+    // An ordering this window has no field for is refused rather than recorded and silently not applied.
+    UMD_ASSERT(
+        ordering == IoOrdering::RELAXED || carries_ordering(),
+        error::RuntimeError,
+        "This IoWindow carries no transaction ordering, so only Relaxed can be honored.");
 
     // A TLB mapping has no field for the non-direction flags, so they are kept as window state.
     window_flags_ = config.flags & ~WindowFlags::DirectionMask;

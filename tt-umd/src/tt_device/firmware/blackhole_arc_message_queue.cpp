@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/blackhole_arc_message_queue.hpp"
+#include "tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp"
 
 #include <fmt/format.h>
 
@@ -82,7 +82,7 @@ void BlackholeArcMessageQueue::push_request(
     }
 
     // Offset in words.
-    uint32_t request_entry_offset = header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
+    size_t request_entry_offset = header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
     write_words(request.data(), BlackholeArcMessageQueue::entry_len, request_entry_offset, noc_id);
 
     request_queue_wptr = (request_queue_wptr + 1) % (2 * size);
@@ -106,7 +106,7 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
         utils::check_timeout(start, timeout_ms, "Timeout waiting for ARC msg request queue.");
     }
 
-    uint32_t response_entry_offset =
+    size_t response_entry_offset =
         header_len + (size + (response_queue_rptr % size)) * BlackholeArcMessageQueue::entry_len;
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response;
     read_words(response.data(), BlackholeArcMessageQueue::entry_len, response_entry_offset, noc_id);
@@ -189,7 +189,7 @@ uint32_t BlackholeArcMessageQueue::send_message(
     uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
 
     uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
-    uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
+    uint64_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
 
     return std::make_unique<BlackholeArcMessageQueue>(
         device_protocol, arc_apb, msg_queue_base, num_entries_per_queue, noc_translation_enabled);

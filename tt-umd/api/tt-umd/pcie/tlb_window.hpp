@@ -83,6 +83,11 @@ protected:
     // mapping cannot express any of them.
     virtual WindowFlags supported_window_flags() const { return WindowFlags::None; }
 
+    // Whether this window's mapping has a field for transaction ordering. Where it does not, configure()
+    // maps with Relaxed when no ordering is asked for and refuses any other, rather than record a
+    // guarantee the window never got.
+    virtual bool carries_ordering() const { return true; }
+
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
 

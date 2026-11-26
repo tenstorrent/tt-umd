@@ -49,7 +49,7 @@ void WormholeDmaTransfer::d2h_start(
     write_reg(DMA_WRITE_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);
     write_reg(DMA_WRITE_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_WRITE_ABORT_IMWR_HIGH_OFF, 0);
-    write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
+    write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, static_cast<uint32_t>(size));
     write_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
     write_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
     write_reg(DMA_DAR_LOW_OFF_WRCH_0, static_cast<uint32_t>(dst & 0xFFFFFFFF));
@@ -93,7 +93,7 @@ void WormholeDmaTransfer::h2d_start(
     write_reg(DMA_READ_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);
     write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
-    write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
+    write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, static_cast<uint32_t>(size));
     write_reg(DMA_SAR_LOW_OFF_RDCH_0, static_cast<uint32_t>(src & 0xFFFFFFFF));
     write_reg(DMA_SAR_HIGH_OFF_RDCH_0, static_cast<uint32_t>((src >> 32) & 0xFFFFFFFF));
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);

@@ -11,15 +11,15 @@
 #include <utility>
 
 #include "tt-umd-utils/internal/polling.hpp"
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
-#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
 #include "tt-umd/firmware/firmware_info_provider_implementation.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
@@ -696,18 +696,21 @@ bool WormholeDeviceFirmware::wait_dram_channel_training(
 }
 
 uint64_t WormholeDeviceFirmware::get_refclk_counter(NocId noc_id) {
-    // Moved verbatim from TTDevice::get_refclk_counter, including its long-standing quirk: high2 is
-    // never read back, so the wrap guard never fires. Kept as-is; fixing it is a behavior change.
-    uint32_t high1_addr = 0;
-    uint32_t high2_addr = 0;
-    uint32_t low_addr = 0;
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
-    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr), noc_id);
-    if (high2_addr > high1_addr) {
-        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr), noc_id);
+    // The 64-bit counter is read as two 32-bit words, so the low word can wrap between the reads.
+    // Reading high on both sides of low detects that: if it changed, low is re-read to pair with
+    // the newer high word.
+    const uint64_t high_offset = architecture_impl_->get_reset_unit_refclk_high_offset();
+    const uint64_t low_offset = architecture_impl_->get_reset_unit_refclk_low_offset();
+    uint32_t high1 = 0;
+    uint32_t high2 = 0;
+    uint32_t low = 0;
+    read_from_arc_apb(&high1, high_offset, sizeof(high1), noc_id);
+    read_from_arc_apb(&low, low_offset, sizeof(low), noc_id);
+    read_from_arc_apb(&high2, high_offset, sizeof(high2), noc_id);
+    if (high2 != high1) {
+        read_from_arc_apb(&low, low_offset, sizeof(low), noc_id);
     }
-    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+    return (static_cast<uint64_t>(high2) << 32) | low;
 }
 
 void WormholeDeviceFirmware::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {

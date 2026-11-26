@@ -18,12 +18,14 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <unordered_set>
@@ -56,7 +58,9 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         attribute_name);
     std::ifstream attribute_file(sysfs_path);
     std::string value_str;
-    T value;
+    // operator>> reads single-byte types as characters, so those are parsed as numbers and range-checked.
+    using ParsedT = std::conditional_t<sizeof(T) == 1, unsigned int, T>;
+    ParsedT value;
 
     if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
         return std::nullopt;
@@ -75,7 +79,13 @@ static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const s
         return std::nullopt;
     }
 
-    return value;
+    if constexpr (sizeof(T) == 1) {
+        if (value > std::numeric_limits<T>::max()) {
+            return std::nullopt;
+        }
+    }
+
+    return static_cast<T>(value);
 }
 
 template <typename T>
@@ -109,8 +119,8 @@ bool PCIDevice::detect_iommu(const PciDeviceInfo &device_info) {
 }
 
 // Read on each call rather than cached, since the link can retrain to a different width.
-std::optional<uint32_t> PCIDevice::get_current_link_width() const {
-    return try_read_sysfs<uint32_t>(info, "current_link_width");
+std::optional<uint32_t> PciDeviceInfo::get_current_link_width() const {
+    return try_read_sysfs<uint32_t>(*this, "current_link_width");
 }
 
 static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
@@ -411,7 +421,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     pci_device_num(pci_device_number),
     info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
-    revision(read_sysfs<int>(info, "revision")),
+    revision(read_sysfs<uint8_t>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
@@ -798,8 +808,8 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
 }
 
 SemVer PCIDevice::read_kmd_version() {
-    static const std::string path = "/sys/module/tenstorrent/version";
-    std::ifstream file(path);
+    constexpr std::string_view path = "/sys/module/tenstorrent/version";
+    std::ifstream file{std::string(path)};
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);
@@ -889,15 +899,101 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
+void PCIDevice::configure_tlb(
+    const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
+    const ArchitectureTlbs &arch_tlbs = get_architecture_tlbs(arch);
+    auto tlb_configuration = arch_tlbs.get_configuration(tlb_index);
+
+    // Where the configuration registers are not reachable from the host, the driver owns them and
+    // programs the window for us. The driver rejects an address that is not aligned to the window.
+    // Nothing is posted, so there is no read-back to do.
+    if (!arch_tlbs.cfg_registers_host_writable) {
+        UMD_ASSERT(
+            tlb_handle != nullptr,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} has no driver handle, and {} cannot configure a window without one.",
+                tlb_index,
+                arch_to_str(arch)));
+
+        // A window the driver programs is flat over system physical address space: the entry is a
+        // target address plus the AXI attributes its accesses carry (noncacheable). The
+        // address already names its target, so a coordinate or multicast is refused rather than
+        // dropped, which would map the window somewhere the caller did not ask for. The entry has no
+        // NOC selector, ordering, linking or virtual channel either, so a caller that set one asked
+        // for something this window cannot do.
+        UMD_ASSERT(
+            tlb_config.x_start == 0 && tlb_config.y_start == 0 && tlb_config.x_end == 0 && tlb_config.y_end == 0,
+            error::RuntimeError,
+            fmt::format(
+                "A flat address already names its target, so a window travels with no coordinate; cores ({}, {}) to "
+                "({}, {}) cannot be honoured.",
+                tlb_config.x_start,
+                tlb_config.y_start,
+                tlb_config.x_end,
+                tlb_config.y_end));
+        UMD_ASSERT(
+            tlb_config.mcast == 0,
+            error::RuntimeError,
+            "There is no multicast on this path, so a window cannot cover a grid of cores.");
+
+        const auto refuse = [&](const char *name, const uint64_t value) {
+            UMD_ASSERT(
+                value == 0,
+                error::RuntimeError,
+                fmt::format(
+                    "TLB index {}: a window the driver programs is flat over system physical address "
+                    "space and cannot carry {} (got {:#x}).",
+                    tlb_index,
+                    name,
+                    value));
+        };
+        refuse("noc_sel", tlb_config.noc_sel);
+        refuse("ordering", tlb_config.ordering);
+        refuse("linked", tlb_config.linked);
+        refuse("static_vc", tlb_config.static_vc);
+        refuse("static_vc_buddy", tlb_config.static_vc_buddy);
+        refuse("static_vc_class", tlb_config.static_vc_class);
+
+        // The entry does carry the non-cacheable bit, but only as one bit. Range-check before
+        // narrowing, so an out-of-range value is reported rather than silently truncated.
+        UMD_ASSERT(
+            tlb_config.noncacheable <= 1,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {}: noncacheable is {:#x}, but the entry carries it as a single bit.",
+                tlb_index,
+                tlb_config.noncacheable));
+
+        tt_noc_addr_config_t config = {};
+        config.addr = tlb_config.local_offset;
+        config.noncacheable = static_cast<uint8_t>(tlb_config.noncacheable);
+
+        const int ret = tt_tlb_map(tt_device_handle, tlb_handle, &config);
+        UMD_ASSERT(
+            ret == 0,
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB index {} at address {:#x} through the driver: {}.",
+                tlb_index,
+                tlb_config.local_offset,
+                strerror(-ret)));
+
+        log_trace(LogUMD, "Configured TLB index {} via the driver at address 0x{:x}", tlb_index, config.addr);
+        return;
+    }
+
+    // The registers hold the window's index within its size class, not a byte address, so the
+    // offset is divided down before it is packed.
+    tlb_data register_config = tlb_config;
+    register_config.local_offset = tlb_config.local_offset / tlb_configuration.size;
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
-    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
+    auto [lower_64, upper_64] = register_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
+    const uint64_t tlb_cfg_reg_size_bytes = arch_tlbs.cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
@@ -1144,6 +1240,7 @@ int PCIDevice::export_tlb_dmabuf(
     noc_config.mcast = static_cast<uint8_t>(config.mcast);
     noc_config.ordering = static_cast<uint8_t>(config.ordering);
     noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+    noc_config.noncacheable = static_cast<uint8_t>(config.noncacheable);
 
     ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
     if (ret != 0) {

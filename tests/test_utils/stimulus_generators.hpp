@@ -39,8 +39,6 @@
 
 namespace tt::umd::test::utils {
 
-static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
-
 enum RemoteTransferType : uint8_t { WRITE = 0, READ };
 
 template <
@@ -121,7 +119,8 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 struct WriteCommandGenerator {
-    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using destination_generator_t =
+        ConstrainedTemplateTemplateGenerator<destination_t, size_t, DEST_DISTR_T, GENERATOR_T>;
     using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
     using size_generator_t =
         ConstrainedTemplateTemplateGenerator<transfer_size_t, DISTR_OUT_T, SIZE_DISTR_T, GENERATOR_T>;
@@ -151,7 +150,8 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 struct WriteEpochCmdCommandGenerator {
-    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using destination_generator_t =
+        ConstrainedTemplateTemplateGenerator<destination_t, size_t, DEST_DISTR_T, GENERATOR_T>;
     using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
     using size_generator_t =
         ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, SIZE_DISTR_T, GENERATOR_T>;
@@ -190,7 +190,8 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 struct RolledWriteCommandGenerator {
-    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using destination_generator_t =
+        ConstrainedTemplateTemplateGenerator<destination_t, size_t, DEST_DISTR_T, GENERATOR_T>;
     using address_generator_t =
         ConstrainedTemplateTemplateGenerator<address_t, address_t, SIZE_DISTR_OUT_T, GENERATOR_T>;
     using size_generator_t =
@@ -224,7 +225,8 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 struct ReadCommandGenerator {
-    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using destination_generator_t =
+        ConstrainedTemplateTemplateGenerator<destination_t, size_t, DEST_DISTR_T, GENERATOR_T>;
     using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
     using size_generator_t =
         ConstrainedTemplateTemplateGenerator<transfer_size_t, DISTR_OUT_T, SIZE_DISTR_T, GENERATOR_T>;
@@ -543,17 +545,17 @@ get_default_address_generator(int seed, address_t start, address_t end) {
         seed + 1, address_distribution, address_aligner);
 }
 
-static inline ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
+static inline ConstrainedTemplateTemplateGenerator<destination_t, size_t, std::uniform_int_distribution>
 get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
     assert(cluster != nullptr);
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
     SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
-    return ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
+    return ConstrainedTemplateTemplateGenerator<destination_t, size_t, std::uniform_int_distribution>(
         seed,
-        std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
-        [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
+        std::uniform_int_distribution<size_t>(0, core_index_to_location.size() - 1),
+        [core_index_to_location](size_t dest) -> destination_t { return core_index_to_location.at(dest); });
 }
 
 static inline WriteCommandGenerator<
@@ -565,10 +567,10 @@ build_dummy_write_command_generator(Cluster& cluster) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
-    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
+    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, size_t, std::uniform_int_distribution>(
         0,
-        std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
-        [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
+        std::uniform_int_distribution<size_t>(0, core_index_to_location.size() - 1),
+        [core_index_to_location](size_t dest) -> destination_t { return core_index_to_location.at(dest); });
     auto addr_generator = ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(
         0, std::uniform_int_distribution<address_t>(0, 0), address_aligner);
     auto addr_generator_32B_aligned =
@@ -590,10 +592,10 @@ build_dummy_read_command_generator(Cluster& cluster) {
     ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
     SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
-    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
+    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, size_t, std::uniform_int_distribution>(
         0,
-        std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
-        [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
+        std::uniform_int_distribution<size_t>(0, core_index_to_location.size() - 1),
+        [core_index_to_location](size_t dest) -> destination_t { return core_index_to_location.at(dest); });
     auto addr_generator = ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(
         0, std::uniform_int_distribution<address_t>(0, 0), address_aligner);
     auto read_size_generator =
@@ -632,10 +634,10 @@ void RunMixedTransfersUniformDistributions(
     SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
-    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
+    auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, size_t, std::uniform_int_distribution>(
         seed,
-        std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
-        [&core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
+        std::uniform_int_distribution<size_t>(0, core_index_to_location.size() - 1),
+        [&core_index_to_location](size_t dest) -> destination_t { return core_index_to_location.at(dest); });
     auto addr_generator = ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(
         seed + 1, address_distribution, address_aligner);
     auto addr_generator_32B_aligned =

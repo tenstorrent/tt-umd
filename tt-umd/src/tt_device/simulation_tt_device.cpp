@@ -36,13 +36,10 @@ namespace tt::umd {
 SimulationTTDevice::ModelHandle::ModelHandle(std::unique_ptr<SimulationTTDeviceModel> simulation_model) :
     simulation_model(simulation_model.get()), model(std::move(simulation_model)) {}
 
-SimulationTTDevice::SimulationTTDevice(
-    ModelHandle model,
-    const std::filesystem::path& simulator_directory,
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
+SimulationTTDevice::SimulationTTDevice(ModelHandle model, const std::filesystem::path& simulator_directory) :
     TTDevice(std::move(model.model)),
     simulator_directory_(simulator_directory),
-    sysmem_manager_(std::move(sysmem_manager)),
+    sysmem_manager_(model.simulation_model->get_system_memory_allocator()),
     simulation_model_(model.simulation_model) {}
 
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :
@@ -148,7 +145,12 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 }
 
 void SimulationTTDevice::write_to_device(
-    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    const void* mem_ptr,
+    CoreCoord core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    [[maybe_unused]] IoOrdering ordering) {
     // Client and host are disjoint paths with nothing shared; dispatch on the named role rather
     // than a bare client_ null-check. Each helper takes device_lock itself (the client path always;
     // the host path after its is_device_closed() gate), so the lock is never dropped on either.
@@ -159,7 +161,8 @@ void SimulationTTDevice::write_to_device(
     }
 }
 
-void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void SimulationTTDevice::read_from_device(
+    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     if (client_mode()) {
         client_read(core, addr, mem_ptr, size);
     } else {

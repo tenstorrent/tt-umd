@@ -91,12 +91,6 @@ struct ClusterOptions {
     std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
-     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-     * descriptor based on architecture will be used.
-     */
-    std::string sdesc_path;
-
-    /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
@@ -136,14 +130,9 @@ struct ClusterOptions {
      */
     std::filesystem::path simulator_server_directory = "";
 
-    /**
-     * I/O device type to use for the cluster.
-     * This determines how the cluster will communicate with the underlying hardware.
-     */
-    IODeviceType io_device_type = IODeviceType::PCIe;
-
     /*
-     * Options related to topology discovery. Only applicable for SILICON chip type.
+     * Options related to topology discovery. Its transport (io_device_type) and SoC descriptor path
+     * (soc_descriptor_path) apply to every chip type; the rest only to SILICON.
      */
     TopologyDiscoveryOptions topology_discovery_options = {};
 };
@@ -272,7 +261,7 @@ public:
         CoreCoord core_start,
         uint64_t addr,
         HostIoWindowConfig host = {},
-        IoOrdering ordering = IoOrdering::Strict,
+        IoOrdering ordering = IoOrdering::STRICT,
         std::optional<CoreCoord> core_end = std::nullopt,
         WindowFlags flags = WindowFlags::None,
         std::optional<NocId> noc = std::nullopt);
@@ -317,6 +306,9 @@ public:
      * - Set power state to busy (ramp up AICLK)
      *
      * @param device_params Object specifying initialization configuration.
+     * @throws error::RuntimeError if a chip's host memory channels cannot be allocated or are not bound at their
+     * expected NOC addresses. The chip that failed is left as if it was never started; chips started before it stay
+     * started until close_device().
      */
     void start_device(const DeviceParams& device_params);
 
@@ -414,7 +406,7 @@ public:
         ChipId chip,
         CoreCoord core,
         uint64_t addr,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -438,7 +430,7 @@ public:
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -525,15 +517,19 @@ public:
      *                           @p use_translated_coords is false, or in translated-index space when true.
      * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
      *                              @p columns_to_exclude; callers must supply values in the matching space.
+     * @param is_reg_write Write a register: without ethernet broadcast, each core is written through the uncached
+     *                     register path (write_to_device_reg) instead of write_to_device. @p size_in_bytes and
+     *                     @p address must then be multiples of 4. Ignored with ethernet broadcast.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
-        uint32_t size_in_bytes,
+        size_t size_in_bytes,
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
-        std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude,
-        bool use_translated_coords);
+        std::set<size_t>& rows_to_exclude,
+        std::set<size_t>& columns_to_exclude,
+        bool use_translated_coords,
+        bool is_reg_write = false);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
@@ -550,7 +546,7 @@ public:
      * @return dma-buf file descriptor; the caller owns it and must close() it when done.
      */
     int export_dmabuf(
-        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering = IoOrdering::RELAXED);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -641,7 +637,7 @@ public:
      *
      * @param device_id Logical device id to target.
      */
-    std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    std::size_t get_num_host_channels(std::uint32_t device_id);
 
     /**
      * Get size for a specific Host channel accessible by the corresponding device.
@@ -649,7 +645,7 @@ public:
      * @param device_id Logical device id to target.
      * @param channel Logical host channel to target.
      */
-    std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    std::size_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
 
     /**
      * Get absolute address corresponding to a zero based offset into a specific host memory channel for a specific

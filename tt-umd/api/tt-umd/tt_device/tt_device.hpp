@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -17,11 +16,11 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd/arc/arc_telemetry_reader.hpp"
-#include "tt-umd/arc/firmware_telemetry_reader.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_registers.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/firmware_telemetry/arc_telemetry_reader.hpp"
+#include "tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
@@ -54,10 +53,9 @@ class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class SystemMemoryAllocator;
 class DmaInterface;
-class JtagDevice;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
@@ -68,26 +66,8 @@ struct CoreCoord;
 class TTDevice {
 public:
     /**
-     * @brief Factory method to create a TTDevice instance.
-     *
-     * Creates and returns a unique pointer to a TTDevice object configured with the
-     * specified parameters. This is the primary way to instantiate TTDevice objects.
-     *
-     * A JTAG device does not request power for its chip. The caller has to keep Tensix powered for as long as it
-     * accesses Tensix cores over JTAG, for example by keeping the chip's PCIe TTDevice open with
-     * set_power_state(PowerState::BUSY): a JTAG access to clock-gated Tensix leaves the chip unresponsive until reset.
-     *
-     * @param device_number The device identifier to connect to, specific to the I/O device interface: the PCIe device
-     *                      number, or the J-Link serial number for JTAG.
-     * @param device_type The type of I/O device interface to use. (default: PCIe)
-     * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
-     *                     Available only for PCIe I/O device type. (default: false)
-     * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
-     *                            If nullptr, a default descriptor will be used. (default: nullptr)
-     *
-     * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
-     *
-     * @throws May throw exceptions if device creation fails or device_number is invalid.
+     * @brief Deprecated aliases of the creation functions in tt_device_factory.hpp, kept until
+     * out-of-tree callers move over. Call those directly instead.
      */
     static std::unique_ptr<TTDevice> create(
         int device_number,
@@ -100,22 +80,30 @@ public:
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // A remote TTDevice is normally initialized over ARC (init_tt_device), which constructs its SocDescriptor.
-    // Simulated remote chips have no ARC to probe, so the caller supplies the full descriptor directly. This is a
-    // dedicated factory (compiled in only for simulation builds) rather than an overload of the silicon create()
-    // above, so the simulation-only flow stays fully separated from the silicon path.
-    // TODO: temporary - remove once ttsim provides a mocked ARC that can serve the SocDescriptor like silicon does.
     static std::unique_ptr<TTDevice> create_simulation_remote(
         std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+
+    // Builds the one device that is never initialized over ARC, so it is the only caller outside the
+    // hierarchy that may assign the SoC descriptor itself.
+    friend std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
 #endif  // TT_UMD_BUILD_SIMULATION
+
+    // Every TTDevice is built around a model, which supplies its identity and the components it
+    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
+    // architecture descriptor. Assembly - probing the architecture, picking the transport and the
+    // concrete model - lives in tt_device_factory.hpp, not here.
+    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
-    PCIDevice *get_pci_device();
     RemoteCommunication *get_remote_communication();
 
+    SystemMemoryAllocator *get_system_memory_allocator();
+
     DeviceProtocol *get_device_protocol();
+    // Null when the device is not reached over PCIe.
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -171,10 +159,21 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
+    // A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
     virtual void read_from_device(
-        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
     virtual void write_to_device(
-        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
 
     // Register reads/writes reach the device as one access of the given width per register; addr and size must
     // be multiples of that width. 64-bit accesses are supported only on Quasar.
@@ -365,12 +364,18 @@ public:
      * Waits for ETH core training to complete.
      * @param eth_core Specific ETH core to wait on.
      * @param timeout_ms Timeout in ms.
-     * @return Time taken in ms.
+     * @return true if training completed within the timeout.
      */
-    std::chrono::milliseconds wait_eth_core_training(
+    bool wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
-    void wait_dram_channel_training(
+    /**
+     * Waits for DRAM channel training to complete.
+     * @param dram_channel Index of the DRAM channel to wait on.
+     * @param timeout_ms Timeout in ms.
+     * @return true if training completed within the timeout.
+     */
+    bool wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void bar_write32(uint32_t addr, uint32_t data);
@@ -413,9 +418,9 @@ public:
      * @throws error::UninitializedDeviceError before init_tt_device() has run.
      * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
      */
-    uint32_t get_clock();
+    uint32_t get_clock() const;
 
-    uint32_t get_max_clock_freq();
+    uint32_t get_max_clock_freq() const;
 
     /**
      * @brief Retrieves the minimum supported clock frequency of the device.
@@ -425,7 +430,7 @@ public:
      *
      * @return uint32_t Minimum clock frequency in MHz.
      */
-    uint32_t get_min_clock_freq();
+    uint32_t get_min_clock_freq() const;
 
     // Advance the device by one clock cycle. No-op by default; overridden by devices with a
     // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
@@ -433,23 +438,23 @@ public:
     // background thread.
     virtual void advance_device_execution();
 
-    uint64_t get_board_id();
+    uint64_t get_board_id() const;
 
-    uint8_t get_asic_location();
+    uint8_t get_asic_location() const;
 
-    BoardType get_board_type();
+    BoardType get_board_type() const;
 
-    bool get_noc_translation_enabled();
+    bool get_noc_translation_enabled() const;
 
-    double get_asic_temperature();
+    double get_asic_temperature() const;
 
     virtual void wait_for_non_mmio_flush();
 
-    bool is_remote();
+    bool is_remote() const;
 
     void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
-    uint64_t get_refclk_counter();
+    uint64_t get_refclk_counter() const;
 
     int get_communication_device_id() const;
 
@@ -477,7 +482,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -487,18 +492,17 @@ public:
      * @param staggered_start Whether to use staggered start
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void deassert_risc_reset(
-        CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id = NocId::DEFAULT_NOC);
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
     /**
      * Allocate a TlbWindow for use by callers.
      *
-     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
-     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their in-process bitmap and
-     * build the appropriate sim-backend TlbWindow.
+     * Simulation TTDevice subclasses override this to allocate from their in-process bitmap and build
+     * the appropriate sim-backend TlbWindow. Other devices build their windows in the model, so the
+     * default throws.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.
@@ -529,7 +533,7 @@ public:
 
     /**
      * Same as the overload above, with the transaction ordering mode applied to the mapping made
-     * explicit instead of defaulting to @ref IoOrdering::Strict.
+     * explicit instead of defaulting to @ref IoOrdering::STRICT.
      *
      * @param ordering Transaction ordering mode to apply to the mapping.
      */
@@ -562,21 +566,17 @@ public:
     }
 
     /**
-     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
-     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
-     * caller owns the returned fd and must close() it.
+     * Export a NOC-addressable region as a dma-buf file descriptor a peer device can DMA to and from. See
+     * PeerDmaInterface::export_window for the full contract; the caller owns the returned fd and
+     * must close() it.
      *
-     * @param core Core to target.
-     * @param addr Address within the core to aim the exported region at; must be page-aligned.
-     * @param size Number of bytes to export; must be page-aligned and non-zero.
-     * @param ordering Ordering mode for the TLB window backing the export.
-     * @param noc_id NOC to route the exported traffic over.
+     * @throws if this device has no PeerDmaInterface.
      */
     virtual int export_dmabuf(
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        uint64_t ordering = tlb_data::Relaxed,
+        IoOrdering ordering = IoOrdering::RELAXED,
         NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
@@ -592,11 +592,6 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    // Every TTDevice is built around a model, which supplies its identity and the components it
-    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
-    // architecture descriptor.
-    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
-
     // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
@@ -612,13 +607,8 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
-    // check, and gives the detector a separately-locked window to probe through.
-    void wire_hang_detector();
-
-    // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
-    // confirmed only when the in-flight op's NOC is hung.
-    std::function<bool(NocId)> make_io_timeout_hang_check();
+    // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
+    PcieInterface *require_pcie_interface();
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 

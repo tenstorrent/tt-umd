@@ -40,6 +40,8 @@ jobs:
       CCACHE_S3_BUCKET: ccache
       CCACHE_S3_PREFIX: tt-metal-for-umd
       CCACHE_S3_DEBUG: "false"
+      # ttsim release assets this job needs, as a brace glob; add a variant to the braces to download it.
+      TTSIM_ASSETS: "libttsim_{wh,bh,bh_x2,qsr,wh_x2,wh_x32,bh_x32}.so"
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
@@ -79,61 +81,14 @@ jobs:
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
 
-      - name: Download ttsim binary (wh)
+      - name: Download ttsim binaries
+        id: ttsim
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           latest: true
-          fileName: "libttsim_wh.so"
-          out-file-path: /tmp/ttsim-wh
-
-      - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh.so"
-          out-file-path: /tmp/ttsim-bh
-
-      - name: Download ttsim binary (bh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_x2.so"
-          out-file-path: /tmp/ttsim-bh-x2
-
-      - name: Download ttsim binary (qsr)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_qsr.so"
-          out-file-path: /tmp/ttsim-qsr
-
-      - name: Download ttsim binary (wh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x2.so"
-          out-file-path: /tmp/ttsim-wh-x2
-
-      - name: Download ttsim binary (wh_x32)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x32.so"
-          out-file-path: /tmp/ttsim-wh-x32
-
-      - name: Download ttsim binary (bh_x32)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_x32.so"
-          out-file-path: /tmp/ttsim-bh-x32
+          fileName: ${{ env.TTSIM_ASSETS }}
+          out-file-path: /tmp/ttsim
 
       # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with one
       # deliberate deviation: missing credentials are a warning, not a hard failure. tt-metal exits 1
@@ -188,6 +143,8 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          # The UMD tests run from the tt-metal root, not from the UMD checkout that holds the descriptors.
+          echo "UMD_DESCRIPTORS_PATH=$(pwd)/tt_metal/third_party/umd/descriptors" >> $GITHUB_ENV
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
@@ -218,22 +175,35 @@ jobs:
           fi
 
       - name: Prepare sim paths
+        shell: bash
+        env:
+          TTSIM_TAG: ${{ steps.ttsim.outputs.tag_name }}
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2 sim_wh_x32 sim_bh_x32
-          mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
-          mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
-          mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
-          mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
-          mv /tmp/ttsim-bh-x2/libttsim_bh_x2.so sim_bh_x2/libttsim.so
-          mv /tmp/ttsim-wh-x32/libttsim_wh_x32.so sim_wh_x32/libttsim.so
-          mv /tmp/ttsim-bh-x32/libttsim_bh_x32.so sim_bh_x32/libttsim.so
+          # The downloader's glob silently matches fewer files when a variant leaves the release, so
+          # expand the same brace list here and fail on each missing asset before any test runs.
+          eval "assets=($TTSIM_ASSETS)"
+          missing=0
+          # libttsim_<variant>[_aarch64].so goes to sim_<variant>/libttsim.so.
+          for asset in "${assets[@]}"; do
+            if [ ! -f "/tmp/ttsim/$asset" ]; then
+              echo "::error::ttsim release $TTSIM_TAG has no $asset"
+              missing=1
+              continue
+            fi
+            variant=$(basename "$asset" .so)
+            variant=${variant#libttsim_}
+            variant=${variant%_aarch64}
+            mkdir -p "sim_$variant"
+            mv "/tmp/ttsim/$asset" "sim_$variant/libttsim.so"
+          done
+          [ "$missing" -eq 0 ]
           # Wormhole and Blackhole images need no soc_descriptor.yaml: UMD reads their architecture from
           # the image. The copies below are only for the tt-metal steps, as the tt-metal checkout still
           # expects one beside every simulator. Quasar always needs one.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
-          cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
+          cp tt-metal/tt_metal/third_party/umd/descriptors/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # Deliberately no cluster_descriptor.yaml: discovery walks the ethernet links from the MMIO
           # gateway to the remote chip, which has no PCI endpoint of its own, and reproduces this image's
           # N300 topology from the devices themselves. TTSimDiscoveryTest below asserts that it did.
@@ -268,12 +238,14 @@ jobs:
           # is the *host* path, so use the working directory the sim paths were prepared in instead.
           simulator=$(pwd)/sim_bh/libttsim.so
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
-          ./sim_server start --detach "$simulator"
+          ./sim_server start --detach "$simulator" | tee /tmp/sim_server_start.txt
+          log=$(sed -n 's/^sim_server up: .*, log \(.*\)$/\1/p' /tmp/sim_server_start.txt)
           ./sim_server list | tee /tmp/sim_server_list.txt
           grep -q "blackhole/ttsim" /tmp/sim_server_list.txt   # ARCH column
           grep -qF "$simulator" /tmp/sim_server_list.txt        # SIMULATOR column
           ./sim_server kill 0
           sleep 2  # let the host finish tearing down before the next one claims a directory
+          test ! -e "$log"  # a host that shut down cleanly takes its log with it
 
           # prune clears up after a host that was killed rather than asked to stop, so it needs one
           # that died: start a second host and SIGKILL it.
@@ -343,7 +315,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # TTSimCommunicatorTest covers the simulator-facing plumbing rather than device IO: the shared
       # dlopen, endpoint enumeration, the closed-device guard, and independent IO across two chips of
@@ -435,7 +407,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). Its topology is
       # discovered rather than declared (see "Prepare sim paths"), so the standard device-IO fixtures
@@ -454,7 +426,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -469,7 +441,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
       # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
@@ -487,7 +459,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Install microbenchmark python deps
         run: |
@@ -594,6 +566,9 @@ jobs:
 
     name: Build UMD and run ttsim tests (aarch64)
     runs-on: ubuntu-24.04-arm
+    env:
+      # ttsim release assets this job needs, as a brace glob; add a variant to the braces to download it.
+      TTSIM_ASSETS: "libttsim_{wh,bh,qsr,wh_x2}_aarch64.so"
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-arm:latest
 
@@ -603,52 +578,45 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download ttsim binary (wh)
+      - name: Download ttsim binaries
+        id: ttsim
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           latest: true
-          fileName: "libttsim_wh_aarch64.so"
-          out-file-path: /tmp/ttsim-wh
-
-      - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_bh_aarch64.so"
-          out-file-path: /tmp/ttsim-bh
-
-      - name: Download ttsim binary (qsr)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_qsr_aarch64.so"
-          out-file-path: /tmp/ttsim-qsr
-
-      - name: Download ttsim binary (wh_x2)
-        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
-        with:
-          repository: tenstorrent/ttsim
-          latest: true
-          fileName: "libttsim_wh_x2_aarch64.so"
-          out-file-path: /tmp/ttsim-wh-x2
+          fileName: ${{ env.TTSIM_ASSETS }}
+          out-file-path: /tmp/ttsim
 
       - name: Prepare sim paths
+        shell: bash
+        env:
+          TTSIM_TAG: ${{ steps.ttsim.outputs.tag_name }}
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2
-          mv /tmp/ttsim-wh/libttsim_wh_aarch64.so sim_wh/libttsim.so
-          mv /tmp/ttsim-bh/libttsim_bh_aarch64.so sim_bh/libttsim.so
-          mv /tmp/ttsim-qsr/libttsim_qsr_aarch64.so sim_qsr/libttsim.so
-          mv /tmp/ttsim-wh-x2/libttsim_wh_x2_aarch64.so sim_wh_x2/libttsim.so
+          # The downloader's glob silently matches fewer files when a variant leaves the release, so
+          # expand the same brace list here and fail on each missing asset before any test runs.
+          eval "assets=($TTSIM_ASSETS)"
+          missing=0
+          # libttsim_<variant>[_aarch64].so goes to sim_<variant>/libttsim.so.
+          for asset in "${assets[@]}"; do
+            if [ ! -f "/tmp/ttsim/$asset" ]; then
+              echo "::error::ttsim release $TTSIM_TAG has no $asset"
+              missing=1
+              continue
+            fi
+            variant=$(basename "$asset" .so)
+            variant=${variant#libttsim_}
+            variant=${variant%_aarch64}
+            mkdir -p "sim_$variant"
+            mv "/tmp/ttsim/$asset" "sim_$variant/libttsim.so"
+          done
+          [ "$missing" -eq 0 ]
           # Wormhole and Blackhole images need no soc_descriptor.yaml: UMD reads their architecture from
           # the image. Quasar needs one.
-          cp tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
+          cp descriptors/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it and
           # enumerates both the MMIO gateway and the remote chip.
-          cp tests/cluster_descriptor_examples/wormhole_N300.yaml sim_wh_x2/cluster_descriptor.yaml
+          cp descriptors/cluster_descriptor_examples/wormhole_N300.yaml sim_wh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests with simulation support
         run: |
@@ -689,14 +657,16 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       - name: Run UMD TestDeviceIOFixture on tt-sim quasar
         timeout-minutes: 1
@@ -710,7 +680,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
       # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
@@ -728,7 +699,8 @@ jobs:
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*"
+          build/test/umd/api/api_tests \
+            --gtest_filter="TTSimDeviceIOFixture.*:TTSimTlbWindowFixture.*:TTSimDeviceFixture.*"
 
   # Compare the simulator microbenchmark results against the per-arch baselines in
   # tests/microbenchmark/baselines/sim-*.yaml.

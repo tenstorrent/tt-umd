@@ -26,6 +26,7 @@
 #include "tt-umd/utils/semver.hpp"
 
 struct tt_device_t;
+struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -49,8 +50,11 @@ struct PciDeviceInfo {
     std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
-    // TODO: does it make sense to move attributes that we can read from sysfs
-    // onto this struct as methods?  e.g. current_link_width etc.
+
+    /**
+     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
+     */
+    std::optional<uint32_t> get_current_link_width() const;
 };
 
 struct DmaBuffer {
@@ -142,7 +146,7 @@ class PCIDevice {
     const int pci_device_num;       // N in /dev/tenstorrent/N
     const PciDeviceInfo info;       // PCI device info
     const int numa_node;            // -1 if non-NUMA
-    const int revision;             // PCI revision value from sysfs
+    const uint8_t revision;         // PCI revision value from sysfs
     const tt::ARCH arch;            // e.g. Wormhole, Blackhole
     const SemVer kmd_version;       // KMD version
     int pci_device_file_desc = -1;  // Character device file descriptor, -1 until opened
@@ -209,11 +213,6 @@ public:
     int get_numa_node() const { return numa_node; }
 
     /**
-     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
-     */
-    std::optional<uint32_t> get_current_link_width() const;
-
-    /**
      * @return N in /dev/tenstorrent/N
      * TODO: target for removal; upper layers should not care about this.
      */
@@ -222,13 +221,13 @@ public:
     /**
      * @return PCI device id
      */
-    int get_pci_device_id() const { return info.device_id; }
+    uint16_t get_pci_device_id() const { return info.device_id; }
 
     /**
      * @return PCI revision value from sysfs.
      * TODO: target for removal; upper layers should not care about this.
      */
-    int get_pci_revision() const { return revision; }
+    uint8_t get_pci_revision() const { return revision; }
 
     /**
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
@@ -323,17 +322,25 @@ public:
         const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
-     * Configure TLB register in user space by writing directly to BAR0.
+     * Point a TLB window at the target described by tlb_config.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_config The TLB configuration data
+     * @param tlb_handle The window's driver handle. Required on architectures whose windows only
+     *                   the driver can program; may be null on the others.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
+     *                   window's size. On architectures whose windows only the driver can program,
+     *                   the address is flat and already names its target, so a coordinate,
+     *                   multicast, NOC selector, ordering, linking or virtual channel is refused,
+     *                   and a noncacheable value wider than its one-bit field is refused rather
+     *                   than truncated.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip.
+     *               PCIe round trip. Ignored where the driver programs the window.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(
+        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.

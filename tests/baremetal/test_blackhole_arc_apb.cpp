@@ -145,6 +145,19 @@ TEST_P(BlackholeArcApbTest, RejectsOffsetOutsideTheXbarRange) {
     EXPECT_THROW(apb.write(&value, out_of_range, sizeof(value), arc_core(), noc()), std::exception);
 }
 
+TEST_P(BlackholeArcApbTest, RejectsOffsetThatOverflowsTheBarAddress) {
+    expect_pcie_x_coordinate(PCIE_X_ARC_OVER_AXI);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
+
+    // 0x1FF00000 + 0xE0100000 wraps to 0 as a uint32_t.
+    const uint64_t wrapping_offset = 0xE0100000;
+    uint32_t value = 0;
+
+    EXPECT_CALL(pcie_, bar_write32(_, _)).Times(0);
+    EXPECT_THROW(apb.read(&value, wrapping_offset, sizeof(value), arc_core(), noc()), std::exception);
+    EXPECT_THROW(apb.write(&value, wrapping_offset, sizeof(value), arc_core(), noc()), std::exception);
+}
+
 // The two NOCs really do target different cores, so the parametrization above is not running the
 // same case twice.
 TEST(BlackholeArcApbCoordinateTest, TheArcCoreDiffersBetweenNocs) {

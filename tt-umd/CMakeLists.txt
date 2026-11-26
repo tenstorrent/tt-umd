@@ -53,6 +53,8 @@ target_sources(
         src/arch/architecture_registers.cpp
         src/arch/architecture_tlbs.cpp
         src/chip_helpers/host_cache.cpp
+        src/arch/tlb_window_size.cpp
+        src/chip_helpers/host_mem_channels.cpp
         src/chip_helpers/sysmem_manager.cpp
         src/chip_helpers/simulation_sysmem_manager.cpp
         src/chip_helpers/silicon_sysmem_manager.cpp
@@ -81,6 +83,7 @@ target_sources(
         src/types/tlb.cpp
         src/cluster_descriptor.cpp
         src/tt_device/tt_device.cpp
+        src/tt_device/tt_device_factory.cpp
         src/tt_device/tt_device_error.cpp
         src/tt_device/reset/classic_tile_risc_reset.cpp
         src/tt_device/reset/tsc_risc_reset.cpp
@@ -89,12 +92,12 @@ target_sources(
         src/tt_device/hang_detection/wormhole_hang_detector.cpp
         src/tt_device/hang_detection/blackhole_hang_detector.cpp
         src/tt_device/firmware/blackhole_arc_apb.cpp
+        src/tt_device/firmware/blackhole_arc_message_queue.cpp
         src/tt_device/firmware/blackhole_device_firmware.cpp
         src/tt_device/firmware/wormhole_arc_window.cpp
         src/tt_device/firmware/wormhole_device_firmware.cpp
         src/tt_device/protocol/pcie_protocol.cpp
         src/tt_device/protocol/kmd_protocol.cpp
-        src/tt_device/protocol/jtag_protocol.cpp
         src/tt_device/protocol/remote_protocol.cpp
         src/tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
         src/tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
@@ -107,11 +110,10 @@ target_sources(
         src/coordinates/blackhole_coordinate_manager.cpp
         src/coordinates/quasar_coordinate_manager.cpp
         src/coordinates/att/att_resolver.cpp
-        src/arc/arc_telemetry_reader.cpp
-        src/arc/wormhole_arc_telemetry_reader.cpp
-        src/arc/blackhole_arc_telemetry_reader.cpp
-        src/arc/smbus_arc_telemetry_reader.cpp
-        src/arc/blackhole_arc_message_queue.cpp
+        src/firmware_telemetry/arc_telemetry_reader.cpp
+        src/firmware_telemetry/wormhole_arc_telemetry_reader.cpp
+        src/firmware_telemetry/blackhole_arc_telemetry_reader.cpp
+        src/firmware_telemetry/smbus_arc_telemetry_reader.cpp
         src/noc_access.cpp
         src/warm_reset.cpp
         src/warm_reset_with_recovery.cpp
@@ -125,8 +127,6 @@ target_sources(
         src/topology/ip_block_layout.cpp
         src/tt_device/remote_communication.cpp
         src/tt_device/remote_communication_legacy_firmware.cpp
-        src/jtag/jtag_device.cpp
-        src/jtag/jtag.cpp
         # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
@@ -185,10 +185,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_registers.hpp
                 api/tt-umd/arch/architecture_tlbs.hpp
                 api/tt-umd/arch/configs/keraunos_address_map.hpp
-                api/tt-umd/arc/arc_telemetry_reader.hpp
-                api/tt-umd/arc/firmware_telemetry_reader.hpp
-                api/tt-umd/arc/blackhole_arc_message_queue.hpp
-                api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/arc_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/firmware_telemetry_reader.hpp
+                api/tt-umd/firmware_telemetry/smbus_arc_telemetry_reader.hpp
                 api/tt-umd/coordinates/att/att_map.hpp
                 api/tt-umd/coordinates/att/att_window.hpp
                 api/tt-umd/coordinates/att/att_resolver.hpp
@@ -198,6 +197,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip_helpers/host_cache.hpp
+                api/tt-umd/chip_helpers/host_mem_channels.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp
                 api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
@@ -219,9 +219,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/warm_reset_with_recovery.hpp
                 api/tt-umd/utils/semver.hpp
                 api/tt-umd/utils/kmd_mutex.hpp
+                api/tt-umd/cluster_description.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp
+                api/tt-umd/tt_device/tt_device_factory.hpp
                 api/tt-umd/tt_device/tt_device_error.hpp
                 api/tt-umd/tt_device/reset/risc_reset.hpp
                 api/tt-umd/tt_device/hang_detection/hang_detector.hpp
@@ -236,9 +238,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/simulation_device_factory.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
+                api/tt-umd/tt_device/protocol/peer_dma_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp
+                api/tt-umd/tt_device/firmware/blackhole_arc_message_queue.hpp
                 api/tt-umd/tt_device/firmware/device_firmware.hpp
                 api/tt-umd/tt_device/firmware/wormhole_arc_window.hpp
                 api/tt-umd/tt_device/remote_communication.hpp
@@ -286,8 +290,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/wormhole_telemetry.hpp
                 api/tt-umd/types/xy_pair.hpp
                 api/tt-umd/arch/wormhole_implementation.hpp
-                api/tt-umd/jtag/jtag_device.hpp
-                api/tt-umd/jtag/jtag.hpp
                 api/tt-umd/arch/grendel_implementation.hpp
     )
 endif()

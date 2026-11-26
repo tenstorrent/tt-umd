@@ -35,11 +35,11 @@ public:
 
     void broadcast_write_to_cluster(
         const void* mem_ptr,
-        uint32_t size_in_bytes,
+        size_t size_in_bytes,
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
-        std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude,
+        std::set<size_t>& rows_to_exclude,
+        std::set<size_t>& columns_to_exclude,
         bool use_translated_coords);
 
     // Re-seeds all topology state captured at construction (chip locations, chip->MMIO mapping and the
@@ -57,20 +57,20 @@ private:
     // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
     // virtual-space equivalents used by the ethernet broadcast path.
     static void adjust_coordinates_for_ethernet_broadcast(
-        const std::set<uint32_t>& rows_to_exclude,
-        const std::set<uint32_t>& columns_to_exclude,
+        const std::set<size_t>& rows_to_exclude,
+        const std::set<size_t>& columns_to_exclude,
         bool use_translated_coords,
-        std::set<uint32_t>& rows_to_exclude_virtual,
-        std::set<uint32_t>& cols_to_exclude_virtual);
+        std::set<size_t>& rows_to_exclude_virtual,
+        std::set<size_t>& cols_to_exclude_virtual);
 
     // Communication Functions.
     void ethernet_broadcast_write(
         const void* mem_ptr,
-        uint32_t size_in_bytes,
+        size_t size_in_bytes,
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
-        const std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude,
+        const std::set<size_t>& rows_to_exclude,
+        std::set<size_t>& cols_to_exclude,
         bool use_translated_coords);
 
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(

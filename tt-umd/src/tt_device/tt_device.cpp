@@ -19,6 +19,7 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
+#include "simulation/simulation_backend.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
@@ -446,6 +447,16 @@ IODeviceType TTDevice::get_communication_device_type() const {
         return remote_interface->get_remote_communication()->get_local_device()->get_communication_device_type();
     }
     return IODeviceType::UNDEFINED;
+}
+
+std::optional<SimulationBackendType> TTDevice::get_simulation_backend() const {
+    // A remote device has no simulator of its own: e.g. the second chip of a multichip TTSim image is reached over
+    // Ethernet from the simulated chip the image exposes to the host.
+    RemoteInterface *remote_interface = model_->get_remote_interface();
+    if (remote_interface != nullptr) {
+        return remote_interface->get_remote_communication()->get_local_device()->get_simulation_backend();
+    }
+    return simulation_backend().get_backend_type(*this);
 }
 
 BoardType TTDevice::get_board_type() const { return get_board_type_from_board_id(get_board_id()); }

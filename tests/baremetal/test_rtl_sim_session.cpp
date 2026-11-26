@@ -21,18 +21,18 @@
 #include <tuple>
 #include <vector>
 
+#include "simulation/rtl_sim_communicator.hpp"
+#include "simulation/rtl_sim_session.hpp"
+#include "simulation/simulation_host.hpp"
 #include "simulation_device_generated.h"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/rtl_sim_mock_remote.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
-#include "tt-umd/simulation/rtl_sim_session.hpp"
-#include "tt-umd/simulation/simulation_host.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/ip_block_layout.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/io_window_config.hpp"
+#include "tt_device/rtl_simulation_tt_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

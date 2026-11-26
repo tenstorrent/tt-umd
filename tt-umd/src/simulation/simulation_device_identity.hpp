@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-#include "tt-umd/simulation/simulation_client.hpp"
+#include "simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 

@@ -9,7 +9,7 @@
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
 

@@ -98,10 +98,12 @@ set_target_properties(
             lock_virus
 )
 
-# sim_server manages simulation host processes, so it is only built when the simulation backend is.
-if(TT_UMD_BUILD_SIMULATION)
+# sim_server manages simulation host processes, so it is only built when the simulation backend is. It talks to the
+# hosts through UMD's private simulation client, so it is built in-tree only.
+if(TT_UMD_BUILD_SIMULATION AND NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_executable(sim_server sim_server.cpp)
     target_link_libraries(sim_server PRIVATE tools_common)
+    target_include_directories(sim_server PRIVATE ${PROJECT_SOURCE_DIR}/tt-umd/src)
     set_target_properties(
         sim_server
         PROPERTIES
@@ -123,6 +125,6 @@ add_custom_target(
         tlb_virus
         lock_virus
 )
-if(TT_UMD_BUILD_SIMULATION)
+if(TARGET sim_server)
     add_dependencies(umd_tools sim_server)
 endif()

@@ -25,13 +25,13 @@
 #include <unordered_set>
 #include <vector>
 
+#include "simulation/rtl_sim_communicator.hpp"
 #include "simulation/rtl_sim_ip_block_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/topology/ip_block_layout.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/risc_type.hpp"
+#include "tt_device/rtl_simulation_tt_device.hpp"
 
 using namespace tt::umd;
 

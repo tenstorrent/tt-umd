@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt_device/rtl_simulation_tt_device.hpp"
 
 #include <fmt/ranges.h>
 
@@ -17,24 +17,24 @@
 #include <utility>
 #include <vector>
 
+#include "chip_helpers/simulation_tlb_allocator.hpp"
 #include "noc_access.hpp"
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "pcie/rtl_sim_tlb_window.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
+#include "simulation/simulation_client.hpp"
+#include "simulation/simulation_device_identity.hpp"
 #include "simulation/simulator_paths.hpp"
 #include "simulation/word_access.hpp"
 #include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/coordinates/att/configs/grendel_qsr1_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"

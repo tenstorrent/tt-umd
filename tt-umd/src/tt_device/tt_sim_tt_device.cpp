@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt_device/tt_sim_tt_device.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -14,23 +14,23 @@
 #include <utility>
 #include <vector>
 
+#include "chip_helpers/simulation_tlb_allocator.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "pcie/tt_sim_tlb_window.hpp"
+#include "simulation/simulation_client.hpp"
+#include "simulation/simulation_device_identity.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/tt_sim_protocol.hpp"
 #include "tt_device/reset/tt_sim_risc_reset.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 

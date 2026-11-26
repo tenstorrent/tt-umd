@@ -17,14 +17,14 @@
 #include <unordered_set>
 #include <vector>
 
+#include "simulation/simulation_client.hpp"
+#include "simulation/simulation_device_identity.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

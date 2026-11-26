@@ -141,6 +141,7 @@ target_sources(
         src/tt_device/simulation_device_factory.cpp
 )
 
+# The option selects sources and libraries only: no compile definition, so every header reads the same in both builds.
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         tt-umd-base
@@ -172,7 +173,6 @@ if(TT_UMD_BUILD_SIMULATION)
             src/pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADERS}
     )
-    target_compile_definitions(tt-umd-base PUBLIC TT_UMD_BUILD_SIMULATION)
 else()
     target_sources(tt-umd-base PRIVATE src/simulation/simulation_backend_unavailable.cpp)
 endif()
@@ -205,7 +205,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/system_memory_allocator.hpp
                 api/tt-umd/chip_helpers/sysmem_buffer.hpp
-                api/tt-umd/chip_helpers/simulation_tlb_allocator.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/logging/config.hpp
                 api/tt-umd/utils/lock_manager.hpp
@@ -231,12 +230,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/hang_detection/hang_detector.hpp
                 api/tt-umd/tt_device_model/tt_device_model.hpp
                 api/tt-umd/types/eth_training_status.hpp
-                api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
-                api/tt-umd/tt_device/tt_sim_tt_device.hpp
-                api/tt-umd/tt_device/simulation_tt_device.hpp
-                api/tt-umd/simulation/rtl_sim_communicator.hpp
-                api/tt-umd/simulation/rtl_sim_session.hpp
-                api/tt-umd/simulation/simulation_host.hpp
                 api/tt-umd/tt_device/simulation_device_factory.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
@@ -258,11 +251,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/register_access_width.hpp
                 api/tt-umd/types/risc_type.hpp
                 api/tt-umd/simulation/simulation_connector.hpp
-                api/tt-umd/simulation/simulation_client.hpp
-                api/tt-umd/simulation/simulation_device_identity.hpp
                 api/tt-umd/simulation/simulation_server_protocol.hpp
                 api/tt-umd/simulation/simulator_info.hpp
-                api/tt-umd/simulation/tt_sim_communicator.hpp
                 api/tt-umd/soc_arch_descriptor.hpp
                 api/tt-umd/soc_descriptor.hpp
                 api/tt-umd/topology/topology_discovery.hpp

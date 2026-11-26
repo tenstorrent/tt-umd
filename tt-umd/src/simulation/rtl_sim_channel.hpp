@@ -14,8 +14,8 @@
 #include <string>
 #include <thread>
 
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
-#include "tt-umd/simulation/simulation_host.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
+#include "simulation/simulation_host.hpp"
 
 namespace tt::umd {
 

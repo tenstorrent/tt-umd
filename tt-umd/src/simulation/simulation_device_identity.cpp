@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_device_identity.hpp"
+#include "simulation/simulation_device_identity.hpp"
 
 #include <fmt/format.h>
 #include <unistd.h>  // write, close (temp-file materialization via mkstemps)
@@ -16,8 +16,8 @@
 #include <sstream>
 #include <vector>
 
+#include "simulation/simulation_client.hpp"
 #include "simulation/simulator_paths.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
 

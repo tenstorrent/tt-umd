@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/rtl_sim_session.hpp"
+#include "simulation/rtl_sim_session.hpp"
 
 #include <fmt/format.h>
 #include <nng/nng.h>

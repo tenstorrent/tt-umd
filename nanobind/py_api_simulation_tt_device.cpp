@@ -7,11 +7,11 @@
 #include <nanobind/stl/unique_ptr.h>
 
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/risc_type.hpp"
+#include "tt_device/rtl_simulation_tt_device.hpp"
+#include "tt_device/tt_sim_tt_device.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,

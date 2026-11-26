@@ -40,10 +40,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "simulation/simulation_client.hpp"
+#include "simulation/simulation_device_identity.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"

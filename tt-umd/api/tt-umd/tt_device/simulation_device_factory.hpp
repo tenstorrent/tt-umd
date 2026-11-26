@@ -22,8 +22,8 @@ class TTDevice;
 
 /**
  * Creates a simulation TTDevice from a simulator path.
- * If the path ends with ".so", creates a TTSimTTDevice (functional simulator).
- * Otherwise, creates an RtlSimulationTTDevice (RTL simulator).
+ * If the path ends with ".so", creates a device backed by the TTSim functional simulator.
+ * Otherwise, creates a device backed by the RTL simulator in that directory.
  *
  * @param simulator_path Path to the simulator binary (.so) or RTL simulator directory
  * @param num_host_mem_channels Number of host memory channels (default: 0)

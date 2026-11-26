@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/simulation_tt_device.hpp"
+#include "tt_device/simulation_tt_device.hpp"
 
 #include <fmt/format.h>
 
@@ -11,12 +11,12 @@
 #include <limits>
 #include <tt-logger/tt-logger.hpp>
 
+#include "chip_helpers/simulation_tlb_allocator.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
+#include "simulation/simulation_client.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
-#include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"

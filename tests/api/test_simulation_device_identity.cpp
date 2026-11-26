@@ -10,8 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "simulation/simulation_device_identity.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 
 using namespace tt;

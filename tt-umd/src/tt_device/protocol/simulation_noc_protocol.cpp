@@ -5,8 +5,8 @@
 #include "tt_device/protocol/simulation_noc_protocol.hpp"
 
 #include "register_access.hpp"
-#include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt_device/simulation_tt_device.hpp"
 
 namespace tt::umd {
 

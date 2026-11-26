@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "tt-umd/simulation/simulation_host.hpp"
+#include "simulation/simulation_host.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
 namespace tt::umd {

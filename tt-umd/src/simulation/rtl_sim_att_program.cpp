@@ -9,7 +9,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {

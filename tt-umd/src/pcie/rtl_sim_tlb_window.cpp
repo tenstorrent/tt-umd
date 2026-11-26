@@ -9,10 +9,10 @@
 
 #include "pcie/rtl_sim_tlb_handle.hpp"
 #include "register_access.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
 #include "simulation/word_access.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"

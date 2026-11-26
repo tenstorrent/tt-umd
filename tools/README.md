@@ -149,8 +149,8 @@ Press `Ctrl-C` in terminal 1 to release the lock.
 
 The sim server tool manages long-running simulation host processes, so one process can host a
 simulation while other UMD processes attach to it as clients over its per-chip socket. It is only
-built when the simulation backend is enabled (`-DTT_UMD_BUILD_SIMULATION=ON`, e.g. within the
-`simulation-tools-python` preset).
+built as part of the UMD tree with the simulation backend enabled (`-DTT_UMD_BUILD_SIMULATION=ON`,
+e.g. within the `simulation-tools-python` preset), not by a standalone tools build.
 
 Each host gets its own server directory (`<temp>/tt-umd-sim-server-<index>`), so two hosts on the
 same machine never collide — even when they serve the same chip id — and a client attaches by

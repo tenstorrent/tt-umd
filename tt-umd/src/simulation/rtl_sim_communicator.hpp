@@ -11,8 +11,8 @@
 #include <memory>
 #include <optional>
 
-#include "tt-umd/simulation/rtl_sim_session.hpp"
-#include "tt-umd/simulation/simulation_host.hpp"
+#include "simulation/rtl_sim_session.hpp"
+#include "simulation/simulation_host.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {

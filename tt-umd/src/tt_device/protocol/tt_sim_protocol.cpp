@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/protocol/tt_sim_protocol.hpp"
+#include "tt_device/protocol/tt_sim_protocol.hpp"
 
 #include <fmt/format.h>
 #include <unistd.h>
 
 #include "register_access.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
-#include "tt-umd/tt_device/simulation_tt_device.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/simulation_tt_device.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 
 namespace tt::umd {

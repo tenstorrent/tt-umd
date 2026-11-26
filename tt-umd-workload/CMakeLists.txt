@@ -64,10 +64,6 @@ target_link_libraries(
         tt-umd-utils::tracy-shim
 )
 
-if(TT_UMD_BUILD_SIMULATION)
-    target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
-endif()
-
 if(TT_UMD_BUILD_EMULE)
     target_sources(tt-umd PRIVATE src/chip/sw_emule_chip.cpp)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)

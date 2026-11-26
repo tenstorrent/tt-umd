@@ -11,10 +11,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "chip_helpers/simulation_tlb_allocator.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
 

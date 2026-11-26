@@ -6,5 +6,6 @@
 
 namespace nb = nanobind;
 
-// Built without simulation support, where no simulation TTDevice can exist, so there is no subclass to bind.
+// Built without simulation support, or from install artifacts, which do not ship the simulation TTDevice headers, so
+// there is no subclass to bind.
 void bind_simulation_tt_devices(nb::module_ &) {}

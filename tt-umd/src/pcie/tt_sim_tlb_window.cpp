@@ -10,8 +10,8 @@
 
 #include "pcie/tt_sim_tlb_handle.hpp"
 #include "register_access.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"

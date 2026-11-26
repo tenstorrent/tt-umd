@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
 
 #include <flatbuffers/buffer.h>
 #include <flatbuffers/flatbuffer_builder.h>

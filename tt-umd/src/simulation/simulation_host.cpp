@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_host.hpp"
+#include "simulation/simulation_host.hpp"
 
 #include <arpa/inet.h>
 #include <fmt/format.h>

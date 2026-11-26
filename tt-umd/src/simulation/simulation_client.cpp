@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_client.hpp"
+#include "simulation/simulation_client.hpp"
 
 #include <fmt/format.h>
 #include <poll.h>    // poll(), to bound the wait on the socket

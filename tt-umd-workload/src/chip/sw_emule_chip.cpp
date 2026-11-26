@@ -27,6 +27,7 @@
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device/reset/risc_reset.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/noc_id.hpp"
@@ -249,18 +250,19 @@ class SWEmuleProtocol final : public DeviceProtocol {
 public:
     explicit SWEmuleProtocol(SWEmuleChip& chip) : chip_(chip) {}
 
-    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+    // Every emulated store is ordered, so a relaxed request is served as a strict one.
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering) override {
         chip_.read_from_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), dst, addr, size);
     }
 
-    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering) override {
         chip_.write_to_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), src, addr, size);
     }
 
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
         for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
-            read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id);
+            read_data(static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
         });
     }
 
@@ -268,7 +270,7 @@ public:
         const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
         override {
         for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
-            write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, access_size, noc_id);
+            write_data(static_cast<const uint8_t*>(src) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
         });
     }
 
@@ -329,6 +331,17 @@ private:
     const SocDescriptor& soc_;
 };
 
+// tt-emule starts a core's RISCs when tt-metal launches a program, not on a reset release, so a reset request has
+// nothing to drive and the state is not modelled.
+class SWEmuleRiscReset final : public RiscReset {
+public:
+    void assert_risc_reset(tt_xy_pair, RiscType, NocId) override {}
+
+    void deassert_risc_reset(tt_xy_pair, RiscType, bool, NocId) override {}
+
+    std::optional<RiscType> get_risc_reset_state(tt_xy_pair, NocId) override { return std::nullopt; }
+};
+
 // The device model of an emulated chip: no management firmware behind it (firmware that reports
 // nothing), the architecture's constants, and the chip's own protocol and windows. Built only from sources every
 // UMD build has, so an emule build does not need TT_UMD_BUILD_SIMULATION.
@@ -351,7 +364,12 @@ public:
 
     std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return soc_arch_descriptor_; }
 
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override {
+    SystemMemoryAllocator* get_system_memory_allocator() override { return chip_.get_system_memory_allocator(); }
+
+    RiscReset* get_risc_reset() override { return &risc_reset_; }
+
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering) override {
         return chip_.create_io_window(target, host);
     }
 
@@ -359,6 +377,7 @@ private:
     SWEmuleChip& chip_;
     SWEmuleProtocol protocol_;
     SWEmuleDeviceFirmware device_firmware_;
+    SWEmuleRiscReset risc_reset_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
 };

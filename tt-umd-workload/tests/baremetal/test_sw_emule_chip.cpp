@@ -322,7 +322,7 @@ TEST(ApiEmuleClusterTest, RegisterAccessMustBeWordAligned) {
     EXPECT_THROW(chip.read_from_device_reg(core, buf.data(), 0x102, 4), std::exception);
     // In memory an aligned multi-word payload (a launch message) is one write and reads back whole.
     const std::vector<uint8_t> pattern = {1, 2, 3, 4, 5, 6, 7, 8};
-    chip.write_to_device_reg(core, pattern.data(), 0x100, pattern.size());
-    chip.read_from_device_reg(core, buf.data(), 0x100, buf.size());
+    chip.write_to_device_reg(core, pattern.data(), 0x100, static_cast<uint32_t>(pattern.size()));
+    chip.read_from_device_reg(core, buf.data(), 0x100, static_cast<uint32_t>(buf.size()));
     EXPECT_EQ(buf, pattern);
 }

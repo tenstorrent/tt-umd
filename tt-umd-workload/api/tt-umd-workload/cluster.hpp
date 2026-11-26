@@ -296,8 +296,8 @@ public:
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
     /**
-     * Deprecated: get_simulation_backend (tt-umd/simulation/simulator_info.hpp) tells what backs a chip's device, and
-     * the SimulationConnector::Server serving devices reports its directory and sockets.
+     * Deprecated: TTDevice::get_simulation_backend tells what backs a chip's device, and the
+     * SimulationConnector::Server serving devices reports its directory and sockets.
      *
      * What simulation this cluster is connected to: whether this process hosts the simulation or
      * attached to one another process hosts, which simulator sits behind it, and -- for a host that

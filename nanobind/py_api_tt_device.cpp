@@ -284,6 +284,15 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_board_type", &TTDevice::get_board_type, release_gil())
         .def("get_communication_device_type", &TTDevice::get_communication_device_type, release_gil())
         .def("get_communication_device_id", &TTDevice::get_communication_device_id, release_gil())
+        .def(
+            "get_simulation_backend",
+            &TTDevice::get_simulation_backend,
+            release_gil(),
+            "Which simulator backs this device, whether it runs in this process or in a simulation server the device "
+            "is attached to; a remote device is backed by whatever backs the device it is reached through. None for a "
+            "device no simulator backs, such as silicon reached through the KMD, and for every device when UMD was "
+            "built without simulation support. A device attached to a simulation server that serves a device no "
+            "simulator backs answers TTSIM, because the server protocol has no other kind.")
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)

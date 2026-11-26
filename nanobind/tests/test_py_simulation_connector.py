@@ -408,13 +408,13 @@ class TestSimulationConnectorServeSilicon(ServingTestCase):
 
     def test_client_of_served_silicon_is_backed_by_ttsim(self):
         # The served device itself is silicon, which no simulator backs.
-        self.assertIsNone(tt_umd.get_simulation_backend(self.devices[0]))
+        self.assertIsNone(self.devices[0].get_simulation_backend())
 
         client_devices = self.attach_client()
 
         # The server protocol has no other kind than the simulators', so served silicon answers TTSIM.
         self.assertEqual(
-            tt_umd.get_simulation_backend(client_devices[0]),
+            client_devices[0].get_simulation_backend(),
             tt_umd.SimulationBackendType.TTSIM,
         )
 

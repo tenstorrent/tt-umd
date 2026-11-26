@@ -18,6 +18,7 @@
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/simulation_backend_type.hpp"
 
 namespace tt::umd {
 
@@ -26,8 +27,8 @@ class SocDescriptor;
 class TTDevice;
 
 /**
- * What always-built code (topology discovery, the public simulator queries, SimulationConnector and the simulation
- * device factory) needs from a simulator, so that it compiles the same with and without simulation.
+ * What always-built code (topology discovery, TTDevice, the public simulator queries, SimulationConnector and the
+ * simulation device factory) needs from a simulator, so that it compiles the same with and without simulation.
  *
  * In a build without simulation, every call that needs a simulator throws error::RuntimeError saying UMD was built
  * without simulation support, and calls that ask about an existing device answer as for a device no simulator

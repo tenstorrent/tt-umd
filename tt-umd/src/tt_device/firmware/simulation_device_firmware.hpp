@@ -7,7 +7,7 @@
 #include <optional>
 
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
-#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 
@@ -21,10 +21,12 @@ namespace tt::umd {
 class SimulationDeviceFirmware : public DeviceFirmware {
 public:
     /**
-     * @brief Builds firmware for a simulated device of the given architecture.
-     * @param arch Architecture being simulated; get_chip_info() reports harvesting per architecture.
+     * @brief Builds firmware for a simulated device.
+     * @param chip_info The chip the device was built as. A simulator publishes no chip info, so
+     * get_chip_info() and get_noc_translation_enabled() report this one, and initializing the device
+     * keeps the SoC descriptor it was built from.
      */
-    explicit SimulationDeviceFirmware(tt::ARCH arch) : arch_(arch) {}
+    explicit SimulationDeviceFirmware(const ChipInfo& chip_info) : chip_info_(chip_info) {}
 
     // A simulated device's firmware is ready by construction, so there is nothing to wait for.
     void init_firmware(
@@ -49,22 +51,11 @@ public:
     void set_power_state(
         [[maybe_unused]] PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
 
-    // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is
-    // never applied.
-    bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return false; }
-
-    // A simulator publishes no chip info, so the defaults mirror the ones
-    // TTSimTTDevice::create() uses. Blackhole SocDescriptor construction rejects an empty
-    // eth_harvesting_mask ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so
-    // the same 0x3000 default is applied here -- what TTSim's own ENABLED_ETH telemetry works out
-    // to, ETH tiles 12 and 13 being the ones it models as harvested. Keep in sync with create().
-    ChipInfo get_chip_info([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
-        ChipInfo chip_info{};
-        if (arch_ == tt::ARCH::BLACKHOLE) {
-            chip_info.harvesting_masks.eth_harvesting_mask = 0x3000;
-        }
-        return chip_info;
+    bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return chip_info_.noc_translation_enabled;
     }
+
+    ChipInfo get_chip_info([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return chip_info_; }
 
     // A simulated device has no management firmware core; callers that need a coordinate get the
     // origin, matching what TTDevice::get_arc_core() returned for simulation before this existed.
@@ -111,7 +102,7 @@ public:
     }
 
 private:
-    tt::ARCH arch_ = tt::ARCH::Invalid;
+    ChipInfo chip_info_;
 };
 
 }  // namespace tt::umd

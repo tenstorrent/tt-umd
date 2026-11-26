@@ -30,6 +30,7 @@
 #include "firmware/erisc_firmware.hpp"
 #include "simulation/simulation_backend.hpp"
 #include "simulation/simulator_paths.hpp"
+#include "topology/declared_simulation_topology.hpp"
 #include "topology/topology_discovery_base.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
@@ -215,16 +216,15 @@ DiscoveredTopology select_opened_simulated_chips(
     return topology;
 }
 
-// A cluster_descriptor.yaml beside the simulator declares its topology, so there is nothing to walk: the descriptor is
-// the declared one, with a device for each of its chips this process discovers. The descriptor is written by hand
-// rather than read from the image, so each chip's architecture is checked against the image the chip runs on. As for a
-// walked topology, the caller's cluster id is stamped, remote chips are left out when the caller asks for local ones
-// only, and every device is initialized. The walk's firmware-version and Ethernet checks are not run: the declaration,
-// not a walk, states the links.
-DiscoveredTopology discover_declared_simulation_topology(
-    const TopologyDiscoveryOptions& options, const std::filesystem::path& cluster_descriptor_path) {
+// A declared topology needs nothing walked: the descriptor is the declared one, with a device for each of its chips
+// this process discovers. The declaration is written by hand rather than read from the image, so each chip's
+// architecture is checked against the image the chip runs on. As for a walked topology, the caller's cluster id is
+// stamped, remote chips are left out when the caller asks for local ones only, and every device is initialized. The
+// walk's firmware-version and Ethernet checks are not run: the declaration, not a walk, states the links.
+// declared_in names where the declaration came from, for the log.
+DiscoveredTopology open_declared_simulation_topology(
+    const TopologyDiscoveryOptions& options, ClusterDescription description, const std::string& declared_in) {
     const std::filesystem::path simulator_path = options.simulation->simulator_path;
-    ClusterDescription description = load_cluster_description_yaml(cluster_descriptor_path);
 
     const tt::ARCH simulator_arch = simulation_backend().get_simulator_arch(simulator_path);
     for (const auto& [chip_id, chip] : description.chips) {
@@ -314,11 +314,7 @@ DiscoveredTopology discover_declared_simulation_topology(
         }
         devices.emplace(chip_id, std::move(device));
     }
-    log_debug(
-        LogUMD,
-        "Opened {} simulated device(s) of the topology declared in {}.",
-        devices.size(),
-        cluster_descriptor_path.string());
+    log_debug(LogUMD, "Opened {} simulated device(s) of the topology declared in {}.", devices.size(), declared_in);
 
     if (unhealthy_chips.empty()) {
         if (selected_whole) {
@@ -412,6 +408,9 @@ DiscoveredTopology discover_ip_layout_simulation_topology(
         simulation.num_host_mem_channels.value_or(static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
     std::map<ChipId, std::unique_ptr<TTDevice>> devices = simulation_backend().create_ip_layout_tt_devices(
         simulation.simulator_path, layout_devices, num_host_mem_channels, simulation.launch_simulator);
+    for (auto& [chip_id, device] : devices) {
+        device->init_tt_device();
+    }
     log_debug(
         LogUMD,
         "Opened {} of the {} device(s) of the ip_layout.yaml.",
@@ -443,11 +442,11 @@ DiscoveredTopology discover_one_chip_simulation_topology(
         create_soc_arch_descriptor(soc_descriptor_path, arch), get_described_chip_info(*cluster_desc, chip_id));
     const int num_host_mem_channels =
         simulation.num_host_mem_channels.value_or(static_cast<int>(get_host_mem_channels_for_topology(*cluster_desc)));
+    std::unique_ptr<TTDevice> device = simulation_backend().create_simulation_tt_device(
+        simulation.simulator_path, soc_descriptor, chip_id, /*num_chips=*/1, num_host_mem_channels);
+    device->init_tt_device();
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    devices.emplace(
-        chip_id,
-        simulation_backend().create_simulation_tt_device(
-            simulation.simulator_path, soc_descriptor, chip_id, /*num_chips=*/1, num_host_mem_channels));
+    devices.emplace(chip_id, std::move(device));
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
@@ -504,6 +503,13 @@ DiscoveredTopology discover_served_simulation_topology(const TopologyDiscoveryOp
 }
 
 }  // namespace
+
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+discover_declared_simulation_topology(
+    const TopologyDiscoveryOptions& options, const ClusterDescriptor& declared_topology) {
+    return open_declared_simulation_topology(
+        options, parse_cluster_description_yaml(declared_topology.serialize()), "the caller's cluster descriptor");
+}
 
 std::unique_ptr<TopologyDiscoveryBase> TopologyDiscoveryBase::create_topology_discovery(
     const TopologyDiscoveryOptions& options) {
@@ -571,8 +577,10 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
         const SimulationBackendType backend = simulation_backend().get_backend_type(simulator_path);
         if (backend == SimulationBackendType::TTSIM) {
             const std::filesystem::path cluster_descriptor_path = get_simulator_cluster_descriptor_path(simulator_path);
+            // A cluster_descriptor.yaml beside the simulator declares its topology.
             if (std::filesystem::exists(cluster_descriptor_path)) {
-                return discover_declared_simulation_topology(options, cluster_descriptor_path);
+                return open_declared_simulation_topology(
+                    options, load_cluster_description_yaml(cluster_descriptor_path), cluster_descriptor_path.string());
             }
             // TTSim models no ARC or Ethernet for Quasar, so its image has nothing to walk (#3404).
             if (simulation_backend().get_simulator_arch(simulator_path) == tt::ARCH::QUASAR) {

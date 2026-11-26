@@ -20,9 +20,9 @@
 #include "simulation/simulation_client.hpp"
 #include "simulation/simulation_device_identity.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "tests/test_utils/simulation_discovery.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
@@ -546,8 +546,7 @@ TEST(SimulationConnector, ReportsTheTopologyOfAHost) {
     const SimulationConnector::Result result = SimulationConnector::discover(options);
 
     ASSERT_NE(result.cluster_descriptor, nullptr);
-    const std::filesystem::path shipped =
-        SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path);
+    const std::filesystem::path shipped = test_utils::declared_cluster_descriptor_path(simulator_path);
     if (std::filesystem::exists(shipped)) {
         // The build's topology may name more chips than the host opens.
         EXPECT_EQ(

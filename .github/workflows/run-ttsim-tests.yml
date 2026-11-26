@@ -439,7 +439,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*:SimulatedClusterChips.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x2
         timeout-minutes: 2
@@ -448,7 +448,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:TTSimDeclaredSingleChipBoards.*:SimulatedDeviceQueries.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:TTSimDeclaredSingleChipBoards.*:SimulatedDeviceQueries.*:SimulatedClusterChips.*"
 
       - name: Run UMD TTSimDiscoveryTest on tt-sim blackhole x32
         timeout-minutes: 5
@@ -465,7 +465,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 1
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*:SimulatedClusterChips.*"
 
       # wh_x2 is the case the remote half of the test is for: one PCI endpoint, two chips, the second
       # reached only over ethernet.
@@ -476,7 +476,7 @@ jobs:
           TT_UMD_SIM_EXPECTED_CHIPS: 2
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*"
+            --gtest_filter="TTSimDiscoveryTest.*:TTSimDeclaredTopology.*:TTSimEnumeratedTopology.*:SimulatedDeviceQueries.*:SimulatedClusterChips.*"
 
       # The wormhole galaxy steps below take all 32 chips from discovery, so check it finds them.
       - name: Run UMD TTSimDiscoveryTest on tt-sim wormhole x32
@@ -530,7 +530,7 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
-            --gtest_filter="OneChipSimulatorTopology.*:TTSimDeclaredQuasar.*:RtlBuildTargetDevices.*:SimulatedDeviceQueries.*"
+            --gtest_filter="OneChipSimulatorTopology.*:TTSimDeclaredQuasar.*:RtlBuildTargetDevices.*:SimulatedDeviceQueries.*:SimulatedClusterChips.*"
 
       # RtlIpLayoutDiscovery fakes an RTL build with an ip_layout.yaml: a thread per socket plays the
       # simulator, so it needs no simulator of its own. Closing each fake device takes ~5 s.
@@ -550,12 +550,14 @@ jobs:
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over simulated eth).
       # Its topology is discovered rather than declared (see "Prepare sim paths"), so the standard
       # device-IO fixtures run across the gateway and the remote chip.
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
-        timeout-minutes: 1
+      # TestMulticastWriteFixture covers multicast to the Ethernet-reached chip, which only this image has.
+      - name: Run UMD TestDeviceIOFixture and TestMulticastWriteFixture on tt-sim wormhole x2
+        timeout-minutes: 2
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests \
+            --gtest_filter="TestDeviceIOFixture.*:*TestMulticastWriteFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1
@@ -829,12 +831,13 @@ jobs:
       # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
       # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
       # the remote chip.
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
-        timeout-minutes: 1
+      # TestMulticastWriteFixture covers multicast to the Ethernet-reached chip, which only this image has.
+      - name: Run UMD TestDeviceIOFixture and TestMulticastWriteFixture on tt-sim wormhole x2
+        timeout-minutes: 2
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
-          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*:*TestMulticastWriteFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1

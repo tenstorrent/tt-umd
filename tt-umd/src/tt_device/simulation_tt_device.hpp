@@ -63,14 +63,6 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC,
         RegisterAccessWidth width = RegisterAccessWidth::BITS32) override;
 
-    void dma_write_to_core_range(
-        const void* src,
-        uint64_t dst_addr,
-        size_t size,
-        CoreCoord core_start,
-        CoreCoord core_end,
-        NocId noc_id = NocId::DEFAULT_NOC) override;
-
     void noc_multicast_write(
         const void* src,
         size_t size,

@@ -24,7 +24,7 @@ class RtlSimChannel;
  * It manages the simulation host, subprocess spawning, and provides
  * thread-safe access to simulation functions via flatbuffer protocol.
  *
- * This class can be used independently of SimulationChip for direct RTL simulator communication.
+ * This class can be used on its own for direct RTL simulator communication.
  */
 class RtlSimCommunicator final {
 public:

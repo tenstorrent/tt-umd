@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Cluster and SimulationChip in a build of UMD without simulation support: choosing a simulator is refused with
+// Cluster in a build of UMD without simulation support: choosing a simulator is refused with
 // error::RuntimeError. The same calls with simulation support are tested against real simulators in
 // tests/api/test_ttsim_topology_discovery.cpp and tests/api/test_sim_multichip.cpp.
 
@@ -10,12 +10,9 @@
 
 #include <memory>
 
-#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/simulator_layout.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
-#include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"
 
@@ -45,14 +42,4 @@ TEST(ClusterWithoutSimulation, SimulationClusterWithCallerDescriptorNeedsSimulat
     options.cluster_descriptor = cluster_descriptor.get();
 
     EXPECT_THROW(Cluster cluster(options), error::UmdException<error::RuntimeError>);
-}
-
-TEST(ClusterWithoutSimulation, SimulationChipNeedsSimulationSupport) {
-    const SimulatorLayout simulator;
-    const SocDescriptor soc_descriptor(
-        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("wormhole_b0_8x10.yaml")));
-
-    EXPECT_THROW(
-        SimulationChip::create(simulator.add_ttsim_library(), soc_descriptor, /*chip_id=*/0, /*num_chips=*/1),
-        error::UmdException<error::RuntimeError>);
 }

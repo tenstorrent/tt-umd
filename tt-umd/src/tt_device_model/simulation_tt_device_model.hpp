@@ -64,9 +64,10 @@ private:
     // condition no one outside can check.
     friend class TTSimProtocol;
 
-    // Replace the firmware that reports nothing with the architecture's own, which reads what the
-    // simulator publishes. Called only once a usable protocol is attached: an architecture firmware
-    // reads the device in its constructor. A no-op for architectures that publish no firmware state.
+    // Replace the simulation firmware, which reports only what the device was built as, with the
+    // architecture's own, which reads what the simulator publishes. Called only once a usable
+    // protocol is attached: an architecture firmware reads the device in its constructor. A no-op
+    // for architectures that publish no firmware state.
     void use_arch_device_firmware();
 
     // Which architecture's firmware use_arch_device_firmware() installs.

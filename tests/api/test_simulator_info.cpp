@@ -16,6 +16,7 @@
 #include "tests/test_utils/simulator_layout.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -55,6 +56,30 @@ TEST(SimulatorInfo, RtlDirectoryWithoutSocDescriptorShipsNone) {
 
     EXPECT_EQ(find_simulator_soc_descriptor_path(simulator.directory()), "");
 }
+
+// tt-metal still asks the deprecated SimulationChip where a simulator's soc_descriptor.yaml lives; unlike
+// find_simulator_soc_descriptor_path, it names that path even when the simulator ships none.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+TEST(SimulatorInfo, DeprecatedSimulationChipNamesSocDescriptorPathBesideTTSimLibrary) {
+    const SimulatorLayout simulator;
+
+    EXPECT_EQ(
+        std::filesystem::path(
+            SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator.add_ttsim_library())),
+        simulator.directory() / "soc_descriptor.yaml");
+}
+
+TEST(SimulatorInfo, DeprecatedSimulationChipNamesSocDescriptorPathInsideRtlDirectory) {
+    const SimulatorLayout simulator;
+
+    EXPECT_EQ(
+        std::filesystem::path(SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator.directory())),
+        simulator.directory() / "soc_descriptor.yaml");
+}
+
+#pragma GCC diagnostic pop
 
 // Silicon, and a card a ttsim-qemu VM emulates, are both reached through the KMD: no simulator backs them.
 TEST(SimulatorInfo, DeviceReachedThroughKmdHasNoSimulationBackend) {

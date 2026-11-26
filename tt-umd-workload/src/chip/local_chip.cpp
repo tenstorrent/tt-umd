@@ -26,6 +26,7 @@
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/soc_descriptor.hpp"
@@ -43,23 +44,27 @@ namespace tt::umd {
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
 std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
-    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+    std::unique_ptr<SysmemManager> pinned_sysmem_manager = nullptr;
 
     if (tt_device == nullptr) {
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
     }
 
-    if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
+    // A device that brings its own host memory routes the chip's host-memory traffic there, so none is pinned for it.
+    if (tt_device->get_sysmem_manager() == nullptr &&
+        tt_device->get_communication_device_type() == IODeviceType::PCIe) {
+        pinned_sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
 
-    return std::unique_ptr<LocalChip>(new LocalChip(std::move(tt_device), std::move(sysmem_manager)));
+    return std::unique_ptr<LocalChip>(new LocalChip(std::move(tt_device), std::move(pinned_sysmem_manager)));
 }
 
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager) :
+LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> pinned_sysmem_manager) :
     Chip(tt_device->get_chip_info(), tt_device->get_arch()),
-    sysmem_manager_(std::move(sysmem_manager)),
+    pinned_sysmem_manager_(std::move(pinned_sysmem_manager)),
     tt_device_(std::move(tt_device)) {
+    sysmem_manager_ =
+        pinned_sysmem_manager_ != nullptr ? pinned_sysmem_manager_.get() : tt_device_->get_sysmem_manager();
     l1_address_params = tt_device_->get_architecture_implementation()->get_l1_address_params();
     tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
@@ -74,7 +79,8 @@ LocalChip::~LocalChip() {
     tt_device_->set_power_state(TTDevice::PowerState::IDLE);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
-    sysmem_manager_.reset();
+    sysmem_manager_ = nullptr;
+    pinned_sysmem_manager_.reset();
     tt_device_.reset();
 }
 
@@ -121,7 +127,7 @@ void LocalChip::initialize_membars(uint32_t dram_subchannel) {
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_; }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
@@ -488,8 +494,11 @@ void LocalChip::deassert_risc_resets() {
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() {
-    PcieInterface* pcie_interface = tt_device_->get_pcie_interface();
-    return pcie_interface != nullptr ? pcie_interface->get_numa_node() : -1;
+    // Only a device on PCIe has a NUMA node; TTDevice::get_pcie_interface() throws for any other.
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        return -1;
+    }
+    return tt_device_->get_pcie_interface()->get_numa_node();
 }
 
 std::unique_ptr<IoWindow> LocalChip::create_cached_window(HostMemoryCaching caching) {

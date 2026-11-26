@@ -244,10 +244,6 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    if (is_simulation_test()) {
-        GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
-    }
-
     const tt_xy_pair grid_size = cluster->get_soc_descriptor(0).get_grid_size(CoreType::TENSIX);
 
     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -653,9 +649,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         return dis(gen);
     };
 
-    if (!is_simulation_test()) {
-        test_utils::safe_test_cluster_start(cluster.get());
-    }
+    test_utils::safe_test_cluster_start(cluster.get());
 
     // Exercise more than chip 0's sysmem: on a multi-MMIO system (e.g. P300 / bh_x2) this is what
     // actually validates the host-DMA routing model, since each chip's DMA must land in *its own*
@@ -859,10 +853,9 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
 }
 
 // The register accessors on the TTDevice itself, rather than through Cluster. The two are not the
-// same path: a Chip may answer register access without ever entering TTDevice's register accessors
-// (SimulationChip delegates them to the bulk path a layer above), so only a direct call exercises
-// the TTDevice-level implementation -- the shared one on silicon, the simulation override on a
-// simulation backend.
+// same path: a Chip may answer register access without ever entering TTDevice's register accessors,
+// so only a direct call exercises the TTDevice-level implementation -- the shared one on silicon, the
+// simulation override on a simulation backend.
 TEST_F(TestDeviceIOFixture, TTDeviceRegReadWrite) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -889,14 +882,17 @@ INSTANTIATE_TEST_SUITE_P(
     [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });
 
 // SMN (System Management Network) read/write round-trip through the NocId::SYSTEM_NOC path.
-// SMN is only implemented on the RTL simulator (Quasar), so the test skips when not running
-// against a simulator.
+// SMN is Quasar's system management network and is only reachable on a Quasar simulator, so the
+// test skips everywhere else.
 TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
     if (!is_simulation_test()) {
-        GTEST_SKIP() << "SMN is only available on the RTL simulator.";
+        GTEST_SKIP() << "SMN is only available on the Quasar simulator.";
     }
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_soc_descriptor(0).arch != tt::ARCH::QUASAR) {
+        GTEST_SKIP() << "SMN (NocId::SYSTEM_NOC) exists only on Quasar.";
+    }
     cluster->start_device({.init_device = true});
 
     TTDevice* tt_device = cluster->get_tt_device(0);

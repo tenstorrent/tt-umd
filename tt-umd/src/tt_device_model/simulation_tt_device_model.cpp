@@ -49,6 +49,14 @@ std::shared_ptr<SocArchDescriptor> resolve(
     return resolve_soc_arch_descriptor(soc_descriptor.arch, soc_arch_descriptor);
 }
 
+// The chip a simulated device was built as, as far as its SoC descriptor records it.
+ChipInfo get_built_chip_info(const SocDescriptor &soc_descriptor) {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = soc_descriptor.noc_translation_enabled;
+    chip_info.harvesting_masks = soc_descriptor.harvesting_masks;
+    return chip_info;
+}
+
 // A simulator cannot hang the way a bus can: an access either reaches it in-process or throws. So
 // reporting healthy is accurate rather than a stub, and a detector must exist because a device
 // serving a PcieInterface is asked for one during startup.
@@ -220,7 +228,7 @@ SimulationTTDeviceModel::SimulationTTDeviceModel(
     architecture_impl_(ArchitectureImplementation::create(soc_descriptor.arch)),
     tt_sim_protocol_(std::make_unique<TTSimProtocol>(this)),
     hang_detector_(std::make_unique<SimulationHangDetector>()),
-    device_firmware_(std::make_unique<SimulationDeviceFirmware>(soc_descriptor.arch)),
+    device_firmware_(std::make_unique<SimulationDeviceFirmware>(get_built_chip_info(soc_descriptor))),
     simulation_firmware_info_provider_(std::make_unique<SimulationFirmwareInfoProvider>()) {}
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a

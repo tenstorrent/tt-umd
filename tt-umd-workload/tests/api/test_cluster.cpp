@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -118,6 +119,9 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, RefreshClusterDescriptionDoesNotThrow) {
+    if (is_simulation_test()) {
+        GTEST_SKIP() << "refresh_cluster_description() is supported only for SILICON clusters.";
+    }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     EXPECT_NO_THROW(cluster->refresh_cluster_description());
 }
@@ -125,14 +129,16 @@ TEST(TestCluster, RefreshClusterDescriptionDoesNotThrow) {
 TEST(TestCluster, GetEthernetFirmware) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    // BoardType P100 doesn't have eth cores.
+    // A cluster reports a version only when its chips run Ethernet firmware: BoardType P100 has no Ethernet cores,
+    // and TTSim loads its Ethernet firmware only into multi-chip images. The default test cluster opens the whole
+    // image, so its chip count tells which image it is.
+    const ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    const bool runs_ethernet_firmware = is_simulation_test() ? cluster_desc->get_number_of_chips() > 1
+                                                             : cluster_desc->get_board_type(0) != BoardType::P100;
+
     std::optional<SemVer> eth_version;
     EXPECT_NO_THROW(eth_version = cluster->get_ethernet_firmware_version());
-    if (cluster->get_cluster_description()->get_board_type(0) == BoardType::P100) {
-        EXPECT_FALSE(eth_version.has_value());
-    } else {
-        EXPECT_TRUE(eth_version.has_value());
-    }
+    EXPECT_EQ(eth_version.has_value(), runs_ethernet_firmware);
 }
 
 TEST(TestCluster, TestDifferentPowerModes) {

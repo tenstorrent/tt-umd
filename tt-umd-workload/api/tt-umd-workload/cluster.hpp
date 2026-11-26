@@ -59,7 +59,10 @@ class RemoteChip;
  * Chip type to create under the Cluster class.
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
  * - Simulation is used for simulation runs. In a UMD built without simulation support, the Cluster constructor
- *   throws error::RuntimeError saying so.
+ *   throws error::RuntimeError saying so. Its chips are built as for silicon: a chip reached over Ethernet through
+ *   another chip is a RemoteChip, any other chip (a simulator endpoint, or a device served by a simulation server) a
+ *   LocalChip. get_target_mmio_device_ids() and get_target_remote_device_ids() report the same split, so a simulation
+ *   server's client reports every chip it attaches to as a local chip.
  * - Mock is used for testing purposes, implementation of all functions is empty.
  * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
  *   Requires TT_UMD_BUILD_EMULE=ON at build time.
@@ -775,21 +778,10 @@ private:
         ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const std::filesystem::path& simulator_directory,
         std::unique_ptr<TTDevice> tt_device = nullptr);
     // Points a remote chip's RemoteCommunication at the sysmem manager of the gateway it talks through. Topology
     // discovery creates the RemoteCommunication before sysmem managers exist, so it is completed here.
     void connect_remote_communication_to_gateway(RemoteCommunication* remote_communication);
-    // Builds the RemoteChip for a non-MMIO chip in a multichip ttsim cluster. remote_tt_device is the device
-    // topology discovery created for the chip, if any; its RemoteCommunication is wired to the gateway's sysmem
-    // manager here. Without one (a declared topology, with no ARC/topology discovery), the RemoteCommunication and
-    // TTDevice (carrying the cluster-derived SocDescriptor and ChipInfo) are constructed here against the MMIO
-    // gateway.
-    std::unique_ptr<RemoteChip> create_simulation_remote_chip(
-        ChipId chip_id,
-        ClusterDescriptor* cluster_desc,
-        const SocDescriptor& soc_desc,
-        std::unique_ptr<TTDevice> remote_tt_device = nullptr);
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 

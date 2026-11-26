@@ -46,10 +46,10 @@ namespace tt::umd {
  *   topology. The server owns the simulator and the devices' host memory, so soc_descriptor_path,
  *   num_host_mem_channels and launch_simulator do not apply.
  *
- * The devices of an ip_layout.yaml, of a one-chip simulator and of a server directory are returned
- * as opened, keeping the SoC descriptor they were built from: these simulators model no firmware to
- * initialize them from, and a server's devices are its own to initialize, so
- * device_init_failure_action does not apply.
+ * The devices of an ip_layout.yaml and of a one-chip simulator are initialized too. Their
+ * simulators model no firmware, so each device reports the chip it was built as and keeps its SoC
+ * descriptor, and device_init_failure_action does not apply. The devices of a server directory are
+ * returned as opened: they are the server's own to initialize.
  *
  * Outside an ip_layout.yaml and a server directory, an empty
  * TopologyDiscoveryOptions::soc_descriptor_path selects the soc_descriptor.yaml the simulator ships

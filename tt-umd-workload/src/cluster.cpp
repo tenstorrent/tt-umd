@@ -30,6 +30,7 @@
 
 #include "hugepage.hpp"
 #include "simulation/simulation_backend.hpp"
+#include "topology/declared_simulation_topology.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"
@@ -39,13 +40,11 @@
 // stop future IWYU sweeps from deleting it again (see #2536).
 #include "io_window/io_window_target.hpp"
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
-#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
-#include "tt-umd/simulation/simulator_info.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
@@ -225,46 +224,12 @@ SysmemManager* usable_sysmem_manager(Chip* chip) {
 
 }  // namespace
 
-std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
-    ChipId chip_id,
-    ClusterDescriptor* cluster_desc,
-    const SocDescriptor& soc_desc,
-    std::unique_ptr<TTDevice> remote_tt_device) {
-    ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-    // Not get_local_chip(): a simulated gateway is a SimulationChip, not a LocalChip.
-    Chip* gateway_chip = get_chip(gateway_id);
-    if (remote_tt_device == nullptr) {
-        // The topology was declared rather than discovered, so the simulated remote chip has no ARC-probed
-        // TTDevice: hand its SocDescriptor to the remote TTDevice directly instead of letting init_tt_device
-        // construct one.
-        auto remote_communication = RemoteCommunication::create_remote_communication(
-            gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id));
-        remote_communication->set_remote_transfer_ethernet_cores(
-            gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-        remote_tt_device = create_simulation_remote_tt_device(std::move(remote_communication), soc_desc);
-    }
-    if (RemoteCommunication* remote_communication = remote_tt_device->get_remote_communication()) {
-        connect_remote_communication_to_gateway(remote_communication);
-    }
-
-    ChipInfo chip_info;
-    chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
-    chip_info.harvesting_masks = soc_desc.harvesting_masks;
-    chip_info.board_type = cluster_desc->get_board_type(chip_id);
-    chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
-    chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
-
-    return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
-}
-
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ChipId chip_id,
     const ChipType& chip_type,
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const std::filesystem::path& simulator_directory,
     std::unique_ptr<TTDevice> tt_device) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
@@ -295,49 +260,27 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             "configuration to enable software emulation device.");
 #endif
     }
-    if (chip_type == ChipType::SIMULATION) {
-        if (tt_device != nullptr && tt_device->is_remote()) {
-            // Topology discovery reached this chip over ethernet, so it is driven as a RemoteChip.
-            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc, std::move(tt_device));
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("No device was opened for chip {}.", chip_id));
+    // A chip is driven the same way whatever backs its device, silicon or a simulator: one reached over Ethernet
+    // through another chip is driven through that chip, any other is driven directly.
+    if (tt_device->is_remote()) {
+        if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
+            connect_remote_communication_to_gateway(remote_communication);
         }
-        if (tt_device != nullptr) {
-            // A device topology discovery or the connector (client mode) already opened: wrap it rather
-            // than open another. It was built with its own SoC descriptor, so read it back.
-            SocDescriptor device_soc = tt_device->get_soc_descriptor();
-            return std::make_unique<SimulationChip>(simulator_directory, device_soc, chip_id, std::move(tt_device));
-        }
-        if (cluster_desc->is_chip_remote(chip_id)) {
-            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
-        }
-        log_info(LogUMD, "Creating Simulation device");
-        // Only MMIO chips are opened on the image; remote ones are reached over its ethernet links.
-        return SimulationChip::create(
-            simulator_directory, soc_desc, chip_id, cluster_desc->get_chips_with_mmio().size(), num_host_mem_channels);
+        return RemoteChip::create(
+            std::move(tt_device), get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)));
     }
 
-    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        std::unique_ptr<LocalChip> chip;
-        chip = LocalChip::create(std::move(tt_device), num_host_mem_channels);
-
-        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
-            // Remote transfer currently supported only for wormhole.
-            remote_communications_[chip_id] = RemoteCommunication::create_remote_communication(
-                chip->get_tt_device(), {0, 0, 0, 0}, usable_sysmem_manager(chip.get()));
-            remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
-                chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                    cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
-        }
-        return chip;
-    } else {
-        ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        LocalChip* gateway_chip = get_local_chip(gateway_id);
-        if (tt_device != nullptr) {
-            if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
-                connect_remote_communication_to_gateway(remote_communication);
-            }
-        }
-        return RemoteChip::create(std::move(tt_device), gateway_chip);
+    std::unique_ptr<LocalChip> chip = LocalChip::create(std::move(tt_device), num_host_mem_channels);
+    if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+        // Remote transfer currently supported only for wormhole.
+        remote_communications_[chip_id] = RemoteCommunication::create_remote_communication(
+            chip->get_tt_device(), {0, 0, 0, 0}, usable_sysmem_manager(chip.get()));
+        remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
+            chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
     }
+    return chip;
 }
 
 void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remote_communication) {
@@ -419,7 +362,13 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         error::RuntimeError,
         fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
-    if (chip_type == ChipType::SWEMULE || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    // A device-backed chip is filed by the kind it was built as. That can differ from the descriptor's MMIO flags: a
+    // simulation server's client reaches every served chip directly, remote ones on the server included.
+    const TTDevice* tt_device = chip->get_tt_device();
+    const bool is_local_chip = tt_device != nullptr
+                                   ? !tt_device->is_remote()
+                                   : chip_type == ChipType::SWEMULE || cluster_desc->is_chip_mmio_capable(chip_id);
+    if (is_local_chip) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -446,27 +395,37 @@ Cluster::Cluster(ClusterOptions options) {
             tt_devices = std::move(devices);
             break;
         }
-        case ChipType::MOCK:
-        case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
-            if (options.cluster_descriptor == nullptr && options.chip_type == ChipType::SIMULATION) {
+            TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
+            discovery_options.simulation = get_simulation_discovery_options(options);
+            std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discovered;
+            if (options.cluster_descriptor == nullptr) {
                 // A simulator's topology is TopologyDiscovery's to find, and so are the chips of it this process
                 // opens: discovery applies target_devices before it opens any device.
-                TopologyDiscoveryOptions discovery_options = options.topology_discovery_options;
-                discovery_options.simulation = get_simulation_discovery_options(options);
-                auto [discovered_desc, discovered_devices] = TopologyDiscovery::discover(discovery_options);
+                discovered = TopologyDiscovery::discover(discovery_options);
                 // discover() answers with a valid, chipless descriptor when it found nothing -- callers and the
                 // Python bindings go through it on an empty machine too -- so the devices, not the pointer, are what
                 // say whether this simulator was discovered at all.
                 UMD_ASSERT(
-                    !discovered_devices.empty(),
+                    !discovered.second.empty(),
                     error::RuntimeError,
                     fmt::format("Discovering simulator {} produced no chips.", options.simulator_directory.string()));
-                cluster_desc = std::move(discovered_desc);
-                tt_devices = std::move(discovered_devices);
-                break;
+            } else {
+                UMD_ASSERT(
+                    !simulation_backend().is_server_directory(options.simulator_directory),
+                    error::RuntimeError,
+                    "A cluster descriptor cannot be passed when attaching to a simulation server: the server's "
+                    "topology is used.");
+                // Deprecated: the caller's descriptor declares the simulator's topology, which is opened the way a
+                // cluster_descriptor.yaml shipped beside the simulator is.
+                discovered = discover_declared_simulation_topology(discovery_options, *options.cluster_descriptor);
             }
-
+            cluster_desc = std::move(discovered.first);
+            tt_devices = std::move(discovered.second);
+            break;
+        }
+        case ChipType::MOCK:
+        case ChipType::SWEMULE: {
             if (options.cluster_descriptor == nullptr) {
                 // If no custom descriptor is provided, in case of mock chip type, we create a mock cluster descriptor
                 // from passed target devices. Noc translation is enabled for mock chips.
@@ -479,33 +438,8 @@ Cluster::Cluster(ClusterOptions options) {
                 break;
             }
 
-            UMD_ASSERT(
-                options.chip_type != ChipType::SIMULATION ||
-                    !simulation_backend().is_server_directory(options.simulator_directory),
-                error::RuntimeError,
-                "A cluster descriptor cannot be passed when attaching to a simulation server: the server's topology is "
-                "used.");
-
             cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
                 options.cluster_descriptor, options.target_devices);
-
-            // Without a SoC descriptor, each chip's descriptor is built from the architecture the caller's cluster
-            // descriptor records, which nothing else checks against the simulator the chips will run on.
-            if (options.chip_type == ChipType::SIMULATION &&
-                options.topology_discovery_options.soc_descriptor_path.empty()) {
-                const tt::ARCH simulator_arch = get_simulator_arch(options.simulator_directory);
-                for (const ChipId chip_id : cluster_desc->get_all_chips()) {
-                    UMD_ASSERT(
-                        cluster_desc->get_arch(chip_id) == simulator_arch,
-                        error::RuntimeError,
-                        fmt::format(
-                            "Cluster descriptor gives chip {} architecture {}, but simulator {} is {}.",
-                            chip_id,
-                            arch_to_str(cluster_desc->get_arch(chip_id)),
-                            options.simulator_directory.string(),
-                            arch_to_str(simulator_arch)));
-                }
-            }
             break;
         }
         default:
@@ -544,7 +478,6 @@ Cluster::Cluster(ClusterOptions options) {
                 cluster_desc.get(),
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device.value(),
-                options.simulator_directory,
                 std::move(tt_device)));
     }
 
@@ -1057,13 +990,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
 
 void Cluster::set_clock_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
-        // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose is_mmio_capable()
-        // is also false), so skip power state transitions for every chip in a simulation cluster. This is
-        // deliberately not keyed on remote_chip_ids_: the gateway must be skipped too. Silicon chips are handled
-        // over ARC/ethernet as before.
-        if (options_.chip_type == ChipType::SIMULATION && !chip->is_mmio_capable()) {
-            continue;
-        }
         chip->set_clock_state(device_state);
     }
 }

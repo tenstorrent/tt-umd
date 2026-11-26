@@ -33,6 +33,7 @@
 #include "tests/test_utils/simulation_discovery.hpp"
 #include "tests/test_utils/simulation_socket_test_utils.hpp"
 #include "tests/test_utils/simulator_layout.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/simulation/simulation_connector.hpp"
@@ -279,6 +280,36 @@ TEST_F(SimulationServerDiscovery, ClientConnectionOutlivesTheServer) {
     EXPECT_EQ(connection->simulator, image_);
     EXPECT_EQ(connection->backend, SimulationBackendType::TTSIM);
     EXPECT_EQ(connection->arch, arch);
+}
+
+// A client reaches every served chip over its own socket, the chip the host reaches over Ethernet included, so none of
+// them is reached through another chip.
+TEST_F(SimulationServerDiscovery, EveryChipOfAClientClusterIsALocalChip) {
+    const auto client = client_cluster();
+
+    for (const ChipId chip : client->get_target_device_ids()) {
+        EXPECT_NE(dynamic_cast<LocalChip*>(client->get_chip(chip)), nullptr) << "chip " << chip;
+    }
+}
+
+// Reached over its own socket, every chip of a client Cluster is an MMIO chip, wh_x2's chip 1 included.
+TEST_F(SimulationServerDiscovery, EveryChipOfAClientClusterIsAnMmioChip) {
+    const auto client = client_cluster();
+
+    EXPECT_EQ(client->get_target_mmio_device_ids(), client->get_target_device_ids());
+    EXPECT_TRUE(client->get_target_remote_device_ids().empty());
+}
+
+// tt-metal hands every MMIO chip its active Ethernet cores.
+TEST_F(SimulationServerDiscovery, ClientClusterTakesTheActiveEthernetCoresOfEveryMmioChip) {
+    const auto client = client_cluster();
+
+    for (const ChipId chip : client->get_target_mmio_device_ids()) {
+        const std::vector<CoreCoord> eth_cores = client->get_soc_descriptor(chip).get_cores(CoreType::ETH);
+        EXPECT_NO_THROW(client->configure_active_ethernet_cores_for_mmio_device(
+            chip, std::unordered_set<CoreCoord>(eth_cores.begin(), eth_cores.end())))
+            << "chip " << chip;
+    }
 }
 
 // The server's image declares the topology, so a client Cluster given one of its own is refused.

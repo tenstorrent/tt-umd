@@ -29,6 +29,18 @@ class SysmemManager;
 
 class LocalChip : public Chip {
 public:
+    /**
+     * Create a LocalChip over a device this process reaches without going through another chip, on silicon and on a
+     * simulator alike.
+     *
+     * The chip's host memory is the one the device provides, if it provides one (an in-process simulated device does;
+     * num_host_mem_channels is then not used). Otherwise a PCIe device gets num_host_mem_channels channels of host
+     * memory pinned for it, and any other device has none.
+     *
+     * @param tt_device A non-remote TTDevice that has its SoC descriptor: initialized with init_tt_device(), or one
+     *                  TopologyDiscovery returned.
+     * @param num_host_mem_channels Host memory channels to pin for a PCIe device that provides none.
+     */
     static std::unique_ptr<LocalChip> create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
 
     ~LocalChip() override;
@@ -79,9 +91,12 @@ public:
     int get_numa_node() override;
 
 private:
-    LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> sysmem_manager);
+    LocalChip(std::unique_ptr<TTDevice> tt_device, std::unique_ptr<SysmemManager> pinned_sysmem_manager);
 
-    std::unique_ptr<SysmemManager> sysmem_manager_;
+    // Host memory pinned for this chip, when the device brings none of its own.
+    std::unique_ptr<SysmemManager> pinned_sysmem_manager_;
+    // The chip's host memory: the device's own, else pinned_sysmem_manager_, else none.
+    SysmemManager* sysmem_manager_ = nullptr;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.

@@ -24,7 +24,7 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     chip_id_ = chip_id;
     serve_in_process(chip_id);
     // The transport works from here on, so the architecture's own firmware can read this device
-    // rather than a simulation firmware reporting defaults it cannot know.
+    // rather than a simulation firmware reporting only what the device was built as.
     if (model_ != nullptr) {
         model_->use_arch_device_firmware();
     }

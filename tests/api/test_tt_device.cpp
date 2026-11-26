@@ -252,6 +252,9 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
 TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No PCI device found.";
+    }
 
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
 

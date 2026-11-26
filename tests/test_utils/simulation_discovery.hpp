@@ -25,6 +25,14 @@ inline TopologyDiscoveryOptions simulation_discovery_options(
     return options;
 }
 
+// Where the simulator at simulator_path declares its topology, whether or not it does: the cluster_descriptor.yaml
+// beside a TTSim library, or inside an RTL simulator directory.
+inline std::filesystem::path declared_cluster_descriptor_path(const std::filesystem::path& simulator_path) {
+    const std::filesystem::path beside =
+        std::filesystem::is_regular_file(simulator_path) ? simulator_path.parent_path() : simulator_path;
+    return beside / "cluster_descriptor.yaml";
+}
+
 // The chip ids discovery opened a device for.
 inline std::set<ChipId> chips_of(const std::map<ChipId, std::unique_ptr<TTDevice>>& devices) {
     std::set<ChipId> chips;

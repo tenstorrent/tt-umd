@@ -30,10 +30,11 @@
 #include "simulation/simulator_paths.hpp"
 #include "simulation/tt_sim_communicator.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tests/test_utils/simulation_discovery.hpp"
 #include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
-#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
@@ -369,7 +370,7 @@ protected:
         }
         simulator_path_ = simulator_path;
 
-        if (std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path_))) {
+        if (std::filesystem::exists(test_utils::declared_cluster_descriptor_path(simulator_path_))) {
             GTEST_SKIP() << "A cluster_descriptor.yaml sits beside this simulator, so its topology is declared "
                             "rather than discovered.";
         }
@@ -553,8 +554,7 @@ TEST_F(TTSimDiscoveryTest, HarvestingComesFromTheDevice) {
 }
 
 // A chip reached over ethernet has to be driven as one, even though discovery already created its
-// TTDevice: a RemoteChip flushes non-MMIO writes over the link, where a SimulationChip treats every
-// flush and membar as a no-op because it reaches its device in-process.
+// TTDevice: a RemoteChip flushes non-MMIO writes over the link, as on silicon.
 TEST_F(TTSimDiscoveryTest, RemoteChipsAreBuiltAsRemoteChips) {
     ClusterOptions options;
     options.chip_type = ChipType::SIMULATION;
@@ -641,7 +641,7 @@ TEST_F(TTSimDiscoveryTest, DescriptorRemoteChipsNeedNoEndpoint) {
     options.num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster(options);
 
-    EXPECT_NE(dynamic_cast<SimulationChip*>(cluster.get_chip(0)), nullptr);
+    EXPECT_NE(dynamic_cast<LocalChip*>(cluster.get_chip(0)), nullptr);
     ASSERT_NE(dynamic_cast<RemoteChip*>(cluster.get_chip(1)), nullptr);
 
     const CoreCoord core = cluster.get_soc_descriptor(1).get_cores(CoreType::TENSIX).front();

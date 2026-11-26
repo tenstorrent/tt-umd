@@ -12,6 +12,13 @@ on:
         description: >-
           Image variant name that matches the Dockerfile prefix,
           e.g. "ubuntu-22.04", "ubuntu-24.04", "fedora-39", "manylinux".
+      build-args:
+        required: false
+        type: string
+        default: ''
+        description: >-
+          Newline-separated KEY=VALUE Docker build args, e.g. "UBUNTU_VERSION=24.04". They are part of
+          the content hash, so each combination gets its own tag.
       timeout:
         required: false
         type: number
@@ -41,6 +48,8 @@ jobs:
 
       - name: Compute content hash
         id: hash
+        env:
+          BUILD_ARGS: ${{ inputs.build-args }}
         run: |
           DOCKERFILE=".github/${{ inputs.docker-version }}.Dockerfile"
 
@@ -51,7 +60,7 @@ jobs:
           done
 
           echo "Hashing files: $FILES"
-          HASH=$(cat $FILES | sha256sum | cut -c1-12)
+          HASH=$({ cat $FILES; printf '%s' "$BUILD_ARGS"; } | sha256sum | cut -c1-12)
           TAG="sha-${HASH}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Computed tag: $TAG"
@@ -103,6 +112,7 @@ jobs:
           platforms: ${{ inputs.docker-version == 'ubuntu-24.04-riscv' && 'linux/riscv64' || '' }}
           build-args: |
             GIT_SHA=${{ github.sha }}
+            ${{ inputs.build-args }}
           tags: |
             ${{ env.CI_IMAGE }}:${{ steps.hash.outputs.tag }}
           cache-from: type=registry,ref=${{ env.CI_IMAGE }}:latest

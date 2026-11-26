@@ -33,6 +33,14 @@ on:
         required: false
         default: ""
         type: string
+      ttsim-qemu-ubuntu-version:
+        description: 'Ubuntu version of the ttsim-qemu VM guest (and the image it is built into).'
+        required: false
+        default: '22.04'
+        type: choice
+        options:
+          - '22.04'
+          - '24.04'
   pull_request:
   merge_group:
   push:
@@ -100,6 +108,7 @@ jobs:
     uses: ./.github/workflows/docker-image.yml
     with:
       docker-version: ttsim-qemu
+      build-args: UBUNTU_VERSION=${{ inputs.ttsim-qemu-ubuntu-version || '22.04' }}
 
   # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
   # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -

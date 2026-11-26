@@ -5,6 +5,11 @@ name: Run ttsim-qemu tests
 on:
   workflow_call:
     inputs:
+      ubuntu-docker-version:
+        required: false
+        type: string
+        default: ubuntu-22.04
+        description: 'Ubuntu version of the build-artifacts-* artifact (from build-tests.yml) to test.'
       image-tag:
         required: false
         type: string
@@ -30,7 +35,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v8
         with:
-          name: build-artifacts-ubuntu-22.04-Release
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-Release
 
       - name: Untar build artifacts
         run: tar xf artifact.tar

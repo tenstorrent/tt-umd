@@ -36,7 +36,7 @@ jobs:
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages

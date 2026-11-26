@@ -46,11 +46,11 @@ docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/tenstorrent/tt-umd/tt-umd-ci-tt
 
 Use `libttsim_bh.so` with `--bar4-size 32G` for a P150.
 
-CI runs `api_tests`, `unit_tests`, `unified_tests` and `test_pcie_device` on an N150, filtered to
-the tests that pass in the VM; a test that reaches something ttsim does not model ends QEMU rather
-than failing, so it has to be filtered out. On a P150 it opens the chip and runs the TLB window
-suites (`TestTlb`, `TestTlbRegisterReconfigure` and the `DynamicTLB_RW` tests). The guest has no
-hugepages, so a test that needs host memory through one, such as `UnalignedTLB_RW`, fails there.
+CI runs `api_tests`, `unit_tests`, `unified_tests` and `test_pcie_device` on an N150 and a P150,
+filtered to the tests that pass in the VM; a test that reaches something ttsim does not model ends
+QEMU rather than failing, so it has to be filtered out. The guest has no hugepages, so a test that
+needs host memory through one, such as `UnalignedTLB_RW` or most sysmem tests, fails there and is
+filtered out too.
 
 ## Grendel
 

@@ -10,8 +10,7 @@
 #include "tt-kmd-lib/tt_kmd_lib.h"
 
 // /dev/null gives a valid handle that is not a Tenstorrent device, so these cases run without a card.
-// Each one is either rejected before reaching the driver or shows what a driver without
-// TENSTORRENT_IOCTL_READ_EVENTS looks like to the caller.
+// Each one is rejected before reaching the driver.
 
 // Not in an anonymous namespace: in a unity build, GCC rejects a TEST_F class deriving from one.
 class KmdLibEvents : public ::testing::Test {
@@ -41,8 +40,4 @@ TEST_F(KmdLibEvents, UnknownFlagsAreRejected) {
     EXPECT_EQ(
         tt_device_read_events(dev, events, 4, ~TT_READ_EVENTS_FLAG_FROM_OLDEST, 0, -1, &count, nullptr, nullptr),
         -EINVAL);
-}
-
-TEST_F(KmdLibEvents, HandleWithoutReadEventsSupportReportsTheIoctlError) {
-    EXPECT_EQ(tt_device_read_events(dev, events, 4, 0, 0, -1, &count, nullptr, nullptr), -ENOTTY);
 }

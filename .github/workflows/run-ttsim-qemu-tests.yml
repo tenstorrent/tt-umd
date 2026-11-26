@@ -8,7 +8,7 @@ on:
       ubuntu-docker-version:
         required: false
         type: string
-        default: ubuntu-24.04
+        default: ubuntu-22.04
         description: 'Ubuntu version of the build-artifacts-* artifact (from build-tests.yml) to test.'
       image-tag:
         required: false

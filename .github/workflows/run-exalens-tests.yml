@@ -83,9 +83,8 @@ jobs:
 
       - name: Install UMD wheel
         shell: bash
-        # Ubuntu 24.04's system Python is externally managed (PEP 668), and the tt-exalens CI image has no
-        # python3-venv. The container is ephemeral, so installing over the system packages is safe.
-        run: pip install --break-system-packages tt_umd-*.whl --force-reinstall
+        run: |
+          pip install tt_umd-*.whl --force-reinstall
 
       - name: Run Python tests for tt-exalens library
         env:

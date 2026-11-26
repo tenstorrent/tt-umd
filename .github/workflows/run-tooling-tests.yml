@@ -67,13 +67,8 @@ jobs:
 
       # TODO: revert to `pip install "tt-smi"` once a tt-smi release includes #265.
       # Building tt-smi from source needs tomli and a newer setuptools than the system one.
-      # Ubuntu 24.04's system Python is externally managed (PEP 668), so install into a venv and put it on
-      # PATH for the following steps.
       - name: Install tt-smi
         run: |
-          python3 -m venv .venv
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-          . .venv/bin/activate
           pip install --upgrade setuptools tomli wheel
           pip install --no-build-isolation \
             "git+https://github.com/tenstorrent/tt-smi.git@f52d8b3f629abdeb7c07aff248b523c8a0d7d51f"

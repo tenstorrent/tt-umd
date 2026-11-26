@@ -27,7 +27,7 @@ on:
       ubuntu-docker-version:
         required: false
         type: string
-        default: ubuntu-24.04
+        default: ubuntu-22.04
         description: >-
           Ubuntu version of the CI docker image that builds and tests run in. The image tag passed
           in docker-image-tag must belong to this version.
@@ -80,7 +80,7 @@ on:
           - TSan
       ubuntu-docker-version:
         required: false
-        default: ubuntu-24.04
+        default: ubuntu-22.04
         type: choice
         options:
           - ubuntu-22.04

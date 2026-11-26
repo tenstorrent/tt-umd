@@ -21,12 +21,11 @@ namespace tt::umd {
 // (allocate_server_directory) so distinct hosts on the same machine never collide.
 //
 // The socket acts as a presence indicator: if a process can bind the path it becomes the host,
-// and create() throws if a live host already holds it. Which role a process takes is decided
+// and create() throws if it cannot claim it. Which role a process takes is decided
 // from the path by SimulationConnector, not by racing for the bind; is_live() answers whether a
 // host has the path bound and listening, which the socket file's presence alone does not (it says
-// nothing about whether that host is still alive, only that one bound it once). Stale
-// sockets left by crashed owners are automatically reclaimed. On destruction the host closes
-// the socket and removes the file.
+// nothing about whether that host is still alive, only that one bound it once). On destruction
+// the host closes the socket and removes the file.
 //
 // Request handling is split from binding, so the owner can claim the socket first and begin
 // serving only once its backend is ready (the handler dispatches into that backend, which does
@@ -57,15 +56,22 @@ public:
     SimulationServerSocket(const SimulationServerSocket&) = delete;
     SimulationServerSocket& operator=(const SimulationServerSocket&) = delete;
 
-    // Binds and listens, reclaiming a socket left behind by a crashed owner, and throws when a
-    // *live* owner already holds the path. Throws on real socket errors too. The socket is
-    // presence-only (bound + connectable) until serve() installs a handler.
+    // Binds and listens, reclaiming a socket left behind by a crashed owner. Throws when the path
+    // reads as live (see is_live()): a live owner holds it, or it is a socket the caller may not
+    // connect to, such as another user's, which is never reclaimed. Throws on real socket errors
+    // too. The socket is presence-only (bound + connectable) until serve() installs a handler.
+    //
+    // The socket is private to the user that creates it: the socket file is owner-only (0600),
+    // and every directory this call has to create for it (its parent and any missing ancestors)
+    // is owner-only (0700). Directories that already exist are left as they are.
     static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     // True if a listener is currently reachable at socket_path -- i.e. a host holds it bound and
     // listening, as opposed to the path being free or holding a socket file a crashed owner left
     // behind, which are indistinguishable on disk. Does not claim the path, and never blocks: a host
-    // that is listening but not accepting (its accept queue full) still reads as live.
+    // that is listening but not accepting (its accept queue full) still reads as live. A socket the
+    // caller is not permitted to connect to (e.g. another user's) also reads as live: it cannot be
+    // probed, and it is never the caller's to reclaim.
     //
     // Note this is liveness of the bind, not of request handling: a host binds before serve()
     // installs its handler (see the split described above), so a host still coming up reads as
@@ -80,15 +86,17 @@ public:
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
     // Claims a fresh directory for one simulation server: <temp_dir>/tt-umd-sim-server-<index>,
-    // for the lowest index not already taken. Each server owns its own directory so two hosts
-    // never collide -- even when they serve overlapping chip ids, the sockets live in different
-    // directories. The claim is atomic (create_directory fails if the name exists), so racing
-    // hosts get distinct indices. Throws if no index is free. A client is then pointed at the
-    // returned directory.
+    // for the lowest index not already taken by any user. Each server owns its own directory so
+    // two hosts never collide -- even when they serve overlapping chip ids, the sockets live in
+    // different directories. The claim is atomic (creating the directory fails if the name
+    // exists), so racing hosts get distinct indices. The directory is owner-only (0700) whatever
+    // the umask, so other users can neither attach to nor list the sockets in it. Throws if no
+    // index is free. A client is then pointed at the returned directory.
     static std::filesystem::path allocate_server_directory();
 
-    // The simulation server directories present under the system temp dir: {index -> directory},
-    // keyed and ordered by index. This is what a caller enumerating the machine's servers scans;
+    // The simulation server directories under the system temp dir that belong to this process's
+    // effective user: {index -> directory}, keyed and ordered by index. Other users' directories
+    // and symlinks are skipped. This is what a caller enumerating its own servers scans;
     // sockets_in_directory() then lists the chips each one serves.
     static std::map<int, std::filesystem::path> list_server_directories();
 
@@ -97,8 +105,8 @@ public:
     static std::optional<int> server_index_from_directory_path(const std::filesystem::path& directory);
 
     // Deterministic per-chip socket path inside a server directory (the naming contract a client
-    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: one shared
-    // socket per chip that any user may attach to.
+    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: each server
+    // has a directory of its own, so the chip id alone is unique within it.
     static std::filesystem::path default_socket_path(const std::filesystem::path& server_directory, ChipId chip_id = 0);
 
     // Inverse of default_socket_path()'s naming: pulls the chip id out of a socket file *name*
@@ -109,7 +117,7 @@ public:
     // The per-chip simulation sockets present in a directory: {chip_id -> socket file}, keyed and
     // ordered by chip id. Only AF_UNIX sockets whose names match the default_socket_path()
     // convention are included; everything else in the directory is ignored. Empty if the path is
-    // not a directory or holds no such sockets.
+    // not a directory, cannot be read, or holds no such sockets.
     //
     // Presence only: a socket here may be one a crashed host left behind, so this is not the set of
     // hosts to attach to. SimulationConnector's classifier narrows it with is_live() and rejects a
@@ -122,14 +130,14 @@ private:
     // the try_create()/create() factories.
     explicit SimulationServerSocket(const std::filesystem::path& socket_path);
 
-    // Like create(), but returns nullptr instead of throwing when a live owner already holds the
-    // path. An implementation detail of create(): nothing outside needs the null return, since the
+    // Like create(), but returns nullptr instead of throwing when the path reads as live. An
+    // implementation detail of create(): nothing outside needs the null return, since the
     // role a process takes is decided from the path rather than by racing for the bind.
     static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
 
-    // Binds + listens (claims the path; connectable for liveness). Does not accept yet -- the
-    // accept loop starts in serve(). Returns false if a live owner holds the path; throws on real
-    // socket errors.
+    // Binds + listens (claims the path; connectable for liveness), with the owner-only modes
+    // create() promises. Does not accept yet -- the accept loop starts in serve(). Returns false
+    // if the path reads as live (see create()); throws on real socket errors.
     bool bind_and_listen();
 
     // Re-arms the async accept; each accepted connection is handed to a serving thread. Only ever

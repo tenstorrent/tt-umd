@@ -64,6 +64,17 @@ Classification classify(const std::filesystem::path& simulator_path) {
         std::filesystem::is_directory(simulator_path, ec),
         error::RuntimeError,
         fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
+    // A directory that cannot be listed would read as one with no sockets, i.e. an RTL build to
+    // host, and fail later on an unrelated missing file. Most likely it is another user's server.
+    std::filesystem::directory_iterator listing(simulator_path, ec);
+    UMD_ASSERT(
+        !ec,
+        error::RuntimeError,
+        fmt::format(
+            "Cannot read simulator directory {}: {}. A simulation server directory is private to the user who "
+            "started the server.",
+            simulator_path.string(),
+            ec.message()));
     // A directory that holds per-chip simulation sockets means a host is already serving there, so
     // attach as a client; any other directory is an RTL build we host.
     const auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
@@ -111,9 +122,8 @@ bool is_server_gone(const SimulationServerInfo& server) {
            });
 }
 
-// Clears up after a server that is gone. Best-effort and quiet when it fails: simulation sockets
-// are cross-user by design, and another user's directory cannot be removed from the temp
-// directory, which every scan would otherwise report.
+// Clears up after a server that is gone. Best-effort and quiet when it fails: the sweep runs on
+// every scan, so a directory that cannot be removed would otherwise be reported each time.
 bool remove_server_directory(const SimulationServerInfo& server) {
     std::error_code ec;
     std::filesystem::remove_all(server.directory, ec);

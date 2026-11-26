@@ -17,7 +17,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
-#include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/common.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -25,38 +24,6 @@
 namespace tt::umd {
 
 namespace grendel {
-
-inline constexpr auto TLB_2M_OFFSET = tlb_offsets{
-    .local_offset = 0,
-    .x_end = 43,
-    .y_end = 49,
-    .x_start = 55,
-    .y_start = 61,
-    .noc_sel = 67,
-    .mcast = 69,
-    .ordering = 70,
-    .linked = 72,
-    .static_vc = 73,
-    // missing .stream_header
-    .static_vc_buddy = 75,
-    .static_vc_class = 76,
-    .static_vc_class_end = 78};
-
-inline constexpr auto TLB_4G_OFFSET = tlb_offsets{
-    .local_offset = 0,
-    .x_end = 32,
-    .y_end = 38,
-    .x_start = 44,
-    .y_start = 50,
-    .noc_sel = 56,
-    .mcast = 58,
-    .ordering = 59,
-    .linked = 61,
-    .static_vc = 62,
-    // missing .stream_header
-    .static_vc_buddy = 64,
-    .static_vc_class = 65,
-    .static_vc_class_end = 67};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
@@ -77,7 +44,7 @@ inline constexpr tt_xy_pair GRID_SIZE = {12, 8};
 // NOC0_Y_TO_NOC1_Y[noc0_y] is the NOC1 y coordinate corresponding to NOC0 y coordinate noc0_y.
 static const std::vector<uint32_t> NOC0_X_TO_NOC1_X = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 static const std::vector<uint32_t> NOC0_Y_TO_NOC1_Y = {11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-const static tt_xy_pair TENSIX_GRID_SIZE = {8, 4};
+inline constexpr tt_xy_pair TENSIX_GRID_SIZE = {8, 4};
 // clang-format off
 const static std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {
     {2, 2},  {3, 2},  {4, 2},  {5, 2},  {6, 2},  {7, 2},  {8, 2},  {9, 2}, 
@@ -167,32 +134,35 @@ static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10,
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // TODO: Copied from blackhole. Need to verify.
+// The only window size TLBAppIn0 offers, so also the size UMD keeps its cached windows at.
+inline constexpr uint32_t STATIC_TLB_SIZE = 16 * 1024 * 1024;
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
-inline constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
+// A window's configuration registers sit behind a control plane that only the kernel driver
+// maps, so neither of these is an address the host can write. A window is configured by asking
+// the driver instead, which is why ArchitectureTlbs marks this architecture as having no
+// host-writable configuration registers.
+inline constexpr uint32_t STATIC_TLB_CFG_ADDR = 0;
+inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 0;
 
-inline constexpr uint32_t TLB_COUNT_2M = 202;
-inline constexpr uint32_t TLB_BASE_2M = 0;  // 0 in BAR0
+// TLBAppIn0: 256 entries, each a 16MB window into BAR0 at (entry << 24). Entries 0-163 are
+// statically programmed during bring-up and 164 is the driver's own scalar access window, so in
+// practice only 165-255 are ever handed out. The count still covers the whole bank because a
+// window is named by its entry number, not by its position among the free ones.
+inline constexpr uint32_t TLB_16M_SHIFT = 24;
+inline constexpr uint64_t TLB_16M_SIZE = 1ULL << TLB_16M_SHIFT;
+inline constexpr uint32_t TLB_COUNT_16M = 256;
+inline constexpr uint32_t TLB_BASE_16M = 0;  // 0 in BAR0
+inline constexpr uint32_t TLB_BASE_INDEX_16M = 0;
+inline constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
+
+// Blackhole-derived leftovers, kept only because AXI_RESET_OFFSET and the REG_TLB/MEM_* indices
+// below are still expressed in terms of them. They do not describe TLBAppIn0 and take no part in
+// the window pool.
+inline constexpr uint32_t TLB_BASE_2M = 0;
 inline constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 inline constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
-
-inline constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
-
-inline constexpr uint32_t TLB_COUNT_4G = 8;
-inline constexpr uint32_t TLB_BASE_4G = 0;  // 0 in BAR4
-inline constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
-inline constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-inline constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;
-inline constexpr uint32_t DYNAMIC_TLB_4G_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_4G * TLB_CFG_REG_SIZE_BYTES);
-inline constexpr uint32_t DYNAMIC_TLB_4G_BASE = TLB_BASE_4G;
-
-inline constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
-
-inline constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
-inline constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
-inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
@@ -358,9 +328,7 @@ public:
         return 0;
     }  // grendel does not support staggered start ??
 
-    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
-        return grendel::HARVESTING_NOC_LOCATIONS;
-    }
+    std::vector<uint32_t> get_harvesting_noc_locations() const override { return grendel::HARVESTING_NOC_LOCATIONS; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
 };

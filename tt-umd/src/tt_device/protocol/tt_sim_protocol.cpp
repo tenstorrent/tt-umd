@@ -30,7 +30,8 @@ void TTSimProtocol::attach(SimulationTTDevice* device, TTSimCommunicator* commun
     }
 }
 
-void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimProtocol::read_data(
+    void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     // The device's path already picks between the cached TLB window and direct tile access by
     // architecture -- Wormhole and Blackhole reach the NOC through the window, and tile access is
     // fatal on them; Quasar has no TLBs and uses tile access. Reaching that path rather than
@@ -43,7 +44,8 @@ void TTSimProtocol::read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t 
     device_->noc_read_translated(core, addr, dst, size);
 }
 
-void TTSimProtocol::write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimProtocol::write_data(
+    const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
     UMD_ASSERT(device_ != nullptr, error::RuntimeError, "TTSimProtocol used before it was attached to a device.");
     NocIdSwitcher noc_switcher(noc_id);
     device_->noc_write_translated(core, addr, src, size);
@@ -106,18 +108,11 @@ int TTSimProtocol::get_numa_node() const { return -1; }
 // A simulator has no physical link to train.
 std::optional<uint32_t> TTSimProtocol::get_lane_count() const { return std::nullopt; }
 
+std::optional<int> TTSimProtocol::get_physical_slot() const { return std::nullopt; }
+
 void TTSimProtocol::set_power_state(PowerState /*state*/) {
     // A simulator models no power domains. Silently ignored rather than thrown: the firmware sets a
     // power state during startup, and refusing would fail bringup over something inconsequential.
-}
-
-int TTSimProtocol::export_dmabuf(
-    tt_xy_pair /*core*/, uint64_t /*addr*/, size_t /*size*/, uint64_t /*ordering*/, NocId /*noc_id*/) {
-    UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for simulation devices.");
-}
-
-void TTSimProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {
-    // No bus to time out: an access reaches the simulator in-process or throws outright.
 }
 
 }  // namespace tt::umd

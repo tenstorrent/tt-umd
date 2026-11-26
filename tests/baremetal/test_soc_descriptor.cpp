@@ -150,7 +150,7 @@ TEST(SocDescriptor, SocDescriptorDRAMChannels) {
 // Test ETH translation from logical to noc0 coordinates.
 TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
     const size_t num_eth_cores = blackhole::ETH_CORES_NOC0.size();
-    const size_t num_harvested_eth_cores = 2;
+    constexpr size_t num_harvested_eth_cores = 2;
     const size_t num_eth_channels = blackhole::NUM_ETH_CHANNELS;
     const std::vector<tt_xy_pair> blackhole_eth_cores = blackhole::ETH_CORES_NOC0;
     for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_cores); eth_harvesting_mask++) {
@@ -535,7 +535,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
 
 TEST(SocDescriptor, WormholeNOC1Cores) {
     // Harvesting mask should harvest first 2 Tensix rows.
-    const uint32_t num_harvested_rows = 2;
+    constexpr uint32_t num_harvested_rows = 2;
     HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0x3};
     // Wormhole tensix noc1 cores with first 2 harvested rows so we can just iterate
     // over the cores without the need to calculate the index.
@@ -587,7 +587,7 @@ TEST(SocDescriptor, WormholeNOC1Cores) {
 
 TEST(SocDescriptor, BlackholeNOC1Cores) {
     // Harvesting mask should harvest first 2 Tensix columns.
-    const uint32_t num_harvested_columns = 2;
+    constexpr uint32_t num_harvested_columns = 2;
     HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0x3, .eth_harvesting_mask = example_eth_harvest_mask};
     // Blackhole tensix noc1 cores with first 2 harvested columns so we can just iterate
     // over the cores without the need to calculate the index.

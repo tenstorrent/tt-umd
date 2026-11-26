@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -54,9 +53,9 @@ class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PcieProtocol;
 class RemoteInterface;
@@ -99,13 +98,12 @@ public:
     virtual ~TTDevice() = default;
 
     ArchitectureImplementation *get_architecture_implementation();
-
-    // Being removed (#3530): do not add new callers. PCIe queries go through get_pcie_interface().
-    PCIDevice *get_pci_device();
-
     RemoteCommunication *get_remote_communication();
 
+    SystemMemoryAllocator *get_system_memory_allocator();
+
     DeviceProtocol *get_device_protocol();
+    // Null when the device is not reached over PCIe.
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -161,10 +159,21 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
+    // A transport that cannot honour the requested ordering serves it as IoOrdering::STRICT.
     virtual void read_from_device(
-        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
     virtual void write_to_device(
-        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+        const void *mem_ptr,
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id = NocId::DEFAULT_NOC,
+        IoOrdering ordering = IoOrdering::STRICT);
 
     // Register reads/writes reach the device as one access of the given width per register; addr and size must
     // be multiples of that width. 64-bit accesses are supported only on Quasar.
@@ -473,7 +482,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Deassert risc reset for a specific core.
@@ -483,7 +492,7 @@ public:
      * @param staggered_start Whether to use staggered start
      * @param noc_id NOC to route through (if the feature is routed through NOC)
      */
-    virtual void deassert_risc_reset(
+    void deassert_risc_reset(
         CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
@@ -491,10 +500,9 @@ public:
     /**
      * Allocate a TlbWindow for use by callers.
      *
-     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
-     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their in-process bitmap and
-     * build the appropriate sim-backend TlbWindow.
+     * Simulation TTDevice subclasses override this to allocate from their in-process bitmap and build
+     * the appropriate sim-backend TlbWindow. Other devices build their windows in the model, so the
+     * default throws.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.
@@ -558,21 +566,17 @@ public:
     }
 
     /**
-     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
-     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
-     * caller owns the returned fd and must close() it.
+     * Export a NOC-addressable region as a dma-buf file descriptor a peer device can DMA to and from. See
+     * PeerDmaInterface::export_window for the full contract; the caller owns the returned fd and
+     * must close() it.
      *
-     * @param core Core to target.
-     * @param addr Address within the core to aim the exported region at; must be page-aligned.
-     * @param size Number of bytes to export; must be page-aligned and non-zero.
-     * @param ordering Ordering mode for the TLB window backing the export.
-     * @param noc_id NOC to route the exported traffic over.
+     * @throws if this device has no PeerDmaInterface.
      */
     virtual int export_dmabuf(
         CoreCoord core,
         uint64_t addr,
         size_t size,
-        uint64_t ordering = tlb_data::Relaxed,
+        IoOrdering ordering = IoOrdering::RELAXED,
         NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
@@ -603,13 +607,8 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
-    // check, and gives the detector a separately-locked window to probe through.
-    void wire_hang_detector();
-
-    // Builds the per-op timeout hang check installed on this device's timed I/O paths: an overrun is
-    // confirmed only when the in-flight op's NOC is hung.
-    std::function<bool(NocId)> make_io_timeout_hang_check();
+    // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
+    PcieInterface *require_pcie_interface();
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 

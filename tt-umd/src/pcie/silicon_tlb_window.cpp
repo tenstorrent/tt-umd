@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "device_memcpy.hpp"
+#include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -270,14 +271,13 @@ void SiliconTlbWindow::memcpy_to_device(
 }
 
 void SiliconTlbWindow::write_regs(
-    volatile uint32_t *dest, const uint32_t *src, uint32_t word_len, const std::function<bool()> &on_timeout) {
+    volatile uint32_t *dest, const uint32_t *src, size_t word_len, const std::function<bool()> &on_timeout) {
     while (word_len-- != 0) {
         write32_to_device(dest++, *src++, on_timeout);
     }
 }
 
-void SiliconTlbWindow::read_regs(
-    void *src_reg, uint32_t word_len, void *data, const std::function<bool()> &on_timeout) {
+void SiliconTlbWindow::read_regs(void *src_reg, size_t word_len, void *data, const std::function<bool()> &on_timeout) {
     auto *src = static_cast<const volatile uint32_t *>(src_reg);
     auto *dest = reinterpret_cast<uint32_t *>(data);
 
@@ -382,6 +382,16 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
         return;
     }
     configure_impl(new_config);
+}
+
+WindowFlags SiliconTlbWindow::supported_window_flags() const {
+    // Snoop is not among the AXI transaction attributes the entries carry, so it is never advertised.
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_axi_attributes ? WindowFlags::NonCacheable
+                                                                                 : WindowFlags::None;
+}
+
+bool SiliconTlbWindow::carries_ordering() const {
+    return get_architecture_tlbs(handle_ref().get_arch()).carries_ordering;
 }
 
 }  // namespace tt::umd

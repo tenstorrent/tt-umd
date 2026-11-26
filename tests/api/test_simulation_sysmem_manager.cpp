@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -18,7 +19,6 @@
 #include <vector>
 
 #include "tests/test_utils/process_utils.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/system_memory_allocator.hpp"
@@ -32,7 +32,7 @@ using ::testing::InSequence;
 using ::testing::MockFunction;
 using ::testing::Return;
 
-const uint32_t SIMULATION_HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
+constexpr uint32_t SIMULATION_HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 // ---------------------------------------------------------------------------
 // Non-parametrized tests (WH-only / arch-agnostic)
@@ -96,10 +96,10 @@ TEST(ApiSimulationSysmemManager, BasicIOMultiChannel) {
 
         std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-        sysmem->write_to_sysmem(i, data_write.data(), 0, data_write.size());
+        sysmem->write_to_sysmem(static_cast<uint16_t>(i), data_write.data(), 0, data_write.size());
 
         std::vector<uint8_t> data_read = std::vector<uint8_t>(data_write.size(), 0);
-        sysmem->read_from_sysmem(i, data_read.data(), 0, data_read.size());
+        sysmem->read_from_sysmem(static_cast<uint16_t>(i), data_read.data(), 0, data_read.size());
 
         EXPECT_EQ(data_write, data_read);
 
@@ -115,7 +115,7 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
 
     const HugepageMapping channel_3 = sysmem->get_hugepage_mapping(3);
 
-    EXPECT_EQ(channel_3.mapping_size, HUGEPAGE_CHANNEL_3_SIZE_LIMIT);
+    EXPECT_EQ(channel_3.mapping_size, 0x30000000u);  // 768 MB
 
     void* channel_3_mapping = channel_3.mapping;
 
@@ -142,26 +142,38 @@ class TestBufferFactory : public SystemMemoryAllocator {
 public:
     std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
 
-    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override { return nullptr; }
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override {
+        throw std::runtime_error("TestBufferFactory cannot map user buffers.");
+    }
 
     int get_communication_id() const override { return 0; }
+
+    std::optional<size_t> get_max_buffer_count(size_t) const override { return std::nullopt; }
+
+    uint64_t get_noc_base() const override { return 0; }
+
+    bool is_read_only_page_pinning_supported() const override { return false; }
+
+    bool is_user_buffer_mapping_supported() const override { return false; }
 
     using SystemMemoryAllocator::create_buffer;
 };
 
+// Returns an address 64 bytes into the first whole page of backing, so a buffer starting there is
+// distinguishable from its page start. backing must span at least two pages.
+void* address_64_bytes_into_a_page(std::vector<uint8_t>& backing) {
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const uintptr_t raw = reinterpret_cast<uintptr_t>(backing.data());
+    return reinterpret_cast<void*>(((raw + page_size - 1) & ~(page_size - 1)) + 64);
+}
+
 }  // namespace
 
 // A buffer owns its memory through a deleter composed at construction. The deleter must run exactly
-// once, and it must receive the page-aligned start of the mapping rather than the caller's VA — that
-// is the address the pages were pinned at and the one that has to be released.
-TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
-    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
-
-    std::vector<uint8_t> backing(3 * page_size, 0);
-    const uintptr_t raw = reinterpret_cast<uintptr_t>(backing.data());
-    void* aligned_start = reinterpret_cast<void*>((raw + page_size - 1) & ~(page_size - 1));
-    // Deliberately offset into the page so the buffer has to align downwards.
-    void* user_va = static_cast<uint8_t*>(aligned_start) + 64;
+// once, at destruction, and receive the buffer's own start.
+TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceAtDestruction) {
+    std::vector<uint8_t> backing(2 * static_cast<size_t>(sysconf(_SC_PAGESIZE)), 0);
+    void* buffer_va = address_64_bytes_into_a_page(backing);
 
     MockFunction<void(void*)> deleter;
     // Checkpoint reached while the buffer is still alive, sequenced before the deleter so that running
@@ -170,22 +182,37 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
     {
         InSequence sequence;
         EXPECT_CALL(buffer_still_alive, Call());
-        EXPECT_CALL(deleter, Call(aligned_start));
+        EXPECT_CALL(deleter, Call(buffer_va));
     }
 
     {
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
-            user_va,
+            buffer_va,
             128,
-            /*device_io_addr=*/0x1000,
+            /*device_io_addr=*/0x1040,
             /*communication_id=*/7,
             deleter.AsStdFunction());
-
-        EXPECT_EQ(buffer->get_va(), user_va);
-        EXPECT_EQ(buffer->get_size(), 128u);
         buffer_still_alive.Call();
     }
+}
+
+// Page alignment is the allocator's concern: a buffer starting mid-page reports the address and IOVA
+// it was given for its own start, not those of the page around it.
+TEST(ApiSimulationSysmemManager, UnalignedBufferReportsIovaOfItsOwnStart) {
+    std::vector<uint8_t> backing(2 * static_cast<size_t>(sysconf(_SC_PAGESIZE)), 0);
+    void* user_va = address_64_bytes_into_a_page(backing);
+
+    auto buffer = TestBufferFactory::create_buffer(
+        user_va,
+        128,
+        /*device_io_addr=*/0x1040,
+        /*communication_id=*/7,
+        SysmemBuffer::Deleter{});
+
+    EXPECT_EQ(buffer->get_va(), user_va);
+    EXPECT_EQ(buffer->get_size(), 128u);
+    EXPECT_EQ(buffer->get_iova(), 0x1040u);
+    EXPECT_EQ(buffer->get_iova(8), 0x1048u);
 }
 
 // The driver assigns the NOC address at pin time, so bind_noc_address() only confirms what already
@@ -194,7 +221,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
     std::vector<uint8_t> backing(4096, 0);
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -221,7 +247,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressRunsInjectedBinderOnce) {
     EXPECT_CALL(binder, Call()).WillOnce(Return(0xDEADBEEF));
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -251,7 +276,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
     EXPECT_CALL(binder, Call()).Times(0);
 
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -270,7 +294,6 @@ TEST(ApiSimulationSysmemManager, BindNocAddressSkipsBinderWhenAlreadyBound) {
 TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
     std::vector<uint8_t> backing(4096, 0);
     auto buffer = TestBufferFactory::create_buffer(
-        /*tt_device=*/nullptr,
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
@@ -288,7 +311,6 @@ TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
             backing.data(),
             backing.size(),
             /*device_io_addr=*/0x2000,
@@ -303,7 +325,6 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
         auto buffer = TestBufferFactory::create_buffer(
-            /*tt_device=*/nullptr,
             backing.data(),
             backing.size(),
             /*device_io_addr=*/0x3000,
@@ -318,9 +339,9 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
 TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
 
-    const size_t buf_size = 16ULL << 20;
+    constexpr size_t buf_size = 16ULL << 20;
     const size_t buf_size_kib = buf_size >> 10;
-    const int iterations = 8;
+    constexpr int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
     { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
@@ -356,7 +377,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
 TEST(ApiSimulationSysmemManager, AllocatedBufferOutlivesItsManager) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
 
-    const size_t buf_size = 4096;
+    constexpr size_t buf_size = 4096;
     std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
     ASSERT_NE(buffer, nullptr);
 
@@ -403,7 +424,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(ApiSimulationSysmemManagerByArch, AllocateSysmemBufferReturnsValidBuffer) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    const size_t buffer_size = 4096;
+    constexpr size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
     EXPECT_NE(buffer->get_va(), nullptr);
@@ -416,7 +437,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     // Allocate a user-managed buffer and map it through the sysmem manager.
-    const size_t buffer_size = 8192;
+    constexpr size_t buffer_size = 8192;
     std::vector<uint8_t> external_buf(buffer_size, 0);
     auto buffer = sysmem->map_sysmem_buffer(external_buf.data(), buffer_size);
     ASSERT_NE(buffer, nullptr);
@@ -431,7 +452,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
 TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    const size_t buffer_size = 4096;
+    constexpr size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
@@ -460,7 +481,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
 TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    const size_t buffer_size = 4096;
+    constexpr size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
@@ -474,7 +495,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     EXPECT_EQ(0, std::memcmp(buffer->get_va(), pattern.data(), pattern.size()));
 
     // Round-trip at a non-zero offset, leaving the earlier bytes untouched.
-    const size_t offset = 512;
+    constexpr size_t offset = 512;
     buffer->write_to_sysmem(pattern.data(), pattern.size(), offset);
     std::fill(readback.begin(), readback.end(), 0);
     buffer->read_from_sysmem(readback.data(), readback.size(), offset);
@@ -482,7 +503,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     EXPECT_EQ(0, std::memcmp(static_cast<uint8_t*>(buffer->get_va()) + offset, pattern.data(), pattern.size()));
 
     // The last byte of the buffer is addressable.
-    const uint8_t sentinel = 0xA5;
+    constexpr uint8_t sentinel = 0xA5;
     buffer->write_to_sysmem(&sentinel, sizeof(sentinel), buffer_size - 1);
     uint8_t sentinel_readback = 0;
     buffer->read_from_sysmem(&sentinel_readback, sizeof(sentinel_readback), buffer_size - 1);
@@ -492,7 +513,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
 // A manager must be usable purely through the SystemMemoryAllocator interface, since that is what the
 // Base API hands to upper layers.
 TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
-    const uint32_t chip_id = 5;
+    constexpr uint32_t chip_id = 5;
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id);
     SystemMemoryAllocator* allocator = sysmem.get();
 
@@ -505,19 +526,12 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     EXPECT_FALSE(allocated->get_noc_address().has_value());
 
     std::vector<uint8_t> external(8192, 0);
+    EXPECT_TRUE(allocator->is_user_buffer_mapping_supported());
     auto mapped = allocator->map_user_buffer(external.data(), external.size());
     ASSERT_NE(mapped, nullptr);
     EXPECT_EQ(mapped->get_va(), external.data());
     // Mappings are read-write unless the caller asks otherwise.
     EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
-
-    // The interface carries device access, so a read-only mapping is reachable without dropping to the
-    // concrete manager.
-    std::vector<uint8_t> read_only(4096, 0);
-    auto pinned_read_only = allocator->map_user_buffer(
-        read_only.data(), read_only.size(), /*bind_to_noc=*/false, DeviceBufferAccess::READ_ONLY);
-    ASSERT_NE(pinned_read_only, nullptr);
-    EXPECT_EQ(pinned_read_only->get_device_access(), DeviceBufferAccess::READ_ONLY);
 
     // bind_to_noc reaches the same path as the concrete map_to_noc flag.
     auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
@@ -525,10 +539,24 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     EXPECT_TRUE(bound->get_noc_address().has_value());
 }
 
+// An allocator that cannot stop the device writing a mapping reports no read-only pinning and refuses to
+// promise it.
+TEST_P(ApiSimulationSysmemManagerByArch, RefusesReadOnlyMappingItCannotEnforce) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
+    SystemMemoryAllocator* allocator = sysmem.get();
+
+    EXPECT_FALSE(allocator->is_read_only_page_pinning_supported());
+
+    std::vector<uint8_t> buffer(4096, 0);
+    EXPECT_THROW(
+        allocator->map_user_buffer(buffer.data(), buffer.size(), /*bind_to_noc=*/false, DeviceBufferAccess::READ_ONLY),
+        std::runtime_error);
+}
+
 // The manager stamps its communication id into every buffer it produces, so a caller can confirm a
 // buffer belongs to the device it is about to be used with.
 TEST_P(ApiSimulationSysmemManagerByArch, BuffersCarryTheManagerCommunicationId) {
-    const uint32_t chip_id = 3;
+    constexpr uint32_t chip_id = 3;
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id);
     EXPECT_EQ(sysmem->get_communication_id(), static_cast<int>(chip_id));
 
@@ -551,7 +579,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, BuffersCarryTheManagerCommunicationId) 
 TEST_P(ApiSimulationSysmemManagerByArch, HostCopyOutOfBoundsThrows) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    const size_t buffer_size = 4096;
+    constexpr size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
@@ -577,7 +605,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyOutOfBoundsThrows) {
 TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    const size_t buffer_size = 4096;
+    constexpr size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
     const uint64_t device_addr = buffer->get_iova();
@@ -588,7 +616,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) 
     ASSERT_NE(base_ptr, nullptr);
     EXPECT_EQ(base_ptr, buffer->get_va());
 
-    const uint64_t kOffset = 128;
+    constexpr uint64_t kOffset = 128;
     void* mid_ptr = sysmem->get_mapped_host_ptr(device_addr + kOffset);
     ASSERT_NE(mid_ptr, nullptr);
     EXPECT_EQ(mid_ptr, static_cast<uint8_t*>(buffer->get_va()) + kOffset);
@@ -766,4 +794,24 @@ TEST_P(ApiSimulationSysmemManagerByArch, SimultaneousChipMappingsHaveDistinctHos
     ASSERT_TRUE(second.write_mapped_buffer(b->get_iova(), &second_value, 1));
     EXPECT_EQ(*static_cast<uint8_t*>(a->get_va()), first_value);
     EXPECT_EQ(*static_cast<uint8_t*>(b->get_va()), second_value);
+}
+
+// Without channels the whole 0xFFFE0000-byte arena is free for buffers, so three 1 GiB buffers fit in it.
+TEST(ApiSimulationSysmemManager, MaxBufferCountIsHowManyBuffersFitInTheArena) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_max_buffer_count(1ULL << 30), std::optional<size_t>(3));
+}
+
+// A buffer larger than the arena can never be allocated, so none of it can be planned for.
+TEST(ApiSimulationSysmemManager, MaxBufferCountIsZeroForBufferLargerThanTheArena) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_max_buffer_count(1ULL << 32), std::optional<size_t>(0));
+}
+
+TEST(ApiSimulationSysmemManager, NocBaseIsTheWormholeSysmemWindowStart) {
+    SimulationSysmemManager sysmem(0, tt::ARCH::WORMHOLE_B0, 0);
+
+    EXPECT_EQ(sysmem.get_noc_base(), 0x800000000ULL);
 }

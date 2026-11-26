@@ -137,9 +137,9 @@ void RemoteChip::deassert_risc_resets() {
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
-int RemoteChip::get_num_host_channels() { return 0; }
+size_t RemoteChip::get_num_host_channels() { return 0; }
 
-int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+size_t RemoteChip::get_host_channel_size(std::uint32_t channel) {
     UMD_THROW(error::RuntimeError, "There are no host channels available.");
 }
 
@@ -166,10 +166,6 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& ch
 }
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
-
-SysmemManager* RemoteChip::get_sysmem_manager() {
-    UMD_THROW(error::RuntimeError, "RemoteChip::get_sysmem_manager is not available for this chip.");
-}
 
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }
 }  // namespace tt::umd

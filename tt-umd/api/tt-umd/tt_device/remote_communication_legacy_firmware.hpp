@@ -18,7 +18,7 @@
 
 namespace tt::umd {
 
-class SysmemManager;
+class HostMemChannels;
 class TTDevice;
 
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
@@ -26,7 +26,7 @@ public:
     RemoteCommunicationLegacyFirmware(
         TTDevice* local_tt_device,
         EthCoord target_chip,
-        SysmemManager* sysmem_manager = nullptr,
+        const HostMemChannels* host_mem_channels = nullptr,
         bool shared_across_processes = true);
 
     void read_non_mmio(
@@ -50,6 +50,9 @@ public:
     std::optional<EthCoord> get_target_eth_coord() override;
 
 private:
+    // The firmware's routing buffers live in host memory channel 0, which is only usable while it is mapped.
+    bool is_host_dram_mapped() const;
+
     EthCoord target_chip;
     bool large_transfer_warning_printed_ = false;
 

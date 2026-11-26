@@ -35,7 +35,7 @@ protected:
 
     ~WormholeTestFixture() override = default;
 
-    virtual int get_detected_num_chips() = 0;
+    virtual size_t get_detected_num_chips() = 0;
     virtual bool is_test_skipped() = 0;
 
     // If the constructor and destructor are not enough for setting up

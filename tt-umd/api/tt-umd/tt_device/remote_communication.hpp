@@ -23,7 +23,7 @@ struct EthCoord;
 
 namespace tt::umd {
 
-class SysmemManager;
+class HostMemChannels;
 class TTDevice;
 
 class RemoteCommunication {
@@ -32,13 +32,15 @@ public:
     // be locked out of its non-MMIO traffic. The creator knows: on silicon they can, which is the default; a
     // simulated chip lives in this process only, so its creator passes false.
     RemoteCommunication(
-        TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr, bool shared_across_processes = true);
+        TTDevice* local_tt_device,
+        const HostMemChannels* host_mem_channels = nullptr,
+        bool shared_across_processes = true);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
         TTDevice* local_tt_device,
         EthCoord target_chip,
-        SysmemManager* sysmem_manager = nullptr,
+        const HostMemChannels* host_mem_channels = nullptr,
         bool shared_across_processes = true);
 
     // Target core should be in translated coords.
@@ -75,11 +77,11 @@ public:
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
 
-    // Sets the sysmem manager used for host-DRAM-backed transfers (required for broadcasts and used to speed up
-    // large transfers).
-    void set_sysmem_manager(SysmemManager* sysmem_manager);
+    // Sets the local chip's host memory channels, used for host-DRAM-backed transfers (required for broadcasts and
+    // used to speed up large transfers).
+    void set_host_mem_channels(const HostMemChannels* host_mem_channels);
 
-    bool has_sysmem_manager() const;
+    bool has_host_mem_channels() const;
 
     // Whether other processes can reach the remote chip, so locks guarding its traffic must exclude them too.
     bool is_shared_across_processes() const;
@@ -93,7 +95,7 @@ protected:
 
     TTDevice* local_tt_device_;
 
-    SysmemManager* sysmem_manager_;
+    const HostMemChannels* host_mem_channels_;
 
     bool shared_across_processes_;
 };

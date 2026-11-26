@@ -41,8 +41,9 @@ public:
     KmdProtocol(std::unique_ptr<PCIDevice> pci_device, int mmio_id);
     ~KmdProtocol() override;
 
-    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
-    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
+    void write_data(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) override;
     void read_ctrl(
         void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override;
     void write_ctrl(
@@ -53,9 +54,6 @@ public:
         const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) override;
 
     int get_mmio_id() override;
-
-    /** Borrowed, not transferred: this protocol owns the device for as long as it lives. */
-    PCIDevice* get_pci_device();
 
 private:
     /** Rejects a request the driver would refuse, naming what is wrong with it. */

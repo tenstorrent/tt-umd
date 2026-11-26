@@ -550,7 +550,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         if (options.io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             if (const PciDeviceInfo* pci_info = local_pci_info(tt_device.get())) {
                 chip.pci_bdf = pci_info->pci_bdf;
-                chip.pcie_lane_count = tt_device->get_pcie_interface()->get_lane_count();
+                chip.pcie_lane_count = pci_info->get_current_link_width();
             } else if (const std::optional<uint32_t> bdf = simulated_pci_bdf(tt_device.get())) {
                 // A simulated link has no trained lane count.
                 chip.pci_bdf =
@@ -587,8 +587,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         if (is_marked_unhealthy(current_chip_asic_id)) {
             continue;
         }
-        const uint32_t num_eth_channels =
-            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
+        const uint32_t num_eth_channels = static_cast<uint32_t>(
+            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size());
         ChipDescription& chip = description.chips.at(asic_id_to_chip_id.at(current_chip_asic_id));
         for (int i = 0; i < num_eth_channels; i++) {
             chip.idle_eth_channels.insert(i);

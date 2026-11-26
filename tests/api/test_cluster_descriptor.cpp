@@ -28,7 +28,6 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_options.hpp"
-#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -37,7 +36,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(
+size_t count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {
     size_t count = 0;
@@ -87,9 +86,10 @@ TEST(TestClusterDescriptor, PcieLaneCounts) {
     }
 
     const auto& lane_counts = cluster_desc->get_chip_pcie_lane_counts();
-    for (const auto& [chip, _] : cluster_desc->get_chips_with_mmio()) {
+    const std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    for (const auto& [chip, device_id] : cluster_desc->get_chips_with_mmio()) {
         ASSERT_TRUE(lane_counts.count(chip)) << "No PCIe lane count entry for chip " << chip;
-        EXPECT_EQ(lane_counts.at(chip), cluster->get_tt_device(chip)->get_pcie_interface()->get_lane_count());
+        EXPECT_EQ(lane_counts.at(chip), pci_devices_info.at(device_id).get_current_link_width());
     }
 }
 
@@ -359,11 +359,11 @@ TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
-        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        const size_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
         for (const auto& [channel, remote_chip_and_channel] : connections) {
             auto [remote_chip, remote_channel] = remote_chip_and_channel;
 
-            const uint32_t num_channels_remote_chip =
+            const size_t num_channels_remote_chip =
                 cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
 
             EXPECT_TRUE(channel < num_channels_local_chip);

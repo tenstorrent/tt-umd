@@ -27,12 +27,12 @@ public:
     void close_device() override;
 
     TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
+    SystemMemoryAllocator* get_system_memory_allocator() override;
 
     const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
+    std::size_t get_num_host_channels() override;
+    std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 

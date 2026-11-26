@@ -56,6 +56,15 @@ bool sim_dram_teleport_enabled() {
     return enabled;
 }
 
+// Searches the DRAM cores rather than looking the coordinate up, so a coordinate the descriptor doesn't
+// know, or a harvested DRAM core, is simply not DRAM instead of throwing.
+bool is_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
+    const std::vector<CoreCoord> dram_cores = soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const CoreCoord& dram_core) {
+        return dram_core.x == core.x && dram_core.y == core.y;
+    });
+}
+
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
@@ -113,10 +122,11 @@ TTSimTTDevice::TTSimTTDevice(
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)),
-        simulator_directory,
-        std::make_unique<SimulationSysmemManager>(
-            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(
+            soc_descriptor,
+            std::make_unique<SimulationSysmemManager>(
+                num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id)))),
+        simulator_directory),
     // Pass chip_id and num_chips to the communicator. If the .so supports the multichip
     // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
     // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
@@ -213,20 +223,18 @@ void TTSimTTDevice::program_iatu_for_host_mem_channels() {
         HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
         TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
     }
-    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
-    const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
+    const uint64_t arena_offset = sysmem_manager_->get_mapped_arena_offset();
+    const uint64_t arena_size = sysmem_manager_->get_mapped_arena_size();
     if (arena_size > 0) {
         // Keep the arena above channels 0..3 and WH's silicon channel-3 slot 4.
         constexpr size_t MAPPED_ARENA_REGION = 5;
         configure_iatu_region_at(
-            MAPPED_ARENA_REGION, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+            MAPPED_ARENA_REGION, arena_offset, sysmem_manager_->get_host_base() + arena_offset, arena_size);
     }
 }
 
 void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
-    auto* sim_mgr = dynamic_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    if (sim_mgr == nullptr || !sim_mgr->grow_host_mem_channels(num_host_mem_channels)) {
+    if (sysmem_manager_ == nullptr || !sysmem_manager_->grow_host_mem_channels(num_host_mem_channels)) {
         return;
     }
     // The added channels need new regions, and the mapped-buffer arena moves up to start after them, so
@@ -238,7 +246,9 @@ void TTSimTTDevice::grow_host_mem_channels(uint32_t num_host_mem_channels) {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor)), std::move(client)),
+    SimulationTTDevice(
+        ModelHandle(std::make_unique<SimulationTTDeviceModel>(soc_descriptor, /*host_mem_channels=*/nullptr)),
+        std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     install_risc_reset();
@@ -286,11 +296,13 @@ void TTSimTTDevice::close_device() {
 }
 
 void TTSimTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
-    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_read_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(
+        static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y), addr, mem_ptr, static_cast<uint32_t>(size));
 }
 
 void TTSimTTDevice::noc_multicast_write(
@@ -344,13 +356,16 @@ bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uin
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+    if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (communicator_->dram_write_bytes(x, y, addr, mem_ptr, n)) {
         return true;
     }
-    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    communicator_->tile_write_bytes(x, y, addr, mem_ptr, n);
     return true;
 }
 
@@ -358,11 +373,14 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     if (!sim_dram_teleport_enabled()) {
         return false;
     }
-    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+    if (!is_dram_core(get_soc_descriptor(), core)) {
         return false;
     }
-    if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    const auto x = static_cast<uint32_t>(core.x);
+    const auto y = static_cast<uint32_t>(core.y);
+    const auto n = static_cast<uint32_t>(size);
+    if (!communicator_->dram_read_bytes(x, y, addr, mem_ptr, n)) {
+        communicator_->tile_read_bytes(x, y, addr, mem_ptr, n);
     }
     // Side effect: this path advances the simulation clock by 10 cycles (rather than the single
     // cycle after_read() applies), and it returns before after_read() would otherwise run.
@@ -458,24 +476,22 @@ void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
     //  2. Hugepage arena: traditional channel-stride layout.  paddr is already
     //     the within-hugepage-space offset, so decompose directly into
     //     (channel, within-channel offset) for read_from_sysmem.
-    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    const uint64_t pcie_base = sim_mgr->get_pcie_base();
-    if (sim_mgr->read_mapped_buffer(pcie_base + paddr, p, size)) {
+    const uint64_t pcie_base = sysmem_manager_->get_pcie_base();
+    if (sysmem_manager_->read_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }
     const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
-    sim_mgr->read_from_sysmem(channel, p, paddr % (1ULL << 30), size);
+    sysmem_manager_->read_from_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
     // See pci_dma_read_bytes for the offset-vs-absolute explanation.
-    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    const uint64_t pcie_base = sim_mgr->get_pcie_base();
-    if (sim_mgr->write_mapped_buffer(pcie_base + paddr, p, size)) {
+    const uint64_t pcie_base = sysmem_manager_->get_pcie_base();
+    if (sysmem_manager_->write_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }
     const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
-    sim_mgr->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
+    sysmem_manager_->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 }  // namespace tt::umd

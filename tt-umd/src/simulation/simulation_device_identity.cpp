@@ -78,11 +78,11 @@ SimulationServerDeviceInfo describe_device(
     info.arch = static_cast<int32_t>(soc_descriptor.arch);
     info.backend_type = backend_type;
     info.noc_translation_enabled = soc_descriptor.noc_translation_enabled;
-    info.tensix_harvesting_mask = soc_descriptor.harvesting_masks.tensix_harvesting_mask;
-    info.dram_harvesting_mask = soc_descriptor.harvesting_masks.dram_harvesting_mask;
-    info.eth_harvesting_mask = soc_descriptor.harvesting_masks.eth_harvesting_mask;
-    info.l2cpu_harvesting_mask = soc_descriptor.harvesting_masks.l2cpu_harvesting_mask;
-    info.pcie_harvesting_mask = soc_descriptor.harvesting_masks.pcie_harvesting_mask;
+    info.tensix_harvesting_mask = static_cast<uint32_t>(soc_descriptor.harvesting_masks.tensix_harvesting_mask);
+    info.dram_harvesting_mask = static_cast<uint32_t>(soc_descriptor.harvesting_masks.dram_harvesting_mask);
+    info.eth_harvesting_mask = static_cast<uint32_t>(soc_descriptor.harvesting_masks.eth_harvesting_mask);
+    info.l2cpu_harvesting_mask = static_cast<uint32_t>(soc_descriptor.harvesting_masks.l2cpu_harvesting_mask);
+    info.pcie_harvesting_mask = static_cast<uint32_t>(soc_descriptor.harvesting_masks.pcie_harvesting_mask);
     info.simulator_path = simulator_path.string();
     return info;
 }

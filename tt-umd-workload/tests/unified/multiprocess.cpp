@@ -68,7 +68,7 @@ static void test_read_write_all_tensix_cores_impl(
     const auto chunk_size = available_size / NUM_PARALLEL;
 
     const std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    const uint32_t data_size = vector_to_write.size() * sizeof(uint32_t);
+    const size_t data_size = vector_to_write.size() * sizeof(uint32_t);
     std::vector<uint32_t> readback_vec = {};
     readback_vec.reserve(vector_to_write.size());
 
@@ -284,9 +284,9 @@ TEST(Multiprocess, LongLivedMonitor) {
 }
 
 TEST(Multiprocess, ClusterAndTTDeviceTest) {
-    const uint64_t address_thread0 = 0x1000;
+    constexpr uint64_t address_thread0 = 0x1000;
     const uint64_t address_thread1 = address_thread0 + 0x100;
-    const uint32_t num_loops = 1000;
+    constexpr uint32_t num_loops = 1000;
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -340,10 +340,10 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
     // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
-    const int num_processes = 4;
-    const int num_iterations = 500;
-    const uint64_t test_address = 0x1000;
-    const size_t data_size = 1024;  // 1KB data per operation
+    constexpr int num_processes = 4;
+    constexpr int num_iterations = 500;
+    constexpr uint64_t test_address = 0x1000;
+    constexpr size_t data_size = 1024;  // 1KB data per operation
 
     std::cout << "Testing DMA race condition on PCI device " << test_device_id << std::endl;
 
@@ -560,8 +560,9 @@ protected:
         }
     };
 
-    static uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
-        return ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF);
+    static uint32_t encode_tag(size_t worker_id, size_t noc_x, size_t noc_y, size_t iteration) {
+        return static_cast<uint32_t>(
+            ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF));
     }
 
     static DecodedTag decode_tag(uint32_t word) {
@@ -593,10 +594,7 @@ protected:
             std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
             tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
-            std::fill(
-                payload.begin(),
-                payload.end(),
-                encode_tag(static_cast<uint32_t>(worker_id), core.x, core.y, static_cast<uint32_t>(iteration)));
+            std::fill(payload.begin(), payload.end(), encode_tag(worker_id, core.x, core.y, iteration));
             std::fill(readback.begin(), readback.end(), 0);
 
             tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);

@@ -19,9 +19,9 @@
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(
-    TTDevice* local_tt_device, SysmemManager* sysmem_manager, bool shared_across_processes) :
+    TTDevice* local_tt_device, const HostMemChannels* host_mem_channels, bool shared_across_processes) :
     local_tt_device_(local_tt_device),
-    sysmem_manager_(sysmem_manager),
+    host_mem_channels_(host_mem_channels),
     shared_across_processes_(shared_across_processes) {
     LockManager::initialize_mutex(
         MutexType::NON_MMIO,
@@ -31,11 +31,14 @@ RemoteCommunication::RemoteCommunication(
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager, bool shared_across_processes) {
+    TTDevice* local_tt_device,
+    EthCoord target_chip,
+    const HostMemChannels* host_mem_channels,
+    bool shared_across_processes) {
     switch (local_tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(
-                local_tt_device, target_chip, sysmem_manager, shared_across_processes);
+                local_tt_device, target_chip, host_mem_channels, shared_across_processes);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
@@ -62,9 +65,11 @@ const std::vector<tt_xy_pair>& RemoteCommunication::get_remote_transfer_ethernet
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
-void RemoteCommunication::set_sysmem_manager(SysmemManager* sysmem_manager) { sysmem_manager_ = sysmem_manager; }
+void RemoteCommunication::set_host_mem_channels(const HostMemChannels* host_mem_channels) {
+    host_mem_channels_ = host_mem_channels;
+}
 
-bool RemoteCommunication::has_sysmem_manager() const { return sysmem_manager_ != nullptr; }
+bool RemoteCommunication::has_host_mem_channels() const { return host_mem_channels_ != nullptr; }
 
 bool RemoteCommunication::is_shared_across_processes() const { return shared_across_processes_; }
 

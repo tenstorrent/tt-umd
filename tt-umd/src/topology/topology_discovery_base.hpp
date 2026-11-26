@@ -149,7 +149,12 @@ protected:
 
     std::map<uint64_t, std::vector<ClusterDescriptor::DeviceHealthError>> health_errors;
 
-    bool is_running_on_6u = false;
+    // Set when running on a Galaxy (UBB). All chips on a UBB share one board ID, and discovery groups chips by
+    // board ID. When TT_VISIBLE_DEVICES hides some chips of a tray, the hidden ones would look like they belong
+    // to a remote board even though they are PCIe-attached to this host. To avoid that, in this mode the
+    // ASIC ID is used as the board ID, so every chip acts as its own board.
+    // The real board ID is still reported in the ClusterDescriptor, since it is read from telemetry.
+    bool galaxy_mode = false;
 
     const TopologyDiscoveryOptions options;
 

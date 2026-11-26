@@ -128,6 +128,7 @@ void bind_basic_types(nb::module_ &m) {
         .value("UBB_WORMHOLE", tt::BoardType::UBB_WORMHOLE)
         .value("UBB_BLACKHOLE", tt::BoardType::UBB_BLACKHOLE)
         .value("UBB_BLACKHOLE_CF", tt::BoardType::UBB_BLACKHOLE_CF)
+        .value("UBB_BLACKHOLE_2", tt::BoardType::UBB_BLACKHOLE_2)
         .value("QUASAR", tt::BoardType::QUASAR_BOARD)
         .value("UNKNOWN", tt::BoardType::UNKNOWN)
         .def("__str__", &tt::board_type_to_string)

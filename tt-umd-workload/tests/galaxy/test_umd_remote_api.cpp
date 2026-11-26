@@ -37,7 +37,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
-    float write_size = vector_to_write.size() * 4;
+    const size_t write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
     std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
@@ -59,7 +59,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
-                write_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
+                write_bw.push_back(float((static_cast<float>(write_size) / (1024 * 1024 * 1024)) / (duration / 1e6)));
                 // std::cout << "  chip " << chip << " core " << target_core.str() << " " << duration << std::endl;
 
                 start = std::chrono::high_resolution_clock::now();
@@ -67,7 +67,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 end = std::chrono::high_resolution_clock::now();
                 duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 // std::cout << " read chip " << chip << " core " << target_core.str()<< " " << duration << std::endl;
-                read_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
+                read_bw.push_back(float((static_cast<float>(write_size) / (1024 * 1024 * 1024)) / (duration / 1e6)));
                 EXPECT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << "does not match what was written";
                 readback_vec = {};
@@ -136,7 +136,7 @@ void run_data_mover_test(
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
-    float write_size = vector_to_write.size() * 4;
+    const size_t write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
     std::vector<float> send_bw;
@@ -154,7 +154,7 @@ void run_data_mover_test(
     move_data(device, sender_core, receiver_core, write_size);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
-    send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
+    send_bw.push_back(float((static_cast<float>(write_size) / (1024 * 1024 * 1024)) / (duration / 1e6)));
     // std::cout << "move data duration "<< duration << std::endl;
 
     // Verify data is correct in receiver core.
@@ -250,7 +250,7 @@ void run_data_broadcast_test(
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
     std::iota(vector_to_write.begin(), vector_to_write.end(), 0);
-    float write_size = vector_to_write.size() * 4;
+    const size_t write_size = vector_to_write.size() * 4;
     std::vector<uint32_t> readback_vec = {};
 
     std::vector<float> send_bw;
@@ -268,7 +268,7 @@ void run_data_broadcast_test(
     broadcast_data(device, sender_core, receiver_cores, write_size);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
-    send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
+    send_bw.push_back(float((static_cast<float>(write_size) / (1024 * 1024 * 1024)) / (duration / 1e6)));
     // std::cout << "broadcast duration "<< duration << std::endl;
 
     // Verify data is correct in receiver core.

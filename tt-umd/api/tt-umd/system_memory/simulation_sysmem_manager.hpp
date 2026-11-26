@@ -17,10 +17,6 @@
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 
-namespace tt {
-enum class ARCH;
-}  // namespace tt
-
 namespace tt::umd {
 
 class SimulationSysmemManager : public SystemMemoryAllocator {

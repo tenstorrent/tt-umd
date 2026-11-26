@@ -19,15 +19,14 @@
 using namespace tt::umd;
 using namespace tt::umd::microbenchmarks;
 
-class TLB : public ::testing::Test {
+class TLB : public ClusterBenchmark {
 protected:
     void SetUp() override {
-        cluster = std::make_unique<Cluster>(ClusterOptions{});
-        if (cluster->get_target_device_ids().empty()) {
-            GTEST_SKIP() << "No devices found in the cluster.";
+        ClusterBenchmark::SetUp();
+        if (IsSkipped()) {
+            return;
         }
-        DEVICE = *cluster->get_target_mmio_device_ids().begin();
-        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(DEVICE);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(mmio_chip);
         TENSIX.core = soc_desc.get_cores(tt::CoreType::TENSIX).front();
         TENSIX.address = 0x1000;
         TENSIX.window_size = 1 * ONE_MIB;
@@ -49,9 +48,6 @@ protected:
         ETH.batch_sizes = {1,  2,  3,   4,   5,   6,           7,           8,           12,          16,
                            32, 64, 128, 256, 512, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
     }
-
-    std::unique_ptr<Cluster> cluster;
-    tt::ChipId DEVICE = 0;
 
     // A core to benchmark, the address to access on it, the IoWindow size and the batch sizes to sweep. They are filled
     // in SetUp(). Batch sizes above window_size are only benchmarked through the cluster API, which is not bound by a
@@ -117,7 +113,7 @@ TEST_F(TLB, IOSpeed) {
     // An IoWindow's ordering is fixed at creation, so every target and ordering gets its own window.
     auto make_window = [&](const Target& target, IoOrdering ordering) {
         return std::shared_ptr<IoWindow>(cluster->create_io_window(
-            DEVICE,
+            mmio_chip,
             target.core,
             target.address,
             HostIoWindowConfig{HostMemoryCaching::WC, target.window_size},
@@ -126,12 +122,12 @@ TEST_F(TLB, IOSpeed) {
 
     benchmark("cluster", "read", false, [&](const Target& target, IoOrdering ordering) {
         return [&, core = target.core, address = target.address, ordering](size_t batch_size) {
-            cluster->read_from_device(data.data(), DEVICE, core, address, batch_size, ordering);
+            cluster->read_from_device(data.data(), mmio_chip, core, address, batch_size, ordering);
         };
     });
     benchmark("cluster", "write", false, [&](const Target& target, IoOrdering ordering) {
         return [&, core = target.core, address = target.address, ordering](size_t batch_size) {
-            cluster->write_to_device(data.data(), batch_size, DEVICE, core, address, ordering);
+            cluster->write_to_device(data.data(), batch_size, mmio_chip, core, address, ordering);
         };
     });
     benchmark("iowindow", "read", true, [&](const Target& target, IoOrdering ordering) {

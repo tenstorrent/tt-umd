@@ -366,7 +366,8 @@ INSTANTIATE_TEST_SUITE_P(
     AttIoWindowAtomic,
     ::testing::Values(WindowFlags::Atomic, WindowFlags::UnicastWrite | WindowFlags::Atomic));
 
-// An atomic can't read, and the atomic window only covers L1, so neither has an atomic address.
+// An atomic can't read, the atomic window only covers L1, and an atomic needs a 16-byte-aligned word,
+// so none of these has an atomic address.
 struct AtomicWithoutAWindow {
     WindowFlags flags;
     uint64_t offset;
@@ -384,9 +385,10 @@ TEST_P(AttIoWindowAtomicWithoutAWindow, HasNoFlatAddress) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ReadOrRegister,
+    ReadPastL1OrMisaligned,
     AttIoWindowAtomicWithoutAWindow,
     ::testing::Values(
         AtomicWithoutAWindow{WindowFlags::UnicastRead | WindowFlags::Atomic, 0x100},
-        // The TSC reset register, past L1.
-        AtomicWithoutAWindow{WindowFlags::Atomic, 0x0303'3088}));
+        // The first byte past the L1 slot.
+        AtomicWithoutAWindow{WindowFlags::Atomic, 0x40'0000},
+        AtomicWithoutAWindow{WindowFlags::Atomic, 0x104}));

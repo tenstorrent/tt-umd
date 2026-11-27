@@ -16,6 +16,9 @@ namespace {
 /** One NoC coordinate axis is six bits wide in an endpoint word. */
 constexpr uint32_t COORD_LIMIT = 1u << 6;
 
+/** NOC atomics act on 16-byte-aligned words, so a misaligned atomic is refused rather than issued. */
+constexpr uint64_t ATOMIC_ALIGNMENT = 16;
+
 /** Endpoint tables hold coordinates the way the hardware register does. */
 constexpr uint16_t pack_coord(uint32_t x, uint32_t y) { return static_cast<uint16_t>((y << 6) | x); }
 
@@ -173,7 +176,8 @@ std::optional<uint64_t> resolve_io_window(
     }
     const MapData& map = resolver.map();
     const Window& worker = map.windows[static_cast<size_t>(WindowClass::WORKER)];
-    if (direction == WindowFlags::UnicastRead || map.worker_atomic_compare == 0 || !worker.matches(address)) {
+    if (direction == WindowFlags::UnicastRead || offset % ATOMIC_ALIGNMENT != 0 || map.worker_atomic_compare == 0 ||
+        !worker.matches(address)) {
         return std::nullopt;
     }
     return map.worker_atomic_compare + (address - worker.compare);

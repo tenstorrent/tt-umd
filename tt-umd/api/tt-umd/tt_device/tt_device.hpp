@@ -596,15 +596,6 @@ public:
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
-    /**
-     * Read the training status of the given ETH core.
-     *
-     * @param eth_core ETH core to read the training status for.
-     * @return Training status
-     */
-    EthTrainingStatus read_eth_core_training_status(
-        CoreCoord eth_core, [[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
-
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:

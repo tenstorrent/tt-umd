@@ -416,7 +416,7 @@ void TopologyDiscoveryBase::discover_remote_devices() {
                 }
             }
 
-            if (!is_eth_trained(tt_device, eth_core)) {
+            if (get_eth_training_status(tt_device, eth_core) != EthTrainingStatus::SUCCESS) {
                 continue;
             }
 
@@ -650,7 +650,7 @@ uint64_t TopologyDiscoveryBase::get_asic_id(TTDevice* tt_device) {
     std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
     for (const CoreCoord& eth_core : eth_cores) {
-        if (!is_eth_trained(tt_device, eth_core)) {
+        if (get_eth_training_status(tt_device, eth_core) != EthTrainingStatus::SUCCESS) {
             continue;
         }
 
@@ -839,8 +839,9 @@ bool TopologyDiscoveryBase::eth_heartbeat_running(TTDevice* tt_device, uint64_t 
     }
 }
 
-bool TopologyDiscoveryBase::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    return tt_device->read_eth_core_training_status(eth_core, options.noc) == EthTrainingStatus::SUCCESS;
+EthTrainingStatus TopologyDiscoveryBase::get_eth_training_status(TTDevice* tt_device, const CoreCoord eth_core) {
+    return tt_device->get_device_firmware()->get_eth_core_training_status(
+        tt_device->get_soc_descriptor().translate_chip_coord_to_translated(eth_core, options.noc), options.noc);
 }
 
 }  // namespace tt::umd

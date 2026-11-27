@@ -232,7 +232,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
 
         for (const auto& [asic_id, tt_device] : devices_to_discover) {
             for (const CoreCoord& eth_core : tt_device->get_soc_descriptor().get_cores(CoreType::ETH)) {
-                EthTrainingStatus status = tt_device->read_eth_core_training_status(eth_core, options.noc);
+                EthTrainingStatus status = get_eth_training_status(tt_device.get(), eth_core);
                 bool should_retrain = (status == EthTrainingStatus::FAIL) ||
                                       (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);
                 if (!should_retrain) {

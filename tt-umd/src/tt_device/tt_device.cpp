@@ -281,11 +281,6 @@ bool TTDevice::wait_eth_core_training(CoreCoord eth_core, const std::chrono::mil
     return get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, tls_noc), timeout_ms, tls_noc);
 }
 
-EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core, NocId noc) {
-    const NocId tls_noc = get_selected_noc_id();
-    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, tls_noc), tls_noc);
-}
-
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
     FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();
     if (telemetry_reader == nullptr) {

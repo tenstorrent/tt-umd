@@ -144,7 +144,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
+        EXPECT_THROW(hanged_tt_device->is_bus_hung(), std::runtime_error);
     }
 
     WarmResetWithRecovery::warm_reset();
@@ -156,7 +156,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_bus_hung());.
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {

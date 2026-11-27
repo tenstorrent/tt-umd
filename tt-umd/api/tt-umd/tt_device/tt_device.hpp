@@ -135,13 +135,13 @@ public:
      * the check is skipped and false is returned.
      *
      * @param data_read  Value to compare against the hang signature. Defaults to
-     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   HANG_READ_VALUE so callers can simply invoke is_bus_hung()
      *                   after any BAR read that returned a suspicious value.
      * @param action     What to do when a hang is confirmed. Defaults to Throw.
      * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
      * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
-    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+    bool is_bus_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
 
     /**
      * Check if NOC traffic to the device is hung.

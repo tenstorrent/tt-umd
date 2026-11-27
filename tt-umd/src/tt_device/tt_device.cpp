@@ -67,7 +67,7 @@ DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_devic
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, NocId noc) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (model_->get_pcie_interface() != nullptr) {
-        is_pcie_hung();
+        is_bus_hung();
     }
     // The hang detector is an optional component, so a model that provides none simply skips the check.
     // Going through is_noc_hung() rather than the detector directly picks up its warning for a
@@ -164,7 +164,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
 
 tt::ARCH TTDevice::get_arch() const { return model_->get_architecture_impl()->get_architecture(); }
 
-bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
+bool TTDevice::is_bus_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     HangDetector *hang_detector = model_->get_hang_detector();
     if (hang_detector == nullptr) {
         UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");

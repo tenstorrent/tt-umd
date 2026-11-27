@@ -484,8 +484,8 @@ void bind_tt_device(nb::module_ &m) {
             release_gil(),
             "Write a 32-bit value to the specified address on bar0")
         .def(
-            "is_pcie_hung",
-            &TTDevice::is_pcie_hung,
+            "is_bus_hung",
+            &TTDevice::is_bus_hung,
             nb::arg("data_read") = HANG_READ_VALUE,
             nb::arg("action") = TTDevice::HangAction::THROW,
             release_gil(),

@@ -39,6 +39,7 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/dma.hpp"
 #include "tt-umd/types/eth_training_status.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
@@ -543,18 +544,11 @@ public:
      * See @ref TargetIoWindowConfig.
      * @param host Host-side properties (caching strategy and requested size).
      * See @ref HostIoWindowConfig.
+     * @param ordering Transaction ordering mode to apply to the mapping.
      * @return An exclusively owned handle to the newly created @ref IoWindow.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
-
-    /**
-     * Same as the overload above, with the transaction ordering mode applied to the mapping made
-     * explicit instead of defaulting to @ref IoOrdering::STRICT.
-     *
-     * @param ordering Transaction ordering mode to apply to the mapping.
-     */
     std::unique_ptr<IoWindow> create_io_window(
-        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering);
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering = IoOrdering::STRICT);
 
     /**
      * The access points this device owns: their ordinals in its IP's layout (docs/IP_LAYOUT.md).

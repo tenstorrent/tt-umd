@@ -27,4 +27,4 @@ How the feature should be verified, if you know it.
 - Architectures: [e.g. Wormhole, Blackhole, Quasar]
 - Test to extend or add: [e.g. an existing suite or test name, or the new test's name]
 - Command or gtest filter: [e.g. the exact command or `--gtest_filter`]
-- Expected result: [what passing looks like]
+- Expected result: [what passes with the feature, and what fails without it]

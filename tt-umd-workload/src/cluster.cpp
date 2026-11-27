@@ -1267,18 +1267,30 @@ void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint
     }
 }
 
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(std::set<ChipId>* uncovered_chip_ids) {
+    return create_listener_for_chips(all_chip_ids_, uncovered_chip_ids);
+}
+
 std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(
-    const std::optional<std::set<ChipId>>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
     // An empty set is most likely a caller's mistake, such as a chip mapping that came out empty.
     UMD_ASSERT(
-        !chip_ids.has_value() || !chip_ids->empty(),
+        !chip_ids.empty(),
         error::RuntimeError,
-        "create_event_listener() was given an empty set of chip IDs; pass std::nullopt for all chips");
-    const std::set<ChipId>& listened_chip_ids = chip_ids.has_value() ? *chip_ids : all_chip_ids_;
+        "create_event_listener() was given an empty set of chip IDs; call it without chip IDs for all chips");
+    return create_listener_for_chips(chip_ids, uncovered_chip_ids);
+}
 
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(
+    std::initializer_list<ChipId> chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    return create_event_listener(std::set<ChipId>(chip_ids), uncovered_chip_ids);
+}
+
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_listener_for_chips(
+    const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
     std::map<DeviceEventKey, TTDevice*> devices;
     std::set<ChipId> uncovered;
-    for (const ChipId chip_id : listened_chip_ids) {
+    for (const ChipId chip_id : chip_ids) {
         TTDevice* tt_device = get_chip(chip_id)->get_tt_device();
         if (tt_device == nullptr) {
             uncovered.insert(chip_id);

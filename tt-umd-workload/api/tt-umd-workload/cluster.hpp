@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -754,24 +755,37 @@ public:
     //---------- Device events.
 
     /**
-     * Create a listener for the event records of the cluster's chips, reporting each by its ChipId. See
+     * Create a listener for the event records of all the cluster's chips, reporting each by its ChipId. See
      * ClusterDeviceEventListener. If none of the chips can be read, the listener has nothing to read, and a read()
      * waits only for cancel() or a signal.
      *
-     * @param chip_ids           The chips to listen to; std::nullopt (the default) for all chips in the cluster. A bare
-     *                           {} is std::nullopt. Throws if the set is empty or a chip ID isn't in this cluster.
      * @param uncovered_chip_ids If not null, receives the listened chips whose events can't be read: chips without a
      *                           device, chips reached over Ethernet, and chips whose device model or KMD doesn't
-     *                           support device events. If null, each such chip is logged as a warning instead.
+     *                           support device events. If null, they are logged instead.
+     */
+    std::unique_ptr<ClusterDeviceEventListener> create_event_listener(std::set<ChipId>* uncovered_chip_ids = nullptr);
+
+    /**
+     * Like create_event_listener() for all chips, but for the given chips only.
+     *
+     * @param chip_ids Throws if the set is empty or a chip ID isn't in this cluster.
      */
     std::unique_ptr<ClusterDeviceEventListener> create_event_listener(
-        const std::optional<std::set<ChipId>>& chip_ids = std::nullopt, std::set<ChipId>* uncovered_chip_ids = nullptr);
+        const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids = nullptr);
+
+    // As above. A brace list, including a bare {}, picks this overload rather than the all-chips one, so a bare {}
+    // is an empty set of chips, which throws.
+    std::unique_ptr<ClusterDeviceEventListener> create_event_listener(
+        std::initializer_list<ChipId> chip_ids, std::set<ChipId>* uncovered_chip_ids = nullptr);
 
 private:
     // Helper functions
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
     void deassert_resets_and_set_clock_state();
+
+    std::unique_ptr<ClusterDeviceEventListener> create_listener_for_chips(
+        const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids);
 
     // Test functions.
     void log_device_summary();

@@ -547,8 +547,7 @@ TEST(ClusterBH, EventListenerReportsRecordsUnderChipId) {
     }
 
     std::set<ChipId> uncovered_chip_ids;
-    std::unique_ptr<ClusterDeviceEventListener> listener =
-        cluster->create_event_listener(std::nullopt, &uncovered_chip_ids);
+    std::unique_ptr<ClusterDeviceEventListener> listener = cluster->create_event_listener(&uncovered_chip_ids);
     for (const ChipId chip_id : local_chip_ids) {
         EXPECT_EQ(uncovered_chip_ids.count(chip_id), 0u) << "Local chip " << chip_id << " is not covered";
     }

@@ -33,8 +33,7 @@ TEST(TestClusterBaremetal, EventListenerReportsChipsWithoutEventSupport) {
     ASSERT_FALSE(cluster.get_target_device_ids().empty());
 
     std::set<ChipId> uncovered_chip_ids;
-    std::unique_ptr<ClusterDeviceEventListener> listener =
-        cluster.create_event_listener(std::nullopt, &uncovered_chip_ids);
+    std::unique_ptr<ClusterDeviceEventListener> listener = cluster.create_event_listener(&uncovered_chip_ids);
 
     // Mock chips have no device to read events from.
     ASSERT_NE(listener, nullptr);
@@ -57,7 +56,7 @@ TEST(TestClusterBaremetal, EventListenerReportsRequestedChipsWithoutEventSupport
 TEST(TestClusterBaremetal, EventListenerRejectsEmptyChipSet) {
     Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .target_devices = {0}});
 
-    EXPECT_THROW(cluster.create_event_listener(std::set<ChipId>{}), std::runtime_error);
+    EXPECT_THROW(cluster.create_event_listener({}), std::runtime_error);
 }
 
 TEST(TestClusterBaremetal, EventListenerRejectsChipNotInCluster) {

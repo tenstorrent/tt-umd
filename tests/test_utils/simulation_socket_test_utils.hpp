@@ -6,19 +6,24 @@
 
 #include <grp.h>
 #include <gtest/gtest.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <csignal>
 #include <cstring>
 #include <exception>
 #include <filesystem>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
+
+#include "simulation/simulation_server_socket.hpp"
 
 namespace tt::umd::test_utils {
 
@@ -46,11 +51,104 @@ inline void leave_stale_socket(const std::filesystem::path& path) {
     ASSERT_TRUE(std::filesystem::exists(path));
 }
 
-// Removes a simulation server directory and everything left in it when the scope ends. A directory
-// survives a test only when something in it is unowned -- a stale socket no host will tear down --
-// and a remove_all() on the last line of the test body is exactly what a fatal assertion skips,
-// since GTEST_ASSERT_* returns from the body. Leftovers are not inert: they enumerate in
-// list_servers() and are what classify() now rejects, so one bailed-out test poisons the next run.
+// A socket bound and listening at path without UMD's claim on its directory -- what a host from a
+// UMD that predates claims serves. Stops listening on destruction and leaves the socket file behind.
+class ListenerWithoutClaim {
+public:
+    explicit ListenerWithoutClaim(const std::filesystem::path& path) {
+        const std::string path_str = path.string();
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        if (path_str.size() >= sizeof(addr.sun_path)) {
+            throw std::runtime_error("socket path too long for sockaddr_un: " + path_str);
+        }
+        std::memcpy(addr.sun_path, path_str.c_str(), path_str.size() + 1);
+        fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd_ < 0) {
+            throw std::runtime_error("cannot open a listener at " + path_str);
+        }
+        // Nothing ever accepts, so every liveness check's connection stays queued; a short backlog
+        // would make a later check block in connect().
+        if (::bind(fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0 || ::listen(fd_, SOMAXCONN) != 0) {
+            ::close(fd_);
+            throw std::runtime_error("cannot listen at " + path_str);
+        }
+    }
+
+    ListenerWithoutClaim(const ListenerWithoutClaim&) = delete;
+    ListenerWithoutClaim& operator=(const ListenerWithoutClaim&) = delete;
+
+    ~ListenerWithoutClaim() { ::close(fd_); }
+
+private:
+    int fd_ = -1;
+};
+
+// A server directory allocated by a child process, which holds its claim until kill_owner() (or
+// destruction) -- standing in for another host on the machine and, once killed, for one that died
+// without tearing anything down.
+class ServerDirectoryOfAnotherProcess {
+public:
+    ServerDirectoryOfAnotherProcess() {
+        int from_owner[2];
+        if (::pipe(from_owner) != 0) {
+            throw std::runtime_error("pipe() failed");
+        }
+        owner_ = ::fork();
+        if (owner_ < 0) {
+            throw std::runtime_error("fork() failed");
+        }
+        if (owner_ == 0) {
+            // Dies with the test, so a crashed run does not leave an owner holding the claim forever.
+            ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+            ::close(from_owner[0]);
+            try {
+                const std::string directory = SimulationServerSocket::allocate_server_directory().string();
+                [[maybe_unused]] const ssize_t sent = ::write(from_owner[1], directory.data(), directory.size());
+            } catch (...) {
+                ::_exit(1);
+            }
+            ::close(from_owner[1]);
+            while (true) {
+                ::pause();
+            }
+        }
+        ::close(from_owner[1]);
+        std::string directory;
+        char buffer[256];
+        ssize_t received = 0;
+        while ((received = ::read(from_owner[0], buffer, sizeof(buffer))) > 0) {
+            directory.append(buffer, received);
+        }
+        ::close(from_owner[0]);
+        directory_ = directory;
+    }
+
+    ServerDirectoryOfAnotherProcess(const ServerDirectoryOfAnotherProcess&) = delete;
+    ServerDirectoryOfAnotherProcess& operator=(const ServerDirectoryOfAnotherProcess&) = delete;
+
+    ~ServerDirectoryOfAnotherProcess() { kill_owner(); }
+
+    // SIGKILLs the owning process and reaps it, so its claim is released by the time this returns.
+    void kill_owner() {
+        if (owner_ > 0) {
+            ::kill(owner_, SIGKILL);
+            ::waitpid(owner_, nullptr, 0);
+            owner_ = -1;
+        }
+    }
+
+    const std::filesystem::path& path() const { return directory_; }
+
+private:
+    pid_t owner_ = -1;
+    std::filesystem::path directory_;
+};
+
+// Removes a directory and everything left in it when the scope ends, for one no sweep will clear
+// up: not a server directory at all, or one given to another user. A remove_all() on the last line
+// of the test body is exactly what a fatal assertion skips, since GTEST_ASSERT_* returns from the
+// body.
 class ScopedServerDirectory {
 public:
     explicit ScopedServerDirectory(std::filesystem::path directory) : directory_(std::move(directory)) {}

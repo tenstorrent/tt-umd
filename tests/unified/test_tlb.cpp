@@ -22,7 +22,6 @@
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -91,7 +90,7 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window =
+        std::unique_ptr<SiliconTlbWindow> tlb_window =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
@@ -127,9 +126,9 @@ TEST_F(TestTlb, TestClusterExportDmabuf) {
     EXPECT_GE(fcntl(fd, F_GETFD), 0);
     close(fd);
 
-    // An address that is page-aligned but not TLB-window-aligned exercises TlbWindow's
-    // offset_from_aligned_addr translation: the window's NOC base is rounded down to a size-aligned
-    // boundary, so the export starts `addr % window_size` bytes into the window, not at its base.
+    // An address that is page-aligned but not TLB-window-aligned: the TLB entry maps the size-aligned
+    // address below it and the window base sits `addr % window_size` into the mapping, so the export
+    // starts that far into the window, not at its base.
     const uint64_t page_size = static_cast<uint64_t>(getpagesize());
     fd = cluster->export_dmabuf(chip, core, page_size, page_size);
     EXPECT_GE(fd, 0);
@@ -166,7 +165,7 @@ TEST_F(TestTlb, TestTlbWindowReuse) {
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
     tlb_data config{};
-    std::unique_ptr<TlbWindow> tlb_window =
+    std::unique_ptr<SiliconTlbWindow> tlb_window =
         std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
@@ -225,7 +224,7 @@ TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window =
+        std::unique_ptr<SiliconTlbWindow> tlb_window =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
@@ -266,14 +265,14 @@ TEST_F(TestTlb, TestTlbWindowReadWrite) {
         config_write.linked = 0;
         config_write.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window_write =
+        std::unique_ptr<SiliconTlbWindow> tlb_window_write =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
-        std::unique_ptr<TlbWindow> tlb_window_read =
+        std::unique_ptr<SiliconTlbWindow> tlb_window_read =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
@@ -310,9 +309,9 @@ TEST_F(TestTlb, TestTlbWindowReadWrite16) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_write =
+        std::unique_ptr<SiliconTlbWindow> tlb_write =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
-        std::unique_ptr<TlbWindow> tlb_read =
+        std::unique_ptr<SiliconTlbWindow> tlb_read =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Test basic write16/read16.
@@ -379,9 +378,9 @@ TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_write =
+        std::unique_ptr<SiliconTlbWindow> tlb_write =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
-        std::unique_ptr<TlbWindow> tlb_read =
+        std::unique_ptr<SiliconTlbWindow> tlb_read =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
@@ -438,11 +437,11 @@ TEST_F(TestTlb, TestTlbOffsetReadWrite) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> read_aligned =
+        std::unique_ptr<SiliconTlbWindow> read_aligned =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
-        std::unique_ptr<TlbWindow> read_unaligned =
+        std::unique_ptr<SiliconTlbWindow> read_unaligned =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
@@ -528,11 +527,11 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> read_aligned =
+        std::unique_ptr<SiliconTlbWindow> read_aligned =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
-        std::unique_ptr<TlbWindow> read_unaligned =
+        std::unique_ptr<SiliconTlbWindow> read_unaligned =
             std::make_unique<SiliconTlbWindow>(pci_device.allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
@@ -556,7 +555,7 @@ TEST_F(TestTlb, TestTlbAccessOutofBounds) {
 }
 
 // Exercises a TLB window purely through the Base API IoWindow interface: every call below goes
-// through an IoWindow& rather than the concrete type, so this fails if TlbWindow ever stops
+// through an IoWindow& rather than the concrete type, so this fails if SiliconTlbWindow ever stops
 // satisfying the spec surface.
 TEST_F(TestTlb, IoWindowInterface) {
     if (!is_kmd_version_good()) {

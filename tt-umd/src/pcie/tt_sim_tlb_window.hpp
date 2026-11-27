@@ -6,39 +6,44 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 
-#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 
 namespace tt::umd {
 
 // Forward declaration.
 class TTSimCommunicator;
 class TlbHandle;
-struct tlb_data;
 
 /**
- * Simulation TlbWindow implementation that uses TTSimCommunicator
- * for memory access instead of direct pointer dereferencing.
- * This allows TLB operations to work with TTSim where the device
- * memory is not mapped into the user process.
+ * IoWindow over a simulated TLB that uses TTSimCommunicator for memory access instead of direct pointer
+ * dereferencing. This allows TLB operations to work with TTSim where the device memory is not mapped into
+ * the user process.
+ *
+ * configure() honors no WindowFlags beyond the direction and accepts every ordering.
  */
-class TTSimTlbWindow : public TlbWindow {
+class TTSimTlbWindow : public IoWindow {
 public:
-    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
+    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator);
 
-    // Implementation of memory access methods using TTSimCommunicator.
     void write16(uint64_t offset, uint16_t value) override;
     uint16_t read16(uint64_t offset) override;
     void write32(uint64_t offset, uint32_t value) override;
     uint32_t read32(uint64_t offset) override;
     void write64(uint64_t offset, uint64_t value) override;
     uint64_t read64(uint64_t offset) override;
-    void write_register(uint64_t offset, const void* data, size_t size) override;
-    void read_register(uint64_t offset, void* data, size_t size) override;
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
+    void write_aligned(uint64_t offset, const void* data, size_t size) override;
+    void read_aligned(uint64_t offset, void* data, size_t size) override;
+    void configure(const TargetIoWindowConfig& config) override;
+    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
+    TargetIoWindowConfig get_target_config() const override;
+    IoOrdering get_io_ordering() const override;
+    size_t get_size() const override;
+    HostMemoryCaching get_memory_caching_type() const override;
 
 private:
     /**
@@ -47,6 +52,9 @@ private:
      */
     uint64_t get_physical_address(uint64_t offset) const;
 
+    std::unique_ptr<TlbHandle> tlb_handle_;
+    // Distance from the TLB-size aligned address the entry maps to the window base.
+    uint64_t offset_from_aligned_addr_ = 0;
     TTSimCommunicator* sim_communicator_;
 };
 

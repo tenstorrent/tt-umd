@@ -30,7 +30,7 @@ set(BAREMETAL_TESTS_SRCS
     test_simulation_client.cpp
     test_eth_ipc.cpp
     test_simulation_server_transport.cpp
-    test_tlb_window_flags.cpp
+    test_silicon_tlb_window.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

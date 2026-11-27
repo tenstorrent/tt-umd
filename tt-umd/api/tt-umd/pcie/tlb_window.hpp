@@ -4,106 +4,11 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <memory>
-
-#include "tt-umd/io_window/io_window.hpp"
-#include "tt-umd/pcie/tlb_handle.hpp"
-#include "tt-umd/types/arch.hpp"
-#include "tt-umd/types/io_window_config.hpp"
-#include "tt-umd/types/noc_id.hpp"
-#include "tt-umd/types/tlb.hpp"
-#include "tt-umd/types/xy_pair.hpp"
+// Deprecated header: include "tt-umd/pcie/silicon_tlb_window.hpp" instead.
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 
-/**
- * Safe-I/O policy of a window, fixed for its lifetime.
- *
- * With Enabled, the window's memory-access methods recover from a SIGBUS raised by a failing device
- * access and throw SigbusError instead of letting the fault take the process down. Only
- * SiliconTlbWindow can offer this, since simulation windows never touch mapped device memory; where it
- * cannot be offered the policy is ignored.
- *
- * The underlying type is bool so that a caller still holding a flag can cast it directly.
- */
-enum class IoSafety : bool {
-    Disabled = false,
-    Enabled = true,
-};
-
-/**
- * Base class for TlbWindow implementations that contains all shared logic.
- * The memory access methods are pure virtual to allow different implementations
- * for silicon (direct memory access) vs simulation (communicator-based access).
- * WindowFlags outside supported_window_flags() are rejected by configure().
- */
-class TlbWindow : public IoWindow {
-public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, IoSafety io_safety = IoSafety::Disabled);
-
-    virtual ~TlbWindow() = default;
-
-    // Pure virtual methods for memory access - to be implemented by derived classes.
-    void write16(uint64_t offset, uint16_t value) override = 0;
-    uint16_t read16(uint64_t offset) override = 0;
-    void write32(uint64_t offset, uint32_t value) override = 0;
-    uint32_t read32(uint64_t offset) override = 0;
-    void write64(uint64_t offset, uint64_t value) override = 0;
-    uint64_t read64(uint64_t offset) override = 0;
-    virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
-    virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
-    void write_block(uint64_t offset, const void* data, size_t size) override = 0;
-    void read_block(uint64_t offset, void* data, size_t size) override = 0;
-
-    // IoWindow spec surface.
-    void write_aligned(uint64_t offset, const void* data, size_t size) override;
-    void read_aligned(uint64_t offset, void* data, size_t size) override;
-    void configure(const TargetIoWindowConfig& config) override;
-    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override;
-    TargetIoWindowConfig get_target_config() const override;
-    IoOrdering get_io_ordering() const override;
-    HostMemoryCaching get_memory_caching_type() const override;
-
-    // Installs a per-op MMIO timeout hang check used by the timed memcpy path. No-op by default; only
-    // SiliconTlbWindow consults it (simulation windows do not run the timed path). See SiliconTlbWindow.
-    virtual void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) {}
-
-    // Shared utility methods.
-    TlbHandle& handle_ref() const;
-    size_t get_size() const override;
-    virtual void configure(const tlb_data& new_config);
-    uint64_t get_base_address() const;
-
-protected:
-    // WindowFlags this implementation can actually honor. The base class rejects anything outside
-    // this set in configure() rather than silently dropping it. Default: none, since a plain TLB
-    // mapping cannot express any of them.
-    virtual WindowFlags supported_window_flags() const { return WindowFlags::None; }
-
-    // Whether this window's mapping has a field for transaction ordering. Where it does not, configure()
-    // maps with Relaxed when no ordering is asked for and refuses any other, rather than record a
-    // guarantee the window never got.
-    virtual bool carries_ordering() const { return true; }
-
-    void validate(uint64_t offset, size_t size) const;
-    uint64_t get_total_offset(uint64_t offset) const;
-
-    tlb_data make_tlb_config(
-        uint64_t addr,
-        tt_xy_pair core_end,
-        NocId noc_id,
-        uint64_t ordering,
-        WindowFlags flags,
-        bool mcast = false,
-        tt_xy_pair core_start = {}) const;
-
-    std::unique_ptr<TlbHandle> tlb_handle;
-    uint64_t offset_from_aligned_addr = 0;
-    const IoSafety io_safety_;
-    WindowFlags window_flags_ = WindowFlags::None;
-};
+using TlbWindow [[deprecated("Use SiliconTlbWindow instead.")]] = SiliconTlbWindow;
 
 }  // namespace tt::umd

@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "device_memcpy.hpp"
+#include "pcie/tlb_window_common.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
@@ -68,7 +69,8 @@ struct ScopedJumpGuard {
 }
 
 SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
-    TlbWindow(std::move(handle), config, io_safety) {
+    tlb_handle_(std::move(handle)), io_safety_(io_safety) {
+    offset_from_aligned_addr_ = configure_tlb_aligned(*tlb_handle_, config);
     update_io_timeout_callback();
 }
 
@@ -97,38 +99,38 @@ void SiliconTlbWindow::update_io_timeout_callback() {
 
 void SiliconTlbWindow::write16_impl(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
-    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
+    write16_to_device(tlb_handle_->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
 uint16_t SiliconTlbWindow::read16_impl(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
-    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
+    return read16_from_device(tlb_handle_->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write32_impl(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
-    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
+    write32_to_device(tlb_handle_->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
 uint32_t SiliconTlbWindow::read32_impl(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
-    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
+    return read32_from_device(tlb_handle_->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write64_impl(uint64_t offset, uint64_t value) {
     validate(offset, sizeof(uint64_t));
-    write64_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
+    write64_to_device(tlb_handle_->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
 uint64_t SiliconTlbWindow::read64_impl(uint64_t offset) {
     validate(offset, sizeof(uint64_t));
-    return read64_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
+    return read64_from_device(tlb_handle_->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, size_t size) {
     size_t n = size / sizeof(uint32_t);
     auto *src = static_cast<const uint32_t *>(data);
-    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle_->get_base() + get_total_offset(offset));
 
     validate(offset, size);
 
@@ -137,7 +139,7 @@ void SiliconTlbWindow::write_register_impl(uint64_t offset, const void *data, si
 
 void SiliconTlbWindow::read_register_impl(uint64_t offset, void *data, size_t size) {
     size_t n = size / sizeof(uint32_t);
-    auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    auto *src = reinterpret_cast<const volatile uint32_t *>(tlb_handle_->get_base() + get_total_offset(offset));
     auto *dst = static_cast<uint32_t *>(data);
 
     validate(offset, size);
@@ -146,11 +148,11 @@ void SiliconTlbWindow::read_register_impl(uint64_t offset, void *data, size_t si
 }
 
 void SiliconTlbWindow::write_block_impl(uint64_t offset, const void *data, size_t size) {
-    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle_->get_base() + get_total_offset(offset));
 
     validate(offset, size);
 
-    if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
+    if (tlb_handle_->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_to_device((void *)dst, data, size, io_timeout_callback_);
     } else {
         umd::memcpy_to_device(dst, data, size, io_timeout_callback_);
@@ -158,11 +160,11 @@ void SiliconTlbWindow::write_block_impl(uint64_t offset, const void *data, size_
 }
 
 void SiliconTlbWindow::read_block_impl(uint64_t offset, void *data, size_t size) {
-    const volatile void *src = tlb_handle->get_base() + get_total_offset(offset);
+    const volatile void *src = tlb_handle_->get_base() + get_total_offset(offset);
 
     validate(offset, size);
 
-    if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
+    if (tlb_handle_->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_from_device(data, src, size, io_timeout_callback_);
     } else {
         umd::memcpy_from_device(data, src, size, io_timeout_callback_);
@@ -172,7 +174,7 @@ void SiliconTlbWindow::read_block_impl(uint64_t offset, void *data, size_t size)
 // A fault here updates nothing (the handle assigns tlb_config_ only after the write lands), and every
 // transfer reconfigures first, so a half-written window is always fully rewritten before it is used.
 void SiliconTlbWindow::configure_impl(const tlb_data &new_config) {
-    TlbWindow::configure(new_config);
+    offset_from_aligned_addr_ = configure_tlb_aligned(*tlb_handle_, new_config);
     update_io_timeout_callback();
 }
 
@@ -383,6 +385,52 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
     }
     configure_impl(new_config);
 }
+
+void SiliconTlbWindow::write_aligned(uint64_t offset, const void *data, size_t size) {
+    validate_tlb_window_aligned(offset, size, "write_aligned");
+    write_register(offset, data, size);
+}
+
+void SiliconTlbWindow::read_aligned(uint64_t offset, void *data, size_t size) {
+    validate_tlb_window_aligned(offset, size, "read_aligned");
+    read_register(offset, data, size);
+}
+
+void SiliconTlbWindow::configure(const TargetIoWindowConfig &config) {
+    configure(config, default_tlb_ordering(carries_ordering()));
+}
+
+void SiliconTlbWindow::configure(const TargetIoWindowConfig &config, IoOrdering ordering) {
+    const tlb_data tlb_config =
+        make_tlb_config(tlb_handle_->get_arch(), config, ordering, supported_window_flags(), carries_ordering());
+    window_flags_ = config.flags & ~WindowFlags::DirectionMask;
+    // Through the tlb_data overload, so the safe-I/O guard and the timeout hang check's NOC apply here too.
+    configure(tlb_config);
+}
+
+TargetIoWindowConfig SiliconTlbWindow::get_target_config() const {
+    return make_target_config(tlb_handle_->get_config(), get_base_address(), window_flags_);
+}
+
+IoOrdering SiliconTlbWindow::get_io_ordering() const { return get_tlb_ordering(tlb_handle_->get_config()); }
+
+size_t SiliconTlbWindow::get_size() const { return tlb_handle_->get_size() - offset_from_aligned_addr_; }
+
+HostMemoryCaching SiliconTlbWindow::get_memory_caching_type() const {
+    return get_tlb_memory_caching(tlb_handle_->get_tlb_mapping());
+}
+
+TlbHandle &SiliconTlbWindow::handle_ref() const { return *tlb_handle_; }
+
+uint64_t SiliconTlbWindow::get_base_address() const {
+    return tlb_handle_->get_config().local_offset + offset_from_aligned_addr_;
+}
+
+void SiliconTlbWindow::validate(uint64_t offset, size_t size) const {
+    validate_tlb_window_range(offset, size, get_size());
+}
+
+uint64_t SiliconTlbWindow::get_total_offset(uint64_t offset) const { return offset + offset_from_aligned_addr_; }
 
 WindowFlags SiliconTlbWindow::supported_window_flags() const {
     // Snoop is not among the AXI transaction attributes the entries carry, so it is never advertised.

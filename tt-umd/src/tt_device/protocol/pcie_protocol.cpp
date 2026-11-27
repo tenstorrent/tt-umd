@@ -32,7 +32,6 @@
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/tlb.hpp"
@@ -93,7 +92,7 @@ PcieProtocol::~PcieProtocol() {
     }
 }
 
-TlbWindow* PcieProtocol::get_cached_tlb_window() {
+SiliconTlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(
             pci_device_->allocate_tlb(
@@ -204,7 +203,7 @@ std::unique_ptr<IoWindow> PcieProtocol::create_io_window(
 std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_probe_reader() {
     // Not the cached window: the hang check runs inside a timed-out op that holds it under io_lock_. Any
     // size reaches a register, so the smallest window still free is taken.
-    std::shared_ptr<TlbWindow> window = allocate_tlb_window(0, TlbMapping::UC);
+    std::shared_ptr<SiliconTlbWindow> window = allocate_tlb_window(0, TlbMapping::UC);
 
     auto window_lock = std::make_shared<std::mutex>();
     return [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
@@ -267,7 +266,7 @@ int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoO
     config.x_end = core.x;
     config.y_end = core.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
-    // IoOrdering carries the TLB hardware encoding (asserted in tlb_window.cpp), so this is a cast.
+    // IoOrdering carries the TLB hardware encoding (asserted in tlb_window_common.cpp), so this is a cast.
     config.ordering = static_cast<uint64_t>(ordering);
     config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
 
@@ -411,7 +410,7 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     const size_t dmabuf_size = dma_buffer.size;
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+    SiliconTlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     const auto tlb_window_addr_base = get_architecture_tlbs(pci_device_->get_arch())
                                           .get_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -453,7 +452,7 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
     auto [lock, pcie_dma_lock] = lock_dma_for_blocking_transfer();
 
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+    SiliconTlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     const auto tlb_window_addr_base = get_architecture_tlbs(pci_device_->get_arch())
                                           .get_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -510,7 +509,7 @@ bool PcieProtocol::dma_zero_copy_start(
     }
 
     config.local_offset = addr;
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+    SiliconTlbWindow* tlb_window = get_cached_dma_tlb_window(config);
     tlb_window->configure(config);
     const uint64_t tlb_window_addr = get_architecture_tlbs(pci_device_->get_arch())
                                          .get_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -585,7 +584,7 @@ PcieProtocol::lock_dma_for_blocking_transfer() {
     return {std::move(lock), std::move(pcie_dma_lock)};
 }
 
-TlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {
+SiliconTlbWindow* PcieProtocol::get_cached_dma_tlb_window(const tlb_data& config) {
     if (cached_dma_tlb_window_ == nullptr) {
         // The DMA engine, not the host, reads through this window, so it is not ordered behind our
         // config write - pass verify_config so every configure() confirms it landed first.

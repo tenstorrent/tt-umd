@@ -141,8 +141,6 @@ int RemoteProtocol::get_mmio_id() { return remote_communication_->get_local_devi
 
 RemoteCommunication* RemoteProtocol::get_remote_communication() { return remote_communication_.get(); }
 
-void RemoteProtocol::wait_for_non_mmio_flush() {
-    remote_communication_->wait_for_non_mmio_flush(get_selected_noc_id());
-}
+void RemoteProtocol::wait_for_non_mmio_flush(NocId noc_id) { remote_communication_->wait_for_non_mmio_flush(noc_id); }
 
 }  // namespace tt::umd

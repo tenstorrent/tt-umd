@@ -334,7 +334,7 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     // On a remote device the writes above travel over ethernet; make sure they have landed before the
     // trigger bit is set. A no-op for a local device.
     if (remote_interface_ != nullptr) {
-        remote_interface_->wait_for_non_mmio_flush();
+        remote_interface_->wait_for_non_mmio_flush(noc_id);
     }
 
     uint32_t misc = 0;

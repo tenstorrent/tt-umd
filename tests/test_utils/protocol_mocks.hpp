@@ -76,7 +76,7 @@ public:
 class MockRemoteInterface : public RemoteInterface {
 public:
     MOCK_METHOD(RemoteCommunication*, get_remote_communication, (), (override));
-    MOCK_METHOD(void, wait_for_non_mmio_flush, (), (override));
+    MOCK_METHOD(void, wait_for_non_mmio_flush, (NocId noc_id), (override));
 };
 
 }  // namespace tt::umd::test_utils

@@ -46,8 +46,8 @@ public:
     // Creates a listener for the devices, each reported under the key the caller gives it. A device may
     // appear under several keys. The listener keeps no reference to the devices.
     //
-    // @param uncovered_keys  If not null, receives the keys of the devices whose model does not support
-    //                        reading events through this listener. Those devices are left out.
+    // @param uncovered_keys  If not null, receives the keys of the devices whose model or KMD version does not
+    //                        support reading events through this listener. Those devices are left out.
     static std::unique_ptr<DeviceEventListener> create(
         const std::map<DeviceEventKey, TTDevice*>& devices, std::set<DeviceEventKey>* uncovered_keys = nullptr);
 

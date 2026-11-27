@@ -57,8 +57,6 @@ public:
 
     uint64_t get_noc_base() const override { return pcie_base_; }
 
-    static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
-
 protected:
     PCIDevice* pci_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.

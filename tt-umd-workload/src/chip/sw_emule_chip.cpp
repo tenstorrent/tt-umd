@@ -133,7 +133,7 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
     // never reach __emule_resolve_noc_addr's pcie_base_ threshold (which routes >= addresses to
     // SimulationSysmemManager instead of the core map) — documents that margin rather than
     // resting on it implicitly.
-    assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
+    assert(dram_bank_size_ < sysmem_manager_->get_noc_base());
 
     // One slot per Tensix core, and only WORKER cores use the pool, so num_tensix is an exact
     // bound. No fallback for an empty core list: nothing could index those slots, and the pool

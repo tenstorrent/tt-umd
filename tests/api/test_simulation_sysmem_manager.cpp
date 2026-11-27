@@ -74,11 +74,11 @@ TEST(ApiSimulationSysmemManager, GalaxyMappedArenasAreBoundedAndPerChip) {
             sysmem.get_mapped_arena_offset() + sysmem.get_mapped_arena_size(),
             SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
 
-        auto buffer = sysmem.allocate_sysmem_buffer(mapped_size, /*map_to_noc=*/true);
+        auto buffer = sysmem.allocate_buffer(mapped_size, /*bind_to_noc=*/true);
         ASSERT_NE(buffer, nullptr);
-        EXPECT_EQ(buffer->get_iova(), sysmem.get_pcie_base() + sysmem.get_mapped_arena_offset());
+        EXPECT_EQ(buffer->get_iova(), sysmem.get_noc_base() + sysmem.get_mapped_arena_offset());
         EXPECT_LE(
-            buffer->get_iova() - sysmem.get_pcie_base() + buffer->get_size(),
+            buffer->get_iova() - sysmem.get_noc_base() + buffer->get_size(),
             SimulationSysmemManager::DEVICE_IO_WINDOW_SIZE);
     }
 }
@@ -333,7 +333,7 @@ TEST(ApiSimulationSysmemManager, ThrowingBufferDeleterDoesNotEscapeDestruction) 
     });
 }
 
-// allocate_sysmem_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
+// allocate_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
 // While the manager held the mapping in owned_allocations_ instead, nothing was released until the
 // manager itself went away and every allocation leaked for as long as it lived.
 TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
@@ -344,7 +344,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
     constexpr int iterations = 8;
 
     // Warm up so one-time allocations do not land inside the measurement.
-    { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_sysmem_buffer(buf_size); }
+    { std::unique_ptr<SysmemBuffer> warmup = sysmem->allocate_buffer(buf_size); }
 
     const size_t rss_before = test_utils::read_rss_kib();
     if (rss_before == 0) {
@@ -353,7 +353,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferFreesBackingMemory) {
 
     const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
     for (int i = 0; i < iterations; i++) {
-        std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+        std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_buffer(buf_size);
         ASSERT_NE(buffer, nullptr);
         // Touch one byte per page so the whole mapping is resident. Touching only the first page would
         // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
@@ -378,7 +378,7 @@ TEST(ApiSimulationSysmemManager, AllocatedBufferOutlivesItsManager) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
 
     constexpr size_t buf_size = 4096;
-    std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_sysmem_buffer(buf_size);
+    std::unique_ptr<SysmemBuffer> buffer = sysmem->allocate_buffer(buf_size);
     ASSERT_NE(buffer, nullptr);
 
     uint8_t* bytes = static_cast<uint8_t*>(buffer->get_va());
@@ -425,7 +425,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, AllocateSysmemBufferReturnsValidBuffer)
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr size_t buffer_size = 4096;
-    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    auto buffer = sysmem->allocate_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
     EXPECT_NE(buffer->get_va(), nullptr);
     EXPECT_GE(buffer->get_size(), buffer_size);
@@ -439,7 +439,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
     // Allocate a user-managed buffer and map it through the sysmem manager.
     constexpr size_t buffer_size = 8192;
     std::vector<uint8_t> external_buf(buffer_size, 0);
-    auto buffer = sysmem->map_sysmem_buffer(external_buf.data(), buffer_size);
+    auto buffer = sysmem->map_user_buffer(external_buf.data(), buffer_size);
     ASSERT_NE(buffer, nullptr);
     EXPECT_EQ(buffer->get_va(), external_buf.data());
     EXPECT_GT(buffer->get_iova(), 0u);
@@ -453,7 +453,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr size_t buffer_size = 4096;
-    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    auto buffer = sysmem->allocate_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
     const uint64_t device_addr = buffer->get_iova();
@@ -482,7 +482,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr size_t buffer_size = 4096;
-    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    auto buffer = sysmem->allocate_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
     const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
@@ -533,7 +533,6 @@ TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
     // Mappings are read-write unless the caller asks otherwise.
     EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
 
-    // bind_to_noc reaches the same path as the concrete map_to_noc flag.
     auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
     ASSERT_NE(bound, nullptr);
     EXPECT_TRUE(bound->get_noc_address().has_value());
@@ -560,18 +559,18 @@ TEST_P(ApiSimulationSysmemManagerByArch, BuffersCarryTheManagerCommunicationId) 
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id);
     EXPECT_EQ(sysmem->get_communication_id(), static_cast<int>(chip_id));
 
-    auto allocated = sysmem->allocate_sysmem_buffer(4096);
+    auto allocated = sysmem->allocate_buffer(4096);
     ASSERT_NE(allocated, nullptr);
     EXPECT_EQ(allocated->get_communication_id(), sysmem->get_communication_id());
 
     std::vector<uint8_t> external_buf(8192, 0);
-    auto mapped = sysmem->map_sysmem_buffer(external_buf.data(), external_buf.size());
+    auto mapped = sysmem->map_user_buffer(external_buf.data(), external_buf.size());
     ASSERT_NE(mapped, nullptr);
     EXPECT_EQ(mapped->get_communication_id(), sysmem->get_communication_id());
 
     // A manager for a different chip stamps a different id.
     auto other_sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id + 1);
-    auto other_buffer = other_sysmem->allocate_sysmem_buffer(4096);
+    auto other_buffer = other_sysmem->allocate_buffer(4096);
     ASSERT_NE(other_buffer, nullptr);
     EXPECT_NE(other_buffer->get_communication_id(), allocated->get_communication_id());
 }
@@ -580,7 +579,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyOutOfBoundsThrows) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr size_t buffer_size = 4096;
-    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    auto buffer = sysmem->allocate_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
     std::vector<uint8_t> scratch(16, 0);
@@ -606,7 +605,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) 
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr size_t buffer_size = 4096;
-    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    auto buffer = sysmem->allocate_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
     const uint64_t device_addr = buffer->get_iova();
     ASSERT_GT(device_addr, 0u);
@@ -637,8 +636,8 @@ TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) 
 TEST_P(ApiSimulationSysmemManagerByArch, MultipleMappedBuffersAreIndependent) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
-    auto buf_a = sysmem->allocate_sysmem_buffer(4096);
-    auto buf_b = sysmem->allocate_sysmem_buffer(4096);
+    auto buf_a = sysmem->allocate_buffer(4096);
+    auto buf_b = sysmem->allocate_buffer(4096);
     ASSERT_NE(buf_a, nullptr);
     ASSERT_NE(buf_b, nullptr);
 
@@ -652,13 +651,13 @@ TEST_P(ApiSimulationSysmemManagerByArch, DestroyedBufferUnmapsCleanly) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     {
-        auto buffer = sysmem->allocate_sysmem_buffer(4096);
+        auto buffer = sysmem->allocate_buffer(4096);
         ASSERT_NE(buffer, nullptr);
         // buffer goes out of scope here, triggering unmap callback.
     }
 
     // Allocating another buffer should succeed (no leaked state).
-    auto buffer2 = sysmem->allocate_sysmem_buffer(4096);
+    auto buffer2 = sysmem->allocate_buffer(4096);
     EXPECT_NE(buffer2, nullptr);
 }
 
@@ -673,7 +672,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, ConcurrentAllocateDoesNotCrash) {
     threads.reserve(kThreads);
 
     for (int i = 0; i < kThreads; ++i) {
-        threads.emplace_back([&sysmem, &results, i]() { results[i] = sysmem->allocate_sysmem_buffer(kBufSize); });
+        threads.emplace_back([&sysmem, &results, i]() { results[i] = sysmem->allocate_buffer(kBufSize); });
     }
     for (auto& t : threads) {
         t.join();
@@ -698,7 +697,7 @@ TEST_P(ApiSimulationSysmemManagerByArch, ManagerDestroyedBeforeBuffer) {
     std::unique_ptr<SysmemBuffer> buffer;
     {
         auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
-        buffer = sysmem->allocate_sysmem_buffer(4096);
+        buffer = sysmem->allocate_buffer(4096);
         ASSERT_NE(buffer, nullptr);
         // sysmem is destroyed here.
     }
@@ -731,9 +730,9 @@ TEST_P(ApiSimulationSysmemManagerByArch, UnalignedExternalMappingPreservesUserRa
     auto* start = static_cast<uint8_t*>(memory.pointer) + 1;
     const size_t length = page + 7;
     SimulationSysmemManager sysmem(0, GetParam());
-    auto buffer = sysmem.map_sysmem_buffer(start, length, true);
+    auto buffer = sysmem.map_user_buffer(start, length, true);
     const uint64_t address = buffer->get_iova();
-    EXPECT_EQ(address, sysmem.get_pcie_base() + 1);
+    EXPECT_EQ(address, sysmem.get_noc_base() + 1);
     EXPECT_EQ(buffer->get_noc_address(), std::optional<uint64_t>(address));
     EXPECT_EQ(sysmem.get_mapped_host_ptr(address), start);
     EXPECT_EQ(sysmem.get_mapped_host_ptr(address + length - 1), start + length - 1);
@@ -747,8 +746,8 @@ TEST_P(ApiSimulationSysmemManagerByArch, UnalignedExternalMappingPreservesUserRa
     EXPECT_EQ(start[length], 0);
     EXPECT_FALSE(sysmem.write_mapped_buffer(address - 1, &first, 1));
     EXPECT_FALSE(sysmem.write_mapped_buffer(address + length, &last, 1));
-    auto next = sysmem.map_sysmem_buffer(static_cast<uint8_t*>(memory.pointer) + 2 * page, page);
-    EXPECT_EQ(next->get_iova(), sysmem.get_pcie_base() + 2 * page);
+    auto next = sysmem.map_user_buffer(static_cast<uint8_t*>(memory.pointer) + 2 * page, page);
+    EXPECT_EQ(next->get_iova(), sysmem.get_noc_base() + 2 * page);
     buffer.reset();
     EXPECT_EQ(sysmem.get_mapped_host_ptr(address), nullptr);
     EXPECT_NE(sysmem.get_mapped_host_ptr(next->get_iova()), nullptr);
@@ -759,21 +758,21 @@ TEST_P(ApiSimulationSysmemManagerByArch, ArenaRejectsOverflowAndExhaustionWithou
     SimulationSysmemManager sysmem(4, GetParam());
     EXPECT_EQ(sysmem.get_mapped_arena_size(), 0x0FFE0000ULL);
     AnonymousMapping memory(sysmem.get_mapped_arena_size());
-    const uint64_t first_address = sysmem.get_pcie_base() + sysmem.get_mapped_arena_offset();
-    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 0), std::exception);
-    EXPECT_THROW(sysmem.map_sysmem_buffer(nullptr, page), std::exception);
-    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, std::numeric_limits<size_t>::max()), std::exception);
-    EXPECT_THROW(sysmem.allocate_sysmem_buffer(0), std::exception);
-    EXPECT_THROW(sysmem.allocate_sysmem_buffer(std::numeric_limits<size_t>::max()), std::exception);
-    auto main = sysmem.map_sysmem_buffer(memory.pointer, memory.size - page);
+    const uint64_t first_address = sysmem.get_noc_base() + sysmem.get_mapped_arena_offset();
+    EXPECT_THROW(sysmem.map_user_buffer(memory.pointer, 0), std::exception);
+    EXPECT_THROW(sysmem.map_user_buffer(nullptr, page), std::exception);
+    EXPECT_THROW(sysmem.map_user_buffer(memory.pointer, std::numeric_limits<size_t>::max()), std::exception);
+    EXPECT_THROW(sysmem.allocate_buffer(0), std::exception);
+    EXPECT_THROW(sysmem.allocate_buffer(std::numeric_limits<size_t>::max()), std::exception);
+    auto main = sysmem.map_user_buffer(memory.pointer, memory.size - page);
     ASSERT_EQ(main->get_iova(), first_address);
-    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 2 * page), std::exception);
-    EXPECT_THROW(sysmem.allocate_sysmem_buffer(2 * page), std::exception);
-    auto tail = sysmem.map_sysmem_buffer(static_cast<uint8_t*>(memory.pointer) + memory.size - page, page);
+    EXPECT_THROW(sysmem.map_user_buffer(memory.pointer, 2 * page), std::exception);
+    EXPECT_THROW(sysmem.allocate_buffer(2 * page), std::exception);
+    auto tail = sysmem.map_user_buffer(static_cast<uint8_t*>(memory.pointer) + memory.size - page, page);
     EXPECT_EQ(tail->get_iova(), first_address + memory.size - page);
-    EXPECT_EQ((tail->get_iova() - sysmem.get_pcie_base()) % page, 0);
-    EXPECT_THROW(sysmem.map_sysmem_buffer(memory.pointer, 1), std::exception);
-    EXPECT_THROW(sysmem.allocate_sysmem_buffer(1), std::exception);
+    EXPECT_EQ((tail->get_iova() - sysmem.get_noc_base()) % page, 0);
+    EXPECT_THROW(sysmem.map_user_buffer(memory.pointer, 1), std::exception);
+    EXPECT_THROW(sysmem.allocate_buffer(1), std::exception);
     uint8_t value = 0x5C;
     ASSERT_TRUE(sysmem.write_mapped_buffer(tail->get_iova() + page - 1, &value, 1));
     EXPECT_EQ(static_cast<uint8_t*>(memory.pointer)[memory.size - 1], value);
@@ -783,8 +782,8 @@ TEST_P(ApiSimulationSysmemManagerByArch, ArenaRejectsOverflowAndExhaustionWithou
 TEST_P(ApiSimulationSysmemManagerByArch, SimultaneousChipMappingsHaveDistinctHostTargets) {
     SimulationSysmemManager first(0, GetParam(), 0);
     SimulationSysmemManager second(0, GetParam(), 7);
-    auto a = first.allocate_sysmem_buffer(4096, true);
-    auto b = second.allocate_sysmem_buffer(4096, true);
+    auto a = first.allocate_buffer(4096, true);
+    auto b = second.allocate_buffer(4096, true);
     EXPECT_EQ(a->get_iova(), b->get_iova());
     EXPECT_EQ(first.get_host_base(), 0);
     EXPECT_EQ(second.get_host_base(), 7 * SimulationSysmemManager::PER_CHIP_HOST_STRIDE);

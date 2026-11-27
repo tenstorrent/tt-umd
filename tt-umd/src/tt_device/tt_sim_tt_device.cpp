@@ -468,7 +468,7 @@ void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
     // which subtracts pcie_base from the NOC address.  So paddr here is an
     // OFFSET from pcie_base (not an absolute address).  Two backing stores:
     //
-    //  1. Mapped-buffer arena: allocate_sysmem_buffer / map_sysmem_buffer
+    //  1. Mapped-buffer arena: allocate_buffer / map_user_buffer
     //     assign synthetic IOVAs above the hugepage region.  The registry
     //     keys buffers by their absolute device IO address (pcie_base + offset),
     //     so convert paddr before the lookup.
@@ -476,7 +476,7 @@ void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
     //  2. Hugepage arena: traditional channel-stride layout.  paddr is already
     //     the within-hugepage-space offset, so decompose directly into
     //     (channel, within-channel offset) for read_from_sysmem.
-    const uint64_t pcie_base = sysmem_manager_->get_pcie_base();
+    const uint64_t pcie_base = sysmem_manager_->get_noc_base();
     if (sysmem_manager_->read_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }
@@ -486,7 +486,7 @@ void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
     // See pci_dma_read_bytes for the offset-vs-absolute explanation.
-    const uint64_t pcie_base = sysmem_manager_->get_pcie_base();
+    const uint64_t pcie_base = sysmem_manager_->get_noc_base();
     if (sysmem_manager_->write_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }

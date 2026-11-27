@@ -12,16 +12,14 @@
 #include <vector>
 
 #include "tt-umd/system_memory/host_mem_channels.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
+#include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
-
-namespace tt {
-enum class ARCH;
-}  // namespace tt
 
 namespace tt::umd {
 
-class SimulationSysmemManager : public SysmemManager {
+class SimulationSysmemManager : public SystemMemoryAllocator {
 public:
     SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id = 0);
     ~SimulationSysmemManager() override;
@@ -61,16 +59,22 @@ public:
      */
     const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
-        size_t sysmem_buffer_size, const bool map_to_noc = false) override;
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
-        void* buffer,
-        size_t sysmem_buffer_size,
-        const bool map_to_noc = false,
+    std::unique_ptr<SysmemBuffer> map_user_buffer(
+        void* user_ptr,
+        size_t size,
+        bool bind_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
+    int get_communication_id() const override { return communication_id_; }
+
     std::optional<size_t> get_max_buffer_count(size_t size) const override;
+
+    uint64_t get_noc_base() const override { return pcie_base_; }
+
+    // Nothing stops the simulated device writing a mapping, so a read-only promise could not be kept.
+    bool is_read_only_page_pinning_supported() const override { return false; }
 
     bool is_user_buffer_mapping_supported() const override { return true; }
 
@@ -149,8 +153,8 @@ private:
     // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
     std::unique_ptr<SysmemBuffer> register_and_wrap(
         void* buffer,
-        size_t sysmem_buffer_size,
-        const bool map_to_noc,
+        size_t size,
+        const bool bind_to_noc,
         DeviceBufferAccess device_access,
         SysmemBuffer::Deleter release_backing_memory);
 
@@ -159,6 +163,8 @@ private:
     HostMemChannels host_mem_channels_;
     uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
     std::shared_ptr<MappedBufferRegistry> registry_;
+    int communication_id_ = -1;
+    uint64_t pcie_base_ = 0;
 };
 
 }  // namespace tt::umd

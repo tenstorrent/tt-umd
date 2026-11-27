@@ -54,7 +54,6 @@ target_sources(
         src/arch/architecture_tlbs.cpp
         src/arch/tlb_window_size.cpp
         src/system_memory/host_mem_channels.cpp
-        src/system_memory/sysmem_manager.cpp
         src/system_memory/simulation_sysmem_manager.cpp
         src/system_memory/silicon_sysmem_manager.cpp
         src/system_memory/sysmem_buffer.cpp
@@ -196,7 +195,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/system_memory/host_mem_channels.hpp
-                api/tt-umd/system_memory/sysmem_manager.hpp
                 api/tt-umd/system_memory/simulation_sysmem_manager.hpp
                 api/tt-umd/system_memory/silicon_sysmem_manager.hpp
                 api/tt-umd/system_memory/system_memory_allocator.hpp

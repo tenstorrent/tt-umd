@@ -418,7 +418,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
         communicator_->set_ram_callbacks(
             // Write callback: simulator writes data into host sysmem.
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
-                uint64_t pcie_base = mgr->get_pcie_base();
+                uint64_t pcie_base = mgr->get_noc_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 if (mgr->write_mapped_buffer(address, data, size)) {
                     return;
@@ -435,7 +435,7 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
             },
             // Read callback: simulator reads data from host sysmem.
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
-                uint64_t pcie_base = mgr->get_pcie_base();
+                uint64_t pcie_base = mgr->get_noc_base();
                 UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 if (mgr->read_mapped_buffer(address, data_out, size)) {
                     return;

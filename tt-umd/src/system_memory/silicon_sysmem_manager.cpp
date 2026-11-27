@@ -169,11 +169,14 @@ private:
     bool armed_ = true;
 };
 
-SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, int communication_id) {
+SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, int communication_id) :
+    pci_device_(pci_device), communication_id_(communication_id) {
     UMD_ASSERT(pci_device != nullptr, error::RuntimeError, "Silicon sysmem manager needs a PCI device.");
-    pci_device_ = pci_device;
-    communication_id_ = communication_id;
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
+}
+
+bool SiliconSysmemManager::is_read_only_page_pinning_supported() const {
+    return pci_device_->is_read_only_page_pinning_supported();
 }
 
 // Without an IOMMU the device sees physical addresses, so scattered user pages cannot be presented as one buffer.
@@ -215,7 +218,7 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     void *buffer_va,
     size_t buffer_size,
-    const bool map_to_noc,
+    const bool bind_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory,
     const bool hugepage) {
@@ -225,7 +228,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
 
     uint64_t aligned_iova = 0;
     std::optional<uint64_t> noc_addr = std::nullopt;
-    if (map_to_noc) {
+    if (bind_to_noc) {
         std::tie(noc_addr, aligned_iova) =
             hugepage ? pci_device_->map_hugepage_to_noc(range.base, range.mapped_size)
                      : pci_device_->map_buffer_to_noc(range.base, range.mapped_size, device_access);
@@ -269,18 +272,17 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::pin_and_wrap(
     return buffer;
 }
 
-std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
-    size_t sysmem_buffer_size, const bool map_to_noc) {
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
     ZoneScopedC(tracy::Color::Yellow);
     const bool hugepage = !pci_device_->is_iommu_enabled();
     if (hugepage) {
         UMD_ASSERT(
-            sysmem_buffer_size > 0 && sysmem_buffer_size <= HUGEPAGE_REGION_SIZE,
+            size > 0 && size <= HUGEPAGE_REGION_SIZE,
             error::RuntimeError,
             fmt::format(
                 "Without an IOMMU a sysmem buffer is one {:#x} byte hugepage, so it cannot hold {:#x} bytes.",
                 HUGEPAGE_REGION_SIZE,
-                sysmem_buffer_size));
+                size));
     }
     // The size actually mapped: one whole hugepage without an IOMMU, else what the fallback rounded the request up to.
     size_t mapping_size = HUGEPAGE_REGION_SIZE;
@@ -294,13 +296,13 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
                                    MAP_SHARED | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
                                    -1,
                                    0)
-                             : mmap_with_hugepage_fallback(sysmem_buffer_size, mapping_size);
+                             : mmap_with_hugepage_fallback(size, mapping_size);
     if (mapping == MAP_FAILED) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to allocate sysmem buffer of size {:#x} bytes with mmap: {}.{}",
-                sysmem_buffer_size,
+                size,
                 strerror(errno),
                 hugepage ? " Without an IOMMU each sysmem buffer needs a free 1 GB hugepage." : ""));
     }
@@ -318,8 +320,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     };
 
     try {
-        return pin_and_wrap(
-            mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping, hugepage);
+        return pin_and_wrap(mapping, size, bind_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping, hugepage);
     } catch (...) {
         // Nothing owns the mmap yet, so free it here rather than leaking it.
         release_mapping(mapping);
@@ -330,7 +331,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_channel_buffer(uint32_t channel, size_t size) {
     ZoneScopedC(tracy::Color::Yellow);
     if (pci_device_->is_iommu_enabled()) {
-        return allocate_sysmem_buffer(size, /*map_to_noc=*/true);
+        return allocate_buffer(size, /*bind_to_noc=*/true);
     }
     UMD_ASSERT(
         size > 0 && size <= HUGEPAGE_REGION_SIZE,
@@ -397,7 +398,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_channel_buffer(uint
 
     try {
         return pin_and_wrap(
-            mapping, size, /*map_to_noc=*/true, DeviceBufferAccess::READ_WRITE, release_mapping, /*hugepage=*/true);
+            mapping, size, /*bind_to_noc=*/true, DeviceBufferAccess::READ_WRITE, release_mapping, /*hugepage=*/true);
     } catch (...) {
         log_warning(
             LogUMD,
@@ -413,11 +414,16 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_channel_buffer(uint
     }
 }
 
-std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
-    log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
+std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_user_buffer(
+    void *user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) {
+    // Refuse here: without an IOMMU the pin alone still accepts physically contiguous memory.
+    UMD_ASSERT(
+        is_user_buffer_mapping_supported(),
+        error::RuntimeError,
+        "This allocator cannot map user buffers; check is_user_buffer_mapping_supported() first.");
+    log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", size);
     // The caller owns this memory, so the buffer only unpins it.
-    return pin_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
+    return pin_and_wrap(user_ptr, size, bind_to_noc, device_access, {});
 }
 
 }  // namespace tt::umd

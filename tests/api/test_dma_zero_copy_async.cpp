@@ -20,7 +20,7 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"

@@ -212,19 +212,17 @@ void* SimulationSysmemManager::get_mapped_host_ptr(uint64_t device_io_addr) {
     return static_cast<uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr);
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
-    size_t sysmem_buffer_size, const bool map_to_noc) {
-    const uint64_t extent = mapped_extent(nullptr, sysmem_buffer_size);
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_buffer(size_t size, bool bind_to_noc) {
+    const uint64_t extent = mapped_extent(nullptr, size);
     // Hold the arena lock through allocation and registration so an exhaustion failure cannot
     // allocate/populate host memory first, or race another allocation after the capacity check.
     std::lock_guard<std::mutex> lock(registry_->mutex);
     check_arena_capacity(extent);
-    void* mapping =
-        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void* mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
     // This mapping belongs to the buffer, so it is released along with the registry entry. The buffer
     // starts at the mapping, so the pointer the deleter receives is the one to munmap.
-    const size_t mapping_size = sysmem_buffer_size;
+    const size_t mapping_size = size;
     const auto release_mapping = [mapping_size](void* buffer_va) {
         if (munmap(buffer_va, mapping_size) != 0) {
             log_warning(
@@ -237,8 +235,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     };
 
     try {
-        return register_and_wrap(
-            mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+        return register_and_wrap(mapping, size, bind_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
     } catch (...) {
         // Nothing owns the mmap yet, so free it here rather than leaking it.
         release_mapping(mapping);
@@ -246,16 +243,15 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     }
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
-    // Nothing stops the simulated device writing a mapping, so a read-only promise could not be kept.
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_user_buffer(
+    void* user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) {
     UMD_ASSERT(
         device_access != DeviceBufferAccess::READ_ONLY || is_read_only_page_pinning_supported(),
         error::RuntimeError,
         "Simulation cannot pin pages read-only to the device.");
     std::lock_guard<std::mutex> lock(registry_->mutex);
     // The caller owns this memory, so the buffer only drops the registry entry.
-    return register_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
+    return register_and_wrap(user_ptr, size, bind_to_noc, device_access, {});
 }
 
 void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
@@ -268,21 +264,21 @@ void SimulationSysmemManager::check_arena_capacity(uint64_t extent) const {
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     void* buffer,
-    size_t sysmem_buffer_size,
-    const bool map_to_noc,
+    size_t size,
+    const bool bind_to_noc,
     DeviceBufferAccess device_access,
     SysmemBuffer::Deleter release_backing_memory) {
     UMD_ASSERT(buffer != nullptr, error::RuntimeError, "Cannot map a null simulation buffer.");
-    const uint64_t extent = mapped_extent(buffer, sysmem_buffer_size);
+    const uint64_t extent = mapped_extent(buffer, size);
     check_arena_capacity(extent);
 
     // The arena hands out whole pages, so the buffer's address keeps its offset into the first one.
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t host_offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
     const uint64_t device_io_addr = pcie_base_ + registry_->next_arena_offset + host_offset;
-    const std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
+    const std::optional<uint64_t> noc_addr = bind_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
-    registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});
+    registry_->buffers.push_back({device_io_addr, buffer, size});
     // The registry covers only the requested bytes, not the padding on either side of the mapping.
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     try {
@@ -305,8 +301,8 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
                     release(buffer_va);
                 }
             };
-        auto result = create_buffer(
-            buffer, sysmem_buffer_size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
+        auto result =
+            create_buffer(buffer, size, device_io_addr, communication_id_, std::move(deleter), noc_addr, device_access);
         registry_->next_arena_offset += extent;
         return result;
     } catch (...) {

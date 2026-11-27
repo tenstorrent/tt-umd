@@ -14,6 +14,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -39,6 +40,7 @@
 #include "tt-umd/utils/timeouts.hpp"
 #include "tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
+#include "tt_device/protocol/pcie_peer_window.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -218,21 +220,29 @@ std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_prob
     };
 }
 
-// A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
-// address at or below addr; the smallest window that still covers [addr, addr + size) is selected.
-// The offset handed to the driver is addr's distance from that base, and both offset and size must
-// be page-aligned.
-int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
-    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
-    // any window is allocated or an ioctl issued, same as the alignment checks below.
-    UMD_ASSERT(
-        tt::umd::utils::has_any_active_rdma_port(),
-        error::RuntimeError,
-        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
-        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
+namespace {
 
+// A dedicated TLB window placed to cover a range another device reaches.
+struct WindowPlacement {
+    size_t window_size;
+    // Distance of the range's start from the window's base.
+    uint64_t window_offset;
+    tlb_data config;
+};
+
+// A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
+// address at or below addr; the smallest of size_classes that still covers [addr, addr + size) is
+// selected. The range is handed out in whole host pages, so both its ends must be page-aligned.
+WindowPlacement place_window(
+    const std::vector<TlbSizeClass>& size_classes,
+    bool use_static_vc,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    IoOrdering ordering,
+    NocId noc_id) {
     const uint64_t page_size = static_cast<uint64_t>(getpagesize());
-    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a dma-buf of size 0.");
+    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a window of size 0.");
     UMD_ASSERT(
         addr % page_size == 0,
         error::RuntimeError,
@@ -242,7 +252,6 @@ int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoO
         error::RuntimeError,
         fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
 
-    const std::vector<TlbSizeClass>& size_classes = get_architecture_tlbs(pci_device_->get_arch()).size_classes;
     size_t window_size = 0;
     for (const TlbSizeClass& size_class : size_classes) {
         if (size <= size_class.size - (addr % size_class.size)) {
@@ -269,7 +278,25 @@ int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoO
     config.noc_sel = static_cast<uint64_t>(noc_id);
     // IoOrdering carries the TLB hardware encoding (asserted in tlb_window.cpp), so this is a cast.
     config.ordering = static_cast<uint64_t>(ordering);
-    config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
+    config.static_vc = use_static_vc;
+
+    return {window_size, window_offset, config};
+}
+
+}  // namespace
+
+int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
+    // any window is allocated or an ioctl issued, same as the alignment checks below.
+    UMD_ASSERT(
+        tt::umd::utils::has_any_active_rdma_port(),
+        error::RuntimeError,
+        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
+        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
+
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(pci_device_->get_arch());
+    const WindowPlacement window =
+        place_window(tlbs.size_classes, tlbs.use_static_vc, core, addr, size, ordering, noc_id);
 
     log_debug(
         LogUMD,
@@ -277,12 +304,46 @@ int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoO
         size,
         addr,
         core.str(),
-        window_size,
-        window_offset);
+        window.window_size,
+        window.window_offset);
 
     // Dedicated window (not a cached one): must not alias a window other traffic could reconfigure
     // while the export is live.
-    return pci_device_->export_tlb_dmabuf(window_size, config, window_offset, size);
+    return pci_device_->export_tlb_dmabuf(window.window_size, window.config, window.window_offset, size);
+}
+
+std::unique_ptr<PeerWindow> PcieProtocol::export_window_to_device(
+    int device_id, tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    const tt::ARCH arch = pci_device_->get_arch();
+    // A Blackhole device's NOC traffic to its own PCIe core goes out on PCIe at the address it carries, so the
+    // initiator reaches the window without any outbound address translation set up on its side.
+    UMD_ASSERT(
+        arch == tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
+        fmt::format(
+            "Exporting a window to another device is supported only on Blackhole, but this device is {}.", arch));
+    const int this_device_id = pci_device_->get_device_num();
+    UMD_ASSERT(
+        device_id != this_device_id,
+        error::RuntimeError,
+        fmt::format("Cannot export a window of device {} to itself; the peer must be another device.", device_id));
+
+    // The driver takes 32-bit BAR offsets for a peer mapping, so only windows lying wholly within the
+    // first 4 GiB of their BAR can be mapped.
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(arch);
+    std::vector<TlbSizeClass> mappable_size_classes;
+    std::copy_if(
+        tlbs.size_classes.begin(),
+        tlbs.size_classes.end(),
+        std::back_inserter(mappable_size_classes),
+        [](const TlbSizeClass& size_class) {
+            return size_class.bar_offset + uint64_t{size_class.count} * size_class.size <= (uint64_t{1} << 32);
+        });
+    const WindowPlacement window =
+        place_window(mappable_size_classes, tlbs.use_static_vc, core, addr, size, ordering, noc_id);
+
+    return std::make_unique<PciePeerWindow>(
+        arch, this_device_id, device_id, window.window_size, window.config, window.window_offset, size);
 }
 
 bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {

@@ -615,3 +615,52 @@ class TestTTDevice(unittest.TestCase):
                 )
 
             dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+
+
+class TestPeerWindow(unittest.TestCase):
+    def open_device(self, pci_id):
+        dev = tt_umd.TTDevice.create(pci_id)
+        dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+        dev.init_tt_device()
+        self.addCleanup(dev.set_power_state, tt_umd.TTDevice.PowerState.IDLE)
+        return dev
+
+    def first_tensix(self, dev):
+        return tt_umd.SocDescriptor(dev).get_cores(
+            tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+        )[0]
+
+    def test_export_window_to_device(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) < 2:
+            self.skipTest("A peer window needs two devices.")
+        initiator = self.open_device(pci_ids[0])
+        target = self.open_device(pci_ids[1])
+        if (
+            initiator.get_arch() != tt_umd.ARCH.BLACKHOLE
+            or target.get_arch() != tt_umd.ARCH.BLACKHOLE
+        ):
+            self.skipTest("Peer windows are supported only on Blackhole.")
+
+        window = target.export_window_to_device(
+            initiator.get_communication_device_id(),
+            self.first_tensix(target),
+            0,
+            0x10000,
+            ordering=tt_umd.IoOrdering.STRICT,
+            noc_id=tt_umd.NocId.NOC0,
+        )
+        self.assertIsInstance(window.get_address(), int)
+
+    def test_export_window_to_own_device_raises(self):
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            self.skipTest("No PCI devices found.")
+        dev = self.open_device(pci_ids[0])
+        if dev.get_arch() != tt_umd.ARCH.BLACKHOLE:
+            self.skipTest("Peer windows are supported only on Blackhole.")
+
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            dev.export_window_to_device(
+                dev.get_communication_device_id(), self.first_tensix(dev), 0, 0x10000
+            )

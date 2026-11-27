@@ -31,6 +31,7 @@
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/jtag_interface.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/tt_device/protocol/remote_interface.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -573,6 +574,21 @@ public:
      * @throws if this device has no PeerDmaInterface.
      */
     virtual int export_dmabuf(
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        IoOrdering ordering = IoOrdering::RELAXED,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Make a NOC-addressable region of this device reachable by device @p device_id over peer-to-peer PCIe, for
+     * example for @p device_id's cores to write into this device through their own PCIe core. See
+     * PeerDmaInterface::export_window_to_device for the full contract and PeerWindow for the window's lifetime.
+     *
+     * @throws error::RuntimeError if this device has no PeerDmaInterface.
+     */
+    std::unique_ptr<PeerWindow> export_window_to_device(
+        int device_id,
         CoreCoord core,
         uint64_t addr,
         size_t size,

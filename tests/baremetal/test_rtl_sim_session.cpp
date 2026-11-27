@@ -454,10 +454,10 @@ TEST_F(RtlSimSessionTest, AccessPointsOfADeviceHaveTheirOwnFlatAddresses) {
 
     EXPECT_EQ(
         device.get_flat_address(AccessPointId{2}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
-        std::optional<uint64_t>(0x20'4020'0100));
+        std::optional<uint64_t>(0x20'4080'0100));
     EXPECT_EQ(
         device.get_flat_address(AccessPointId{3}, tensix, WindowFlags::UnicastWrite, IoOrdering::POSTED, 0x100),
-        std::optional<uint64_t>(0x21'4020'0100));
+        std::optional<uint64_t>(0x21'4080'0100));
 }
 
 // horizon_x2_columns takes its tables in the order of the column layout's access points

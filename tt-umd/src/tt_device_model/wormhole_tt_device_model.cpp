@@ -6,10 +6,10 @@
 
 #include <utility>
 
+#include "system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
-#include "tt-umd/system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/noc_id.hpp"

@@ -21,6 +21,7 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
+#include "system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -28,7 +29,6 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd/system_memory/sysmem_buffer.hpp"
 #include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

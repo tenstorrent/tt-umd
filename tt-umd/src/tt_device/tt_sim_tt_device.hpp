@@ -71,12 +71,8 @@ public:
     static std::unique_ptr<TTSimTTDevice> create_client(
         ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo &device_info);
 
-    // Configure this chip's outbound iATU (NOC->host) the silicon way: iATU register writes via BAR2.
-    // The simulator decodes these into its iATU model and honors them at DMA egress, so the chip's DMA
-    // resolves to this chip's distinct host base (configured as the region target) purely by address.
-    // TTSim's simulated-iATU programming, used by its own sysmem setup. No longer a TTDevice
-    // override: the facade dropped configure_iatu_region (nothing external calls it), so this is
-    // now a detail of this backend.
+    // Programs one outbound iATU region of this chip so its NOC-to-host traffic reaches this chip's
+    // host base (the region target) by address alone. Used by this backend's sysmem setup.
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
     // Grows this chip's host-memory channels to num_host_mem_channels and re-programs the outbound

@@ -171,18 +171,17 @@ void TTSimTTDevice::initialize_backend() {
         protocol->attach(this, communicator_.get(), static_cast<int>(chip_id_));
     }
 
-    // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):
-    // one region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host
-    // base. The simulator honors the iATU at DMA egress, so each chip's DMA lands in its own host
-    // window by address alone -- no per-chip tag. region_size is the channel's actual mapping size
-    // (WH channel 3 is 768 MiB, the rest 1 GiB); configure_iatu_region keeps the region base on the
-    // fixed 1 GiB channel grid (matching SimulationSysmemManager's placement) and uses region_size only
-    // to bound the limit, so a sub-1-GiB channel still starts at the right NOC offset.
+    // Program this chip's outbound iATU through the BAR2 registers the KMD programs on silicon: one
+    // region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host base.
+    // The simulator honors the iATU at DMA egress, so each chip's DMA lands in its own host window by
+    // address alone -- no per-chip tag. region_size is the channel's actual mapping size (WH channel 3
+    // is 768 MiB, the rest 1 GiB); configure_iatu_region keeps the region base on the fixed 1 GiB
+    // channel grid (matching SimulationSysmemManager's placement) and uses region_size only to bound
+    // the limit, so a sub-1-GiB channel still starts at the right NOC offset.
     //
     // Programmed uniformly for single- and multi-chip: a single-chip sim simply has host_base 0, so
     // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
-    // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
-    // of the multichip work), which is the behaviour of the stable simulator release.
+    // regardless of num_chips.
     program_iatu_for_host_mem_channels();
 }
 
@@ -336,12 +335,12 @@ void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint6
     // CRAQ models 16 outbound regions, interleaved with 16 inbound regions in BAR2.
     constexpr size_t OUTBOUND_IATU_REGION_COUNT = 16;
     UMD_ASSERT(region < OUTBOUND_IATU_REGION_COUNT, error::RuntimeError, "Invalid simulator iATU region index.");
-    // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
-    // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
-    // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the
-    // modeled outbound iATU and honors it at DMA egress. `target` is this chip's host base for the
-    // region (per-chip distinct); `base` is the region's offset within the chip's NOC sysmem window.
-    const uint64_t iatu_bar2_off = (get_arch() == tt::ARCH::BLACKHOLE) ? 0x1000 : 0x1200;
+    // Program the region through BAR2, writing the registers the KMD writes on silicon for this
+    // architecture; the simulator decodes them into its outbound iATU and applies it at DMA egress.
+    // `target` is this chip's host base for the region (per-chip distinct); `base` is the region's
+    // offset within the chip's NOC sysmem window.
+    const bool is_blackhole = get_arch() == tt::ARCH::BLACKHOLE;
+    const uint64_t iatu_bar2_off = is_blackhole ? 0x1000 : 0x1200;
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
@@ -354,29 +353,27 @@ void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint6
         error::RuntimeError,
         "iATU base plus region size overflows uint64_t.");
     const uint64_t limit = base + region_size - 1;
-    // limit and base are written as 32-bit registers (limit hi shares base hi). This holds only while the
-    // top of the region stays within 4 GiB; assert rather than silently truncate if stride/channel count
-    // ever grows past that.
+    // Keep every region below 4 GiB: Wormhole's limit has no high register (its high bits are base hi),
+    // and a Blackhole region above 4 GiB would also need ctrl_1's INCREASE_REGION_SIZE, which this
+    // sequence does not set.
     UMD_ASSERT(
         limit < (1ULL << 32),
         error::RuntimeError,
-        "iATU region exceeds 32-bit base/limit; extend the iATU register writes to cover the high bits.");
+        "iATU region exceeds 4 GiB, which the simulator iATU programming does not support.");
     const uint64_t iatu = bar2_base + iatu_bar2_off + uint64_t(region) * 0x200;
     auto wr = [&](uint64_t off, uint32_t val) { communicator_->pci_mem_write_bytes(iatu + off, &val, sizeof(val)); };
     wr(0x04, 0);                       // region_ctrl_2: disable while (re)programming the region
     wr(0x00, 0);                       // region_ctrl_1
     wr(0x08, uint32_t(base));          // base lo
     wr(0x0c, uint32_t(base >> 32));    // base hi
-    wr(0x10, uint32_t(limit));         // limit (low 32b; upper bits share base hi)
+    wr(0x10, uint32_t(limit));         // limit lo
     wr(0x14, uint32_t(target));        // target lo
     wr(0x18, uint32_t(target >> 32));  // target hi
-    // Note: unlike the silicon Blackhole iATU programming this models (retired unused; see git
-    // history), we do NOT write limit_hi (0x1c) or
-    // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
-    // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
-    // asserted to stay within 4 GiB, so limit_hi is never anything but 0. Regions are re-programmed when
-    // grow_host_mem_channels() adds channels, but since no write ever sets the high bits, re-programming
-    // cannot leave stale high bits behind.
+    // The KMD writes these two on Blackhole only; Wormhole's simulator model rejects them.
+    if (is_blackhole) {
+        wr(0x1c, 0);                      // region_ctrl_3
+        wr(0x20, uint32_t(limit >> 32));  // limit hi
+    }
     wr(0x04, 1u << 31);  // region_ctrl_2 = REGION_EN, written last so the sim validates a complete region
 }
 

@@ -418,7 +418,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         tt_device->set_power_state(PowerState::HIGH);
 
         // These methods should work without initialization.
-        EXPECT_NO_THROW(tt_device->get_arc_core());
+        EXPECT_NO_THROW(tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0));
         EXPECT_NO_THROW(tt_device->get_arch());
         EXPECT_NO_THROW(tt_device->get_architecture_implementation());
         EXPECT_NO_THROW(tt_device->get_min_clock_freq());

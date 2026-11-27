@@ -403,10 +403,6 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     get_risc_reset()->deassert_risc_reset(resolve_coordinate(core, noc), selected_riscs, staggered_start, noc);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }
-
-tt_xy_pair TTDevice::get_arc_core(const NocId noc) const { return get_device_firmware()->get_firmware_noc_coord(noc); }
-
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc) {
     UMD_ASSERT(

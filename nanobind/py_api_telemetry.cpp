@@ -227,8 +227,8 @@ void bind_telemetry(nb::module_& m) {
             [](SmBusArcTelemetryReader* self, TTDevice* tt_device) {
                 new (self) SmBusArcTelemetryReader(
                     tt_device->get_device_protocol(),
-                    tt_device->get_arc_core(NocId::NOC0),
-                    tt_device->get_arc_core(NocId::NOC1));
+                    tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0),
+                    tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC1));
             },
             nb::arg("tt_device"),
             release_gil())
@@ -374,8 +374,8 @@ void bind_telemetry(nb::module_& m) {
                 return FirmwareInfoProviderImplementation::create_firmware_info_provider(
                     tt_device->get_arch(),
                     tt_device->get_device_protocol(),
-                    tt_device->get_arc_core(NocId::NOC0),
-                    tt_device->get_arc_core(NocId::NOC1),
+                    tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0),
+                    tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC1),
                     tt_device->get_firmware_telemetry_reader());
             },
             nb::arg("tt_device"),

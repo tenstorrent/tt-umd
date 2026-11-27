@@ -605,7 +605,7 @@ class TestTTDevice(unittest.TestCase):
 
             # A healthy device should return False for all hang checks.
             self.assertFalse(
-                dev.is_pcie_hung(action=tt_umd.TTDevice.HangAction.ReturnValue)
+                dev.is_bus_hung(action=tt_umd.TTDevice.HangAction.ReturnValue)
             )
             for noc in [tt_umd.NocId.NOC0, tt_umd.NocId.NOC1]:
                 self.assertFalse(

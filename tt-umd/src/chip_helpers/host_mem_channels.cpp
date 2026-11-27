@@ -10,9 +10,32 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/chip_helpers/host_cache.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// A platform that does not snoop inbound DMA and cannot issue cache-maintenance instructions has no
+// correct way to share sysmem with the device. Nothing here can fix that, so say so once and loudly
+// rather than let it look like it worked.
+void warn_once_if_maintenance_unavailable() {
+    static const bool reported = [] {
+        if (host_cache::maintenance_required_but_unavailable()) {
+            log_error(
+                LogUMD,
+                "Host cache maintenance is required on this platform but unavailable: the interconnect "
+                "does not report snooping this device's inbound DMA, and no usable cache-maintenance "
+                "instruction was found. Sysmem shared with the device may return stale data in either "
+                "direction.");
+        }
+        return true;
+    }();
+    (void)reported;
+}
+
+}  // namespace
 
 HostMemChannels::HostMemChannels(size_t num_channels) : channels_(num_channels) {}
 
@@ -44,6 +67,7 @@ void HostMemChannels::unmap_channels() {
 }
 
 void HostMemChannels::write_to_channel(uint16_t channel, const void* src, uint64_t offset, size_t size) const {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     void* address = get_channel_address(channel);
     const size_t channel_size = get_channel_size(channel);
@@ -65,10 +89,16 @@ void HostMemChannels::write_to_channel(uint16_t channel, const void* src, uint64
         (offset % channel_size),
         channel,
         size);
-    memcpy(static_cast<char*>(address) + (offset % channel_size), src, size);
+    char* const dest = static_cast<char*>(address) + (offset % channel_size);
+    memcpy(dest, src, size);
+
+    // The device DMA-reads this back out of DRAM, so the host's stores have to be written back on a
+    // platform that does not snoop. No-op where it does.
+    host_cache::clean_range(dest, size);
 }
 
 void HostMemChannels::read_from_channel(uint16_t channel, void* dest, uint64_t offset, size_t size) const {
+    warn_once_if_maintenance_unavailable();
     ZoneScopedC(tracy::Color::Yellow);
     void* address = get_channel_address(channel);
     const size_t channel_size = get_channel_size(channel);
@@ -79,7 +109,10 @@ void HostMemChannels::read_from_channel(uint16_t channel, void* dest, uint64_t o
             "read_buffer: Hugepages are not allocated ch: {}."
             " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
             channel));
-    memcpy(dest, static_cast<const char*>(address) + (offset % channel_size), size);
+    const char* const src = static_cast<const char*>(address) + (offset % channel_size);
+    // The device DMA-wrote this, so drop any cached lines first and let the copy refetch from DRAM.
+    host_cache::invalidate_range(src, size);
+    memcpy(dest, src, size);
 }
 
 }  // namespace tt::umd

@@ -15,13 +15,14 @@
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/simulation/simulation_host.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/simulation_tt_device.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
@@ -119,8 +120,7 @@ public:
 protected:
     SimulationBackendType backend_type() const override { return SimulationBackendType::TTSIM; }
 
-    std::unique_ptr<TlbWindow> create_tlb_window(
-        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    std::unique_ptr<IoWindow> create_tlb_window(int tlb_index, size_t size, TlbMapping mapping) override;
     void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
     bool is_device_closed() override;

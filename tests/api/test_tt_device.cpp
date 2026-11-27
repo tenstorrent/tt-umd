@@ -24,6 +24,7 @@
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"
 #include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
@@ -35,6 +36,7 @@
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/error.hpp"
 
@@ -309,6 +311,24 @@ TEST(ApiTTDeviceTest, RemoteDeviceHasNoSystemMemoryAllocator) {
 
     for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
         EXPECT_EQ(cluster->get_chip(chip_id)->get_tt_device()->get_system_memory_allocator(), nullptr);
+    }
+}
+
+// A remote device has no host mapping into its own address space, so it cannot hand out an I/O window.
+TEST(ApiTTDeviceTest, RemoteDeviceCannotCreateIoWindow) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_remote_device_ids().empty()) {
+        GTEST_SKIP() << "No remote chips in the cluster.";
+    }
+
+    for (ChipId chip_id : cluster->get_target_remote_device_ids()) {
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const CoreCoord tensix_core =
+            tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        EXPECT_THROW(
+            tt_device->create_io_window({.core_start = {tensix_core.x, tensix_core.y}, .addr = 0x100}, {.size = 4096}),
+            error::UmdException<error::RuntimeError>);
     }
 }
 

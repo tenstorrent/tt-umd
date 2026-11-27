@@ -261,10 +261,9 @@ TTSimTTDevice::TTSimTTDevice(
     setup_();
 }
 
-std::unique_ptr<TlbWindow> TTSimTTDevice::create_tlb_window(
-    int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
+std::unique_ptr<IoWindow> TTSimTTDevice::create_tlb_window(int tlb_index, size_t size, TlbMapping mapping) {
     auto handle = TTSimTlbHandle::create(tlb_allocator_, communicator_.get(), tlb_index, size, mapping);
-    return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
+    return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get());
 }
 
 TTSimTTDevice::~TTSimTTDevice() {

@@ -15,7 +15,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "arch/tlb_window_size.hpp"
 #include "noc_access.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
@@ -212,19 +211,10 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
-std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    UMD_THROW(error::RuntimeError, "I/O windows are not supported on this device.");
-}
-
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
     return create_io_window(target, host, IoOrdering::STRICT);
 }
 
-// Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
-// virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
-// SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
-// the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
-// without touching this signature or any caller.
 std::unique_ptr<IoWindow> TTDevice::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
     // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
@@ -239,15 +229,8 @@ std::unique_ptr<IoWindow> TTDevice::create_io_window(
         target.noc = get_selected_noc_id();
     }
 
-    if (std::unique_ptr<IoWindow> window = model_->create_io_window(target, host, ordering)) {
-        return window;
-    }
-
-    // The simulation devices serve windows from their own TLB allocator.
-    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
-    std::unique_ptr<TlbWindow> window =
-        get_io_window({}, mapping, fit_tlb_window_size(get_arch(), target.addr, host.size));
-    window->configure(target, ordering);
+    std::unique_ptr<IoWindow> window = model_->create_io_window(target, host, ordering);
+    UMD_ASSERT(window != nullptr, error::RuntimeError, "I/O windows are not supported on this device.");
     return window;
 }
 

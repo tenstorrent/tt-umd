@@ -17,6 +17,7 @@
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/firmware/simulation_device_firmware.hpp"
 #include "tt_device/firmware/wormhole_device_firmware.hpp"
+#include "tt_device/protocol/io_window_factory.hpp"
 
 namespace tt::umd {
 
@@ -82,7 +83,11 @@ SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
 
 std::unique_ptr<IoWindow> SimulationTTDeviceModel::create_io_window(
     TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
-    return nullptr;
+    return io_window_factory_ == nullptr ? nullptr : io_window_factory_->create_io_window(target, host, ordering);
+}
+
+void SimulationTTDeviceModel::set_io_window_factory(std::unique_ptr<IoWindowFactory> io_window_factory) {
+    io_window_factory_ = std::move(io_window_factory);
 }
 
 // Serving a protocol is what lets the architecture's firmware, telemetry reader and firmware-info

@@ -11,20 +11,22 @@
 #include <limits>
 #include <tt-logger/tt-logger.hpp>
 
+#include "arch/tlb_window_size.hpp"
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"
 #include "tt-umd/utils/error.hpp"
+#include "tt_device/protocol/io_window_factory.hpp"
 #include "tt_device_model/simulation_tt_device_model.hpp"
 #include "utils.hpp"
 
@@ -36,14 +38,37 @@ namespace tt::umd {
 SimulationTTDevice::ModelHandle::ModelHandle(std::unique_ptr<SimulationTTDeviceModel> simulation_model) :
     simulation_model(simulation_model.get()), model(std::move(simulation_model)) {}
 
+// Serves TTDevice::create_io_window for a simulated device. The model that owns it is owned by the device
+// it points back to, so the device outlives every call.
+class SimulationTTDevice::TlbWindowFactory : public IoWindowFactory {
+public:
+    explicit TlbWindowFactory(SimulationTTDevice& device) : device_(device) {}
+
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override {
+        const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+        std::unique_ptr<IoWindow> window =
+            device_.allocate_tlb_window(fit_tlb_window_size(device_.get_arch(), target.addr, host.size), mapping);
+        window->configure(target, ordering);
+        return window;
+    }
+
+private:
+    SimulationTTDevice& device_;
+};
+
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, const std::filesystem::path& simulator_directory) :
     TTDevice(std::move(model.model)),
     simulator_directory_(simulator_directory),
     sysmem_manager_(model.simulation_model->get_system_memory_allocator()),
-    simulation_model_(model.simulation_model) {}
+    simulation_model_(model.simulation_model) {
+    simulation_model_->set_io_window_factory(std::make_unique<TlbWindowFactory>(*this));
+}
 
 SimulationTTDevice::SimulationTTDevice(ModelHandle model, std::unique_ptr<SimulationClient> client) :
-    TTDevice(std::move(model.model)), client_(std::move(client)), simulation_model_(model.simulation_model) {}
+    TTDevice(std::move(model.model)), client_(std::move(client)), simulation_model_(model.simulation_model) {
+    simulation_model_->set_io_window_factory(std::make_unique<TlbWindowFactory>(*this));
+}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -312,13 +337,13 @@ void SimulationTTDevice::setup_cached_tlb_window() {
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (get_arch()) {
         case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            cached_tlb_window_ = allocate_tlb_window(SIZE_2MB, TlbMapping::WC);
             break;
         case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            cached_tlb_window_ = allocate_tlb_window(SIZE_16MB, TlbMapping::WC);
             break;
         case tt::ARCH::QUASAR:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            cached_tlb_window_ = allocate_tlb_window(SIZE_4GB, TlbMapping::WC);
             break;
         default:
             log_debug(
@@ -329,13 +354,13 @@ void SimulationTTDevice::setup_cached_tlb_window() {
     }
 }
 
-std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+std::unique_ptr<IoWindow> SimulationTTDevice::allocate_tlb_window(size_t size, TlbMapping mapping) {
     // tlb_allocator_ is only built by init_tlb_allocator(), which the client-mode path never calls
     // (it runs no local backend). Fail loudly instead of dereferencing a null allocator.
     UMD_ASSERT(
         tlb_allocator_ != nullptr,
         error::RuntimeError,
-        "TLB allocator is not initialized; get_io_window is unavailable (e.g. in client mode).");
+        "TLB allocator is not initialized; I/O windows are unavailable (e.g. in client mode).");
     int tlb_index = tlb_allocator_->allocate_tlb_index(size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -343,7 +368,7 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested size
     // through, since get_tlb_size_from_index has no pool to look up for the bypass index.
     size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
-    return create_tlb_window(tlb_index, actual_size, mapping, config);
+    return create_tlb_window(tlb_index, actual_size, mapping);
 }
 
 void SimulationTTDevice::noc_multicast_write(

@@ -1,0 +1,510 @@
+# TEST ONLY - copy of release.yml from PR #3920 (sdist + riscv64 + cp314 wheels).
+# Differences from release.yml:
+#   - triggers on push to this test branch (and manual dispatch) instead of VERSION changes on main
+#   - VERSION is bumped to a -dev.3920 version on this branch so nothing looks like a real release
+#   - NO TestPyPI / PyPI publishing and NO Slack notification
+#   - adds a job that runs `twine check` on all dists and installs the sdist from source
+#   - GitHub release is created as a DRAFT with a test-* tag name
+# Do NOT merge this file.
+name: "TEST Release (PR 3920) - not an official release"
+
+on:
+  push:
+    branches:
+      - brosko/test-release-pr3920
+  workflow_dispatch:
+
+env:
+  RELEASE_BUILD_TYPE: Release
+  BUILD_OUTPUT_DIR: ./build
+  INSTALL_OUTPUT_DIR: ./build/install
+  LIB_OUTPUT_DIR: ./build/lib
+  WHEEL_OUTPUT_DIR: ./build/wheel
+
+jobs:
+  prepare-release:
+    name: Prepare Release Information
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      changelog: ${{ steps.generate_changelog.outputs.changelog }}
+      version_changelog: ${{ steps.extract_version_changelog.outputs.version_changelog }}
+      pr_summary: ${{ steps.get_pr_summary.outputs.pr_summary }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Extracts version from VERSION file.
+      - name: Read VERSION file
+        id: get_version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
+
+      # Extracts version-specific changelog from CHANGELOG file.
+      # This changelog should be using the same version as the one in the VERSION file.
+      - name: Extract version-specific changelog
+        id: extract_version_changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          VERSION_CHANGELOG=""
+
+          if [ -f "CHANGELOG" ]; then
+            echo "Extracting changelog for version ${VERSION}"
+
+            # Extract the section for this version from CHANGELOG file
+            VERSION_CHANGELOG=$(awk -v version="$VERSION" '
+              BEGIN { in_section = 0; content = "" }
+              /^## \[.*\]/ {
+                if (in_section) exit
+                if ($0 ~ "\\[" version "\\]") {
+                  in_section = 1
+                  next
+                }
+              }
+              in_section && /^## \[.*\]/ { exit }
+              in_section && NF > 0 {
+                if (content != "") content = content "\n"
+                content = content $0
+              }
+              END { print content }
+            ' CHANGELOG)
+          else
+            echo "CHANGELOG file not found"
+          fi
+
+          if [ -n "$VERSION_CHANGELOG" ]; then
+            echo "Found changelog for version ${VERSION}"
+            # Save to output (handle multiline)
+            {
+              echo 'version_changelog<<EOF'
+              echo "$VERSION_CHANGELOG"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            echo "No changelog found for version ${VERSION}"
+            {
+              echo 'version_changelog<<EOF'
+              echo "### Changed"
+              echo ""
+              echo "- Release notes for version ${VERSION} not found in CHANGELOG file."
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          fi
+
+      # Gets the previous tag and commit range.
+      # This is used to get the pull requests that are included in the release.
+      # If the previous tag is not found, it uses the recent commits.
+      - name: Get previous tag and commit range
+        id: get_commit_range
+        run: |
+          CURRENT_VERSION="v${{ steps.get_version.outputs.version }}"
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get the previous tag, excluding the current version tag
+          # Use sort -rV (GNU version sort) instead of git's --sort=-version:refname
+          # because git's version sort does not reliably handle 4-segment versions (e.g. v0.9.3.260313).
+          # Use grep -Fxv for fixed-string exact matching (dots in version numbers are regex wildcards).
+          PREV_TAG=$(git tag | sort -rV | \
+            grep -Fxv "${CURRENT_VERSION}" | head -n 1 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "Found previous tag: $PREV_TAG"
+            # Check if the range is valid
+            if git rev-list "${PREV_TAG}..HEAD" >/dev/null 2>&1; then
+              COMMIT_RANGE="${PREV_TAG}..HEAD"
+              COMMIT_COUNT=$(git rev-list --count ${PREV_TAG}..HEAD)
+              echo "Found $COMMIT_COUNT commits since $PREV_TAG"
+              echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "commit_range=$COMMIT_RANGE" >> $GITHUB_OUTPUT
+              echo "use_tag_range=true" >> $GITHUB_OUTPUT
+            else
+              echo "Invalid commit range ${PREV_TAG}..HEAD, using recent commits instead"
+              echo "prev_tag=" >> $GITHUB_OUTPUT
+              echo "commit_range=--max-count=100" >> $GITHUB_OUTPUT
+              echo "use_tag_range=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No previous tags found, using recent commits"
+            echo "prev_tag=" >> $GITHUB_OUTPUT
+            echo "commit_range=--max-count=100" >> $GITHUB_OUTPUT
+            echo "use_tag_range=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Gets the pull request summary.
+      # This is used to get the pull requests that are included in the release.
+      # The summary contains only the pull request title and number.
+      - name: Get pull request summary
+        id: get_pr_summary
+        run: |
+          if [ "${{ steps.get_commit_range.outputs.use_tag_range }}" = "true" ]; then
+            echo "Getting PR list since ${{ steps.get_commit_range.outputs.prev_tag }}"
+            PR_LIST=$(git log --pretty=format:"%s" ${{ steps.get_commit_range.outputs.commit_range }} | \
+              grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
+          else
+            echo "Getting PR list from recent commits"
+            PR_LIST=$(git log --pretty=format:"%s" --max-count=100 | \
+              grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
+          fi
+
+          if [ -n "$PR_LIST" ]; then
+            echo "Found $(echo "$PR_LIST" | wc -l) pull requests"
+            {
+              echo 'pr_summary<<EOF'
+              echo "$PR_LIST"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            echo "No pull requests found"
+            echo "pr_summary=- No pull requests found in this range" >> $GITHUB_OUTPUT
+          fi
+
+      # Gets the detailed pull request information.
+      # This is used to get the pull request title, author, date, and description.
+      # The detailed information is used to create the detailed pull request information section in the changelog.
+      # The PR description is taken from the Description section of the commit message.
+      - name: Get detailed pull request information
+        id: get_pr_details
+        run: |
+          if [ "${{ steps.get_commit_range.outputs.use_tag_range }}" = "true" ]; then
+            echo "Getting detailed PR info since ${{ steps.get_commit_range.outputs.prev_tag }}"
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short \
+              ${{ steps.get_commit_range.outputs.commit_range }} | grep -E "\(#[0-9]+\)\|" || echo "")
+            echo "DETAILED_PRS: $DETAILED_PRS"
+          else
+            echo "Getting detailed PR info from recent commits"
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=100 | \
+              grep -E "\(#[0-9]+\)\|" || echo "")
+          fi
+
+          if [ -n "$DETAILED_PRS" ]; then
+            DETAILED_CONTENT=""
+            while IFS='|' read -r hash subject author date; do
+              # Get full commit message and extract Description section
+              FULL_MSG=$(git show --format=%B -s "$hash")
+              DESCRIPTION=$(echo "$FULL_MSG" | awk '
+                BEGIN { in_desc = 0; desc = "" }
+                /^### Description/ { in_desc = 1; next }
+                /^### / && in_desc { in_desc = 0 }
+                in_desc && NF > 0 {
+                  if (desc != "") desc = desc "\n"
+                  desc = desc $0
+                }
+                END { if (desc != "") print desc; else print "No description section found." }
+              ')
+
+              DETAILED_CONTENT="${DETAILED_CONTENT}### ${subject}\n"
+              DETAILED_CONTENT="${DETAILED_CONTENT}**Author:** ${author} | **Date:** ${date} | "
+              DETAILED_CONTENT="${DETAILED_CONTENT}**Commit:** \`${hash:0:7}\`\n\n"
+              DETAILED_CONTENT="${DETAILED_CONTENT}${DESCRIPTION}\n\n"
+            done <<< "$DETAILED_PRS"
+
+            {
+              echo 'pr_details<<EOF'
+              echo -e "$DETAILED_CONTENT"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            echo "No detailed PR information found"
+            echo "pr_details=No pull requests found in this range." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate final changelog
+        id: generate_changelog
+        run: |
+          # Create changelog using template with collected data
+          cat << 'EOF' > /tmp/changelog_template.txt
+          ## 🚀 Release Notes for v${{ steps.get_version.outputs.version }}
+
+          ${{ steps.extract_version_changelog.outputs.version_changelog }}
+
+          ---
+
+          ## 📋 Pull Requests Summary
+
+          ${{ steps.get_pr_summary.outputs.pr_summary }}
+
+          ---
+
+          ## 📝 Detailed Pull Request Information
+
+          ${{ steps.get_pr_details.outputs.pr_details }}
+
+          ---
+          EOF
+
+          # Save changelog to output
+          {
+            echo 'changelog<<EOF'
+            cat /tmp/changelog_template.txt
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+  build-cpp-artifacts:
+    name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
+    # Arm variants build natively on an arm runner; everything else uses the standard x86 runner.
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
+    needs: prepare-release
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          # Arm64 build, built natively on an arm runner.
+          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: RPM, package_ext: rpm},
+        ]
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.image.distro }}:latest
+
+    env:
+      CC: ${{ matrix.image.compiler-c }}
+      CXX: ${{ matrix.image.compiler-cpp }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build
+        run: |
+          echo "Compiling the code..."
+          cmake --preset release -B ${{ env.BUILD_OUTPUT_DIR }} \
+            -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Generate ${{ matrix.image.package }} packages
+        working-directory: ${{ env.BUILD_OUTPUT_DIR }}
+        run: |
+          cpack -G ${{ matrix.image.package }}
+
+      - name: Upload ${{ matrix.image.package }} packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.image.distro }}
+          path: |
+            ${{ env.BUILD_OUTPUT_DIR }}/*.${{ matrix.image.package_ext }}
+          if-no-files-found: error
+
+  build-python-sdist:
+    name: Build Python sdist
+    needs: prepare-release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      # Lets pip build tt-umd from source on hosts without a published wheel (e.g. riscv64,
+      # or Python versions newer than the wheel matrix). Third-party C++ dependencies are
+      # fetched by CPM at build time, so building from the sdist needs network access.
+      - name: Build sdist
+        run: |
+          python -m pip install build
+          python -m build --sdist --outdir ${{ env.WHEEL_OUTPUT_DIR }}
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-sdist
+          path: ${{ env.WHEEL_OUTPUT_DIR }}/*.tar.gz
+          if-no-files-found: error
+
+  build-python-wheels:
+    name: Build Python Wheel (manylinux ${{ matrix.arch }})
+    needs: prepare-release
+    # riscv64 builds under QEMU emulation and needs far longer than the native jobs.
+    timeout-minutes: ${{ matrix.arch == 'riscv64' && 330 || 60 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64, riscv64]
+    # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    # GitHub has no riscv64 runners: riscv64 wheels build on x86_64 under QEMU.
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Set up QEMU (riscv64)
+        if: matrix.arch == 'riscv64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: riscv64
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel
+
+      - name: Build manylinux wheels
+        shell: bash
+        env:
+          # Only build wheels for the runner's native architecture.
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # Use custom manylinux Docker images with all dependencies pre-installed.
+          # cibuildwheel picks the image matching the architecture being built.
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_MANYLINUX_AARCH64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux-aarch64:latest
+          # riscv64: the stock pypa manylinux_2_39 image (the oldest manylinux with riscv64) plus
+          # the same packages the custom x86_64/aarch64 images add. Its system GCC is new enough.
+          CIBW_MANYLINUX_RISCV64_IMAGE: manylinux_2_39
+          CIBW_BEFORE_ALL_LINUX: ${{ matrix.arch == 'riscv64' && 'dnf install -y ninja-build hwloc-devel vim-common' || '' }}
+          # This command will be executed for each wheel build to verify that the wheel is functional.
+          CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
+        run: |
+          echo "Cleaning up wheel directory in case of previous build..."
+          rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
+          mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Building manylinux wheel..."
+          python -m cibuildwheel --output-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Build complete."
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-${{ matrix.arch }}
+          path: ${{ env.WHEEL_OUTPUT_DIR }}
+
+  verify-python-dists:
+    name: Verify Python dists (twine check)
+    needs: [prepare-release, build-python-wheels, build-python-sdist]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all the wheels
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-*
+          merge-multiple: true
+          path: dist/
+
+      - name: List and check dists
+        run: |
+          ls -la dist/
+          echo "riscv64 wheels:"; ls dist/*riscv64*.whl
+          echo "cp314 wheels:";   ls dist/*cp314*.whl
+          echo "sdist:";          ls dist/tt_umd-*.tar.gz
+          python3 -m pip install twine
+          python3 -m twine check --strict dist/*
+
+  install-sdist:
+    name: Install tt-umd from sdist (${{ matrix.python }})
+    needs: [prepare-release, build-python-sdist]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.14']
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Download sdist
+        uses: actions/download-artifact@v8
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-sdist
+          path: dist/
+
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libhwloc-dev xxd
+
+      - name: pip install from sdist
+        run: |
+          python -m pip install -v dist/tt_umd-*.tar.gz
+          cd /tmp && python -c "import tt_umd; print(tt_umd.__file__)"
+          python -m pip show tt-umd
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, build-python-sdist]
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      release_url: ${{ steps.release.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: ./release-artifacts/
+
+      - name: Prepare release assets
+        id: prepare_assets
+        run: |
+          # Create a directory for final release assets
+          mkdir -p ./final-assets
+
+          # Copy and organize all artifacts
+          find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "tt_umd-*.tar.gz" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.deb" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.rpm" -exec cp {} ./final-assets/ \;
+
+          # List all assets that will be included
+          echo "Release assets:"
+          ls -la ./final-assets/
+
+      - name: Create Release and Upload Assets
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-pr3920-v${{ needs.prepare-release.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: "[TEST - NOT A RELEASE] PR 3920 dry run v${{ needs.prepare-release.outputs.version }}"
+          body: |
+            > [!WARNING]
+            > TEST DRAFT created by `test-release-pr3920.yml` to validate PR #3920. Not an official release - delete after review.
+
+            # 🚀 Release v${{ needs.prepare-release.outputs.version }}
+
+            ## 📦 What's Included
+
+            ### C++ Build Artifacts
+            Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
+
+            ### System Packages (.deb / .rpm)
+            - **Ubuntu 22.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04 (arm64)**: DEB packages are attached under Assets
+            - **Fedora 39**: RPM packages are attached under Assets
+            - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
+
+            ### Python Wheels
+            - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64 and aarch64)
+            - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
+            - Includes Python bindings for tt-umd
+            - PyPI: https://pypi.org/project/tt-umd/
+
+            ---
+
+            ${{ needs.prepare-release.outputs.changelog }}
+
+            ---
+            *This release was automatically generated when the VERSION file was updated.
+            Release notes were extracted from CHANGELOG file.*
+          files: ./final-assets/*
+          draft: true
+          prerelease: true
+          make_latest: false

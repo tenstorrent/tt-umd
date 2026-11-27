@@ -283,6 +283,78 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
+// A multicast to the Tensix rectangle from logical (0,0) to (1,1) writes all four of its cores, and none of the Tensix
+// cores just past it in x, in y, or on both axes.
+TEST_F(TestDeviceIOFixture, MulticastWriteSubRectangle) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    test_utils::safe_test_cluster_start(cluster.get());
+    const ChipId chip = *cluster->get_target_device_ids().begin();
+
+    auto tensix = [](size_t x, size_t y) { return CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL); };
+    const std::vector<CoreCoord> inside = {tensix(0, 0), tensix(1, 0), tensix(0, 1), tensix(1, 1)};
+    const std::vector<CoreCoord> outside = {tensix(2, 0), tensix(0, 2), tensix(2, 2)};
+
+    constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
+    const std::vector<uint32_t> zeros = {0, 0, 0, 0};
+    const std::vector<uint32_t> data = {0xCAFE0001, 0xCAFE0002, 0xCAFE0003, 0xCAFE0004};
+    const size_t size = data.size() * sizeof(uint32_t);
+
+    for (const CoreCoord& core : inside) {
+        cluster->write_to_device(zeros.data(), size, chip, core, address);
+    }
+    for (const CoreCoord& core : outside) {
+        cluster->write_to_device(zeros.data(), size, chip, core, address);
+    }
+    cluster->wait_for_non_mmio_flush(chip);
+
+    cluster->noc_multicast_write(data.data(), size, chip, tensix(0, 0), tensix(1, 1), address);
+    cluster->wait_for_non_mmio_flush(chip);
+
+    std::vector<uint32_t> readback(4);
+    for (const CoreCoord& core : inside) {
+        cluster->read_from_device(readback.data(), chip, core, address, size);
+        EXPECT_EQ(readback, data) << "Tensix core " << core.str() << " inside the rectangle was not written.";
+    }
+    for (const CoreCoord& core : outside) {
+        cluster->read_from_device(readback.data(), chip, core, address, size);
+        EXPECT_EQ(readback, zeros) << "Tensix core " << core.str() << " outside the rectangle was written.";
+    }
+}
+
+// A multicast to the whole Tensix grid leaves every DRAM and ETH core untouched, including those inside its span.
+// The cores are only read, never written: ETH cores run firmware.
+TEST_F(TestDeviceIOFixture, MulticastWriteSkipsNonTensixCores) {
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    test_utils::safe_test_cluster_start(cluster.get());
+    const ChipId chip = *cluster->get_target_device_ids().begin();
+    const SocDescriptor& soc = cluster->get_soc_descriptor(chip);
+
+    std::vector<CoreCoord> non_tensix_cores = soc.get_cores(CoreType::DRAM);
+    const std::vector<CoreCoord> eth_cores = soc.get_cores(CoreType::ETH);
+    non_tensix_cores.insert(non_tensix_cores.end(), eth_cores.begin(), eth_cores.end());
+
+    constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
+    const std::vector<uint32_t> data = {0xCAFE0001, 0xCAFE0002, 0xCAFE0003, 0xCAFE0004};
+    const size_t size = data.size() * sizeof(uint32_t);
+
+    std::vector<std::vector<uint32_t>> originals(non_tensix_cores.size(), std::vector<uint32_t>(data.size()));
+    for (size_t i = 0; i < non_tensix_cores.size(); ++i) {
+        cluster->read_from_device(originals[i].data(), chip, non_tensix_cores[i], address, size);
+    }
+
+    const tt_xy_pair grid = soc.get_grid_size(CoreType::TENSIX);
+    const CoreCoord first_tensix(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    const CoreCoord last_tensix(grid.x - 1, grid.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+    cluster->noc_multicast_write(data.data(), size, chip, first_tensix, last_tensix, address);
+    cluster->wait_for_non_mmio_flush(chip);
+
+    std::vector<uint32_t> readback(data.size());
+    for (size_t i = 0; i < non_tensix_cores.size(); ++i) {
+        cluster->read_from_device(readback.data(), chip, non_tensix_cores[i], address, size);
+        EXPECT_EQ(readback, originals[i]) << non_tensix_cores[i].str() << " was written by a Tensix multicast.";
+    }
+}
+
 class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
@@ -337,9 +409,11 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
         // Note: For ARC and PCIE the data could change on its own. And if something is wrong with the tests, it can be
         // really messy to actually end up writing something wrong to them. So we don't test them, but the multicasts
         // are definitelly not expected to land on them.
+        // A single-core multicast targets the core itself, and multicast corners must be Tensix cores, so DRAM and ETH
+        // cores are only checked as untouched by the full-grid multicast.
         for (const CoreType ct : {CoreType::DRAM, CoreType::ETH}) {
             const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
-            if (!cores.empty()) {
+            if (full_grid && !cores.empty()) {
                 representative_cores.push_back(cores[0]);
             }
         }

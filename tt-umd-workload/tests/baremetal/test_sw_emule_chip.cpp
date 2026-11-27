@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -20,6 +21,10 @@
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
+#include "tt-umd/types/host_memory.hpp"
 #include "tt-umd/types/noc_id.hpp"
 
 using namespace tt;
@@ -269,4 +274,99 @@ TEST(ApiEmuleClusterTest, SharedBackingRefusesASynthesizedUniqueId) {
     std::unique_ptr<ClusterDescriptor> mock =
         ClusterDescriptor::create_mock_cluster({0, 1}, tt::ARCH::WORMHOLE_B0, /*noc_translation_enabled=*/true);
     EXPECT_FALSE(mock->has_authentic_chip_unique_ids());
+}
+
+namespace {
+SocDescriptor blackhole_soc() {
+    return SocDescriptor(
+        std::make_shared<SocArchDescriptor>(test_utils::get_soc_desc_path("blackhole_140_arch.yaml")),
+        ChipInfo{.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = 0x120}});
+}
+}  // namespace
+
+// The TTDevice's firmware answers from the chip's SocDescriptor, so the two never disagree.
+TEST(ApiEmuleClusterTest, DeviceFirmwareMatchesTheSocDescriptor) {
+    const SocDescriptor soc = blackhole_soc();
+    SWEmuleChip chip(soc);
+    TTDevice* device = chip.get_tt_device();
+    ASSERT_NE(device, nullptr);
+    EXPECT_EQ(device->get_noc_translation_enabled(), soc.noc_translation_enabled);
+    const ChipInfo info = device->get_chip_info();
+    EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
+    EXPECT_EQ(info.harvesting_masks.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
+    EXPECT_EQ(info.harvesting_masks.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);
+    EXPECT_EQ(info.harvesting_masks.eth_harvesting_mask, soc.harvesting_masks.eth_harvesting_mask);
+}
+
+// An access that starts in a core's memory may not run past it, on either tt-emule API.
+TEST(ApiEmuleClusterTest, AccessRunningPastL1Throws) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    std::vector<uint8_t> buf(8, 0xab);
+    const uint64_t last_word = chip.l1_size() - 4;
+    EXPECT_THROW(chip.write_to_device(core, buf.data(), last_word, buf.size()), std::exception);
+    EXPECT_THROW(chip.read_from_device(core, buf.data(), last_word, buf.size()), std::exception);
+    EXPECT_NO_THROW(chip.write_to_device(core, buf.data(), last_word, 4));
+}
+
+// A zero-length access is a no-op wherever it points, including past the core's memory.
+TEST(ApiEmuleClusterTest, ZeroLengthAccessPastL1IsANoOp) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    uint32_t word = 0;
+    EXPECT_NO_THROW(chip.write_to_device(core, &word, chip.l1_size() + 0x1000, 0));
+    EXPECT_NO_THROW(chip.read_from_device(core, &word, chip.l1_size() + 0x1000, 0));
+}
+
+// The chip-level register path has LocalChip's rules: address and size are multiples of 4 bytes.
+TEST(ApiEmuleClusterTest, RegisterAccessMustBeWordAligned) {
+    SWEmuleChip chip(blackhole_soc());
+    const CoreCoord core = chip.get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+    std::vector<uint8_t> buf(8, 0);
+    EXPECT_THROW(chip.write_to_device_reg(core, buf.data(), 0x100, 6), std::exception);
+    EXPECT_THROW(chip.read_from_device_reg(core, buf.data(), 0x102, 4), std::exception);
+    // In memory an aligned multi-word payload (a launch message) is one write and reads back whole.
+    const std::vector<uint8_t> pattern = {1, 2, 3, 4, 5, 6, 7, 8};
+    chip.write_to_device_reg(core, pattern.data(), 0x100, static_cast<uint32_t>(pattern.size()));
+    chip.read_from_device_reg(core, buf.data(), 0x100, static_cast<uint32_t>(buf.size()));
+    EXPECT_EQ(buf, pattern);
+}
+
+// Host memory is the chip's own SystemMemoryAllocator: the channels the cluster asked for, then buffers whose NOC
+// addresses lie past them and resolve back to their host memory while the buffer lives.
+TEST(ApiEmuleClusterTest, HostMemoryGoesThroughTheChipsAllocator) {
+    SWEmuleChip chip(blackhole_soc(), std::nullopt, 2);
+    SystemMemoryAllocator* allocator = chip.get_system_memory_allocator();
+    ASSERT_NE(allocator, nullptr);
+    EXPECT_GT(allocator->get_noc_base(), chip.dram_bank_size());
+
+    const HostMemChannels* channels = chip.get_host_mem_channels();
+    ASSERT_NE(channels, nullptr);
+    ASSERT_EQ(chip.get_num_host_channels(), 2);
+    EXPECT_EQ(chip.get_host_channel_size(1), HostMemChannels::CHANNEL_STRIDE);
+    const uint32_t word = 0xC0FFEE;
+    uint32_t readback = 0;
+    chip.write_to_sysmem(1, &word, 0x40, sizeof(word));
+    chip.read_from_sysmem(1, &readback, 0x40, sizeof(readback));
+    EXPECT_EQ(readback, word);
+    EXPECT_EQ(*reinterpret_cast<const uint32_t*>(static_cast<uint8_t*>(channels->get_channel_address(1)) + 0x40), word);
+
+    uint64_t noc_addr = 0;
+    {
+        std::unique_ptr<SysmemBuffer> buffer = allocator->allocate_buffer(0x2000, true);
+        ASSERT_TRUE(buffer->get_noc_address().has_value());
+        noc_addr = *buffer->get_noc_address();
+        EXPECT_GE(noc_addr, allocator->get_noc_base() + 2 * HostMemChannels::CHANNEL_STRIDE);
+        EXPECT_EQ(chip.get_mapped_host_ptr(noc_addr + 0x10), static_cast<uint8_t*>(buffer->get_va()) + 0x10);
+        EXPECT_EQ(chip.get_mapped_host_ptr(noc_addr + 0x2000), nullptr);
+
+        std::vector<uint8_t> user(0x100);
+        std::unique_ptr<SysmemBuffer> mapped = allocator->map_user_buffer(user.data(), user.size(), true);
+        ASSERT_TRUE(mapped->get_noc_address().has_value());
+        EXPECT_EQ(chip.get_mapped_host_ptr(*mapped->get_noc_address()), user.data());
+        EXPECT_THROW(
+            allocator->map_user_buffer(user.data(), user.size(), true, DeviceBufferAccess::READ_ONLY), std::exception);
+    }
+    // A freed buffer's NOC address no longer reaches host memory.
+    EXPECT_EQ(chip.get_mapped_host_ptr(noc_addr), nullptr);
 }

@@ -294,7 +294,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         // Whether a missing identity is fatal depends on whether shared backing was requested, and
         // that is emule's business: SWEmuleChip decides. This file stays free of tt-emule headers,
         // because it is compiled in every UMD build and emule is an optional component.
-        return std::make_unique<SWEmuleChip>(soc_desc, chip_uid);
+        return std::make_unique<SWEmuleChip>(soc_desc, chip_uid, static_cast<uint32_t>(num_host_mem_channels));
 #else
         throw std::runtime_error(
             "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "
@@ -1219,7 +1219,7 @@ std::unique_ptr<IoWindow> Cluster::create_io_window(
     std::optional<NocId> noc) {
     TTDevice* tt_device = get_chip(chip)->get_tt_device();
     if (tt_device == nullptr) {
-        // Mock and emulated chips have no device to map.
+        // Mock chips have no device to map.
         return nullptr;
     }
     return tt_device->create_io_window(

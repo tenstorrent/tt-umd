@@ -4,20 +4,42 @@
 
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"
 
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include <algorithm>
 #include <cassert>
+#include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/io_window/io_window.hpp"
+#include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
+#include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device/reset/risc_reset.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device_model/tt_device_model.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/host_memory.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
@@ -84,6 +106,88 @@ auto notify_host_write(Core& core, uint64_t addr, size_t size, int) -> decltype(
 template <typename Core>
 void notify_host_write(Core&, uint64_t, size_t, long) {}
 
+template <typename Core>
+auto notify_host_read(Core& core, uint64_t addr, size_t size, int) -> decltype(core.notify_host_read(addr, size)) {
+    return core.notify_host_read(addr, size);
+}
+
+template <typename Core>
+void notify_host_read(Core&, uint64_t, size_t, long) {}
+
+// A host poll of the chip's host memory (a command-queue pointer) lets a tt-emule run make progress, as the
+// simulator's clock does.
+template <typename Core>
+auto notify_host_poll(int) -> decltype(Core::notify_host_poll()) {
+    return Core::notify_host_poll();
+}
+
+template <typename Core>
+void notify_host_poll(long) {}
+
+// A tt-emule core that scopes the catch-up to its own chip gets the target core; an older one, the chip-blind hook.
+template <typename Core>
+auto notify_host_write_begin(Core& core, int) -> decltype(core.notify_host_store_begin()) {
+    return core.notify_host_store_begin();
+}
+
+template <typename Core>
+auto notify_host_write_begin(Core&, long) -> decltype(Core::notify_host_write_begin()) {
+    return Core::notify_host_write_begin();
+}
+
+template <typename Core>
+void notify_host_write_begin(Core&, ...) {}
+
+// A tt-emule core that models its register window takes the whole access (an address past its memory reaches the
+// register model); an older one has memory only, so the access is a copy within it.
+// An access that starts in the core's memory must end there, whichever tt-emule API serves it; one past the memory
+// reaches the register model, which bounds its own blocks.
+template <typename Core>
+void check_memory_end(Core& core, uint64_t addr, size_t size) {
+    UMD_ASSERT(
+        addr >= core.l1_size() || size <= core.l1_size() - addr,
+        error::RuntimeError,
+        "SWEmuleChip: access at " + std::to_string(addr) + " of " + std::to_string(size) +
+            " bytes runs past the core's memory");
+}
+
+template <typename Core>
+auto core_write(Core& core, uint64_t addr, const void* src, size_t size, int)
+    -> decltype(core.access(addr, std::declval<void*>(), size, true)) {
+    check_memory_end(core, addr, size);
+    // access() takes one buffer type for both directions and only reads it on a write.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    return core.access(addr, const_cast<void*>(src), size, /*is_write=*/true);
+}
+
+template <typename Core>
+auto core_read(Core& core, uint64_t addr, void* dst, size_t size, int)
+    -> decltype(core.access(addr, dst, size, false)) {
+    check_memory_end(core, addr, size);
+    return core.access(addr, dst, size, /*is_write=*/false);
+}
+
+template <typename Core>
+void check_in_memory(Core& core, uint64_t addr, size_t size) {
+    UMD_ASSERT(
+        addr <= core.l1_size() && size <= core.l1_size() - addr,
+        error::RuntimeError,
+        "SWEmuleChip: access at " + std::to_string(addr) + " of " + std::to_string(size) +
+            " bytes is outside the core's memory, and this tt-emule has no register window");
+}
+
+template <typename Core>
+void core_write(Core& core, uint64_t addr, const void* src, size_t size, long) {
+    check_in_memory(core, addr, size);
+    std::memcpy(core.l1_ptr(addr), src, size);
+}
+
+template <typename Core>
+void core_read(Core& core, uint64_t addr, void* dst, size_t size, long) {
+    check_in_memory(core, addr, size);
+    std::memcpy(dst, core.l1_ptr(addr), size);
+}
+
 template <typename Pool, typename = void>
 struct HasSharedPoolQuery : std::false_type {};
 
@@ -114,13 +218,423 @@ std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor
     return slot_of;
 }
 
+namespace {
+
+// The chip's NOC naming of a core back to the core: the inverse of the translation the caller ran
+// (SocDescriptor::translate_chip_coord_to_translated), which yields NOC0/NOC1 coordinates when translation is off
+// and for the cores an architecture leaves untranslated. A coordinate the descriptor does not name stays LITERAL.
+CoreCoord core_at_noc_xy(const SocDescriptor& soc, tt_xy_pair xy, NocId noc) {
+    const CoordSystem system = soc.noc_translation_enabled ? CoordSystem::TRANSLATED
+                               : (noc == NocId::NOC1)      ? CoordSystem::NOC1
+                                                           : CoordSystem::NOC0;
+    try {
+        return soc.get_coord_at(xy, system);
+    } catch (const std::exception&) {
+        return CoreCoord(xy, CoreType::TENSIX, CoordSystem::LITERAL);
+    }
+}
+
+// A register access is one access per register, never one wide request, as on every other protocol.
+void check_register_alignment(uint64_t addr, size_t size, RegisterAccessWidth width) {
+    const size_t access_size = register_access_size(width);
+    UMD_ASSERT(
+        addr % access_size == 0 && size % access_size == 0,
+        error::RuntimeError,
+        "Register address and size must be aligned to the access width.");
+}
+
+template <typename Access>
+void for_each_register(uint64_t addr, size_t size, RegisterAccessWidth width, Access access) {
+    check_register_alignment(addr, size, width);
+    const size_t access_size = register_access_size(width);
+    for (size_t offset = 0; offset < size; offset += access_size) {
+        access(offset, access_size);
+    }
+}
+
+// Every TTDevice access reaches the chip's own memory. Register accesses go one register at a time, as on
+// any other protocol; there is no hardware multicast.
+class SWEmuleProtocol final : public DeviceProtocol {
+public:
+    explicit SWEmuleProtocol(SWEmuleChip& chip) : chip_(chip) {}
+
+    // Every emulated store is ordered, so a relaxed request is served as a strict one.
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering) override {
+        chip_.read_from_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), dst, addr, size);
+    }
+
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering) override {
+        chip_.write_to_device(core_at_noc_xy(chip_.get_soc_descriptor(), core, noc_id), src, addr, size);
+    }
+
+    void read_ctrl(
+        void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width) override {
+        for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
+            read_data(
+                static_cast<uint8_t*>(dst) + offset, core, addr + offset, access_size, noc_id, IoOrdering::STRICT);
+        });
+    }
+
+    void write_ctrl(
+        const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, RegisterAccessWidth width)
+        override {
+        for_each_register(addr, size, width, [&](size_t offset, size_t access_size) {
+            write_data(
+                static_cast<const uint8_t*>(src) + offset,
+                core,
+                addr + offset,
+                access_size,
+                noc_id,
+                IoOrdering::STRICT);
+        });
+    }
+
+    [[nodiscard]] bool write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, size_t, NocId) override {
+        return false;
+    }
+
+    int get_mmio_id() override { return -1; }
+
+private:
+    SWEmuleChip& chip_;
+};
+
+// An emulated chip runs no management firmware, so each operation is the no-op a simulated device's firmware
+// performs (tt-umd's SimulationDeviceFirmware, which is private to tt-umd). Keep the two in step.
+class SWEmuleDeviceFirmware final : public DeviceFirmware {
+public:
+    // Translation and harvesting come from the chip's SocDescriptor, so the TTDevice and its descriptor agree.
+    explicit SWEmuleDeviceFirmware(const SocDescriptor& soc) : soc_(soc) {}
+
+    void init_firmware(std::chrono::milliseconds, NocId) override {}
+
+    DeviceCommandResult send_device_command(
+        uint32_t, const std::vector<uint32_t>&, std::chrono::milliseconds, NocId) override {
+        return DeviceCommandResult{};
+    }
+
+    void set_clock_state(ClockState, NocId) override {}
+
+    void set_power_state(PowerState, NocId) override {}
+
+    bool get_noc_translation_enabled(NocId) override { return soc_.noc_translation_enabled; }
+
+    ChipInfo get_chip_info(NocId) override {
+        ChipInfo chip_info{};
+        chip_info.noc_translation_enabled = soc_.noc_translation_enabled;
+        chip_info.harvesting_masks = soc_.harvesting_masks;
+        return chip_info;
+    }
+
+    tt_xy_pair get_firmware_noc_coord(NocId) const override { return tt_xy_pair{}; }
+
+    bool wait_eth_core_training(tt_xy_pair, std::chrono::milliseconds, NocId) override { return true; }
+
+    EthTrainingStatus get_eth_core_training_status(tt_xy_pair, NocId) override { return EthTrainingStatus::SUCCESS; }
+
+    bool wait_dram_channel_training(uint32_t, std::chrono::milliseconds, NocId) override { return false; }
+
+    std::optional<uint64_t> get_runtime_telemetry_buffer_address(NocId) override { return std::nullopt; }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId) override { return std::nullopt; }
+
+    uint64_t get_refclk_counter(NocId) override {
+        UMD_THROW(error::RuntimeError, "The refclk counter is not available for an emulated device.");
+    }
+
+private:
+    const SocDescriptor& soc_;
+};
+
+// tt-emule starts a core's RISCs when tt-metal launches a program, not on a reset release, so a reset request has
+// nothing to drive and the state is not modelled.
+class SWEmuleRiscReset final : public RiscReset {
+public:
+    void assert_risc_reset(tt_xy_pair, RiscType, NocId) override {}
+
+    void deassert_risc_reset(tt_xy_pair, RiscType, bool, NocId) override {}
+
+    std::optional<RiscType> get_risc_reset_state(tt_xy_pair, NocId) override { return std::nullopt; }
+};
+
+// The device model of an emulated chip: no management firmware behind it (firmware that reports
+// nothing), the architecture's constants, and the chip's own protocol and windows. Built only from sources every
+// UMD build has, so an emule build does not need TT_UMD_BUILD_SIMULATION.
+class SWEmuleTTDeviceModel final : public TTDeviceModel {
+public:
+    explicit SWEmuleTTDeviceModel(SWEmuleChip& chip) :
+        chip_(chip),
+        protocol_(chip),
+        device_firmware_(chip.get_soc_descriptor()),
+        architecture_impl_(ArchitectureImplementation::create(chip.get_soc_descriptor().arch)),
+        soc_arch_descriptor_(std::make_shared<SocArchDescriptor>(chip.get_soc_descriptor().arch)) {}
+
+    DeviceProtocol* get_device_protocol() override { return &protocol_; }
+
+    DeviceFirmware* get_device_firmware() override { return &device_firmware_; }
+
+    ArchitectureImplementation* get_architecture_impl() override { return architecture_impl_.get(); }
+
+    SocArchDescriptor* get_soc_arch_descriptor() override { return soc_arch_descriptor_.get(); }
+
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override { return soc_arch_descriptor_; }
+
+    SystemMemoryAllocator* get_system_memory_allocator() override { return chip_.get_system_memory_allocator(); }
+
+    RiscReset* get_risc_reset() override { return &risc_reset_; }
+
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering) override {
+        return chip_.create_io_window(target, host);
+    }
+
+private:
+    SWEmuleChip& chip_;
+    SWEmuleProtocol protocol_;
+    SWEmuleDeviceFirmware device_firmware_;
+    SWEmuleRiscReset risc_reset_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
+};
+
+// A simulated chip's TTDevice, as TTSim chips have one, with the chip's own memory for every access.
+class SWEmuleTTDevice final : public TTDevice {
+public:
+    explicit SWEmuleTTDevice(SWEmuleChip& chip) : TTDevice(std::make_unique<SWEmuleTTDeviceModel>(chip)) {
+        set_soc_descriptor(chip.get_soc_descriptor());
+    }
+
+    void advance_device_execution() override { notify_host_poll<tt_emule::Core>(0); }
+};
+
+}  // namespace
+
+// The chip's host memory: the host channels the cluster asked for, then an arena of buffers the device reaches over
+// the NOC. It lays memory out as UMD's simulation allocator does, and the chip serves it only through public
+// interfaces (SystemMemoryAllocator, HostMemChannels).
+class SWEmuleSystemMemory final : public SystemMemoryAllocator {
+public:
+    // Host memory as the device sees it: the channels, then the arena, all within one 32-bit IO window.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
+
+    SWEmuleSystemMemory(tt::ARCH arch, uint32_t num_host_mem_channels) :
+        noc_base_(host_memory_noc_base(arch)), registry_(std::make_shared<Registry>()) {
+        UMD_ASSERT(
+            num_host_mem_channels <= HostMemChannels::MAX_CHANNELS,
+            error::RuntimeError,
+            "SWEmuleChip: " + std::to_string(num_host_mem_channels) + " host memory channels requested, at most " +
+                std::to_string(HostMemChannels::MAX_CHANNELS) + " exist.");
+        if (num_host_mem_channels == 0) {
+            return;
+        }
+        // Every channel is 1 GiB, except that with four the last is 768 MiB, so all of them fit the IO window.
+        constexpr size_t LAST_OF_FOUR_SIZE = 768ULL << 20;
+        size_t total_size = num_host_mem_channels * HostMemChannels::CHANNEL_STRIDE;
+        if (num_host_mem_channels == HostMemChannels::MAX_CHANNELS) {
+            total_size -= HostMemChannels::CHANNEL_STRIDE - LAST_OF_FOUR_SIZE;
+        }
+        void* memory = mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        UMD_ASSERT(memory != MAP_FAILED, error::RuntimeError, "SWEmuleChip: host memory mmap() failed");
+        madvise(memory, total_size, MADV_HUGEPAGE);
+        channel_memory_ = static_cast<uint8_t*>(memory);
+        channel_memory_size_ = total_size;
+        // The arena starts after the channels, so a buffer's NOC address never aliases a channel's.
+        registry_->next_arena_offset = total_size;
+
+        host_mem_channels_ = HostMemChannels(num_host_mem_channels);
+        for (uint32_t channel = 0; channel < num_host_mem_channels; channel++) {
+            const size_t offset = channel * HostMemChannels::CHANNEL_STRIDE;
+            host_mem_channels_.map_channel(
+                channel, channel_memory_ + offset, std::min(HostMemChannels::CHANNEL_STRIDE, total_size - offset));
+        }
+    }
+
+    ~SWEmuleSystemMemory() override {
+        {
+            // Buffers that outlive the allocator still free their own memory; they only stop unregistering.
+            std::lock_guard<std::mutex> lock(registry_->mutex);
+            registry_->buffers.clear();
+        }
+        host_mem_channels_.unmap_channels();
+        if (channel_memory_ != nullptr) {
+            munmap(channel_memory_, channel_memory_size_);
+        }
+    }
+
+    SWEmuleSystemMemory(const SWEmuleSystemMemory&) = delete;
+    SWEmuleSystemMemory& operator=(const SWEmuleSystemMemory&) = delete;
+
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc) override {
+        const uint64_t extent = arena_extent(nullptr, size);
+        // Hold the lock from the capacity check through registration, so a failed check allocates nothing and no
+        // other allocation can take the space in between.
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        check_arena_capacity(extent);
+        void* mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+        UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "SWEmuleChip: host buffer mmap() failed");
+        auto release_mapping = [size](void* buffer_va) {
+            if (munmap(buffer_va, size) != 0) {
+                log_warning(
+                    LogUMD, "SWEmuleChip: failed to munmap a host buffer of size {:#x} at {:p}.", size, buffer_va);
+            }
+        };
+        try {
+            return register_buffer(mapping, size, bind_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+        } catch (...) {
+            release_mapping(mapping);
+            throw;
+        }
+    }
+
+    std::unique_ptr<SysmemBuffer> map_user_buffer(
+        void* user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) override {
+        // Nothing stops the emulated device writing a mapping, so a read-only promise could not be kept.
+        UMD_ASSERT(
+            device_access != DeviceBufferAccess::READ_ONLY,
+            error::RuntimeError,
+            "SWEmuleChip cannot pin pages read-only to the device.");
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        // The caller owns this memory, so the buffer only drops its registration.
+        return register_buffer(user_ptr, size, bind_to_noc, device_access, {});
+    }
+
+    int get_communication_id() const override { return 0; }
+
+    std::optional<size_t> get_max_buffer_count(size_t size) const override {
+        // Buffers come out of a fixed arena, so only as many as it holds fit.
+        const uint64_t arena_size = DEVICE_IO_WINDOW_SIZE - channel_memory_size_;
+        return size == 0 || size > arena_size ? 0 : arena_size / size;
+    }
+
+    uint64_t get_noc_base() const override { return noc_base_; }
+
+    bool is_read_only_page_pinning_supported() const override { return false; }
+
+    bool is_user_buffer_mapping_supported() const override { return true; }
+
+    const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
+
+    // The host address behind a buffer's NOC address, or nullptr when no live buffer holds it.
+    void* get_mapped_host_ptr(uint64_t noc_addr) {
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        for (const auto& buffer : registry_->buffers) {
+            if (noc_addr >= buffer.noc_addr && noc_addr - buffer.noc_addr < buffer.size) {
+                return static_cast<uint8_t*>(buffer.host_ptr) + (noc_addr - buffer.noc_addr);
+            }
+        }
+        return nullptr;
+    }
+
+private:
+    struct MappedBuffer {
+        uint64_t noc_addr = 0;
+        void* host_ptr = nullptr;
+        size_t size = 0;
+    };
+
+    // Shared with each buffer's deleter, which may run after the allocator is gone.
+    struct Registry {
+        std::mutex mutex;
+        std::vector<MappedBuffer> buffers;
+        uint64_t next_arena_offset = 0;
+    };
+
+    // Where the chip reaches host memory on the NOC: the base of its PCIe window.
+    static uint64_t host_memory_noc_base(tt::ARCH arch) {
+        switch (arch) {
+            case tt::ARCH::WORMHOLE_B0:
+                return 0x800000000ULL;
+            case tt::ARCH::BLACKHOLE:
+                return 4ULL << 58;
+            default:
+                return 0;
+        }
+    }
+
+    // The arena space a buffer takes: whole pages, keeping its offset into the first one.
+    static uint64_t arena_extent(const void* buffer, size_t size) {
+        static const long page_size = sysconf(_SC_PAGESIZE);
+        const uint64_t offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
+        UMD_ASSERT(
+            size > 0 && size <= DEVICE_IO_WINDOW_SIZE - offset,
+            error::RuntimeError,
+            "SWEmuleChip: invalid host buffer size.");
+        return (size + offset + page_size - 1) & ~(static_cast<uint64_t>(page_size) - 1);
+    }
+
+    // Caller holds registry_->mutex.
+    void check_arena_capacity(uint64_t extent) const {
+        UMD_ASSERT(
+            extent <= DEVICE_IO_WINDOW_SIZE - registry_->next_arena_offset,
+            error::RuntimeError,
+            "SWEmuleChip: host buffer arena exhausted.");
+    }
+
+    // Caller holds registry_->mutex.
+    std::unique_ptr<SysmemBuffer> register_buffer(
+        void* buffer,
+        size_t size,
+        bool bind_to_noc,
+        DeviceBufferAccess device_access,
+        SysmemBuffer::Deleter release_backing_memory) {
+        UMD_ASSERT(buffer != nullptr, error::RuntimeError, "SWEmuleChip: cannot map a null host buffer.");
+        const uint64_t extent = arena_extent(buffer, size);
+        check_arena_capacity(extent);
+        static const long page_size = sysconf(_SC_PAGESIZE);
+        const uint64_t noc_addr =
+            noc_base_ + registry_->next_arena_offset + (reinterpret_cast<uintptr_t>(buffer) & (page_size - 1));
+
+        registry_->buffers.push_back({noc_addr, buffer, size});
+        try {
+            // Drop the registration before the backing memory goes.
+            std::weak_ptr<Registry> weak_registry = registry_;
+            SysmemBuffer::Deleter deleter =
+                [weak_registry, noc_addr, release = std::move(release_backing_memory)](void* buffer_va) {
+                    if (auto registry = weak_registry.lock()) {
+                        std::lock_guard<std::mutex> lock(registry->mutex);
+                        auto& buffers = registry->buffers;
+                        buffers.erase(
+                            std::remove_if(
+                                buffers.begin(),
+                                buffers.end(),
+                                [noc_addr](const MappedBuffer& b) { return b.noc_addr == noc_addr; }),
+                            buffers.end());
+                    }
+                    if (release) {
+                        release(buffer_va);
+                    }
+                };
+            auto result = create_buffer(
+                buffer,
+                size,
+                noc_addr,
+                get_communication_id(),
+                std::move(deleter),
+                bind_to_noc ? std::optional<uint64_t>(noc_addr) : std::nullopt,
+                device_access);
+            registry_->next_arena_offset += extent;
+            return result;
+        } catch (...) {
+            registry_->buffers.pop_back();
+            throw;
+        }
+    }
+
+    const uint64_t noc_base_;
+    uint8_t* channel_memory_ = nullptr;
+    size_t channel_memory_size_ = 0;
+    HostMemChannels host_mem_channels_;
+    std::shared_ptr<Registry> registry_;
+};
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid) :
+SWEmuleChip::SWEmuleChip(
+    const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid, uint32_t num_host_mem_channels) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
+    system_memory_(std::make_unique<SWEmuleSystemMemory>(soc_descriptor.arch, num_host_mem_channels)) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;
@@ -131,9 +645,9 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
     dram_bank_size_ = soc.dram_bank_size;
     // A real on-chip DRAM offset can't structurally exceed its own bank's capacity, so it can
     // never reach __emule_resolve_noc_addr's pcie_base_ threshold (which routes >= addresses to
-    // SimulationSysmemManager instead of the core map) — documents that margin rather than
+    // the chip's host memory instead of the core map) — documents that margin rather than
     // resting on it implicitly.
-    assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
+    assert(dram_bank_size_ < system_memory_->get_noc_base());
 
     // One slot per Tensix core, and only WORKER cores use the pool, so num_tensix is an exact
     // bound. No fallback for an empty core list: nothing could index those slots, and the pool
@@ -194,6 +708,9 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
             "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
                 std::to_string(pool_slot_size(*worker_pool_)) + " — adjacent cores' L1 would overlap");
     }
+    // Built here, not on first use: get_tt_device() is called from several threads (each IoWindow a host
+    // thread creates), and a lazy build there would race.
+    tt_device_ = std::make_unique<SWEmuleTTDevice>(*this);
 }
 
 std::optional<size_t> SWEmuleChip::slot_of(tt_xy_pair translated_core_xy) const {
@@ -287,32 +804,60 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 // the caller happened to pick, and only TRANSLATED has a pool slot. A LITERAL coord passes through
 // unchanged, which is the pre-existing behaviour for callers that already resolved the coordinate.
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size, IoOrdering ordering) {
+    // Nothing to store; past the core's memory a zero-length access would still reach the register model.
+    if (size == 0) {
+        return;
+    }
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
-    std::memcpy(target_core->l1_ptr(l1_dest), src, size);
-    notify_host_write(*target_core, l1_dest, size, 0);
+    // The device first catches up with the work it can already do, so the store does not overtake it.
+    notify_host_write_begin(*target_core, 0);
+    core_write(*target_core, l1_dest, src, size, 0);
+    if (l1_dest < target_core->l1_size()) {
+        notify_host_write(*target_core, l1_dest, size, 0);
+    }
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size, IoOrdering ordering) {
+    if (size == 0) {
+        return;
+    }
     tt_emule::Core* target_core =
         (core.core_type == CoreType::DRAM)
             ? get_dram_channel_backing(
                   static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
             : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
-    std::memcpy(dest, target_core->l1_ptr(l1_src), size);
+    // The read first lets work the device is still running reach the state silicon would have by now.
+    notify_host_read(*target_core, l1_src, size, 0);
+    core_read(*target_core, l1_src, dest, size, 0);
 }
 
-// Register I/O forwards to the same memory path — emulated cores have no distinct
-// register address space, so all offsets map into the same L1-backed storage.
+// Register I/O has LocalChip's rules: address and size are multiples of 4 bytes. Past the core's memory each register
+// is its own access, as on the TTDevice path (for_each_register); in memory (tt-metal's launch and go messages) the
+// payload stays one host write, so the core is notified once.
 void SWEmuleChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
+    check_register_alignment(reg_dest, size, RegisterAccessWidth::BITS32);
+    if (reg_dest < l1_size_) {
+        write_to_device(core, src, reg_dest, size);
+        return;
+    }
+    for_each_register(reg_dest, size, RegisterAccessWidth::BITS32, [&](size_t offset, size_t access_size) {
+        write_to_device(core, static_cast<const uint8_t*>(src) + offset, reg_dest + offset, access_size);
+    });
 }
 
 void SWEmuleChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
+    check_register_alignment(reg_src, size, RegisterAccessWidth::BITS32);
+    if (reg_src < l1_size_) {
+        read_from_device(core, dest, reg_src, size);
+        return;
+    }
+    for_each_register(reg_src, size, RegisterAccessWidth::BITS32, [&](size_t offset, size_t access_size) {
+        read_from_device(core, static_cast<uint8_t*>(dest) + offset, reg_src + offset, access_size);
+    });
 }
 
 void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
@@ -323,6 +868,104 @@ void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, u
     read_from_device(core, dst, addr, size);
 }
 
+namespace {
+
+// IoWindow over an emulated core. A store is one write_to_device, so a 32-bit store lands whole and
+// the core sees it as a host write; there is no mapping to size, so the window spans the request.
+class SWEmuleIoWindow final : public IoWindow {
+public:
+    SWEmuleIoWindow(SWEmuleChip& chip, const TargetIoWindowConfig& target, const HostIoWindowConfig& host) :
+        chip_(chip), host_(host) {
+        // A request of 0 leaves the size to the window. Nothing maps behind it, so any span works; a TLB
+        // window's common 2 MiB keeps chunked transfers (which step by get_size()) moving.
+        if (host_.size == 0) {
+            host_.size = DEFAULT_WINDOW_SIZE;
+        }
+        configure(target);
+    }
+
+    void write_block(uint64_t offset, const void* data, size_t size) override { write(offset, data, size); }
+
+    void read_block(uint64_t offset, void* data, size_t size) override { read(offset, data, size); }
+
+    void write16(uint64_t offset, uint16_t value) override { write(offset, &value, sizeof(value)); }
+
+    uint16_t read16(uint64_t offset) override { return load<uint16_t>(offset); }
+
+    void write32(uint64_t offset, uint32_t value) override { write(offset, &value, sizeof(value)); }
+
+    uint32_t read32(uint64_t offset) override { return load<uint32_t>(offset); }
+
+    void write64(uint64_t offset, uint64_t value) override { write(offset, &value, sizeof(value)); }
+
+    uint64_t read64(uint64_t offset) override { return load<uint64_t>(offset); }
+
+    void write_aligned(uint64_t offset, const void* data, size_t size) override { write(offset, data, size); }
+
+    void read_aligned(uint64_t offset, void* data, size_t size) override { read(offset, data, size); }
+
+    void configure(const TargetIoWindowConfig& config) override { configure(config, IoOrdering::STRICT); }
+
+    void configure(const TargetIoWindowConfig& config, IoOrdering ordering) override {
+        UMD_ASSERT(
+            !config.core_end.has_value(), error::RuntimeError, "SWEmuleChip: multicast IoWindows are not supported");
+        target_ = config;
+        ordering_ = ordering;
+        // The target names its core in the NOC the window routes over, as make_io_window_target resolved it.
+        core_ =
+            core_at_noc_xy(chip_.get_soc_descriptor(), config.core_start, config.noc.value_or(get_selected_noc_id()));
+    }
+
+    TargetIoWindowConfig get_target_config() const override { return target_; }
+
+    IoOrdering get_io_ordering() const override { return ordering_; }
+
+    size_t get_size() const override { return host_.size; }
+
+    HostMemoryCaching get_memory_caching_type() const override { return host_.mapping; }
+
+private:
+    // As a TLB window: an access past the window's end faults instead of reaching the memory beyond it.
+    void validate(uint64_t offset, size_t size) const {
+        // Written so that a huge offset or size cannot wrap past the check.
+        if (offset > host_.size || size > host_.size - offset) {
+            throw std::out_of_range("Out of bounds access");
+        }
+    }
+
+    void write(uint64_t offset, const void* data, size_t size) {
+        validate(offset, size);
+        chip_.write_to_device(core_, data, target_.addr + offset, size);
+    }
+
+    void read(uint64_t offset, void* data, size_t size) {
+        validate(offset, size);
+        chip_.read_from_device(core_, data, target_.addr + offset, size);
+    }
+
+    template <typename T>
+    T load(uint64_t offset) {
+        T value{};
+        read(offset, &value, sizeof(value));
+        return value;
+    }
+
+    static constexpr size_t DEFAULT_WINDOW_SIZE = size_t{1} << 21;
+
+    SWEmuleChip& chip_;
+    HostIoWindowConfig host_;
+    TargetIoWindowConfig target_{};
+    IoOrdering ordering_ = IoOrdering::STRICT;
+    CoreCoord core_;
+};
+
+}  // namespace
+
+std::unique_ptr<IoWindow> SWEmuleChip::create_io_window(
+    const TargetIoWindowConfig& target, const HostIoWindowConfig& host) {
+    return std::make_unique<SWEmuleIoWindow>(*this, target, host);
+}
+
 // --- Chip lifecycle / hardware accessors (no-ops) ---
 
 bool SWEmuleChip::is_mmio_capable() const { return false; }
@@ -331,19 +974,33 @@ void SWEmuleChip::start_device(uint32_t) {}
 
 void SWEmuleChip::close_device() {}
 
-TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
+TTDevice* SWEmuleChip::get_tt_device() { return tt_device_.get(); }
 
-SystemMemoryAllocator* SWEmuleChip::get_system_memory_allocator() { return sysmem_manager_.get(); }
+SystemMemoryAllocator* SWEmuleChip::get_system_memory_allocator() { return system_memory_.get(); }
 
-// --- Host memory (no-ops) ---
+const HostMemChannels* SWEmuleChip::get_host_mem_channels() { return system_memory_->get_host_mem_channels(); }
 
-size_t SWEmuleChip::get_num_host_channels() { return 0; }
+void* SWEmuleChip::get_mapped_host_ptr(uint64_t noc_addr) { return system_memory_->get_mapped_host_ptr(noc_addr); }
 
-size_t SWEmuleChip::get_host_channel_size(std::uint32_t) { return 0; }
+// --- Host memory: the cluster's host channels, as a simulated chip has them ---
 
-void SWEmuleChip::write_to_sysmem(uint16_t, const void*, uint64_t, uint32_t) {}
+size_t SWEmuleChip::get_num_host_channels() { return get_host_mem_channels()->get_num_channels(); }
 
-void SWEmuleChip::read_from_sysmem(uint16_t, void*, uint64_t, uint32_t) {}
+size_t SWEmuleChip::get_host_channel_size(std::uint32_t channel) {
+    UMD_ASSERT(
+        channel < get_num_host_channels(),
+        error::RuntimeError,
+        "Querying size for a host channel that does not exist.");
+    return get_host_mem_channels()->get_channel_size(channel);
+}
+
+void SWEmuleChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    get_host_mem_channels()->write_to_channel(channel, src, sysmem_dest, size);
+}
+
+void SWEmuleChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    get_host_mem_channels()->read_from_channel(channel, dest, sysmem_src, size);
+}
 
 // --- Multicast (not implemented) ---
 

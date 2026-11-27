@@ -352,7 +352,7 @@ public:
 
     ChipInfo get_chip_info([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
 
-    FirmwareBundleVersion get_firmware_version();
+    FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * Interface to the device's management firmware. Owned by the model, so never null; created
@@ -426,9 +426,9 @@ public:
      * @throws error::UninitializedDeviceError before init_tt_device() has run.
      * @throws error::RuntimeError if the firmware publishes no AICLK telemetry.
      */
-    uint32_t get_clock() const;
+    uint32_t get_clock([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
-    uint32_t get_max_clock_freq() const;
+    uint32_t get_max_clock_freq([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
     /**
      * @brief Retrieves the minimum supported clock frequency of the device.
@@ -438,7 +438,7 @@ public:
      *
      * @return uint32_t Minimum clock frequency in MHz.
      */
-    uint32_t get_min_clock_freq() const;
+    uint32_t get_min_clock_freq([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
     // Advance the device by one clock cycle. No-op by default; overridden by devices with a
     // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
@@ -454,7 +454,7 @@ public:
 
     bool get_noc_translation_enabled([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
-    double get_asic_temperature() const;
+    double get_asic_temperature([[maybe_unused]] NocId noc = NocId::DEFAULT_NOC) const;
 
     /**
      * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
@@ -481,6 +481,7 @@ public:
      * @brief Returns which baby RISCs are currently held in soft reset.
      * @param core Target core coordinates.
      * @return Bitmask of RISCs currently in reset.
+     * Marked for deletion. Do not use.
      */
     uint32_t get_risc_reset_state(CoreCoord core);
 
@@ -489,6 +490,7 @@ public:
      *
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
+     * Marked for deletion. Do not use.
      */
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
@@ -498,6 +500,7 @@ public:
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
      * @param noc NOC to route through (if the feature is routed through NOC)
+     * Marked for deletion. Do not use.
      */
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc = NocId::DEFAULT_NOC);
 

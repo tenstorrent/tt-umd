@@ -318,7 +318,9 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
     return info_provider;
 }
 
-FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
+FirmwareBundleVersion TTDevice::get_firmware_version(NocId noc) {
+    return get_firmware_info_provider()->get_firmware_version(noc);
+}
 
 void TTDevice::wait_for_non_mmio_flush(NocId noc) {
     if (model_->get_remote_interface() == nullptr) {
@@ -361,7 +363,7 @@ uint64_t TTDevice::get_refclk_counter(NocId noc) const {
 
 uint64_t TTDevice::get_board_id() const { return get_firmware_info_provider()->get_board_id().value_or(0); }
 
-double TTDevice::get_asic_temperature() const {
+double TTDevice::get_asic_temperature(NocId noc) const {
     return get_firmware_info_provider()->get_asic_temperature().value_or(0.0);
 }
 
@@ -373,9 +375,11 @@ ChipInfo TTDevice::get_chip_info(NocId noc) {
     return get_device_firmware()->get_chip_info(get_selected_noc_id());
 }
 
-uint32_t TTDevice::get_max_clock_freq() const { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
+uint32_t TTDevice::get_max_clock_freq(NocId noc) const {
+    return get_firmware_info_provider()->get_max_clock_freq().value_or(0);
+}
 
-uint32_t TTDevice::get_clock() const {
+uint32_t TTDevice::get_clock(NocId noc) const {
     const std::optional<uint32_t> aiclk = get_firmware_info_provider()->get_clock_freq(get_selected_noc_id());
     if (!aiclk.has_value()) {
         UMD_THROW(error::RuntimeError, "AICLK telemetry not available for this device.");
@@ -383,7 +387,7 @@ uint32_t TTDevice::get_clock() const {
     return *aiclk;
 }
 
-uint32_t TTDevice::get_min_clock_freq() const { return model_->get_architecture_impl()->get_min_clock_freq(); }
+uint32_t TTDevice::get_min_clock_freq(NocId noc) const { return model_->get_architecture_impl()->get_min_clock_freq(); }
 
 void TTDevice::advance_device_execution() {
     if (model_->get_remote_interface() != nullptr) {

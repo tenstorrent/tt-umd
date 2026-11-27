@@ -207,6 +207,16 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, CoreC
     return postcode;
 }
 
+SemVer TopologyDiscoveryBlackhole::get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
+    tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t), options.noc);
+    tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t), options.noc);
+    tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t), options.noc);
+    return SemVer(major, minor, patch);
+}
+
 void TopologyDiscoveryBlackhole::retrain_eth_cores() {
     log_debug(LogUMD, "Retraining ETH cores skipped for Blackhole.");
 }

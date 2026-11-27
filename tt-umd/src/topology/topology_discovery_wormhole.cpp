@@ -169,6 +169,13 @@ void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     galaxy_mode = tt_device->get_board_type() == BoardType::UBB;
 }
 
+SemVer TopologyDiscoveryWormhole::get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
+    uint32_t eth_fw_version_read;
+    tt_device->read_from_device(
+        &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), options.noc);
+    return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+}
+
 uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
 
 void TopologyDiscoveryWormhole::verify_routing_firmware_state(

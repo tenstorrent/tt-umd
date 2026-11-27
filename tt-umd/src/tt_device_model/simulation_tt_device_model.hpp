@@ -7,7 +7,7 @@
 #include <functional>
 #include <memory>
 
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
 #include "tt-umd/types/arch.hpp"
 

@@ -19,9 +19,9 @@
 #include <vector>
 
 #include "tests/test_utils/process_utils.hpp"
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
-#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 #include "tt-umd/types/host_memory.hpp"

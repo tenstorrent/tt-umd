@@ -7,9 +7,9 @@
 #include <utility>
 
 #include "tt-umd/arch/blackhole_implementation.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/system_memory/silicon_sysmem_manager.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt_device/firmware/blackhole_device_firmware.hpp"
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"

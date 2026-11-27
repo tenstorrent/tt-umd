@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
+#include "pcie/simulation_tlb_allocator.hpp"
 
 #include <fmt/format.h>
 

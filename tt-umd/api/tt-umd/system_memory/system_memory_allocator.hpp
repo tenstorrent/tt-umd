@@ -1,0 +1,112 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <utility>
+
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/types/host_memory.hpp"
+
+namespace tt::umd {
+
+/**
+ * Creates or maps device-visible host memory buffers for a single device.
+ *
+ * An allocator is created per device by whichever layer owns that device's transport, and is paired
+ * with its TTDevice by matching get_communication_id(). Buffers can be reached by the device in two
+ * ways: through their IOVA, which only the PCIe tile uses, or through a NOC address, which lets every
+ * tile reach the buffer once it has been bound.
+ */
+class SystemMemoryAllocator {
+public:
+    virtual ~SystemMemoryAllocator() = default;
+
+    /**
+     * Allocates a pinned, device-visible host memory buffer.
+     *
+     * The allocator creates contiguous host memory (via hugepage, IOMMU, or both), pins it, and maps it
+     * for device DMA access. The returned buffer owns that memory and frees it on destruction.
+     *
+     * @param size Requested buffer size in bytes.
+     * @param bind_to_noc If true, additionally binds the buffer to a NOC address so that all device tiles,
+     * not just the PCIe tile, can reach it.
+     * @return An exclusively owned system memory buffer.
+     */
+    virtual std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) = 0;
+
+    /**
+     * Pins and maps a caller-provided host memory buffer for device DMA access.
+     *
+     * The caller retains ownership of the underlying memory. The allocator pins the pages and creates an
+     * IOMMU mapping so the device can reach it; destroying the buffer unpins the pages but does not free
+     * the memory. Requires is_user_buffer_mapping_supported().
+     *
+     * @param user_ptr Pointer to the caller-allocated host memory.
+     * @param size Size of the caller's buffer in bytes.
+     * @param bind_to_noc If true, additionally binds the buffer to a NOC address.
+     * @param device_access What the device is allowed to do with the mapping. READ_ONLY pins the pages so the
+     * device cannot write through them, and needs is_read_only_page_pinning_supported().
+     * @return An exclusively owned handle to the mapped buffer.
+     * @throws std::runtime_error if the allocator cannot map user memory, or cannot pin with the requested access.
+     */
+    virtual std::unique_ptr<SysmemBuffer> map_user_buffer(
+        void* user_ptr,
+        size_t size,
+        bool bind_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) = 0;
+
+    /**
+     * Returns the identifier of the device context this allocator pins memory for.
+     *
+     * An allocator pins for exactly one device — the one whose file descriptor and IOMMU context it holds —
+     * and stamps this value into every buffer it produces.
+     */
+    virtual int get_communication_id() const = 0;
+
+    /**
+     * Returns how many buffers of @p size this device should plan to hold at once, or std::nullopt if there is
+     * no limit; 0 means no buffer of that size can be created.
+     *
+     * A planning figure rather than a reservation: allocations within it can still fail, and allocations beyond
+     * it are not refused.
+     */
+    virtual std::optional<size_t> get_max_buffer_count(size_t size) const = 0;
+
+    /**
+     * Returns the start of the NOC address window through which the device reaches buffers this allocator binds
+     * to the NOC. Where in the window a buffer lands is decided when it is bound.
+     */
+    virtual uint64_t get_noc_base() const = 0;
+
+    /**
+     * Returns whether map_user_buffer() can pin pages read-only to the device. An allocator that cannot enforce
+     * it returns false and refuses DeviceBufferAccess::READ_ONLY.
+     */
+    virtual bool is_read_only_page_pinning_supported() const = 0;
+
+    /**
+     * Returns whether map_user_buffer() can make caller-provided memory device-visible. An allocator that cannot do
+     * so returns false and refuses map_user_buffer().
+     */
+    virtual bool is_user_buffer_mapping_supported() const = 0;
+
+protected:
+    /**
+     * Creates a buffer, forwarding its arguments to the private SysmemBuffer constructor.
+     *
+     * Friendship is not inherited, so a concrete allocator cannot reach that constructor itself and
+     * builds every buffer through this helper.
+     */
+    template <typename... Args>
+    static std::unique_ptr<SysmemBuffer> create_buffer(Args&&... args) {
+        return std::unique_ptr<SysmemBuffer>(new SysmemBuffer(std::forward<Args>(args)...));
+    }
+};
+
+}  // namespace tt::umd

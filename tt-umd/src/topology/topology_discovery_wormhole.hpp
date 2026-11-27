@@ -73,6 +73,8 @@ protected:
 
     uint32_t get_eth_postcode(TTDevice* tt_device, CoreCoord eth_core) override;
 
+    SemVer get_eth_fw_version_from_core(TTDevice* tt_device, CoreCoord eth_core) override;
+
     void retrain_eth_cores() override;
 
     static constexpr uint32_t LINK_TRAIN_SUCCESS = 1;

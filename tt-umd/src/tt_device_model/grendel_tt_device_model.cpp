@@ -20,7 +20,7 @@ GrendelTTDeviceModel::GrendelTTDeviceModel(
     architecture_impl_(ArchitectureImplementation::create(tt::ARCH::QUASAR)),
     pci_device_(pci_device.get()),
     protocol_(std::make_unique<KmdProtocol>(std::move(pci_device), mmio_id)),
-    device_firmware_(std::make_unique<GrendelDeviceFirmware>()) {}
+    device_firmware_(std::make_unique<GrendelDeviceFirmware>(protocol_.get())) {}
 
 GrendelTTDeviceModel::~GrendelTTDeviceModel() = default;
 

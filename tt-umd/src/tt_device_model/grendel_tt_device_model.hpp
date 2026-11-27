@@ -22,8 +22,9 @@ class SocArchDescriptor;
  * Quasar is reached through the kernel driver's scalar accesses rather than through a mapped
  * translation window, so this model supplies a protocol built on those and declares the rest of
  * the transport interfaces absent. It is deliberately the smallest model that TTDevice can be
- * driven through: no BAR access, no DMA engine, no hang detection and no firmware, because the
- * driver exposes none of them for this architecture yet.
+ * driven through: no BAR access, no DMA engine and no hang detection, because the driver exposes
+ * none of them for this architecture yet. The firmware is reached through the same scalar accesses,
+ * and offers messaging only.
  */
 class GrendelTTDeviceModel : public TTDeviceModel {
 public:

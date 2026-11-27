@@ -11,7 +11,6 @@
 
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
@@ -69,34 +68,6 @@ std::unique_ptr<TTDevice> create_tt_device(
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<TTDevice>(
                 std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication), soc_arch_descriptor));
-        default:
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
-    }
-}
-
-std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
-    std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
-    tt::ARCH arch = remote_communication->get_local_device()->get_arch();
-    UMD_ASSERT(
-        soc_descriptor.arch == arch,
-        error::RuntimeError,
-        fmt::format(
-            "Supplied SocDescriptor arch ({}) does not match the remote device arch ({}).",
-            arch_to_str(soc_descriptor.arch),
-            arch_to_str(arch)));
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0: {
-            auto device = std::make_unique<TTDevice>(std::make_unique<WormholeTTDeviceModel>(
-                std::move(remote_communication), /*soc_arch_descriptor=*/nullptr));
-            // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
-            // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
-            device->set_soc_descriptor(soc_descriptor);
-            return device;
-        }
         default:
             UMD_THROW(
                 error::RuntimeError,

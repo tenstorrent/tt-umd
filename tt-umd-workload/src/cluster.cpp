@@ -1307,10 +1307,8 @@ std::unique_ptr<ClusterDeviceEventListener> Cluster::create_listener_for_chips(
 
     if (uncovered_chip_ids != nullptr) {
         *uncovered_chip_ids = std::move(uncovered);
-    } else {
-        for (const ChipId chip_id : uncovered) {
-            log_warning(LogUMD, "Device events of chip {} can't be read; the event listener leaves it out", chip_id);
-        }
+    } else if (!uncovered.empty()) {
+        log_info(LogUMD, "Device events of chips {} can't be read; the event listener leaves them out", uncovered);
     }
 
     // The constructor is private to Cluster, so std::make_unique can't call it.

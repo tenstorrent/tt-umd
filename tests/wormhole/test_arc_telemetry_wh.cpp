@@ -23,8 +23,8 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
             ArcTelemetryReader::create_arc_telemetry_reader(
                 tt_device->get_device_protocol(),
                 tt_device->get_arch(),
-                tt_device->get_arc_core(NocId::NOC0),
-                tt_device->get_arc_core(NocId::NOC1));
+                tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0),
+                tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC1));
 
         uint32_t board_id_high =
             blackhole_arc_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::BOARD_ID_HIGH);
@@ -48,8 +48,8 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
         std::unique_ptr<ArcTelemetryReader> telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
             tt_device->get_device_protocol(),
             tt_device->get_arch(),
-            tt_device->get_arc_core(NocId::NOC0),
-            tt_device->get_arc_core(NocId::NOC1));
+            tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0),
+            tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC1));
 
         for (uint32_t telem_tag = 0; telem_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS; telem_tag++) {
             EXPECT_TRUE(telemetry->is_entry_available(telem_tag));
@@ -72,8 +72,8 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
 
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader = std::make_unique<SmBusArcTelemetryReader>(
             tt_device->get_device_protocol(),
-            tt_device->get_arc_core(NocId::NOC0),
-            tt_device->get_arc_core(NocId::NOC1));
+            tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC0),
+            tt_device->get_device_firmware()->get_firmware_noc_coord(NocId::NOC1));
 
         EXPECT_EQ(
             arc_telemetry_reader->read_entry(TelemetryTag::DM_BL_FW_VERSION),

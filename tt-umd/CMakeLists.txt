@@ -58,8 +58,8 @@ target_sources(
         src/system_memory/simulation_sysmem_manager.cpp
         src/system_memory/silicon_sysmem_manager.cpp
         src/system_memory/sysmem_buffer.cpp
-        src/pcie/tlb_window.cpp
         src/pcie/io_window_reconfigure.cpp
+        src/pcie/tlb_window_common.cpp
         src/common/noc_address_space.cpp
         src/common/register_access.cpp
         src/io_window/io_window_target.cpp

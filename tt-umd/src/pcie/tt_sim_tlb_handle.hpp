@@ -19,12 +19,12 @@ enum TlbMapping : uint8_t;
 
 /**
  * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.
- * This allows compatibility with TlbWindow while providing simulation functionality.
+ * This lets TTSimTlbWindow reuse the TLB handle interface while providing simulation functionality.
  */
 class TTSimTlbHandle : public TlbHandle {
 public:
     /**
-     * Create a simulation TlbHandle that works with TlbWindow.
+     * Create a simulation TlbHandle for TTSimTlbWindow.
      * This bypasses the hardware constructor and sets up simulation state.
      */
     static std::unique_ptr<TTSimTlbHandle> create(

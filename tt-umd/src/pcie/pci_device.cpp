@@ -1205,7 +1205,7 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
 }
 
 // Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
-// EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
+// EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/SiliconTlbWindow.
 int PCIDevice::export_tlb_dmabuf(
     const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
     UMD_ASSERT(

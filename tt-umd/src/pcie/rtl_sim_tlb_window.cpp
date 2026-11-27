@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "pcie/rtl_sim_tlb_handle.hpp"
+#include "pcie/tlb_window_common.hpp"
 #include "register_access.hpp"
 #include "simulation/word_access.hpp"
 #include "tt-umd/coordinates/att/att_resolver.hpp"
@@ -38,18 +39,16 @@ RtlSimTlbWindow::RtlSimTlbWindow(
     std::unique_ptr<TlbHandle> handle,
     RtlSimCommunicator* communicator,
     const att::EndpointResolver* resolver,
-    const SocDescriptor* soc_descriptor,
-    const tlb_data config) :
-    TlbWindow(std::move(handle), config),
-    communicator_(communicator),
-    resolver_(resolver),
-    soc_descriptor_(soc_descriptor) {}
+    const SocDescriptor* soc_descriptor) :
+    tlb_handle_(std::move(handle)), communicator_(communicator), resolver_(resolver), soc_descriptor_(soc_descriptor) {
+    offset_from_aligned_addr_ = configure_tlb_aligned(*tlb_handle_, tlb_data{});
+}
 
 void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, size_t size) {
-    validate(offset, size);
-    const auto& config = tlb_handle->get_config();
+    validate_tlb_window_range(offset, size, get_size());
+    const auto& config = tlb_handle_->get_config();
     const tt_xy_pair core(config.x_end, config.y_end);
-    const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
+    const uint64_t device_addr = config.local_offset * tlb_handle_->get_size() + offset_from_aligned_addr_ + offset;
     const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
         communicator_->tile_write_bytes(
@@ -73,10 +72,10 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
 }
 
 void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t size) {
-    validate(offset, size);
-    const auto& config = tlb_handle->get_config();
+    validate_tlb_window_range(offset, size, get_size());
+    const auto& config = tlb_handle_->get_config();
     const tt_xy_pair core(config.x_end, config.y_end);
-    const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
+    const uint64_t device_addr = config.local_offset * tlb_handle_->get_size() + offset_from_aligned_addr_ + offset;
     const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
         communicator_->tile_read_bytes(
@@ -118,11 +117,13 @@ uint64_t RtlSimTlbWindow::read64(uint64_t offset) {
     return value;
 }
 
-void RtlSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
+void RtlSimTlbWindow::write_aligned(uint64_t offset, const void* data, size_t size) {
+    validate_tlb_window_aligned(offset, size, "write_aligned");
     write_registers_individually(*this, offset, data, size);
 }
 
-void RtlSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
+void RtlSimTlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
+    validate_tlb_window_aligned(offset, size, "read_aligned");
     read_registers_individually(*this, offset, data, size);
 }
 
@@ -131,5 +132,31 @@ void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size
 }
 
 void RtlSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) { translate_and_read(offset, data, size); }
+
+void RtlSimTlbWindow::configure(const TargetIoWindowConfig& config) {
+    configure(config, default_tlb_ordering(/*carries_ordering=*/true));
+}
+
+void RtlSimTlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
+    const tlb_data tlb_config =
+        make_tlb_config(tlb_handle_->get_arch(), config, ordering, supported_window_flags(), /*carries_ordering=*/true);
+    window_flags_ = config.flags & ~WindowFlags::DirectionMask;
+    offset_from_aligned_addr_ = configure_tlb_aligned(*tlb_handle_, tlb_config);
+}
+
+// The handle stores local_offset in units of the TLB size, so the reported addr is not the device address
+// (#4126).
+TargetIoWindowConfig RtlSimTlbWindow::get_target_config() const {
+    const tlb_data& config = tlb_handle_->get_config();
+    return make_target_config(config, config.local_offset + offset_from_aligned_addr_, window_flags_);
+}
+
+IoOrdering RtlSimTlbWindow::get_io_ordering() const { return get_tlb_ordering(tlb_handle_->get_config()); }
+
+size_t RtlSimTlbWindow::get_size() const { return tlb_handle_->get_size() - offset_from_aligned_addr_; }
+
+HostMemoryCaching RtlSimTlbWindow::get_memory_caching_type() const {
+    return get_tlb_memory_caching(tlb_handle_->get_tlb_mapping());
+}
 
 }  // namespace tt::umd

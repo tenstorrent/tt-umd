@@ -152,6 +152,48 @@ TEST_F(TTSimDeviceFixture, CreateWriteCombinedIoWindowReadsAndWrites) {
     EXPECT_EQ(window->read32(0), 0x1234ABCDu);
 }
 
+// A TTSim window carries no transaction attribute beyond the direction, so asking for one is refused
+// rather than silently dropped.
+TEST_F(TTSimDeviceFixture, CreateIoWindowWithSnoopThrows) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
+
+    EXPECT_ANY_THROW(
+        tt_device->create_io_window({.core_start = core, .addr = 0x300, .flags = WindowFlags::Snoop}, {.size = 4096}));
+}
+
+// The simulator has no ordering to give up, so every ordering is accepted.
+TEST_F(TTSimDeviceFixture, CreateIoWindowWithRelaxedOrderingReadsAndWrites) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
+
+    std::unique_ptr<IoWindow> window =
+        tt_device->create_io_window({.core_start = core, .addr = 0x400}, {.size = 4096}, IoOrdering::RELAXED);
+    ASSERT_NE(window, nullptr);
+
+    window->write32(0, 0);
+    ASSERT_EQ(window->read32(0), 0u);
+    window->write32(0, 0x5EED1234);
+    EXPECT_EQ(window->read32(0), 0x5EED1234u);
+}
+
+TEST_F(TTSimDeviceFixture, CreateIoWindowWithPostedOrderingReadsAndWrites) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
+
+    std::unique_ptr<IoWindow> window =
+        tt_device->create_io_window({.core_start = core, .addr = 0x500}, {.size = 4096}, IoOrdering::POSTED);
+    ASSERT_NE(window, nullptr);
+
+    window->write32(0, 0);
+    ASSERT_EQ(window->read32(0), 0u);
+    window->write32(0, 0x9057ED00);
+    EXPECT_EQ(window->read32(0), 0x9057ED00u);
+}
+
 // ---------------------------------------------------------------------------
 // write_to_device (TLB path) → tile_rd_bytes (direct path)
 // ---------------------------------------------------------------------------

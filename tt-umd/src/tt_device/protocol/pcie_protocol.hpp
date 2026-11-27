@@ -37,7 +37,6 @@ namespace tt::umd {
 class IoWindow;
 class PCIDevice;
 class SiliconTlbWindow;
-class TlbWindow;
 struct tlb_data;
 enum TlbMapping : uint8_t;
 
@@ -121,8 +120,8 @@ private:
     // A size of 0 takes the smallest window still free.
     std::unique_ptr<SiliconTlbWindow> allocate_tlb_window(size_t size, TlbMapping mapping);
 
-    TlbWindow* get_cached_tlb_window();
-    TlbWindow* get_cached_dma_tlb_window(const tlb_data& config);
+    SiliconTlbWindow* get_cached_tlb_window();
+    SiliconTlbWindow* get_cached_dma_tlb_window(const tlb_data& config);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);
@@ -179,8 +178,8 @@ private:
     std::optional<InFlightDma> in_flight_dma_;
     // Notified when in_flight_dma_ is cleared, to wake blocking transfers waiting for the engine.
     std::condition_variable dma_idle_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_;
-    std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
+    std::unique_ptr<SiliconTlbWindow> cached_tlb_window_;
+    std::unique_ptr<SiliconTlbWindow> cached_dma_tlb_window_;
     std::function<bool(NocId)> io_timeout_hang_check_;
 };
 

@@ -14,7 +14,7 @@
 namespace tt::umd {
 
 class DeviceProtocol;
-class TlbWindow;
+class IoWindow;
 
 // NoC requests to MMIO registers must be exactly one register wide; a wider request returns or stores a
 // single register. These issue a multi-register transfer as one access of the given width per register, so
@@ -38,7 +38,7 @@ void write_registers_individually(
 
 // Same split over a window's block path, with 32-bit accesses, for the simulation windows driven directly
 // instead of through a protocol. Temporary: goes away when simulation moves under the DeviceProtocol umbrella.
-void read_registers_individually(TlbWindow& window, uint64_t offset, void* data, size_t size);
-void write_registers_individually(TlbWindow& window, uint64_t offset, const void* data, size_t size);
+void read_registers_individually(IoWindow& window, uint64_t offset, void* data, size_t size);
+void write_registers_individually(IoWindow& window, uint64_t offset, const void* data, size_t size);
 
 }  // namespace tt::umd

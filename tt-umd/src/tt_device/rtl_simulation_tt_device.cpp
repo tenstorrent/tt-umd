@@ -31,7 +31,6 @@
 #include "tt-umd/coordinates/att/configs/horizon_2x3_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_att_map.hpp"
 #include "tt-umd/coordinates/att/configs/horizon_x2_columns_att_map.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"

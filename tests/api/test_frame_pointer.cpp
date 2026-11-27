@@ -122,8 +122,8 @@ std::vector<std::pair<uint64_t, uint64_t>> bar_mappings() {
 // memory at rbp. If rbp holds a pointer into a BAR mapping, that read goes to the device and can wedge it
 // (tt-umd#3594). Sample rbp while UMD does register I/O, and check it never points into device memory.
 //
-// A regression only shows up on a build that inlines TlbWindow::validate into the register I/O path, which is what left
-// the window pointer in rbp. That is the unity build; #3390 turns it on for UMD.
+// A regression only shows up on a build that inlines SiliconTlbWindow::validate into the register I/O path, which is
+// what left the window pointer in rbp. That is the unity build; #3390 turns it on for UMD.
 TEST(FramePointer, RbpNeverPointsIntoDeviceMemory) {
 #if !defined(__x86_64__)
     GTEST_SKIP() << "Samples the x86-64 frame pointer register.";

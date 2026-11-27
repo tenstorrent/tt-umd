@@ -41,6 +41,7 @@
 #include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/power_state.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -117,14 +118,6 @@ public:
     enum class HangAction {
         THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
-    };
-
-    /**
-     * @brief Defines the requested power domain state for the device.
-     */
-    enum class PowerState {
-        BUSY,  ///< Claims all power domains, requesting maximum performance.
-        IDLE,  ///< Releases power domains, allowing the device to enter lower power states.
     };
 
     /**

@@ -216,7 +216,7 @@ LocalChip::LocalChip(
     host_mem_in_single_buffer_(host_mem_in_single_buffer),
     tt_device_(std::move(tt_device)) {
     l1_address_params = tt_device_->get_architecture_implementation()->get_l1_address_params();
-    tt_device_->set_power_state(TTDevice::PowerState::BUSY);
+    tt_device_->set_power_state(PowerState::HIGH);
     wait_chip_to_be_ready();
 
     // start_device() and the memory barriers take these locks whatever the transport.
@@ -226,7 +226,7 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
-    tt_device_->set_power_state(TTDevice::PowerState::IDLE);
+    tt_device_->set_power_state(PowerState::LOW);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     unmap_host_mem_channels();

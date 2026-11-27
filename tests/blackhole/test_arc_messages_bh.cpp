@@ -32,7 +32,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->set_power_state(PowerState::HIGH);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
         constexpr uint32_t num_loops = 100;
@@ -42,7 +42,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
             ASSERT_EQ(result.exit_code, 0u);
         }
 
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+        tt_device->set_power_state(PowerState::LOW);
     }
 }
 
@@ -51,7 +51,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->set_power_state(PowerState::HIGH);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
         // TEST (0x90) increments the argument and returns it in word[1] of the response.
@@ -63,7 +63,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
         ASSERT_FALSE(result.return_values.empty());
         EXPECT_EQ(result.return_values[0], random_arg + 1);
 
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+        tt_device->set_power_state(PowerState::LOW);
     }
 }
 
@@ -72,7 +72,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->set_power_state(PowerState::HIGH);
         tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
         DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
@@ -82,7 +82,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
         ASSERT_FALSE(result.return_values.empty());
         EXPECT_GT(result.return_values[0], 0u);
 
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+        tt_device->set_power_state(PowerState::LOW);
     }
 }
 
@@ -94,7 +94,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->set_power_state(PowerState::HIGH);
         tt_device->init_tt_device();
         tt_devices.push_back(std::move(tt_device));
     }
@@ -123,7 +123,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
     for (const std::unique_ptr<TTDevice>& tt_device : tt_devices) {
         EXPECT_EQ(tt_device->get_clock(), blackhole::AICLK_IDLE_VAL);
 
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+        tt_device->set_power_state(PowerState::LOW);
     }
 }
 
@@ -134,7 +134,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_id);
-        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->set_power_state(PowerState::HIGH);
         tt_device->init_tt_device();
 
         // Both threads drive the same firmware command path; the named ARC mutex serializes them
@@ -153,6 +153,6 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
         thread0.join();
         thread1.join();
 
-        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+        tt_device->set_power_state(PowerState::LOW);
     }
 }

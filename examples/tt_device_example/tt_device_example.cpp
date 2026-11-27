@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
         std::unique_ptr<TTDevice> device = create_tt_device(device_id);
         // Tensix is clock gated while the device is idle; request power before touching it.
-        device->set_power_state(TTDevice::PowerState::BUSY);
+        device->set_power_state(PowerState::HIGH);
 
         std::cout << "Architecture: "
                   << (device->get_arch() == tt::ARCH::WORMHOLE_B0 ? "Wormhole B0"

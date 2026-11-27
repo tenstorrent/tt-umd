@@ -306,7 +306,7 @@ void TopologyDiscoveryBase::get_connected_devices() {
         std::unique_ptr<TTDevice> tt_device =
             create_tt_device(device_id, options.io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
-            tt_device->set_power_state(TTDevice::PowerState::BUSY, options.noc);
+            tt_device->set_power_state(PowerState::HIGH, options.noc);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(

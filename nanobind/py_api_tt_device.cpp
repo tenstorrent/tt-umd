@@ -247,9 +247,7 @@ void bind_tt_device(nb::module_ &m) {
         .value("Throw", TTDevice::HangAction::THROW)
         .value("ReturnValue", TTDevice::HangAction::RETURN);
 
-    nb::enum_<TTDevice::PowerState>(tt_device_class, "PowerState")
-        .value("BUSY", TTDevice::PowerState::BUSY)
-        .value("IDLE", TTDevice::PowerState::IDLE);
+    nb::enum_<PowerState>(tt_device_class, "PowerState").value("HIGH", PowerState::HIGH).value("LOW", PowerState::LOW);
 
     tt_device_class
         .def_static(

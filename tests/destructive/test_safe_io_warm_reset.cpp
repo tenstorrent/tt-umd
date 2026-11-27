@@ -180,7 +180,7 @@ protected:
     void open_safe_devices() {
         for (int pci_device_id : pci_device_ids_) {
             auto tt_device = create_tt_device(pci_device_id, IODeviceType::PCIe, /*use_safe_api=*/true);
-            tt_device->set_power_state(TTDevice::PowerState::BUSY);
+            tt_device->set_power_state(PowerState::HIGH);
             tt_device->init_tt_device();
             tensix_core_ = tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             tt_devices_[pci_device_id] = std::move(tt_device);

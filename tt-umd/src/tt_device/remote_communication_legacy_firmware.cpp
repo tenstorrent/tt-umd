@@ -13,11 +13,10 @@
 #include <vector>
 
 #include "noc_access.hpp"
-#include "topology/topology_utils.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/driver_atomics.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_types.hpp"
@@ -45,6 +44,44 @@ struct routing_cmd_t {
     uint16_t padding;
     uint32_t src_addr_tag;  // upper 32-bits of request source address.
 };
+
+template <typename T>
+static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {
+    std::size_t target_size = 0;
+    if (size_in_bytes > 0) {
+        target_size = ((size_in_bytes - 1) / sizeof(T)) + 1;
+    }
+    data_buf.resize(target_size);
+}
+
+static uint64_t get_sys_addr(
+    const DriverNocParams& noc_params, uint32_t chip_x, uint32_t chip_y, size_t noc_x, size_t noc_y, uint64_t offset) {
+    uint64_t result = chip_y;
+    uint64_t noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
+    result <<= noc_params.noc_addr_node_id_bits;
+    result |= chip_x;
+    result <<= noc_params.noc_addr_node_id_bits;
+    result |= noc_y;
+    result <<= noc_params.noc_addr_node_id_bits;
+    result |= noc_x;
+    result <<= noc_params.noc_addr_local_bits;
+    result |= (noc_addr_local_bits_mask & offset);
+    return result;
+}
+
+static uint16_t get_sys_rack(const DriverEthInterfaceParams& eth_interface_params, uint32_t rack_x, uint32_t rack_y) {
+    uint32_t result = rack_y;
+    result <<= eth_interface_params.eth_rack_coord_width;
+    result |= rack_x;
+
+    return static_cast<uint16_t>(result);
+}
+
+static bool is_non_mmio_cmd_q_full(
+    const DriverEthInterfaceParams& eth_interface_params, uint32_t curr_wptr, uint32_t curr_rptr) {
+    return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.cmd_buf_size_mask) ==
+                                        (curr_rptr & eth_interface_params.cmd_buf_size_mask));
+}
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
     TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels) :

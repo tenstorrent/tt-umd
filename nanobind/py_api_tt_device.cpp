@@ -35,6 +35,17 @@
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
 namespace nb = nanobind;
+
+namespace {
+tt::umd::PcieInterface *require_pcie_interface(tt::umd::TTDevice &device) {
+    tt::umd::PcieInterface *pcie_interface = device.get_pcie_interface();
+    if (!pcie_interface) {
+        UMD_THROW(tt::umd::error::RuntimeError, "PCIe interface is not available for this device.");
+    }
+    return pcie_interface;
+}
+}  // namespace
+
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
 // allowing other Python threads to run in parallel while this binding executes. Pass
 // release_gil() as a call guard to nb::class_::def() on methods that don't touch the
@@ -268,9 +279,10 @@ void bind_tt_device(nb::module_ &m) {
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
-        .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
+        .def("get_chip_info", &TTDevice::get_chip_info, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
         .def(
             "get_firmware_telemetry_reader",
             &TTDevice::get_firmware_telemetry_reader,
@@ -283,7 +295,11 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_board_type", &TTDevice::get_board_type, release_gil())
         .def("get_communication_device_type", &TTDevice::get_communication_device_type, release_gil())
         .def("get_communication_device_id", &TTDevice::get_communication_device_id, release_gil())
-        .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
+        .def(
+            "get_noc_translation_enabled",
+            &TTDevice::get_noc_translation_enabled,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
@@ -456,13 +472,13 @@ void bind_tt_device(nb::module_ &m) {
             "size must be multiples of 4. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "bar_read32",
-            &TTDevice::bar_read32,
+            [](TTDevice &self, uint32_t addr) { return require_pcie_interface(self)->bar_read32(addr); },
             nb::arg("addr"),
             release_gil(),
             "Read a 32-bit value from the specified address on bar0")
         .def(
             "bar_write32",
-            &TTDevice::bar_write32,
+            [](TTDevice &self, uint32_t addr, uint32_t data) { require_pcie_interface(self)->bar_write32(addr, data); },
             nb::arg("addr"),
             nb::arg("data"),
             release_gil(),

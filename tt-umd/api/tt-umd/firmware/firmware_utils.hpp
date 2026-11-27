@@ -35,8 +35,6 @@ SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
 
 SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core);
-
 /**
  * Set the TDP limit the firmware throttler enforces [W]. Blackhole with firmware 19.11.0+ only.
  * Applies per ASIC, is lost on chip reset, and is not arbitrated between callers: last write wins.

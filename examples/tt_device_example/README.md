@@ -37,7 +37,7 @@ std::unique_ptr<TTDevice> device = create_tt_device(device_id);
 
 // Basic operations work immediately
 tt::ARCH arch = device->get_arch();
-uint32_t value = device->bar_read32(address);
+uint32_t value = device->get_pcie_interface()->bar_read32(address);
 
 // Initialize for full features
 device->init_tt_device();

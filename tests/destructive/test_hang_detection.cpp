@@ -165,7 +165,7 @@ TEST_P(NocHangDetectionTest, ReadNodeIdViaBar) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 
-    uint32_t bar_raw = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
+    uint32_t bar_raw = tt_device_->get_pcie_interface()->bar_read32(get_bar_node_id_offset(arch, noc));
     tt_xy_pair bar_node_id = extract_node_id(bar_raw);
 
     log_info(

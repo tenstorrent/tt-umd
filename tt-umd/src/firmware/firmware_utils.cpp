@@ -27,7 +27,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/telemetry.hpp"
-#include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
@@ -83,31 +82,6 @@ SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARC
     }
 
     return SemVer(0, 0, 0);
-}
-
-SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
-    switch (tt_device->get_arch()) {
-        case ARCH::WORMHOLE_B0: {
-            uint32_t eth_fw_version_read;
-            tt_device->read_from_device(
-                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), get_selected_noc_id());
-            return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
-        }
-        case ARCH::BLACKHOLE: {
-            uint8_t major = 0;
-            uint8_t minor = 0;
-            uint8_t patch = 0;
-            tt_device->read_from_device(
-                &major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
-            tt_device->read_from_device(
-                &minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
-            tt_device->read_from_device(
-                &patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t), get_selected_noc_id());
-            return SemVer(major, minor, patch);
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
-    }
 }
 
 // Range the Blackhole TDP throttler accepts, mirroring throttler_limit_ranges[kThrottlerTDP] in CMFW.

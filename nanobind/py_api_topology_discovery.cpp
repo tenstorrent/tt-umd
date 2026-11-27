@@ -202,7 +202,8 @@ void bind_topology_discovery(nb::module_& m) {
             "simulation",
             &TopologyDiscoveryOptions::simulation,
             "SimulationDiscoveryOptions selecting a simulator whose chips are discovered instead of the "
-            "host's. None means discover the host's own devices.");
+            "host's. None means discover the host's own devices.")
+        .def_rw("noc", &TopologyDiscoveryOptions::noc, "NOC to use during device discovery.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         // Tried first: calls that pass only options never reach the deprecated overload below.

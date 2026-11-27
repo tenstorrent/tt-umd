@@ -18,7 +18,6 @@
 
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd/io_window/io_window.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
@@ -31,7 +30,6 @@
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
-#include "tt-umd/types/tlb.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -133,6 +131,25 @@ TEST_F(TTSimDeviceFixture, CreateIoWindowWithoutOrderingReadsAndWrites) {
 
     window->write32(0, 0xCAFEF00D);
     EXPECT_EQ(window->read32(0), 0xCAFEF00D);
+}
+
+// A write-combined window of the requested size is served on every simulated architecture.
+TEST_F(TTSimDeviceFixture, CreateWriteCombinedIoWindowReadsAndWrites) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
+    constexpr size_t size_2mb = 2ULL * 1024ULL * 1024ULL;
+
+    std::unique_ptr<IoWindow> window = tt_device->create_io_window(
+        {.core_start = core, .addr = 0x200}, {.mapping = HostMemoryCaching::WC, .size = size_2mb});
+    ASSERT_NE(window, nullptr);
+    EXPECT_GE(window->get_size(), size_2mb);
+    EXPECT_EQ(window->get_memory_caching_type(), HostMemoryCaching::WC);
+
+    window->write32(0, 0);
+    ASSERT_EQ(window->read32(0), 0u);
+    window->write32(0, 0x1234ABCD);
+    EXPECT_EQ(window->read32(0), 0x1234ABCDu);
 }
 
 // ---------------------------------------------------------------------------
@@ -474,7 +491,8 @@ TEST_F(TTSimTlbWindowFixture, FourGBTlbBar4PathRoundTrip) {
     const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED).to_pair();
 
     constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
+    std::unique_ptr<IoWindow> tlb_window = tt_device->create_io_window(
+        {.core_start = core, .addr = 0}, {.mapping = HostMemoryCaching::WC, .size = SIZE_4GB});
     ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
     EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
 
@@ -509,7 +527,8 @@ TEST_F(TTSimTlbWindowFixture, FourGBTlbBar4PathDramRoundTrip) {
     const tt_xy_pair core = soc.translate_coord_to(dram_cores.at(0), CoordSystem::TRANSLATED).to_pair();
 
     constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
+    std::unique_ptr<IoWindow> tlb_window = tt_device->create_io_window(
+        {.core_start = core, .addr = 0}, {.mapping = HostMemoryCaching::WC, .size = SIZE_4GB});
     ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
     EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
 

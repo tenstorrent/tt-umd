@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "tt-umd/coordinates/att/att_resolver.hpp"
-#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/simulation/simulation_server_protocol.hpp"
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -29,7 +29,6 @@ class SimulationTlbAllocator;
 class SimulationServerSocket;
 class SimulationClient;
 class SimulationTTDeviceModel;
-class TlbWindow;
 
 // Common base class for the simulation TTDevice backends. It sits as an intermediary in the class
 // hierarchy and owns the state shared by the derived simulation devices.
@@ -115,8 +114,6 @@ public:
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
-
     // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
     // remote client can build the matching device class, and reported by Cluster so a caller can
     // tell what its simulation is backed by.
@@ -166,9 +163,8 @@ protected:
     // create_tlb_window() hook.
     void setup_cached_tlb_window();
 
-    // Construct the backend-specific TlbHandle + TlbWindow for an already-allocated TLB index.
-    virtual std::unique_ptr<TlbWindow> create_tlb_window(
-        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) = 0;
+    // Construct the backend-specific TLB-backed window for an already-allocated TLB index.
+    virtual std::unique_ptr<IoWindow> create_tlb_window(int tlb_index, size_t size, TlbMapping mapping) = 0;
 
     // --- read/write_from_device hooks ---
     //
@@ -201,7 +197,7 @@ protected:
     // Owned by the model, which outlives every member here; null in client mode.
     SimulationSysmemManager* sysmem_manager_ = nullptr;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
+    std::unique_ptr<IoWindow> cached_tlb_window_ = nullptr;
 
     // Whether an access carries its destination in the address rather than alongside it. A NOC
     // that resolves a flat address into a destination core needs the coordinate folded in; every
@@ -226,6 +222,15 @@ protected:
     SimulationTTDeviceModel* simulation_model_ = nullptr;
 
 private:
+    // The window factory this device installs in its model, so TTDevice::create_io_window reaches the
+    // simulator's TLBs through the model like every other device. Defined with the implementation.
+    class TlbWindowFactory;
+
+    // A window over a fresh TLB of `size` bytes from this device's allocator, not yet pointed at any
+    // target. Throws error::RuntimeError when the device has no local allocator (client mode) or no
+    // TLB of that size is free.
+    std::unique_ptr<IoWindow> allocate_tlb_window(size_t size, TlbMapping mapping);
+
     // Serves one socket request against this host device: decodes the wire request, runs it
     // through read_from_device/write_to_device -- the client has already translated coordinates,
     // so they are passed as LITERAL (no re-translation) -- and encodes the reply. Runs on the

@@ -13,6 +13,7 @@
 
 namespace tt::umd {
 
+class IoWindowFactory;
 class RiscReset;
 class SocDescriptor;
 class TTSimProtocol;
@@ -37,6 +38,10 @@ public:
 
     std::unique_ptr<IoWindow> create_io_window(
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
+
+    // Installed by the backend device: windows sit over the simulator's TLBs, which only the backend
+    // can allocate and drive.
+    void set_io_window_factory(std::unique_ptr<IoWindowFactory> io_window_factory);
 
     DeviceProtocol *get_device_protocol() override;
 
@@ -85,6 +90,7 @@ private:
     std::unique_ptr<HangDetector> hang_detector_;
     std::unique_ptr<DeviceFirmware> device_firmware_;
     std::unique_ptr<RiscReset> risc_reset_;
+    std::unique_ptr<IoWindowFactory> io_window_factory_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     // The telemetry reader and info provider belong to the concrete architecture firmwares rather
     // than to the DeviceFirmware interface, and exist only once init_firmware has run, so they are

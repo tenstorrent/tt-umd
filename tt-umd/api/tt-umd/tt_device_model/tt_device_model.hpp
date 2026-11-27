@@ -107,12 +107,10 @@ public:
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
      *
-     * Returning nullptr leaves the window to TTDevice, which serves one only for the simulation devices.
-     *
      * @param target Device-side target (core, address, NOC).
      * @param host Host-side properties (caching, size).
      * @param ordering Ordering of the window's transactions, for windows that can relax it.
-     * @return Exclusively owned window handle, or nullptr when TTDevice serves the window.
+     * @return Exclusively owned window handle, or nullptr when this device cannot map I/O windows.
      */
     virtual std::unique_ptr<IoWindow> create_io_window(
         TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) = 0;

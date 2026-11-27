@@ -514,20 +514,6 @@ public:
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
     /**
-     * Allocate a TlbWindow for use by callers.
-     *
-     * Simulation TTDevice subclasses override this to allocate from their in-process bitmap and build
-     * the appropriate sim-backend TlbWindow. Other devices build their windows in the model, so the
-     * default throws.
-     *
-     * @param config tlb_data configuration applied to the new window.
-     * @param mapping UC or WC.
-     * @param size Requested TLB size in bytes (0 means try arch-supported sizes in order).
-     */
-    virtual std::unique_ptr<TlbWindow> get_io_window(
-        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
-
-    /**
      * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
      *
      * The returned window supports direct pointer-style reads and writes to device memory.
@@ -544,6 +530,7 @@ public:
      * @param host Host-side properties (caching strategy and requested size).
      * See @ref HostIoWindowConfig.
      * @return An exclusively owned handle to the newly created @ref IoWindow.
+     * @throws error::RuntimeError if this device cannot map I/O windows, e.g. a chip reached over a remote link.
      */
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
 

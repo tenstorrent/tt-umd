@@ -159,7 +159,7 @@ protected:
     const TopologyDiscoveryOptions options;
 
     // Reads the ETH FW version from the core's L1 over the configured NOC.
-    virtual SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) = 0;
+    virtual SemVer get_eth_fw_version_from_core(TTDevice* tt_device, CoreCoord eth_core) = 0;
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 

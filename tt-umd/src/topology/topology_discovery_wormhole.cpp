@@ -169,7 +169,7 @@ void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     galaxy_mode = tt_device->get_board_type() == BoardType::UBB;
 }
 
-SemVer TopologyDiscoveryWormhole::get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
+SemVer TopologyDiscoveryWormhole::get_eth_fw_version_from_core(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t eth_fw_version_read;
     tt_device->read_from_device(
         &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), options.noc);
@@ -239,7 +239,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                     continue;
                 }
 
-                SemVer eth_fw_version = get_eth_fw_version(tt_device.get(), eth_core);
+                SemVer eth_fw_version = get_eth_fw_version_from_core(tt_device.get(), eth_core);
                 if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
                     log_warning(
                         LogUMD,

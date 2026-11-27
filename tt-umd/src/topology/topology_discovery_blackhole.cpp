@@ -207,7 +207,7 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, CoreC
     return postcode;
 }
 
-SemVer TopologyDiscoveryBlackhole::get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
+SemVer TopologyDiscoveryBlackhole::get_eth_fw_version_from_core(TTDevice* tt_device, CoreCoord eth_core) {
     uint8_t major = 0;
     uint8_t minor = 0;
     uint8_t patch = 0;

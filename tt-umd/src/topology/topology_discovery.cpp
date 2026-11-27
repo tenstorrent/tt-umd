@@ -721,7 +721,7 @@ bool TopologyDiscoveryBase::is_board_id_included(uint64_t board_id) const {
 }
 
 bool TopologyDiscoveryBase::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
-    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+    SemVer eth_fw_version = get_eth_fw_version_from_core(tt_device, eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {

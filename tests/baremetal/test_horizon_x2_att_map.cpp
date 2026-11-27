@@ -195,6 +195,9 @@ INSTANTIATE_TEST_SUITE_P(
         ResolveCase{3, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x21'4085'0000},
         // Past the first 1 MB, still in Tensix (1,0)'s L1 slot.
         ResolveCase{0, {1, 0}, CoreType::TENSIX, 0x20'0000, 0x10'40E0'0000},
+        // The last word of Tensix (1,0)'s L1 slot, and the first byte past it, through its CSR.
+        ResolveCase{0, {1, 0}, CoreType::TENSIX, 0x3F'FFFC, 0x10'40FF'FFFC},
+        ResolveCase{0, {1, 0}, CoreType::TENSIX, 0x40'0000, 0x10'9840'0000},
         // The TSC reset register of Tensix (0,0), past L1, so through its CSR.
         ResolveCase{0, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x10'9303'3088},
         ResolveCase{1, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x11'9303'3088},
@@ -246,6 +249,8 @@ INSTANTIATE_TEST_SUITE_P(
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x5'0000, 0x10'4005'0000},
         // Past the first 1 MB, still in Tensix (0,0)'s L1 slot.
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x20'0000, 0x10'4020'0000},
+        // The first byte past Tensix (0,0)'s L1 slot, through its CSR.
+        ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x40'0000, 0x10'8040'0000},
         // The TSC reset register of Tensix (0,0), past L1, so through its CSR.
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 0}, CoreType::TENSIX, 0x0303'3088, 0x10'8303'3088},
         ColumnResolveCase{&att::HORIZON_X2_DEV0_COLUMN0_MAP, {0, 1}, CoreType::DISPATCH, 0, 0x10'8800'0000},

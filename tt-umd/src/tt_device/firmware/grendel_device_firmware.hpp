@@ -68,6 +68,16 @@ public:
         return EthTrainingStatus::SUCCESS;
     }
 
+    std::optional<uint32_t> get_eth_core_train_speed(
+        [[maybe_unused]] tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return std::nullopt;
+    }
+
+    std::optional<uint32_t> get_eth_core_target_speed(
+        [[maybe_unused]] tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return std::nullopt;
+    }
+
     bool wait_dram_channel_training(
         [[maybe_unused]] uint32_t dram_channel,
         [[maybe_unused]] std::chrono::milliseconds timeout_ms,

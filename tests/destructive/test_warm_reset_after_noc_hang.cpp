@@ -69,7 +69,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<uint8_t> readback_data(data.size(), 0);
 
     std::unique_ptr<TTDevice> tt_device = create_tt_device(pci_device_ids.at(0));
-    tt_device->set_power_state(TTDevice::PowerState::BUSY);
+    tt_device->set_power_state(PowerState::HIGH);
     tt_device->init_tt_device();
 
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -101,7 +101,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     tt_device.reset();
 
     tt_device = create_tt_device(pci_device_ids.at(0));
-    tt_device->set_power_state(TTDevice::PowerState::BUSY);
+    tt_device->set_power_state(PowerState::HIGH);
     tt_device->init_tt_device();
 
     tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
@@ -112,5 +112,5 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
 
     ASSERT_EQ(data, readback_data);
 
-    tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    tt_device->set_power_state(PowerState::LOW);
 }

@@ -15,7 +15,7 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
@@ -156,7 +156,7 @@ class TestTTDevice(unittest.TestCase):
             # device data.
             with self.assertRaises(BufferError):
                 dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_register_write_read(self):
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
@@ -167,7 +167,7 @@ class TestTTDevice(unittest.TestCase):
         registers = bytes.fromhex("78563412efbeaddeefcdab8967452301")
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             tensix_core = tt_umd.SocDescriptor(dev).get_cores(
                 tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
@@ -186,7 +186,7 @@ class TestTTDevice(unittest.TestCase):
                 )
             finally:
                 dev.noc_write(tensix_core.x, tensix_core.y, 0x1000, original)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_register_access_rejects_unaligned_access(self):
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
@@ -196,7 +196,7 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             tensix_core = tt_umd.SocDescriptor(dev).get_cores(
                 tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
@@ -206,7 +206,7 @@ class TestTTDevice(unittest.TestCase):
                 dev.read_from_device_reg(tensix_core.x, tensix_core.y, 0x1002, 4)
             with self.assertRaises(tt_umd.error.UmdBaseException):
                 dev.write_to_device_reg(tensix_core.x, tensix_core.y, 0x1000, bytes(6))
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_dma_tt_device(self):
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
@@ -217,11 +217,11 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             if dev.is_remote():
                 print(f"Skipping remote device {pci_id} for DMA test")
-                dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+                dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
                 continue
 
             # On Blackhole, dma_read_from_device is not supported; fall back to noc_read.
@@ -321,7 +321,7 @@ class TestTTDevice(unittest.TestCase):
             # rejected with a BufferError.
             with self.assertRaises(BufferError):
                 read_fn(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_remote_tt_device(self):
         cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
@@ -371,7 +371,7 @@ class TestTTDevice(unittest.TestCase):
 
         for dev_id in pci_ids:
             dev = tt_umd.TTDevice.create(dev_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             arch = dev.get_arch()
             print(f"Testing arc_msg on device {dev_id} with arch {arch}")
@@ -384,7 +384,7 @@ class TestTTDevice(unittest.TestCase):
                 f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
             )
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_noc_id_argument(self):
         """Every TTDevice I/O method accepts a trailing noc_id."""
@@ -396,7 +396,7 @@ class TestTTDevice(unittest.TestCase):
         noc0 = tt_umd.NocId.NOC0
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             tensix_core = tt_umd.SocDescriptor(dev).get_cores(
                 tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
@@ -440,7 +440,7 @@ class TestTTDevice(unittest.TestCase):
                         self.assertEqual(dev.noc_read(x, y, 0x1000, 4), dma_data)
             finally:
                 dev.noc_write(x, y, 0x1000, original)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_arc_msg_test_increment(self):
         """TEST (0x90) increments arg0 and returns it. Verifies arg passing and return values."""
@@ -451,7 +451,7 @@ class TestTTDevice(unittest.TestCase):
 
         for dev_id in pci_ids:
             dev = tt_umd.TTDevice.create(dev_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             arch = dev.get_arch()
             print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
@@ -472,7 +472,7 @@ class TestTTDevice(unittest.TestCase):
             print(f"exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
             self.assertEqual(return_3, expected_value)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_get_chip_info(self):
         """Test get_chip_info method."""
@@ -483,7 +483,7 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
 
             chip_info = dev.get_chip_info()
@@ -508,7 +508,7 @@ class TestTTDevice(unittest.TestCase):
             print(
                 f"    l2cpu_harvesting_mask: {chip_info.harvesting_masks.l2cpu_harvesting_mask}"
             )
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
     def test_use_noc1(self):
         """Test use_noc1 static method."""
@@ -524,7 +524,7 @@ class TestTTDevice(unittest.TestCase):
         # Perform basic read/write operations to verify use_noc1 works
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
@@ -550,7 +550,7 @@ class TestTTDevice(unittest.TestCase):
                 read_data, test_data, "Read data should match written data"
             )
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
 
         tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
         print("Set thread NocId back to NOC0")
@@ -595,12 +595,12 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
-            dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.HIGH)
             dev.init_tt_device()
 
             if dev.is_remote():
                 print(f"Skipping remote device {pci_id}")
-                dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+                dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)
                 continue
 
             # A healthy device should return False for all hang checks.
@@ -614,4 +614,4 @@ class TestTTDevice(unittest.TestCase):
                     )
                 )
 
-            dev.set_power_state(tt_umd.TTDevice.PowerState.IDLE)
+            dev.set_power_state(tt_umd.TTDevice.PowerState.LOW)

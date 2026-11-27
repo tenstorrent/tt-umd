@@ -110,8 +110,6 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC) override;
     void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) override;
 
-    SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
-
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
 
     // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a

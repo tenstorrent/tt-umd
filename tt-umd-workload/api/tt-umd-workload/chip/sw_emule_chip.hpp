@@ -24,7 +24,8 @@ class L1Pool;
 
 namespace tt::umd {
 
-class SimulationSysmemManager;
+class HostMemChannels;
+class SWEmuleSystemMemory;
 class IoWindow;
 
 // TRANSLATED Tensix core -> worker-pool slot, in the SoC descriptor's deterministic order.
@@ -66,7 +67,8 @@ public:
 
     const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
-    // Host memory — the host channels the cluster asked for, in the sysmem manager.
+    // Host memory — the host channels the cluster asked for, in the chip's own SystemMemoryAllocator.
+    const HostMemChannels* get_host_mem_channels() override;
     std::size_t get_num_host_channels() override;
     std::size_t get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
@@ -133,6 +135,10 @@ public:
     // Identity of this chip's shared segment: the harvesting mask folded exactly as the ctor folds it.
     uint64_t shm_harvest_mask() const;
 
+    // The host address behind the NOC address of a buffer from get_system_memory_allocator(), or nullptr when
+    // no live buffer holds it. An emulated core's access to host memory resolves through this.
+    void* get_mapped_host_ptr(uint64_t noc_addr);
+
 private:
     std::mutex core_mutex_;
 
@@ -161,9 +167,8 @@ private:
 
     SocDescriptor soc_descriptor_;
 
-    // Host memory and host-facing (PCIe) address resolution — the same UMD class TTSimTTDevice uses, with the
-    // cluster's host-memory channel count.
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    // Host memory: the cluster's host-memory channels and the buffers the device reaches over the NOC.
+    std::unique_ptr<SWEmuleSystemMemory> system_memory_;
 
     // The device surface a simulated chip has: a device model with no management firmware, with its memory
     // accesses served by this chip. Built in the constructor, so concurrent get_tt_device() calls only read it.

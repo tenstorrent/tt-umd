@@ -4,6 +4,10 @@
 
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"
 
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
@@ -24,12 +28,16 @@
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
-#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/reset/risc_reset.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device_model/tt_device_model.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/host_memory.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/register_access_width.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -401,6 +409,224 @@ public:
 
 }  // namespace
 
+// The chip's host memory: the host channels the cluster asked for, then an arena of buffers the device reaches over
+// the NOC. It lays memory out as UMD's simulation allocator does, and the chip serves it only through public
+// interfaces (SystemMemoryAllocator, HostMemChannels).
+class SWEmuleSystemMemory final : public SystemMemoryAllocator {
+public:
+    // Host memory as the device sees it: the channels, then the arena, all within one 32-bit IO window.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
+
+    SWEmuleSystemMemory(tt::ARCH arch, uint32_t num_host_mem_channels) :
+        noc_base_(host_memory_noc_base(arch)), registry_(std::make_shared<Registry>()) {
+        UMD_ASSERT(
+            num_host_mem_channels <= HostMemChannels::MAX_CHANNELS,
+            error::RuntimeError,
+            "SWEmuleChip: " + std::to_string(num_host_mem_channels) + " host memory channels requested, at most " +
+                std::to_string(HostMemChannels::MAX_CHANNELS) + " exist.");
+        if (num_host_mem_channels == 0) {
+            return;
+        }
+        // Every channel is 1 GiB, except that with four the last is 768 MiB, so all of them fit the IO window.
+        constexpr size_t LAST_OF_FOUR_SIZE = 768ULL << 20;
+        size_t total_size = num_host_mem_channels * HostMemChannels::CHANNEL_STRIDE;
+        if (num_host_mem_channels == HostMemChannels::MAX_CHANNELS) {
+            total_size -= HostMemChannels::CHANNEL_STRIDE - LAST_OF_FOUR_SIZE;
+        }
+        void* memory = mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        UMD_ASSERT(memory != MAP_FAILED, error::RuntimeError, "SWEmuleChip: host memory mmap() failed");
+        madvise(memory, total_size, MADV_HUGEPAGE);
+        channel_memory_ = static_cast<uint8_t*>(memory);
+        channel_memory_size_ = total_size;
+        // The arena starts after the channels, so a buffer's NOC address never aliases a channel's.
+        registry_->next_arena_offset = total_size;
+
+        host_mem_channels_ = HostMemChannels(num_host_mem_channels);
+        for (uint32_t channel = 0; channel < num_host_mem_channels; channel++) {
+            const size_t offset = channel * HostMemChannels::CHANNEL_STRIDE;
+            host_mem_channels_.map_channel(
+                channel, channel_memory_ + offset, std::min(HostMemChannels::CHANNEL_STRIDE, total_size - offset));
+        }
+    }
+
+    ~SWEmuleSystemMemory() override {
+        {
+            // Buffers that outlive the allocator still free their own memory; they only stop unregistering.
+            std::lock_guard<std::mutex> lock(registry_->mutex);
+            registry_->buffers.clear();
+        }
+        host_mem_channels_.unmap_channels();
+        if (channel_memory_ != nullptr) {
+            munmap(channel_memory_, channel_memory_size_);
+        }
+    }
+
+    SWEmuleSystemMemory(const SWEmuleSystemMemory&) = delete;
+    SWEmuleSystemMemory& operator=(const SWEmuleSystemMemory&) = delete;
+
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc) override {
+        const uint64_t extent = arena_extent(nullptr, size);
+        // Hold the lock from the capacity check through registration, so a failed check allocates nothing and no
+        // other allocation can take the space in between.
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        check_arena_capacity(extent);
+        void* mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+        UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "SWEmuleChip: host buffer mmap() failed");
+        auto release_mapping = [size](void* buffer_va) {
+            if (munmap(buffer_va, size) != 0) {
+                log_warning(
+                    LogUMD, "SWEmuleChip: failed to munmap a host buffer of size {:#x} at {:p}.", size, buffer_va);
+            }
+        };
+        try {
+            return register_buffer(mapping, size, bind_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+        } catch (...) {
+            release_mapping(mapping);
+            throw;
+        }
+    }
+
+    std::unique_ptr<SysmemBuffer> map_user_buffer(
+        void* user_ptr, size_t size, bool bind_to_noc, DeviceBufferAccess device_access) override {
+        // Nothing stops the emulated device writing a mapping, so a read-only promise could not be kept.
+        UMD_ASSERT(
+            device_access != DeviceBufferAccess::READ_ONLY,
+            error::RuntimeError,
+            "SWEmuleChip cannot pin pages read-only to the device.");
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        // The caller owns this memory, so the buffer only drops its registration.
+        return register_buffer(user_ptr, size, bind_to_noc, device_access, {});
+    }
+
+    int get_communication_id() const override { return 0; }
+
+    std::optional<size_t> get_max_buffer_count(size_t size) const override {
+        // Buffers come out of a fixed arena, so only as many as it holds fit.
+        const uint64_t arena_size = DEVICE_IO_WINDOW_SIZE - channel_memory_size_;
+        return size == 0 || size > arena_size ? 0 : arena_size / size;
+    }
+
+    uint64_t get_noc_base() const override { return noc_base_; }
+
+    bool is_read_only_page_pinning_supported() const override { return false; }
+
+    bool is_user_buffer_mapping_supported() const override { return true; }
+
+    const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
+
+    // The host address behind a buffer's NOC address, or nullptr when no live buffer holds it.
+    void* get_mapped_host_ptr(uint64_t noc_addr) {
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        for (const auto& buffer : registry_->buffers) {
+            if (noc_addr >= buffer.noc_addr && noc_addr - buffer.noc_addr < buffer.size) {
+                return static_cast<uint8_t*>(buffer.host_ptr) + (noc_addr - buffer.noc_addr);
+            }
+        }
+        return nullptr;
+    }
+
+private:
+    struct MappedBuffer {
+        uint64_t noc_addr = 0;
+        void* host_ptr = nullptr;
+        size_t size = 0;
+    };
+
+    // Shared with each buffer's deleter, which may run after the allocator is gone.
+    struct Registry {
+        std::mutex mutex;
+        std::vector<MappedBuffer> buffers;
+        uint64_t next_arena_offset = 0;
+    };
+
+    // Where the chip reaches host memory on the NOC: the base of its PCIe window.
+    static uint64_t host_memory_noc_base(tt::ARCH arch) {
+        switch (arch) {
+            case tt::ARCH::WORMHOLE_B0:
+                return 0x800000000ULL;
+            case tt::ARCH::BLACKHOLE:
+                return 4ULL << 58;
+            default:
+                return 0;
+        }
+    }
+
+    // The arena space a buffer takes: whole pages, keeping its offset into the first one.
+    static uint64_t arena_extent(const void* buffer, size_t size) {
+        static const long page_size = sysconf(_SC_PAGESIZE);
+        const uint64_t offset = reinterpret_cast<uintptr_t>(buffer) & (page_size - 1);
+        UMD_ASSERT(
+            size > 0 && size <= DEVICE_IO_WINDOW_SIZE - offset,
+            error::RuntimeError,
+            "SWEmuleChip: invalid host buffer size.");
+        return (size + offset + page_size - 1) & ~(static_cast<uint64_t>(page_size) - 1);
+    }
+
+    // Caller holds registry_->mutex.
+    void check_arena_capacity(uint64_t extent) const {
+        UMD_ASSERT(
+            extent <= DEVICE_IO_WINDOW_SIZE - registry_->next_arena_offset,
+            error::RuntimeError,
+            "SWEmuleChip: host buffer arena exhausted.");
+    }
+
+    // Caller holds registry_->mutex.
+    std::unique_ptr<SysmemBuffer> register_buffer(
+        void* buffer,
+        size_t size,
+        bool bind_to_noc,
+        DeviceBufferAccess device_access,
+        SysmemBuffer::Deleter release_backing_memory) {
+        UMD_ASSERT(buffer != nullptr, error::RuntimeError, "SWEmuleChip: cannot map a null host buffer.");
+        const uint64_t extent = arena_extent(buffer, size);
+        check_arena_capacity(extent);
+        static const long page_size = sysconf(_SC_PAGESIZE);
+        const uint64_t noc_addr =
+            noc_base_ + registry_->next_arena_offset + (reinterpret_cast<uintptr_t>(buffer) & (page_size - 1));
+
+        registry_->buffers.push_back({noc_addr, buffer, size});
+        try {
+            // Drop the registration before the backing memory goes.
+            std::weak_ptr<Registry> weak_registry = registry_;
+            SysmemBuffer::Deleter deleter =
+                [weak_registry, noc_addr, release = std::move(release_backing_memory)](void* buffer_va) {
+                    if (auto registry = weak_registry.lock()) {
+                        std::lock_guard<std::mutex> lock(registry->mutex);
+                        auto& buffers = registry->buffers;
+                        buffers.erase(
+                            std::remove_if(
+                                buffers.begin(),
+                                buffers.end(),
+                                [noc_addr](const MappedBuffer& b) { return b.noc_addr == noc_addr; }),
+                            buffers.end());
+                    }
+                    if (release) {
+                        release(buffer_va);
+                    }
+                };
+            auto result = create_buffer(
+                buffer,
+                size,
+                noc_addr,
+                get_communication_id(),
+                std::move(deleter),
+                bind_to_noc ? std::optional<uint64_t>(noc_addr) : std::nullopt,
+                device_access);
+            registry_->next_arena_offset += extent;
+            return result;
+        } catch (...) {
+            registry_->buffers.pop_back();
+            throw;
+        }
+    }
+
+    const uint64_t noc_base_;
+    uint8_t* channel_memory_ = nullptr;
+    size_t channel_memory_size_ = 0;
+    HostMemChannels host_mem_channels_;
+    std::shared_ptr<Registry> registry_;
+};
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
@@ -408,7 +634,7 @@ SWEmuleChip::SWEmuleChip(
     const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid, uint32_t num_host_mem_channels) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    system_memory_(std::make_unique<SWEmuleSystemMemory>(soc_descriptor.arch, num_host_mem_channels)) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;
@@ -419,9 +645,9 @@ SWEmuleChip::SWEmuleChip(
     dram_bank_size_ = soc.dram_bank_size;
     // A real on-chip DRAM offset can't structurally exceed its own bank's capacity, so it can
     // never reach __emule_resolve_noc_addr's pcie_base_ threshold (which routes >= addresses to
-    // SimulationSysmemManager instead of the core map) — documents that margin rather than
+    // the chip's host memory instead of the core map) — documents that margin rather than
     // resting on it implicitly.
-    assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
+    assert(dram_bank_size_ < system_memory_->get_noc_base());
 
     // One slot per Tensix core, and only WORKER cores use the pool, so num_tensix is an exact
     // bound. No fallback for an empty core list: nothing could index those slots, and the pool
@@ -750,26 +976,30 @@ void SWEmuleChip::close_device() {}
 
 TTDevice* SWEmuleChip::get_tt_device() { return tt_device_.get(); }
 
-SystemMemoryAllocator* SWEmuleChip::get_system_memory_allocator() { return sysmem_manager_.get(); }
+SystemMemoryAllocator* SWEmuleChip::get_system_memory_allocator() { return system_memory_.get(); }
+
+const HostMemChannels* SWEmuleChip::get_host_mem_channels() { return system_memory_->get_host_mem_channels(); }
+
+void* SWEmuleChip::get_mapped_host_ptr(uint64_t noc_addr) { return system_memory_->get_mapped_host_ptr(noc_addr); }
 
 // --- Host memory: the cluster's host channels, as a simulated chip has them ---
 
-size_t SWEmuleChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
+size_t SWEmuleChip::get_num_host_channels() { return get_host_mem_channels()->get_num_channels(); }
 
 size_t SWEmuleChip::get_host_channel_size(std::uint32_t channel) {
     UMD_ASSERT(
         channel < get_num_host_channels(),
         error::RuntimeError,
         "Querying size for a host channel that does not exist.");
-    return sysmem_manager_->get_hugepage_mapping(channel).mapping_size;
+    return get_host_mem_channels()->get_channel_size(channel);
 }
 
 void SWEmuleChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
+    get_host_mem_channels()->write_to_channel(channel, src, sysmem_dest, size);
 }
 
 void SWEmuleChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
+    get_host_mem_channels()->read_from_channel(channel, dest, sysmem_src, size);
 }
 
 // --- Multicast (not implemented) ---

@@ -317,6 +317,8 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
     return info_provider;
 }
 
+std::unique_ptr<DeviceEventReader> TTDevice::create_event_reader() { return model_->create_event_reader(); }
+
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 void TTDevice::wait_for_non_mmio_flush() {

@@ -47,8 +47,14 @@ public:
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
-        bool broadcast = false,
-        std::vector<int> broadcast_header = {},
+        const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
+
+    // Broadcasts to the cores selected by broadcast_header. Requires host memory channels.
+    virtual void broadcast_to_non_mmio(
+        const void* src,
+        uint64_t core_dest,
+        uint32_t size_in_bytes,
+        std::vector<int> broadcast_header,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     virtual void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;

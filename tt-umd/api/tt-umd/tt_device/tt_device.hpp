@@ -386,10 +386,6 @@ public:
         const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT,
         NocId noc = NocId::DEFAULT_NOC);
 
-    void bar_write32(uint32_t addr, uint32_t data);
-
-    uint32_t bar_read32(uint32_t addr);
-
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;
@@ -633,9 +629,6 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
-    // The PCIe interface for operations that only exist on PCIe; throws when the device has none.
-    PcieInterface *require_pcie_interface();
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc) const;
 
     /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */

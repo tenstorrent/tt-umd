@@ -26,7 +26,6 @@
 #include "topology/topology_discovery_base.hpp"
 #include "topology/topology_discovery_blackhole.hpp"
 #include "topology/topology_discovery_wormhole.hpp"
-#include "topology/topology_utils.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd/cluster_description.hpp"
@@ -41,6 +40,7 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device_error.hpp"
 #include "tt-umd/tt_device/tt_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
@@ -59,6 +59,21 @@
 namespace tt::umd {
 
 namespace {
+
+// Converts a device initialization exception into a structured health error, if it is one of the
+// recoverable hardware errors tracked in the cluster descriptor. Returns std::nullopt otherwise.
+std::optional<ClusterDescriptor::DeviceHealthError> determine_device_init_error(error::UmdBaseException& err) {
+    if (auto* fw_err = dynamic_cast<error::UmdException<error::FirmwareStartupError>*>(&err)) {
+        return fw_err->error();
+    }
+    if (auto* noc_err = dynamic_cast<error::UmdException<error::NocHangError>*>(&err)) {
+        return noc_err->error();
+    }
+    if (auto* pcie_err = dynamic_cast<error::UmdException<error::PcieHangError>*>(&err)) {
+        return pcie_err->error();
+    }
+    return std::nullopt;
+}
 
 // A simulated device has no PCIDevice behind it; the BDF it answers at is the endpoint its
 // simulator image enumerated, which the device carries itself.

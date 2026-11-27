@@ -76,10 +76,15 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, NocId 
     if (model_->get_hang_detector() != nullptr && is_noc_hung(hang_check_noc, HangAction::RETURN)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
-    // Waits for the firmware and builds the components that read what it publishes; the model's
-    // firmware owns them, and the accessors below lend them onward.
-    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
+    init_firmware(timeout_ms, noc);
     construct_soc_descriptor(model_->get_shared_soc_arch_descriptor(), get_selected_noc_id());
+}
+
+void TTDevice::init_firmware(const std::chrono::milliseconds timeout_ms, [[maybe_unused]] NocId noc) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    // Waits for the firmware and builds the components that read what it publishes; the model's
+    // firmware owns them, and the accessors lend them onward.
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -138,7 +143,7 @@ DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_prot
 
 PcieInterface *TTDevice::get_pcie_interface() { return model_->get_pcie_interface(); }
 
-DmaInterface *TTDevice::get_dma_interface() {
+DmaInterface *TTDevice::get_dma_interface() const {
     DmaInterface *dma_interface = model_->get_dma_interface();
     if (!dma_interface) {
         UMD_THROW(error::RuntimeError, "DMA interface is not available for this device.");
@@ -570,7 +575,7 @@ DmaTransferState TTDevice::dma_write_zero_copy_check() { return get_dma_interfac
 
 DmaTransferState TTDevice::dma_read_zero_copy_check() { return get_dma_interface()->dma_read_zero_copy_check(); }
 
-size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) {
+size_t TTDevice::dma_zero_copy_max_size(uint64_t device_addr) const {
     return get_dma_interface()->dma_zero_copy_max_size(device_addr);
 }
 

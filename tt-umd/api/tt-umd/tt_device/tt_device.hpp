@@ -321,7 +321,7 @@ public:
      *
      * @param device_addr Address on the device core the transfer starts at.
      */
-    [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr);
+    [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr) const;
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -360,6 +360,19 @@ public:
      * with the device, initialized by init_tt_device() through DeviceFirmware::init_firmware().
      */
     DeviceFirmware *get_device_firmware() const;
+
+    /**
+     * @brief Waits for the device's management firmware to signal that it is fully initialized and operational.
+     *
+     * Part of init_tt_device(), which also builds the SocDescriptor; call this alone only when the firmware
+     * has to be up before the rest of the initialization.
+     *
+     * @param timeout_ms Maximum duration to wait for the firmware startup sequence.
+     * Defaults to @ref timeout::ARC_STARTUP_TIMEOUT.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     */
+    void init_firmware(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, NocId noc = NocId::DEFAULT_NOC);
 
     /**
      * @brief Waits for the specified Ethernet core to complete its link training sequence.
@@ -619,7 +632,7 @@ private:
     /** The (coordinate, address) pair to put on the wire for @p core at @p addr. */
     std::pair<xy_pair, uint64_t> resolve_target(CoreCoord core, uint64_t addr, size_t size, NocId noc) const;
 
-    DmaInterface *get_dma_interface();
+    DmaInterface *get_dma_interface() const;
 
     RiscReset *get_risc_reset();
 

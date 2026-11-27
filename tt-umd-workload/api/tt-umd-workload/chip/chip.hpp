@@ -29,7 +29,6 @@ namespace tt::umd {
 class HostMemChannels;
 class TTDevice;
 class SysmemBuffer;
-class SysmemManager;
 class SystemMemoryAllocator;
 struct CoreCoord;
 
@@ -57,8 +56,6 @@ public:
 
     // Returns the allocator for host memory this chip's device can reach, or nullptr if it has no host memory access.
     virtual SystemMemoryAllocator* get_system_memory_allocator() = 0;
-
-    [[deprecated("Use get_system_memory_allocator() instead.")]] SysmemManager* get_sysmem_manager();
 
     /**
      * Returns this chip's host memory channels, or nullptr for a chip that has none. The pointer stays valid for

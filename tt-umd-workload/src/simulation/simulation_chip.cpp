@@ -14,7 +14,6 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/system_memory/host_mem_channels.hpp"
 #include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
-#include "tt-umd/system_memory/sysmem_manager.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
@@ -193,11 +192,13 @@ int SimulationChip::get_numa_node() {
 
 TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
-SystemMemoryAllocator* SimulationChip::get_system_memory_allocator() { return tt_device_->get_sysmem_manager(); }
+SystemMemoryAllocator* SimulationChip::get_system_memory_allocator() {
+    return tt_device_->get_system_memory_allocator();
+}
 
 const HostMemChannels* SimulationChip::get_host_mem_channels() {
     // The simulated device keeps the channels, since its simulator reaches them by address.
-    const SimulationSysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    const auto* sysmem_manager = dynamic_cast<const SimulationSysmemManager*>(get_system_memory_allocator());
     return sysmem_manager ? sysmem_manager->get_host_mem_channels() : nullptr;
 }
 

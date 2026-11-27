@@ -52,7 +52,6 @@ namespace tt::umd {
 class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
-class SimulationSysmemManager;
 class SystemMemoryAllocator;
 class DmaInterface;
 class JtagInterface;
@@ -494,8 +493,6 @@ public:
      */
     void deassert_risc_reset(
         CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc_id = NocId::DEFAULT_NOC);
-
-    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
     /**
      * Allocate a TlbWindow for use by callers.

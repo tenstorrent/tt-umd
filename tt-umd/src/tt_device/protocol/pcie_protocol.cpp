@@ -12,7 +12,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
-#include <iterator>
+#include <exception>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -21,11 +23,13 @@
 #include <variant>
 #include <vector>
 
+#include "arch/tlb_window_size.hpp"
 #include "pcie/io_window_reconfigure.hpp"
 #include "tt-umd-utils/internal/host.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/architecture_tlbs.hpp"
+#include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
@@ -61,10 +65,12 @@ size_t PcieProtocol::get_dma_tlb_size(tt::ARCH arch) {
     }
 }
 
-PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
+PcieProtocol::PcieProtocol(
+    std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, std::function<bool(NocId)> io_timeout_hang_check) :
     pci_device_(std::move(pci_device)),
     dma_strategy_(create_dma_strategy(pci_device_->get_arch())),
-    use_safe_api_(use_safe_api) {
+    use_safe_api_(use_safe_api),
+    io_timeout_hang_check_(std::move(io_timeout_hang_check)) {
     LockManager::initialize_mutex(MutexType::PCIE_DMA, pci_device_->get_device_num(), IODeviceType::PCIe);
 }
 
@@ -87,14 +93,6 @@ PcieProtocol::~PcieProtocol() {
     }
 }
 
-void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
-    hang_check_ = hang_check;
-    // The cached window may already exist if I/O ran before the hang detector was wired; keep it in sync.
-    if (cached_tlb_window_ != nullptr) {
-        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
-    }
-}
-
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(
@@ -102,7 +100,7 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
                 get_architecture_tlbs(pci_device_->get_arch()).cached_window_size, TlbMapping::UC),
             tlb_data{},
             static_cast<IoSafety>(use_safe_api_));
-        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
+        cached_tlb_window_->set_io_timeout_hang_check(io_timeout_hang_check_);
     }
     return cached_tlb_window_.get();
 }
@@ -173,31 +171,68 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
 
-std::optional<uint32_t> PcieProtocol::get_lane_count() const { return pci_device_->get_current_link_width(); }
+std::optional<uint32_t> PcieProtocol::get_lane_count() const {
+    return pci_device_->get_device_info().get_current_link_width();
+}
 
-namespace {
+std::optional<int> PcieProtocol::get_physical_slot() const { return pci_device_->get_device_info().physical_slot; }
 
-// A dedicated TLB window placed to cover a range a peer device reaches.
-struct PeerWindowPlacement {
-    size_t window_size;
-    // Distance of the range's start from the window's base.
-    uint64_t window_offset;
-    tlb_data config;
-};
+std::unique_ptr<SiliconTlbWindow> PcieProtocol::allocate_tlb_window(size_t size, TlbMapping mapping) {
+    if (size != 0) {
+        return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size, mapping));
+    }
+    for (const TlbSizeClass& size_class : get_architecture_tlbs(pci_device_->get_arch()).size_classes) {
+        try {
+            return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size_class.size, mapping));
+        } catch (const std::exception& e) {
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
+        }
+    }
+    UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+}
+
+std::unique_ptr<IoWindow> PcieProtocol::create_io_window(
+    TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+    std::unique_ptr<SiliconTlbWindow> window =
+        allocate_tlb_window(fit_tlb_window_size(pci_device_->get_arch(), target.addr, host.size), mapping);
+    window->set_io_timeout_hang_check(io_timeout_hang_check_);
+    window->configure(target, ordering);
+    return window;
+}
+
+std::function<uint32_t(tt_xy_pair, uint64_t, NocId)> PcieProtocol::make_noc_probe_reader() {
+    // Not the cached window: the hang check runs inside a timed-out op that holds it under io_lock_. Any
+    // size reaches a register, so the smallest window still free is taken.
+    std::shared_ptr<TlbWindow> window = allocate_tlb_window(0, TlbMapping::UC);
+
+    auto window_lock = std::make_shared<std::mutex>();
+    return [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
+        std::lock_guard<std::mutex> lock(*window_lock);
+        // The window has no hang check, so an overrun is a false alarm and the read completes; the hang
+        // detector judges the value. A DeviceTimeoutError here is therefore unexpected and is let surface
+        // rather than masked as a hang.
+        uint32_t value = 0;
+        read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
+        return value;
+    };
+}
 
 // A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
-// address at or below addr; the smallest of size_classes that still covers [addr, addr + size) is
-// selected. Peers map whole host pages, so both ends of the range must be page-aligned.
-PeerWindowPlacement place_peer_window(
-    const std::vector<TlbSizeClass>& size_classes,
-    bool use_static_vc,
-    tt_xy_pair core,
-    uint64_t addr,
-    size_t size,
-    IoOrdering ordering,
-    NocId noc_id) {
+// address at or below addr; the smallest window that still covers [addr, addr + size) is selected.
+// The offset handed to the driver is addr's distance from that base, and both offset and size must
+// be page-aligned.
+int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
+    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
+    // any window is allocated or an ioctl issued, same as the alignment checks below.
+    UMD_ASSERT(
+        tt::umd::utils::has_any_active_rdma_port(),
+        error::RuntimeError,
+        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
+        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
+
     const uint64_t page_size = static_cast<uint64_t>(getpagesize());
-    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a window of size 0.");
+    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a dma-buf of size 0.");
     UMD_ASSERT(
         addr % page_size == 0,
         error::RuntimeError,
@@ -207,6 +242,7 @@ PeerWindowPlacement place_peer_window(
         error::RuntimeError,
         fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
 
+    const std::vector<TlbSizeClass>& size_classes = get_architecture_tlbs(pci_device_->get_arch()).size_classes;
     size_t window_size = 0;
     for (const TlbSizeClass& size_class : size_classes) {
         if (size <= size_class.size - (addr % size_class.size)) {
@@ -233,25 +269,7 @@ PeerWindowPlacement place_peer_window(
     config.noc_sel = static_cast<uint64_t>(noc_id);
     // IoOrdering carries the TLB hardware encoding (asserted in tlb_window.cpp), so this is a cast.
     config.ordering = static_cast<uint64_t>(ordering);
-    config.static_vc = use_static_vc;
-
-    return {window_size, window_offset, config};
-}
-
-}  // namespace
-
-int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
-    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
-    // any window is allocated or an ioctl issued, same as the alignment checks below.
-    UMD_ASSERT(
-        tt::umd::utils::has_any_active_rdma_port(),
-        error::RuntimeError,
-        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
-        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
-
-    const ArchitectureTlbs& tlbs = get_architecture_tlbs(pci_device_->get_arch());
-    const PeerWindowPlacement window =
-        place_peer_window(tlbs.size_classes, tlbs.use_static_vc, core, addr, size, ordering, noc_id);
+    config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
 
     log_debug(
         LogUMD,
@@ -259,44 +277,12 @@ int PcieProtocol::export_window(tt_xy_pair core, uint64_t addr, size_t size, IoO
         size,
         addr,
         core.str(),
-        window.window_size,
-        window.window_offset);
+        window_size,
+        window_offset);
 
     // Dedicated window (not a cached one): must not alias a window other traffic could reconfigure
     // while the export is live.
-    return pci_device_->export_tlb_dmabuf(window.window_size, window.config, window.window_offset, size);
-}
-
-uint64_t PcieProtocol::export_window_to_device(
-    int device_id, tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) {
-    const ArchitectureTlbs& tlbs = get_architecture_tlbs(pci_device_->get_arch());
-
-    // The driver takes 32-bit BAR offsets for a peer mapping, so only windows lying wholly within the
-    // first 4 GiB of their BAR can be mapped.
-    std::vector<TlbSizeClass> mappable_size_classes;
-    std::copy_if(
-        tlbs.size_classes.begin(),
-        tlbs.size_classes.end(),
-        std::back_inserter(mappable_size_classes),
-        [](const TlbSizeClass& size_class) {
-            return size_class.bar_offset + uint64_t{size_class.count} * size_class.size <= (uint64_t{1} << 32);
-        });
-
-    const PeerWindowPlacement window =
-        place_peer_window(mappable_size_classes, tlbs.use_static_vc, core, addr, size, ordering, noc_id);
-
-    log_debug(
-        LogUMD,
-        "Mapping {} bytes at {:#x} on core {} for device {} via a {} byte TLB window (offset {:#x} into the window).",
-        size,
-        addr,
-        core.str(),
-        device_id,
-        window.window_size,
-        window.window_offset);
-
-    return pci_device_->map_tlb_window_for_device(
-        device_id, window.window_size, window.config, window.window_offset, size);
+    return pci_device_->export_tlb_dmabuf(window_size, config, window_offset, size);
 }
 
 bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {

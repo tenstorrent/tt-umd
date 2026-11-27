@@ -109,7 +109,7 @@ private:
 
 inline bool is_galaxy_board_type(tt::BoardType board_type) {
     return board_type == tt::BoardType::UBB_WORMHOLE || board_type == tt::BoardType::UBB_BLACKHOLE ||
-           board_type == tt::BoardType::UBB_BLACKHOLE_CF;
+           board_type == tt::BoardType::UBB_BLACKHOLE_CF || board_type == tt::BoardType::UBB_BLACKHOLE_2;
 }
 
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
@@ -144,7 +144,7 @@ public:
     static constexpr size_t BLOCK_SIZE = 256;
 
     // Fill `block` with a pattern that no other `seed` produces.
-    static void fill_block(std::array<uint8_t, BLOCK_SIZE>& block, uint32_t seed) {
+    static void fill_block(std::array<uint8_t, BLOCK_SIZE>& block, size_t seed) {
         for (size_t i = 0; i < BLOCK_SIZE; i++) {
             block[i] = static_cast<uint8_t>((i + seed) % 256);
         }

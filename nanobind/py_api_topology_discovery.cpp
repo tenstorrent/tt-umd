@@ -205,21 +205,13 @@ void bind_topology_discovery(nb::module_& m) {
             "host's. None means discover the host's own devices.");
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
+        // Tried first: calls that pass only options never reach the deprecated overload below.
         .def_static(
-            "create_cluster_descriptor",
-            [](const TopologyDiscoveryOptions& options,
-               std::optional<IODeviceType> io_device_type,
-               std::optional<std::string> soc_descriptor_path) {
-                return TopologyDiscovery::discover(
-                           apply_legacy_discovery_args(options, io_device_type, std::move(soc_descriptor_path)))
-                    .first;
-            },
+            "discover",
+            [](const TopologyDiscoveryOptions& options) { return TopologyDiscovery::discover(options); },
             nb::arg("options") = TopologyDiscoveryOptions{},
-            nb::arg("io_device_type") = nb::none(),
-            nb::arg("soc_descriptor_path") = nb::none(),
             release_gil(),
-            "Discover topology and return the ClusterDescriptor. io_device_type and soc_descriptor_path are "
-            "deprecated; set them on options instead.")
+            "Discover topology and return both ClusterDescriptor and TTDevices.")
         .def_static(
             "discover",
             [](const TopologyDiscoveryOptions& options,

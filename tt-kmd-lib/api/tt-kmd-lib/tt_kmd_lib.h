@@ -39,15 +39,16 @@ typedef struct tt_dma_t tt_dma_t;
  * into transactions on the device's NOC. See `tt_tlb_map()` for details.
  */
 typedef struct tt_noc_addr_config_t {
-    uint64_t addr;     /**< Local address aligned to the TLB window size */
-    uint16_t x_end;    /**< X coord for unicast; rectangle end for multicast */
-    uint16_t y_end;    /**< Y coord for unicast; rectangle end for multicast */
-    uint16_t x_start;  /**< 0 for unicast; rectangle start for multicast */
-    uint16_t y_start;  /**< 0 for unicast; rectangle start for multicast */
-    uint8_t noc;       /**< 0 or 1 */
-    uint8_t mcast;     /**< 1 to enable multicast */
-    uint8_t ordering;  /**< Ordering semantics; see `enum tt_noc_ordering` */
-    uint8_t static_vc; /**< 1 to enable static virtual channel */
+    uint64_t addr;        /**< Local address aligned to the TLB window size */
+    uint16_t x_end;       /**< X coord for unicast; rectangle end for multicast */
+    uint16_t y_end;       /**< Y coord for unicast; rectangle end for multicast */
+    uint16_t x_start;     /**< 0 for unicast; rectangle start for multicast */
+    uint16_t y_start;     /**< 0 for unicast; rectangle start for multicast */
+    uint8_t noc;          /**< 0 or 1 */
+    uint8_t mcast;        /**< 1 to enable multicast */
+    uint8_t ordering;     /**< Ordering semantics; see `enum tt_noc_ordering` */
+    uint8_t static_vc;    /**< 1 to enable static virtual channel */
+    uint8_t noncacheable; /**< 1 for non-cacheable accesses (AxCACHE 0 instead of 0xF) */
 } tt_noc_addr_config_t;
 
 /**
@@ -673,22 +674,6 @@ enum tt_power_flags {
  * @return 0 on success, negative error code on failure
  */
 int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
-
-/**
- * @brief Map part of another device's BAR so this device can reach it by peer-to-peer PCIe DMA.
- *
- * The mapping lasts until this device handle closes; KMD has no call to undo it.
- *
- * @param dev    Device that will issue the DMA
- * @param peer   Device whose BAR is mapped; must be another device of the same class
- * @param bar    BAR index on the peer
- * @param offset Byte offset into the BAR
- * @param length Bytes to map; offset + length must stay within the BAR
- * @param out_dma_addr On success, the address `dev` uses to reach that range
- * @return 0 on success, negative error code on failure
- */
-int tt_device_map_peer_bar(
-    tt_device_t* dev, tt_device_t* peer, uint32_t bar, uint32_t offset, uint32_t length, uint64_t* out_dma_addr);
 
 /**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.

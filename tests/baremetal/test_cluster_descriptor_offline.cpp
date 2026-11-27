@@ -33,12 +33,13 @@
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
-int count_connections(
+size_t count_connections(
     const std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>&
         connections) {
     size_t count = 0;
@@ -472,6 +473,22 @@ TEST(ApiClusterDescriptorOfflineTest, PcieLaneCountsUnknownWhenAbsentFromYaml) {
     EXPECT_EQ(cluster_desc->get_chip_pcie_lane_counts(), expected);
 }
 
+class ClusterDescriptorRejectedIoDeviceTypeTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(ClusterDescriptorRejectedIoDeviceTypeTest, YamlIsRejected) {
+    std::ifstream fdesc(test_utils::get_cluster_desc_path("blackhole_P150.yaml"));
+    ASSERT_FALSE(fdesc.fail());
+    std::stringstream buffer;
+    buffer << fdesc.rdbuf();
+
+    EXPECT_THROW(
+        ClusterDescriptor::create_from_yaml_content("io_device_type: " + GetParam() + "\n" + buffer.str()),
+        error::UmdException<error::RuntimeError>);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    UndefinedAndUnknownNames, ClusterDescriptorRejectedIoDeviceTypeTest, ::testing::Values("Undefined", "Bogus"));
+
 TEST(ApiClusterDescriptorOfflineTest, CreateFromDescription) {
     ClusterDescription description;
     ChipDescription& chip = description.chips[0];
@@ -540,3 +557,19 @@ INSTANTIATE_TEST_SUITE_P(
             name.begin(), name.end(), [](char c) { return !std::isalnum(c); }, '_');
         return name;
     });
+
+// Galaxy 2 firmware reports its 20-digit board ID squeezed into the legacy 64-bit layout, with the UPI kept in place.
+class BlackholeGalaxy2BoardIdTest : public ::testing::TestWithParam<uint64_t> {};
+
+TEST_P(BlackholeGalaxy2BoardIdTest, MapsToGalaxy2BoardType) {
+    EXPECT_EQ(get_board_type_from_board_id(GetParam()), BoardType::UBB_BLACKHOLE_2);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BoardIds,
+    BlackholeGalaxy2BoardIdTest,
+    ::testing::Values(
+        // Template ID flashed on bring-up boards, as seen in the bring-up log.
+        0x78000000000,
+        // Firmware's own extended board ID test vector (0x0100, 0x0781DC0F26410001) packed into the legacy layout.
+        0x01000781F2641001));

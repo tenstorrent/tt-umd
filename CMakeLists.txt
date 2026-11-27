@@ -163,6 +163,9 @@ add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=${TT_X86_MARCH}>"
     -Wall
     -Wno-sign-compare
+    -Wconversion
+    # Clang's -Wconversion also covers signedness changes; like -Wno-sign-compare, signedness is not enforced.
+    -Wno-sign-conversion
 )
 
 # Fixed this warning on clang, but not yet gcc

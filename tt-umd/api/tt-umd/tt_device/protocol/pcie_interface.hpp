@@ -6,7 +6,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <optional>
 
 #include "tt-umd/types/noc_id.hpp"
@@ -51,6 +50,12 @@ public:
     virtual std::optional<uint32_t> get_lane_count() const = 0;
 
     /**
+     * @brief Returns the motherboard slot this device sits in.
+     * @return std::optional<int> Slot number, or std::nullopt if the platform does not report one.
+     */
+    virtual std::optional<int> get_physical_slot() const = 0;
+
+    /**
      * @brief Requests a hardware power domain state change through the kernel driver.
      *
      * A no-op on architectures or KMD versions without power state management.
@@ -58,19 +63,6 @@ public:
      * @param state The requested power state.
      */
     virtual void set_power_state(PowerState state) = 0;
-
-    /**
-     * @brief Registers the callback consulted on an IO-op timeout to distinguish a hung NOC from a
-     * slow one.
-     *
-     * Temporary: this is an implementation detail rather than
-     * something the Base API spec should own. It lives here only until we align api
-     * with TTDeviceModel; move/remove it at that point.
-     *
-     * @param hang_check Callback invoked with the NOC id of the in-flight op; an empty callback
-     * disables hang detection.
-     */
-    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
 };
 
 }  // namespace tt::umd

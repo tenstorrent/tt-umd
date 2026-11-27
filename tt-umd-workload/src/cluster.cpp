@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "hugepage.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
@@ -52,7 +51,7 @@
 #include "io_window/io_window_target.hpp"
 #include "tt-umd-workload/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "tt-umd-workload/simulation/simulation_chip.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/host_mem_channels.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
@@ -113,12 +112,23 @@ void Cluster::log_pci_device_summary() {
         return;
     }
 
-    auto first_pci_device = chips_.at(*local_chip_ids_.begin())->get_tt_device()->get_pci_device();
-    if (!first_pci_device) {
+    // The IOMMU state is a host property of each PCIe device, so it is read from PCI enumeration. A simulated
+    // chip is not enumerated and has no state to report.
+    const std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
+    auto iommu_enabled = [&](ChipId chip_id) -> std::optional<bool> {
+        auto device_info = pci_devices_info.find(chips_.at(chip_id)->get_tt_device()->get_communication_device_id());
+        if (device_info == pci_devices_info.end()) {
+            return std::nullopt;
+        }
+        return PCIDevice::detect_iommu(device_info->second);
+    };
+
+    const std::optional<bool> first_iommu_state = iommu_enabled(*local_chip_ids_.begin());
+    if (!first_iommu_state) {
         return;
     }
 
-    bool expected_iommu_state = first_pci_device->is_iommu_enabled();
+    bool expected_iommu_state = *first_iommu_state;
     std::string kmd_version = PCIDevice::read_kmd_version().to_string();
 
     // Check IOMMU status consistency across all devices.
@@ -126,11 +136,11 @@ void Cluster::log_pci_device_summary() {
     auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
 
     for (ChipId chip_id : local_chip_ids_) {
-        auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
-        if (!pci_device) {
+        const std::optional<bool> iommu_state = iommu_enabled(chip_id);
+        if (!iommu_state) {
             continue;
         }
-        bool current_iommu_state = pci_device->is_iommu_enabled();
+        bool current_iommu_state = *iommu_state;
         if (current_iommu_state != expected_iommu_state) {
             log_warning(
                 LogUMD,
@@ -208,14 +218,13 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 namespace {
 
-// A sysmem manager with no host memory channels can't back remote transfers, so remote communication treats it as
-// absent.
-SysmemManager* usable_sysmem_manager(Chip* chip) {
-    SysmemManager* sysmem_manager = chip->get_sysmem_manager();
-    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+// No host memory channels can't back remote transfers, so remote communication treats them as absent.
+const HostMemChannels* usable_host_mem_channels(Chip* chip) {
+    const HostMemChannels* host_mem_channels = chip->get_host_mem_channels();
+    if (host_mem_channels != nullptr && host_mem_channels->get_num_channels() == 0) {
         return nullptr;
     }
-    return sysmem_manager;
+    return host_mem_channels;
 }
 
 }  // namespace
@@ -326,7 +335,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             remote_communications_[chip_id] = RemoteCommunication::create_remote_communication(
-                chip->get_tt_device(), {0, 0, 0, 0}, usable_sysmem_manager(chip.get()));
+                chip->get_tt_device(), {0, 0, 0, 0}, usable_host_mem_channels(chip.get()));
             remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
                 chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                     cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
@@ -350,7 +359,7 @@ void Cluster::connect_remote_communication_to_gateway(RemoteCommunication* remot
     for (const ChipId gateway_id : local_chip_ids_) {
         Chip* gateway_chip = get_chip(gateway_id);
         if (gateway_chip->get_tt_device() == remote_communication->get_local_device()) {
-            remote_communication->set_sysmem_manager(usable_sysmem_manager(gateway_chip));
+            remote_communication->set_host_mem_channels(usable_host_mem_channels(gateway_chip));
             return;
         }
     }
@@ -641,7 +650,7 @@ Cluster::Cluster(ClusterOptions options) {
         for (const auto& [mmio_device_id, chips] : grouped_chips) {
             max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
         }
-        options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
+        options.num_host_mem_ch_per_mmio_device = std::min(HostMemChannels::MAX_CHANNELS, max_chips_per_mmio);
         log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
     }
 
@@ -1249,9 +1258,10 @@ Cluster::~Cluster() {
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
-    HugepageMapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-    if (hugepage_map.mapping != nullptr) {
-        return static_cast<std::byte*>(hugepage_map.mapping) + offset;
+    const HostMemChannels* host_mem_channels = get_chip(src_device_id)->get_host_mem_channels();
+    void* channel_address = host_mem_channels ? host_mem_channels->get_channel_address(channel) : nullptr;
+    if (channel_address != nullptr) {
+        return static_cast<std::byte*>(channel_address) + offset;
     } else {
         return nullptr;
     }
@@ -1299,12 +1309,13 @@ void Cluster::wait_for_non_mmio_flush() {
 
 void Cluster::broadcast_write_to_cluster(
     const void* mem_ptr,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude,
-    bool use_translated_coords) {
+    std::set<size_t>& rows_to_exclude,
+    std::set<size_t>& columns_to_exclude,
+    bool use_translated_coords,
+    bool is_reg_write) {
     if (!ethernet_broadcast_) {
         // Broadcast not supported. Implement this at the software level as a for loop.
         // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
@@ -1330,7 +1341,14 @@ void Cluster::broadcast_write_to_cluster(
                          core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
                     if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
                         rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        if (is_reg_write) {
+                            // Registers go through the uncached path: the CPU may speculatively read a
+                            // write-combined mapping, and a read landing in the unmapped space around a register
+                            // never completes, which drops the device off PCIe.
+                            write_to_device_reg(mem_ptr, static_cast<uint32_t>(size_in_bytes), chip, core, address);
+                        } else {
+                            write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                        }
                     }
                 }
             }
@@ -1426,8 +1444,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     }
 
     std::set<ChipId> chips_to_exclude = {};
-    std::set<uint32_t> rows_to_exclude;
-    std::set<uint32_t> columns_to_exclude;
+    std::set<size_t> rows_to_exclude;
+    std::set<size_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         if (use_translated_coords_for_eth_broadcast) {
             // PCIE and ETH are on these rows in translated space.
@@ -1454,7 +1472,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         chips_to_exclude,
         rows_to_exclude,
         columns_to_exclude,
-        use_translated_coords_for_eth_broadcast);
+        use_translated_coords_for_eth_broadcast,
+        /*is_reg_write=*/true);
     // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }

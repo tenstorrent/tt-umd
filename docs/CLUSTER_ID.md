@@ -43,12 +43,6 @@ options.cluster_id = "bh-glx-110-c01u02";
 auto cluster_desc = TopologyDiscovery::discover(options).first;
 ```
 
-```python
-options = tt_umd.TopologyDiscoveryOptions()
-options.cluster_id = "bh-glx-110-c01u02"
-cluster_desc = tt_umd.TopologyDiscovery.create_cluster_descriptor(options)
-```
-
 UMD deliberately does not read an environment variable for this. Container and VM plumbing belongs to whoever launches the process, and one string on the options struct is enough for them to pass it down.
 
 ## Legal values

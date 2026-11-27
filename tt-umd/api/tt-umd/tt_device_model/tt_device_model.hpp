@@ -26,11 +26,11 @@ class FirmwareInfoProvider;
 class FirmwareTelemetryReader;
 class HangDetector;
 class JtagInterface;
-class PCIDevice;
 class PcieInterface;
 class PeerDmaInterface;
 class RemoteInterface;
 class SocArchDescriptor;
+class SystemMemoryAllocator;
 
 /**
  * Composition root for a single device's hardware-facing components.
@@ -69,6 +69,10 @@ public:
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
 
+    // The allocator for host memory this device can reach; the buffers it produces carry this device's
+    // communication id. Every model has to state its choice; null means the device cannot reach host memory.
+    virtual SystemMemoryAllocator *get_system_memory_allocator() = 0;
+
     // Controls the reset state of the device's RISC cores. Every model has to state its choice;
     // null means the device has no RISC reset control.
     virtual RiscReset *get_risc_reset() = 0;
@@ -103,23 +107,20 @@ public:
     /**
      * @brief Creates an I/O window mapping host memory to device address space.
      *
-     * A model whose architecture has no mappable aperture builds the window itself. Returning
-     * nullptr instead asks TTDevice to serve the window from its TLB path, which is temporary:
-     * that path cannot be reached from here until its machinery moves off TTDevice.
+     * Returning nullptr leaves the window to TTDevice, which serves one only for the simulation devices.
      *
      * @param target Device-side target (core, address, NOC).
      * @param host Host-side properties (caching, size).
-     * @return Exclusively owned window handle, or nullptr for the TLB path.
+     * @param ordering Ordering of the window's transactions, for windows that can relax it.
+     * @return Exclusively owned window handle, or nullptr when TTDevice serves the window.
      */
-    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
+    virtual std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) = 0;
 
     // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
     // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once
     // SocDescriptor's ownership model is revisited.
     virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
-
-    // Being removed along with TTDevice::get_pci_device() (#3530): do not add new callers.
-    virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 
 }  // namespace tt::umd

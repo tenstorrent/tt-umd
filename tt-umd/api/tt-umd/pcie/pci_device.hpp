@@ -11,7 +11,6 @@
 #include <iterator>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -51,8 +50,11 @@ struct PciDeviceInfo {
     std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
-    // TODO: does it make sense to move attributes that we can read from sysfs
-    // onto this struct as methods?  e.g. current_link_width etc.
+
+    /**
+     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
+     */
+    std::optional<uint32_t> get_current_link_width() const;
 };
 
 struct DmaBuffer {
@@ -211,11 +213,6 @@ public:
     int get_numa_node() const { return numa_node; }
 
     /**
-     * @return number of lanes the PCIe link trained to, or nullopt if it can't be determined
-     */
-    std::optional<uint32_t> get_current_link_width() const;
-
-    /**
      * @return N in /dev/tenstorrent/N
      * TODO: target for removal; upper layers should not care about this.
      */
@@ -325,17 +322,25 @@ public:
         const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
-     * Configure TLB register in user space by writing directly to BAR0.
+     * Point a TLB window at the target described by tlb_config.
      *
      * @param tlb_index The TLB index/ID to configure
-     * @param tlb_config The TLB configuration data
+     * @param tlb_handle The window's driver handle. Required on architectures whose windows only
+     *                   the driver can program; may be null on the others.
+     * @param tlb_config The TLB configuration data. local_offset is a byte address aligned to the
+     *                   window's size. On architectures whose windows only the driver can program,
+     *                   the address is flat and already names its target, so a coordinate,
+     *                   multicast, NOC selector, ordering, linking or virtual channel is refused,
+     *                   and a noncacheable value wider than its one-bit field is refused rather
+     *                   than truncated.
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
      *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
-     *               PCIe round trip.
+     *               PCIe round trip. Ignored where the driver programs the window.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
+    void configure_tlb(
+        const uint32_t tlb_index, tt_tlb_t *tlb_handle, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.
@@ -394,27 +399,6 @@ public:
      * @param size Page-aligned byte count to export; must be nonzero.
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
-
-    /**
-     * Allocate a dedicated TLB window, configure it per @p config, and map a range of it for another
-     * device to reach by peer-to-peer PCIe DMA. Supported only on Blackhole.
-     *
-     * This device keeps the window and the mapping until it is closed, and removes the mapping
-     * before releasing the window, so the window is not handed to another client while mapped.
-     *
-     * @param device_id PCIe device number of the device that issues the DMA; must be another device.
-     * @param window_size Size of the TLB window to allocate; must be a size this architecture
-     *                    supports, and must be large enough to cover @p offset + @p size.
-     * @param config NOC configuration for the window. config.local_offset must be aligned to
-     *               @p window_size, since a window's NOC base is size-aligned.
-     * @param offset Page-aligned byte offset within the window at which the mapping begins.
-     * @param size Page-aligned byte count to map; must be nonzero.
-     * @return The address at which device @p device_id reaches the start of the range.
-     * @throws error::RuntimeError if this device is not a Blackhole, the window lies beyond the
-     *         32-bit BAR offsets KMD takes, or KMD refuses the mapping.
-     */
-    uint64_t map_tlb_window_for_device(
-        int device_id, size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
     /** Widths the scalar NOC path serves. The driver refuses anything wider. */
     static constexpr uint32_t MAX_SCALAR_NOC_WIDTH = 8;
@@ -540,16 +524,6 @@ private:
     static constexpr size_t bar0_mapping_offset = 509 * (1 << 20);
 
     tt_device_t *tt_device_handle = nullptr;
-
-    // A window mapped by map_tlb_window_for_device. The mapping belongs to a handle opened on the
-    // issuing device just for it, so closing that handle removes exactly this mapping.
-    struct PeerMappedWindow {
-        tt_tlb_t *window;
-        tt_device_t *issuer;
-    };
-
-    std::vector<PeerMappedWindow> peer_mapped_windows;
-    std::mutex peer_mapped_windows_mutex;
 
     // TLB configuration registers mapped space.
     void *tlb_config_space = nullptr;

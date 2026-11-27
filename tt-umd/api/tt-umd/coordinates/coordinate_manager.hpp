@@ -91,7 +91,7 @@ public:
      * @param tensix_harvesting_physical_layout Harvesting mask in physical layout.
      * @return Harvesting mask in NOC0 layout.
      */
-    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, size_t tensix_harvesting_physical_layout);
 
     // TODO: This function should be removed once the corresponding API is removed from Cluster.
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
@@ -189,14 +189,14 @@ public:
      *
      * @return Number of Ethernet channels.
      */
-    uint32_t get_num_eth_channels() const;
+    size_t get_num_eth_channels() const;
 
     /**
      * Get number of harvested ETH channels.
      *
      * @return Number of harvested ETH channels.
      */
-    uint32_t get_num_harvested_eth_channels() const;
+    size_t get_num_harvested_eth_channels() const;
 
 private:
     const std::vector<tt_xy_pair>& get_noc0_pairs(const CoreType core_type) const;

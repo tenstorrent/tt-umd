@@ -42,10 +42,10 @@ public:
      * A window served from the same scalar accesses the protocol uses, because the TLB path
      * TTDevice takes otherwise allocates a hardware mapping and this architecture exposes none.
      */
-    std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) override;
+    std::unique_ptr<IoWindow> create_io_window(
+        TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) override;
 
     DeviceProtocol *get_device_protocol() override;
-    PCIDevice *get_pci_device() override;
     DeviceFirmware *get_device_firmware() override;
     ArchitectureImplementation *get_architecture_impl() override;
     SocArchDescriptor *get_soc_arch_descriptor() override;
@@ -56,6 +56,11 @@ public:
      * RISCs is not settled yet.
      */
     RiscReset *get_risc_reset() override;
+
+    /**
+     * Null: the driver exposes no DMA path for this architecture yet, so the device cannot reach host memory.
+     */
+    SystemMemoryAllocator *get_system_memory_allocator() override;
 
     /**
      * Quasar's NOC carries no coordinate: the ATT decodes a flat address into a destination tile
@@ -69,7 +74,7 @@ private:
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     // Must come before protocol_: the protocol owns the device, so this records it before the
-    // ownership moves. Retained to serve get_pci_device() and the windows created here.
+    // ownership moves. Retained for the windows created here.
     PCIDevice *pci_device_ = nullptr;
 
     std::unique_ptr<DeviceProtocol> protocol_;

@@ -6,6 +6,7 @@
 
 #include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 
+#include <utility>
 #include <vector>
 
 #include "tt-umd/arch/architecture_registers.hpp"
@@ -16,8 +17,9 @@
 
 namespace tt::umd {
 
-BlackholeHangDetector::BlackholeHangDetector(DeviceProtocol* protocol, bool noc_translation_enabled) :
-    HangDetectorImplementation(protocol),
+BlackholeHangDetector::BlackholeHangDetector(
+    DeviceProtocol* protocol, NocRegReader noc_reg_reader, bool noc_translation_enabled) :
+    HangDetectorImplementation(protocol, std::move(noc_reg_reader)),
     noc_translation_enabled_(noc_translation_enabled),
     registers_(get_architecture_registers(tt::ARCH::BLACKHOLE)) {}
 

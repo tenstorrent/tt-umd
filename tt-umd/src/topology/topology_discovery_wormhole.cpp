@@ -35,8 +35,7 @@ namespace tt::umd {
 enum class IODeviceType;
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
-        // See comment in get_local_board_id.
+    if (galaxy_mode) {
         return get_remote_asic_id(tt_device, eth_core);
     }
 
@@ -51,12 +50,7 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, Cor
 }
 
 uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, CoreCoord eth_core) {
-    if (is_running_on_6u) {
-        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
-        // from the ClusterOptions will work correctly on 6U.
-        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
-        // fetched through another function when cluster descriptor is being filled up.
+    if (galaxy_mode) {
         return get_local_asic_id(tt_device, eth_core);
     }
 
@@ -142,7 +136,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     TTDevice* gateway_device,
     std::set<uint32_t> gateway_eth_channels,
     const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) {
-    if (is_running_on_6u) {
+    if (galaxy_mode) {
         return nullptr;
     }
     EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
@@ -170,10 +164,10 @@ uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_
     return get_remote_eth_channel(tt_device, local_eth_core);
 }
 
-bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
+bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !galaxy_mode; }
 
 void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
-    is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
+    galaxy_mode = tt_device->get_board_type() == BoardType::UBB;
 }
 
 uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
@@ -188,14 +182,14 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(
         sizeof(uint32_t),
         get_selected_noc_id());
     bool unexpected_config =
-        (is_running_on_6u && routing_firmware_disabled == 0) || (!is_running_on_6u && routing_firmware_disabled == 1);
+        (galaxy_mode && routing_firmware_disabled == 0) || (!galaxy_mode && routing_firmware_disabled == 1);
     if (unexpected_config) {
         auto err = UMD_THROW_OR_RETURN(
             options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::THROW,
             error::UnexpectedRoutingFirmwareConfigError,
             *tt_device,
             asic_id,
-            /*expected=*/!is_running_on_6u,
+            /*expected=*/!galaxy_mode,
             /*found=*/routing_firmware_disabled == 0,
             eth_core);
         log_warning(LogUMD, err.message());
@@ -231,7 +225,7 @@ uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, CoreCo
 
 void TopologyDiscoveryWormhole::retrain_eth_cores() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (!is_running_on_6u || !options.perform_6u_eth_retrain) {
+    if (!galaxy_mode || !options.perform_6u_eth_retrain) {
         return;
     }
 

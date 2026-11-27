@@ -12,7 +12,6 @@ namespace tt::umd {
 
 class RemoteCommunication;
 class SocArchDescriptor;
-class SocDescriptor;
 class TTDevice;
 
 /**
@@ -43,21 +42,5 @@ std::unique_ptr<TTDevice> create_tt_device(
 std::unique_ptr<TTDevice> create_tt_device(
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor = nullptr);
-
-/**
- * @brief Creates a TTDevice for a simulated remote device, which supplies its own SoC descriptor.
- *
- * A remote device is normally initialized over ARC, which builds its SocDescriptor. A simulated
- * remote chip has no ARC to probe, so the caller supplies the descriptor.
- *
- * @param remote_communication Communication with the simulated remote device.
- * @param soc_descriptor The descriptor the device is built with; its architecture must match the
- * remote device's.
- *
- * TODO: temporary - remove once ttsim provides a mocked ARC that can serve the SocDescriptor like
- * silicon does.
- */
-std::unique_ptr<TTDevice> create_simulation_remote_tt_device(
-    std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor& soc_descriptor);
 
 }  // namespace tt::umd

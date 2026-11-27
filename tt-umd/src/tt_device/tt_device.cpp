@@ -489,6 +489,16 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, IoOrderi
     return peer_dma_interface->export_window(resolve_coordinate(core, noc), addr, size, ordering, noc);
 }
 
+std::unique_ptr<PeerWindow> TTDevice::export_window_to_device(
+    int device_id, CoreCoord core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc) {
+    PeerDmaInterface *peer_dma_interface = model_->get_peer_dma_interface();
+    if (!peer_dma_interface) {
+        UMD_THROW(error::RuntimeError, "Exporting a window to another device is not supported for this device.");
+    }
+    return peer_dma_interface->export_window_to_device(
+        device_id, resolve_coordinate(core, noc), addr, size, ordering, noc);
+}
+
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {

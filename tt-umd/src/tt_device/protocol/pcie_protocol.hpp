@@ -116,6 +116,8 @@ public:
 
     // PeerDmaInterface.
     int export_window(tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
+    std::unique_ptr<PeerWindow> export_window_to_device(
+        int device_id, tt_xy_pair core, uint64_t addr, size_t size, IoOrdering ordering, NocId noc_id) override;
 
 private:
     // A size of 0 takes the smallest window still free.

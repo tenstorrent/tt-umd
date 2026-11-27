@@ -17,3 +17,6 @@ class TestBasicTypes(unittest.TestCase):
         for arch in tt_umd.ARCH:
             self.assertEqual(arch, tt_umd.ARCH.from_str(str(arch)))
         self.assertEqual(str(tt_umd.ARCH.WORMHOLE_B0), "wormhole_b0")
+
+    def test_io_ordering(self):
+        self.assertEqual(str(tt_umd.IoOrdering.STRICT), "STRICT")

@@ -9,6 +9,7 @@
 
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/types/xy_pair.hpp"
@@ -28,6 +29,12 @@ void bind_basic_types(nb::module_ &m) {
         .def("__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
 
     m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"));
+
+    nb::enum_<IoOrdering>(m, "IoOrdering")
+        .value("RELAXED", IoOrdering::RELAXED)
+        .value("STRICT", IoOrdering::STRICT)
+        .value("POSTED", IoOrdering::POSTED)
+        .def("__str__", [](IoOrdering ordering) { return to_str(ordering); });
 
     nb::class_<EthCoord>(m, "EthCoord")
         .def(nb::init<>())

@@ -23,6 +23,7 @@
 #include "tt-umd/soc_arch_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/firmware/device_firmware.hpp"
+#include "tt-umd/tt_device/protocol/peer_dma_interface.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
@@ -687,7 +688,32 @@ void bind_tt_device(nb::module_ &m) {
                 "def dma_read_from_device(self, noc_id: int, core_x: int, core_y: int, addr: int, buffer: bytearray "
                 "| memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
-            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).");
+            "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
+        // The returned window owns its own device handles, so it needs no keep_alive on this TTDevice.
+        .def(
+            "export_window_to_device",
+            &TTDevice::export_window_to_device,
+            nb::arg("device_id"),
+            nb::arg("core"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            nb::arg("ordering") = IoOrdering::RELAXED,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil(),
+            "Makes [addr, addr + size) of a core on this device reachable by device device_id (its "
+            "/dev/tenstorrent number) over peer-to-peer PCIe. device_id must be another device of the same "
+            "architecture with its own PCIe link; addr and size must be host-page-aligned, size non-zero, and the "
+            "range must fit in one window this device can map for a peer (on Blackhole, one 2 MiB-aligned 2 MiB "
+            "block). Raises if this device cannot map windows for a peer device.");
+
+    nb::class_<PeerWindow>(m, "PeerWindow")
+        .def(
+            "get_address",
+            &PeerWindow::get_address,
+            release_gil(),
+            "The address at which the peer device's NOC traffic to its own PCIe core reaches addr on the target "
+            "core. Destroying the window unmaps it from the peer before releasing the target's window; stop the "
+            "peer's traffic first, and destroy the window before resetting either device.");
 
 #ifdef TT_UMD_BUILD_SIMULATION
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.

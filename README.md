@@ -73,7 +73,7 @@ cmake --build --preset all
 
 #### CMake presets
 
-`CMakePresets.json` defines presets for common configurations. These use Ninja and build into `build/`:
+`CMakePresets.json` defines presets for common configurations. These use Ninja, build into `build/`, and build with clang-20 when it is installed, falling back to the default compiler otherwise:
 
 | Preset | Description |
 |--------|-------------|
@@ -99,7 +99,7 @@ cmake --build --preset tests
 
 Run `cmake --list-presets` to see the available presets.
 
-To build with GCC, set these environment variables before invoking `cmake`:
+To build with another compiler, such as GCC, set these environment variables before invoking `cmake`:
 ```
 export CC=gcc
 export CXX=g++

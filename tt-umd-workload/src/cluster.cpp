@@ -12,7 +12,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
+#include <future>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -679,29 +681,73 @@ Cluster::Cluster(ClusterOptions options) {
 #endif
 
     // Construct all the required chips from the cluster descriptor.
-    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        SocDescriptor soc_desc = construct_soc_descriptor(
-            options.topology_discovery_options.soc_descriptor_path, chip_id, options.chip_type, cluster_desc.get());
-
-        // Reuse TTDevice from topology discovery if available, avoiding duplicate device creation.
-        std::unique_ptr<TTDevice> tt_device;
-        auto it = tt_devices.find(chip_id);
-        if (it != tt_devices.end()) {
-            tt_device = std::move(it->second);
-            tt_devices.erase(it);
+    // A local Blackhole chip is built on its own PCIe device (its sysmem mapping, power-up ARC message
+    // and readiness wait touch no other chip, and the lock registry is guarded), so when every chip is local
+    // Blackhole silicon they are built at once and added in the usual order. Remote chips go through their
+    // gateway and Wormhole chips write shared remote-communication state, so those clusters build one by one.
+    {
+        const auto chip_order = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips());
+        bool parallel = options.chip_type == ChipType::SILICON && chip_order.size() > 1;
+        for (const auto& chip_id : chip_order) {
+            parallel = parallel && cluster_desc->is_chip_mmio_capable(chip_id) &&
+                       cluster_desc->get_arch(chip_id) == tt::ARCH::BLACKHOLE;
         }
-
-        add_chip(
-            chip_id,
-            options.chip_type,
-            construct_chip_from_cluster(
+        auto build = [&](ChipId chip_id, std::unique_ptr<TTDevice> tt_device) {
+            SocDescriptor soc_desc = construct_soc_descriptor(
+                options.topology_discovery_options.soc_descriptor_path, chip_id, options.chip_type, cluster_desc.get());
+            return construct_chip_from_cluster(
                 chip_id,
                 options.chip_type,
                 cluster_desc.get(),
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device.value(),
                 options.simulator_directory,
-                std::move(tt_device)));
+                std::move(tt_device));
+        };
+        // Reuse TTDevice from topology discovery if available, avoiding duplicate device creation.
+        auto take_device = [&](ChipId chip_id) {
+            std::unique_ptr<TTDevice> tt_device;
+            auto it = tt_devices.find(chip_id);
+            if (it != tt_devices.end()) {
+                tt_device = std::move(it->second);
+                tt_devices.erase(it);
+            }
+            return tt_device;
+        };
+        if (parallel) {
+            const NocId noc_id = get_selected_noc_id();
+            std::vector<std::future<std::unique_ptr<Chip>>> built;
+            built.reserve(chip_order.size());
+            for (const auto& chip_id : chip_order) {
+                built.push_back(std::async(
+                    std::launch::async, [&build, chip_id, noc_id, dev = take_device(chip_id)]() mutable {
+                        NocIdSwitcher noc(noc_id);
+                        return build(chip_id, std::move(dev));
+                    }));
+            }
+            // Wait for every chip before adding any, so a failure leaves no thread still building.
+            std::vector<std::unique_ptr<Chip>> chips;
+            std::exception_ptr error;
+            for (auto& f : built) {
+                try {
+                    chips.push_back(f.get());
+                } catch (...) {
+                    chips.emplace_back();
+                    error = error ? error : std::current_exception();
+                }
+            }
+            if (error) {
+                std::rethrow_exception(error);
+            }
+            size_t i = 0;
+            for (const auto& chip_id : chip_order) {
+                add_chip(chip_id, options.chip_type, std::move(chips[i++]));
+            }
+        } else {
+            for (const auto& chip_id : chip_order) {
+                add_chip(chip_id, options.chip_type, build(chip_id, take_device(chip_id)));
+            }
+        }
     }
 
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -1460,6 +1506,36 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
 }
 
 void Cluster::set_clock_state(DevicePowerState device_state) {
+    // Each local Blackhole chip's ARC message goes over its own PCIe device under its own lock, and
+    // the AICLK wait polls that chip's telemetry, so all-local Blackhole clusters switch every chip at once.
+    bool parallel = options_.chip_type == ChipType::SILICON && chips_.size() > 1;
+    for (auto& [_, chip] : chips_) {
+        parallel = parallel && chip->is_mmio_capable() && chip->get_tt_device() != nullptr &&
+                   chip->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE;
+    }
+    if (parallel) {
+        const NocId noc_id = get_selected_noc_id();
+        std::vector<std::future<void>> done;
+        done.reserve(chips_.size());
+        for (auto& [_, chip] : chips_) {
+            done.push_back(std::async(std::launch::async, [c = chip.get(), device_state, noc_id] {
+                NocIdSwitcher noc(noc_id);
+                c->set_clock_state(device_state);
+            }));
+        }
+        std::exception_ptr error;
+        for (auto& f : done) {
+            try {
+                f.get();
+            } catch (...) {
+                error = error ? error : std::current_exception();
+            }
+        }
+        if (error) {
+            std::rethrow_exception(error);
+        }
+        return;
+    }
     for (auto& [_, chip] : chips_) {
         // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose is_mmio_capable()
         // is also false), so skip power state transitions for every chip in a simulation cluster. This is

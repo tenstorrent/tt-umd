@@ -10,13 +10,15 @@
 # crossbar range holds, so the NOC2AXI's default route takes them to dram_P.
 #
 # test_horizon_x2_att_map.cpp checks the horizon_x2_columns maps against it; a build that runs with
-# TT_UMD_NOC_ATT=horizon_x2_columns passes this file as its ATT_CONFIG.
+# TT_UMD_NOC_ATT=horizon_x2_columns passes this file as its ATT_CONFIG, and
+# horizon_x2_columns_tlb.yaml as its TLB_CONFIG.
 devices:
   - id: 0
     tiles:
       - tile: [0, 2]   # column 0's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x1040000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x104c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x1080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -51,6 +53,7 @@ devices:
       - tile: [1, 2]   # column 1's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x1140000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x114c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x1180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -87,6 +90,7 @@ devices:
       - tile: [0, 2]   # column 0's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x2040000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x204c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x2080000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}
@@ -121,6 +125,7 @@ devices:
       - tile: [1, 2]   # column 1's NOC2AXI
         mask_table:
           - {index: 0, compare: '0x2140000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
+          - {index: 2, compare: '0x214c000000', mask: 24, ep_idx: 22, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}   # posted atomic
           - {index: 1, compare: '0x2180000000', mask: 29, ep_idx: 27, ep_id_size: 2, table_offset: 1, translate_addr: 1, bar: 0}
         noc_endpoint_table:
           - {index: 0, local: true}

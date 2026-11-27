@@ -32,11 +32,16 @@ mkdir -p "$WORKDIR"
 mount -t 9p -o trans=virtio,version=9p2000.L,msize=1048576 workdir "$WORKDIR" \
     || fail "cannot mount the working directory"
 
-# Turns off tt-kmd's reset-on-probe recovery for chips that are not ready, which a simulated chip does
-# not need. craq-sim's QEMU smoke loads tt-kmd the same way.
-insmod /opt/tenstorrent.ko reset_limit=0 || fail "cannot load tt-kmd"
+cd "$WORKDIR" || fail "cannot enter the working directory"
 
-cd "$WORKDIR"
+# Turns off tt-kmd's reset-on-probe recovery for chips that are not ready, which a simulated chip does
+# not need. craq-sim's QEMU smoke loads tt-kmd the same way. An architecture no release knows about
+# yet names its own module instead of the default build.
+kmd=$(cat /ttsim-vm/kmd-module 2>/dev/null)
+insmod "${kmd:-/opt/tenstorrent.ko}" reset_limit=0 || fail "cannot load tt-kmd"
+# A driver that loads but binds no chip would otherwise surface as some unrelated failure in the command.
+[[ -e /dev/tenstorrent/0 ]] || fail "tt-kmd loaded but bound no chip: /dev/tenstorrent/0 is missing"
+
 bash /ttsim-vm/cmd
 echo $? > /ttsim-vm/exit-code
 

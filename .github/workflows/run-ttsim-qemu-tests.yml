@@ -19,14 +19,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M}
-          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G}
+          - {card: n150, lib: libttsim_wh.so, bar4-size: 32M, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          - {card: p150, lib: libttsim_bh.so, bar4-size: 32G, vm-opts: "",
+             tests: ApiClusterTest.OpenAllSiliconChips}
+          # Grendel wants two things the other cards do not: a BAR0 big enough to hold tt-kmd's own
+          # TLB window (entry 164, 2.56 GB in) and a driver that knows Keraunos.
+          #
+          # BAR4 is 32G, not the 512G the model gives Quasar: tt-kmd serves an mmap of BAR4 UC from
+          # 4<<36 for the BAR's whole length, so a BAR4 over 64G overlaps BAR4 WC at 5<<36 (and over
+          # 128G the TLB windows at 6<<36). Nothing here maps BAR4, so 32G costs this row nothing.
+          # Silicon's 512 GiB BAR4 hits the same limit: it is tt-kmd's fixed mmap offset layout.
+          #
+          # The patterns pick up new Grendel and Quasar suites without an edit here. *QuasarIoWindow*
+          # is Quasar's TLB window suites, named on its own so the filter check fails if they stop
+          # being built, which *Quasar* alone would not notice. The other TLB suites stay out: TestTlb
+          # needs a Cluster, which has no Quasar topology discovery; TTSimTlbWindowFixture is in-process
+          # ttsim and Blackhole only; the baremetal ones touch no device and run in the baremetal lane.
+          # A DMA loopback suite stays out until the model routes the host window: an unrouted access
+          # aborts the simulator, which takes the whole job down rather than failing the case.
+          - {card: grendel, lib: libttsim_qsr.so, bar4-size: 32G,
+             vm-opts: "--bar0-size 4G --kmd-module /opt/tenstorrent-keraunos.ko",
+             tests: "Grendel*:*Quasar*:*QuasarIoWindow*"}
     # QEMU emulates the guest in software (TCG), so a standard runner without virtualization support works.
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ttsim-qemu:${{ inputs.image-tag }}
 
     steps:
+      # For run-gtest-checked.sh; the build itself comes from the artifact.
+      - name: Checkout UMD
+        uses: actions/checkout@v6
+
       - name: Use build artifacts
         uses: actions/download-artifact@v8
         with:
@@ -43,13 +67,9 @@ jobs:
           fileName: ${{ matrix.lib }}
           out-file-path: ttsim
 
-      - name: Check tt-kmd binds the simulated chip
+      - name: Run the tests this card covers
         run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
-              ls -l /dev/tenstorrent/0
-
-      - name: Open all chips
-        run: |
-          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} -- \
-              env LD_LIBRARY_PATH=build/lib build/test/umd/api/api_tests \
-              --gtest_filter=ApiClusterTest.OpenAllSiliconChips
+          run-in-ttsim-vm --lib "$PWD/ttsim/${{ matrix.lib }}" --bar4-size ${{ matrix.bar4-size }} \
+              ${{ matrix.vm-opts }} -- \
+              env LD_LIBRARY_PATH=build/lib \
+              bash .github/run-gtest-checked.sh build/test/umd/api/api_tests '${{ matrix.tests }}'

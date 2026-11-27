@@ -4,8 +4,14 @@
 # the guest at the same path and the command runs there. Returns the command's exit code. See
 # docs/TTSIM_QEMU.md.
 #
-# Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size> -- <command> [args...]
-#   --bar4-size  BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole.
+# Usage: run-in-ttsim-vm --lib <libttsim.so> --bar4-size <size>
+#            [--bar0-size <size>] [--kmd-module <path>] -- <command> [args...]
+#   --bar4-size   BAR4 size of the simulated chip: 32M for Wormhole, 32G for Blackhole and Quasar.
+#   --bar0-size   BAR0 size, when what the device advertises by default is not enough. Keraunos
+#                 needs 4G: tt-kmd's own TLB window is entry 164, which sits 2.56 GB into BAR0.
+#   --kmd-module  tt-kmd to load instead of the released build, for an architecture no release
+#                 knows about yet. A path inside the guest, such as a module the image ships; a host
+#                 path works only under the current directory, which the guest sees at the same path.
 #
 # Example, from a directory holding libttsim_wh.so:
 #   docker run --rm -v "$PWD:$PWD" -w "$PWD" \
@@ -17,16 +23,20 @@ QEMU=/opt/ttsim-qemu/bin/qemu-system-x86_64
 VM_DIR=/opt/ttsim-vm
 
 usage() {
-    sed -n 's/^# \?//; 7,8p' "$0" >&2
+    sed -n 's/^# \?//; 7,14p' "$0" >&2
     exit 2
 }
 
 lib=""
 bar4_size=""
+bar0_size=""
+kmd_module=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --lib) lib="$2"; shift 2 ;;
         --bar4-size) bar4_size="$2"; shift 2 ;;
+        --bar0-size) bar0_size="$2"; shift 2 ;;
+        --kmd-module) kmd_module="$2"; shift 2 ;;
         --) shift; break ;;
         *) usage ;;
     esac
@@ -38,9 +48,16 @@ control=$(mktemp -d)
 trap 'rm -rf "$control"' EXIT
 pwd > "$control/workdir"
 printf '%q ' "$@" > "$control/cmd"
+# Empty without --kmd-module, and the init then loads the released module.
+printf '%s' "$kmd_module" > "$control/kmd-module"
+
+# BAR0 is a fixed size in the device unless asked for otherwise, so the option is only passed when set.
+ttsim_device="ttsim,lib=$lib,bar4-size=$bar4_size"
+[[ -n "$bar0_size" ]] && ttsim_device="$ttsim_device,bar0-size=$bar0_size"
 
 # The default 64-bit PCI window cannot fit a Blackhole BAR4. 64G covers its 32G BAR4 plus the other
-# BARs at their natural alignment.
+# BARs at their natural alignment. A BAR4 over 32G needs a bigger hole and a wider -cpu phys-bits, or
+# firmware leaves it unassigned without an error.
 # TCG rather than KVM: every BAR access is emulated MMIO forwarded to libttsim, and KVM cannot emulate
 # the AVX2 loads and stores UMD uses for device copies, so the guest would get SIGILL.
 "$QEMU" \
@@ -51,7 +68,7 @@ printf '%q ' "$@" > "$control/cmd"
     -nographic -no-reboot \
     -virtfs "local,path=$control,mount_tag=ttsim-vm,security_model=none" \
     -virtfs "local,path=$PWD,mount_tag=workdir,security_model=none" \
-    -device "ttsim,lib=$lib,bar4-size=$bar4_size"
+    -device "$ttsim_device"
 
 [[ -f "$control/exit-code" ]] || { echo "run-in-ttsim-vm: the VM stopped without reporting an exit code" >&2; exit 1; }
 exit "$(cat "$control/exit-code")"

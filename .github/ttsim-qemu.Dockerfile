@@ -10,8 +10,19 @@
 # copies in just those outputs, so toolchains, sources and headers stay out of the shipped image.
 
 ARG UBUNTU_VERSION=22.04
-ARG TTSIM_QEMU_COMMIT=cade2422b833f77e5afddcec7da6916993bc2416
+# Pinned to the commit that gives BAR0 a bar0-size property. Keraunos needs a 4 GiB BAR0 -- tt-kmd's
+# own TLB window is inbound entry 164, which sits 2.56 GB in -- and before this commit the ttsim
+# device fixed BAR0 at a compile-time 512 MiB. The property defaults to that old 512 MiB, so the N150
+# and P150 rows that share this image are unaffected.
+ARG TTSIM_QEMU_COMMIT=aa112ebe16f9c4ef68a838fa24fec04090018a28
 ARG TT_KMD_TAG=ttkmd-2.11.0
+# Keraunos support is in no tt-kmd release yet, so the Grendel row builds a second module from an
+# unreleased commit on tt-kmd's `keraunos` branch that hands TLB windows to userspace (tt-kmd #306,
+# with #307's per-window attributes); before it every TLB window a caller asks for fails to
+# allocate. Every other card keeps the released driver above. It is a commit, not a branch, because
+# the image is tagged by this file's content: a branch that moves would change the module without
+# changing the tag.
+ARG TT_KMD_KERAUNOS_COMMIT=e2687df3e35748b859451d8627ee6e50f91e85c3
 
 # Stage 1: build QEMU with the ttsim PCI device into /opt/ttsim-qemu. ttsim-qemu is Tenstorrent's fork of
 # QEMU that adds a `ttsim` PCI device, which forwards the guest's BAR accesses to libttsim and the
@@ -62,6 +73,18 @@ RUN ls /lib/modules > /kver \
     && git clone --depth 1 --branch ${TT_KMD_TAG} https://github.com/tenstorrent/tt-kmd.git /tt-kmd \
     && make -C /tt-kmd KDIR=/lib/modules/"$(cat /kver)"/build
 
+# Stage 2b: tt-kmd with Keraunos support, kept as a separate module so the released driver stays
+# what every other card loads.
+FROM kmd AS kmd-keraunos
+
+ARG TT_KMD_KERAUNOS_COMMIT
+
+# Fetched by commit, since clone --branch takes no SHA.
+RUN git init /tt-kmd-keraunos && cd /tt-kmd-keraunos \
+    && git fetch --depth 1 https://github.com/tenstorrent/tt-kmd.git ${TT_KMD_KERAUNOS_COMMIT} \
+    && git checkout FETCH_HEAD \
+    && make -C /tt-kmd-keraunos KDIR=/lib/modules/"$(cat /kver)"/build
+
 # Stage 3: the guest root filesystem. It boots as an initramfs, so it needs no disk image, and PID 1
 # is ttsim-vm-init.sh instead of an init system.
 FROM ubuntu:${UBUNTU_VERSION} AS guest
@@ -76,6 +99,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=kmd /tt-kmd/tenstorrent.ko /opt/tenstorrent.ko
+COPY --from=kmd-keraunos /tt-kmd-keraunos/tenstorrent.ko /opt/tenstorrent-keraunos.ko
 COPY ttsim-vm-init.sh /init
 RUN chmod +x /init
 

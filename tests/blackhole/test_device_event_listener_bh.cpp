@@ -218,3 +218,29 @@ TEST_F(DeviceEventListenerBh, CancelEndsOnlyOneWait) {
 
     EXPECT_GE(elapsed, std::chrono::milliseconds(200));
 }
+
+TEST_F(DeviceEventListenerBh, AvailableRecordsWinOverCancel) {
+    std::unique_ptr<DeviceEventReader> reader = tt_device->create_event_reader();
+    publish_test_event(*tt_device, 17);
+    // The reader returning the record means it has also reached the listener.
+    ASSERT_EQ(reader->read_for(4, EVENT_READ_TIMEOUT).events.size(), 1u);
+
+    listener->cancel();
+    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, CANCELLED_READ_TIMEOUT);
+
+    ASSERT_EQ(batches.size(), 1u);
+    ASSERT_EQ(batches[0].batch.events.size(), 1u);
+    EXPECT_EQ(batches[0].batch.events[0].data[2], 17u);
+}
+
+TEST_F(DeviceEventListenerBh, ReadWithoutWaitingLeavesCancelForNextWait) {
+    listener->cancel();
+    listener->read_for(4, std::chrono::milliseconds(0));
+
+    const auto start = std::chrono::steady_clock::now();
+    std::vector<KeyedDeviceEventBatch> batches = listener->read_for(4, CANCELLED_READ_TIMEOUT);
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_TRUE(batches.empty());
+    EXPECT_LT(elapsed, CANCELLED_READ_BOUND);
+}

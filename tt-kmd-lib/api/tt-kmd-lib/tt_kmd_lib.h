@@ -825,12 +825,13 @@ int tt_device_read_events(
  * @param count Number of handles in `devices`. 0 waits only for `wake_fd` or the timeout.
  * @param timeout_ms Longest time to wait: 0 does not wait, a negative value waits indefinitely
  * @param wake_fd A file descriptor, such as an eventfd, that ends the wait early once it is readable; -1 for
- *                none. It is only polled, never read, so the caller decides when it stops being readable.
+ *                none. Ready devices take priority over it. It is only polled, never read, so the caller
+ *                decides when it stops being readable.
  * @param out_ready Receives `count` entries on success: 1 for each device that is ready, 0 for the others.
  *                  May be NULL if `count` is 0.
  * @param out_ready_count Number of ready devices; 0 when the timeout expires or the call fails
  * @return 0 on success, including when the timeout expires; negative error code on failure. -EINTR if a
- *         signal interrupted the wait. -ECANCELED if `wake_fd` ended it.
+ *         signal interrupted the wait. -ECANCELED if `wake_fd` is readable and no device is ready.
  */
 int tt_device_wait_events(
     tt_device_t* const* devices,

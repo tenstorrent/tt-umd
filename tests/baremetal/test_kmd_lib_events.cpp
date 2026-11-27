@@ -95,3 +95,15 @@ TEST_F(KmdLibEvents, WaitEndsWhenWakeFdIsReadable) {
 
     close(wake_fd);
 }
+
+TEST_F(KmdLibEvents, ReadyDevicesWinOverReadableWakeFd) {
+    const int wake_fd = eventfd(1, EFD_CLOEXEC);
+    ASSERT_GE(wake_fd, 0);
+    uint8_t ready[1] = {};
+
+    EXPECT_EQ(tt_device_wait_events(&dev, 1, 0, wake_fd, ready, &count), 0);
+    EXPECT_EQ(count, 1u);
+    EXPECT_EQ(ready[0], 1u);
+
+    close(wake_fd);
+}

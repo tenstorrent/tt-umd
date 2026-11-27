@@ -92,8 +92,10 @@ std::vector<KeyedDeviceEventBatch> KmdDeviceEventListener::read_events(size_t ma
         }
         std::vector<uint8_t> ready(entries_.size());
         uint32_t ready_count = 0;
+        // A read that does not wait leaves any cancel for the next wait.
+        const int wake_fd = (timeout_ms == 0) ? -1 : wake_fd_;
         int result = tt_device_wait_events(
-            handles.data(), static_cast<uint32_t>(handles.size()), wait_ms, wake_fd_, ready.data(), &ready_count);
+            handles.data(), static_cast<uint32_t>(handles.size()), wait_ms, wake_fd, ready.data(), &ready_count);
 
         if (result == -ECANCELED) {
             // Draining the eventfd consumes every cancel made so far, so they end this wait alone.

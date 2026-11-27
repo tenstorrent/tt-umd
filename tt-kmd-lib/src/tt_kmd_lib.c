@@ -1025,9 +1025,6 @@ int tt_device_wait_events(
     int ready = poll(pfds, (nfds_t)count + 1, (timeout_ms < 0) ? -1 : timeout_ms);
     if (ready < 0) {
         ret = -errno;
-    } else if ((pfds[count].revents & POLLIN) != 0) {
-        /* Devices that became ready meanwhile stay ready for the next call. */
-        ret = -ECANCELED;
     } else {
         /* A reset or removal reports POLLHUP or POLLERR rather than POLLIN, so any event counts. */
         uint32_t ready_count = 0;
@@ -1036,6 +1033,11 @@ int tt_device_wait_events(
             ready_count += out_ready[i];
         }
         *out_ready_count = ready_count;
+
+        /* Ready devices win, leaving wake_fd readable to end the next wait. */
+        if ((ready_count == 0) && ((pfds[count].revents & POLLIN) != 0)) {
+            ret = -ECANCELED;
+        }
     }
 
     free(pfds);

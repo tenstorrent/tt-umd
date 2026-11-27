@@ -13,9 +13,9 @@
 
 #include "noc_access.hpp"
 #include "pcie/io_window_reconfigure.hpp"
+#include "pcie/simulation_tlb_allocator.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
-#include "tt-umd/chip_helpers/simulation_tlb_allocator.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/simulation_client.hpp"
 #include "tt-umd/simulation/simulation_device_identity.hpp"

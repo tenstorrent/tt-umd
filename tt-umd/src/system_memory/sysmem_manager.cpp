@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_manager.hpp"
 
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/arch.hpp"

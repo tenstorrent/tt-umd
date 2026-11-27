@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
 
 #include <fmt/format.h>
 

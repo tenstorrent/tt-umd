@@ -19,6 +19,10 @@
 #include <immintrin.h>
 #endif
 
+#ifdef TT_UMD_RVV_MEMCPY
+#include "device_memcpy_rvv.hpp"
+#endif
+
 namespace tt::umd {
 
 namespace {
@@ -423,8 +427,11 @@ void memcpy_from_device(
     s = reinterpret_cast<const volatile std::uint8_t*>(s_simd);
 
 #elif defined(__riscv) && (__riscv_xlen == 64)
-    // riscv64: mirror of the store path above — explicit 8-byte volatile loads rather than the
-    // aligned(1) vector copies, which lower to byte loads here.
+    // riscv64: 64-bit element accesses rather than the aligned(1) vector copies, which lower to
+    // byte loads here too — unit-stride vector loads where the host has RVV 1.0, otherwise the
+    // same explicit 8-byte volatile accesses the store path above uses. Unlike the store path,
+    // reads have a vector form because they are non-posted, so the round trip they save is real;
+    // device_memcpy_rvv.cpp covers the ordering latitude that form takes.
     while (size >= 8 && (reinterpret_cast<std::uintptr_t>(s) % 8) != 0) {
         auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
@@ -434,6 +441,30 @@ void memcpy_from_device(
         s += 4;
         size -= 4;
     }
+#ifdef TT_UMD_RVV_MEMCPY
+    if (rvv::enabled()) {
+        // One timeout check per 256-byte block, matching the AVX2 path's granularity. A read is
+        // non-posted, so a device that stops responding stalls the CPU inside the block and shows
+        // up in that block's own elapsed time.
+        while (size >= 256) {
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_from_device(d, s, 256);
+            check(t, 256);
+            d += 256;
+            s += 256;
+            size -= 256;
+        }
+        if (size >= 8) {
+            const std::size_t bulk = size & ~static_cast<std::size_t>(7);
+            auto t = std::chrono::steady_clock::now();
+            rvv::block_from_device(d, s, bulk);
+            check(t, static_cast<std::uint32_t>(bulk));
+            d += bulk;
+            s += bulk;
+            size -= bulk;
+        }
+    }
+#endif
     while (size >= 64) {
         auto t = std::chrono::steady_clock::now();
         for (int j = 0; j < 8; ++j) {

@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "noc_access.hpp"
@@ -419,6 +420,24 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
  */
 
 void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
+    tt_xy_pair target_core,
+    const void* src,
+    uint64_t core_dest,
+    uint32_t size_in_bytes,
+    const std::chrono::milliseconds timeout_ms) {
+    write_to_non_mmio_impl(target_core, src, core_dest, size_in_bytes, false, {}, timeout_ms);
+}
+
+void RemoteCommunicationLegacyFirmware::broadcast_to_non_mmio(
+    const void* src,
+    uint64_t core_dest,
+    uint32_t size_in_bytes,
+    std::vector<int> broadcast_header,
+    const std::chrono::milliseconds timeout_ms) {
+    write_to_non_mmio_impl({0, 0}, src, core_dest, size_in_bytes, true, std::move(broadcast_header), timeout_ms);
+}
+
+void RemoteCommunicationLegacyFirmware::write_to_non_mmio_impl(
     tt_xy_pair target_core,
     const void* src,
     uint64_t core_dest,

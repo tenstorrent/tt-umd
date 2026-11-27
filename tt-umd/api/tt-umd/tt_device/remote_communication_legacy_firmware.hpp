@@ -38,8 +38,13 @@ public:
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
-        bool broadcast = false,
-        std::vector<int> broadcast_header = {},
+        const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
+
+    void broadcast_to_non_mmio(
+        const void* src,
+        uint64_t core_dest,
+        uint32_t size_in_bytes,
+        std::vector<int> broadcast_header,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
     void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
@@ -47,6 +52,16 @@ public:
     std::optional<EthCoord> get_target_eth_coord() override;
 
 private:
+    // Unicast and broadcast share the command queue protocol; target_core is unused for broadcast.
+    void write_to_non_mmio_impl(
+        tt_xy_pair target_core,
+        const void* src,
+        uint64_t core_dest,
+        uint32_t size_in_bytes,
+        bool broadcast,
+        std::vector<int> broadcast_header,
+        const std::chrono::milliseconds timeout_ms);
+
     // The firmware's routing buffers live in host memory channel 0, which is only usable while it is mapped.
     bool is_host_dram_mapped() const;
 

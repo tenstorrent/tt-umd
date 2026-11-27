@@ -310,15 +310,17 @@ public:
     [[nodiscard]] size_t dma_zero_copy_max_size(uint64_t device_addr);
 
     /**
-     * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
-     * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
-     * will ensure that the write will land on the correct cores.
+     * NOC multicast write of the same data to every Tensix core of an inclusive rectangle. Cores of other types and
+     * harvested cores inside the rectangle are not written. A rectangle outside this contract is undefined behaviour.
      *
      * @param src pointer to memory from which the data is sent
      * @param size number of bytes
-     * @param core_start starting core coordinates (x,y) of the multicast write
-     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param core_start corner the multicast starts at; must be a Tensix core. The top-left corner on NOC0 and the
+     * bottom-right one on NOC1, since NOC1 multicasts take the corners swapped.
+     * @param core_end the opposite corner; must be a Tensix core, and in translated coordinates neither left of nor
+     * above core_start on NOC0, neither right of nor below it on NOC1
      * @param addr address on the device where data will be written
+     * @param noc_id NOC the multicast is sent on
      */
     virtual void noc_multicast_write(
         const void *src,

@@ -5,6 +5,7 @@
             "name": "default",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
+            "toolchainFile": "${sourceDir}/cmake/prefer-clang-20.cmake",
             "description": "Library and tools with the CMake option defaults"
         },
         {

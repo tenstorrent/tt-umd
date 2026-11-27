@@ -28,6 +28,7 @@
 #include "topology/topology_discovery_wormhole.hpp"
 #include "tt-umd-utils/internal/polling.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/cluster_description.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
@@ -47,6 +48,7 @@
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -169,8 +171,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::create_ethernet_map() 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscoveryBase::run(
     const TopologyDiscoveryOptions& options) {
     ZoneScopedC(tracy::Color::DarkGreen);
+
+    TopologyDiscoveryOptions options_stateful_noc = options;
+    options_stateful_noc.noc = get_selected_noc_id();
+
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
-    std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options);
+    std::unique_ptr<TopologyDiscoveryBase> td = TopologyDiscoveryBase::create_topology_discovery(options_stateful_noc);
     if (td == nullptr) {
         // No PCI/JTAG devices: still stamp cluster_id (and throw on an illegal supplied id).
         // Callers and the Python bindings go through discover() even on an empty machine.
@@ -194,7 +200,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
 
 bool TopologyDiscoveryBase::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
     try {
-        tt_device->init_tt_device(timeout);
+        tt_device->init_tt_device(timeout, options.noc);
     } catch (error::UmdBaseException& err) {
         if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
             throw;
@@ -300,7 +306,7 @@ void TopologyDiscoveryBase::get_connected_devices() {
         std::unique_ptr<TTDevice> tt_device =
             create_tt_device(device_id, options.io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (!options.low_power) {
-            tt_device->set_power_state(TTDevice::PowerState::BUSY);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY, options.noc);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
@@ -542,11 +548,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscoveryBase::fill_cluster_descripto
         ChipDescription& chip = description.chips[chip_id];
         chip.arch = tt_device->get_arch();
         chip.unique_id = current_device_asic_id;
-        chip.board_type = tt_device->get_chip_info().board_type;
-        chip.board_id = tt_device->get_chip_info().board_id;
-        chip.noc_translation_enabled = tt_device->get_chip_info().noc_translation_enabled;
-        chip.harvesting_masks = tt_device->get_chip_info().harvesting_masks;
-        chip.asic_location = tt_device->get_chip_info().asic_location;
+        ChipInfo chip_info = tt_device->get_chip_info(options.noc);
+        chip.board_type = chip_info.board_type;
+        chip.board_id = chip_info.board_id;
+        chip.noc_translation_enabled = chip_info.noc_translation_enabled;
+        chip.harvesting_masks = chip_info.harvesting_masks;
+        chip.asic_location = chip_info.asic_location;
 
         if (!tt_device->is_remote()) {
             chip.mmio_device_id = tt_device->get_communication_device_id();
@@ -656,7 +663,8 @@ uint64_t TopologyDiscoveryBase::get_asic_id(TTDevice* tt_device) {
 void TopologyDiscoveryBase::patch_eth_connections() {}
 
 void TopologyDiscoveryBase::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
-    FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
+    FirmwareBundleVersion fw_bundle_version =
+        tt_device->get_firmware_info_provider()->get_firmware_version(options.noc);
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
@@ -712,9 +720,8 @@ void TopologyDiscoveryBase::wait_eth_cores_training(TTDevice* tt_device, const s
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
         const auto start = std::chrono::steady_clock::now();
-        tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        tt_device->wait_eth_core_training(eth_core, timeout_left, options.noc);
         timeout_left -= std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     }
     log_debug(
@@ -729,11 +736,11 @@ bool TopologyDiscoveryBase::is_board_id_included(uint64_t board_id) const {
 }
 
 bool TopologyDiscoveryBase::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
-    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+    SemVer eth_fw_version = get_eth_fw_version_from_core(tt_device, eth_core);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver(options.noc);
         if (expected_eth_fw_version.has_value()) {
             log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
@@ -833,7 +840,7 @@ bool TopologyDiscoveryBase::eth_heartbeat_running(TTDevice* tt_device, uint64_t 
 }
 
 bool TopologyDiscoveryBase::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core, options.noc) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

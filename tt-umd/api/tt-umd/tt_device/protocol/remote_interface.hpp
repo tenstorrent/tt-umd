@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include "tt-umd/types/noc_id.hpp"
+
 namespace tt::umd {
 
 class RemoteCommunication;
@@ -17,7 +19,7 @@ public:
     virtual ~RemoteInterface() = default;
 
     virtual RemoteCommunication* get_remote_communication() = 0;
-    virtual void wait_for_non_mmio_flush() = 0;
+    virtual void wait_for_non_mmio_flush(NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

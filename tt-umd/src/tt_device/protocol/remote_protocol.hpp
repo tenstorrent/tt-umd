@@ -46,7 +46,7 @@ public:
 
     // RemoteInterface.
     RemoteCommunication* get_remote_communication() override;
-    void wait_for_non_mmio_flush() override;
+    void wait_for_non_mmio_flush(NocId noc_id = NocId::DEFAULT_NOC) override;
 
 private:
     std::unique_ptr<RemoteCommunication> remote_communication_;

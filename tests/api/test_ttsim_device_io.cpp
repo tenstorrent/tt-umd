@@ -17,13 +17,13 @@
 #include <vector>
 
 #include "pcie/io_window_reconfigure.hpp"
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/sysmem_buffer.hpp"
-#include "tt-umd/chip_helpers/system_memory_allocator.hpp"
 #include "tt-umd/io_window/io_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_buffer.hpp"
+#include "tt-umd/system_memory/system_memory_allocator.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"

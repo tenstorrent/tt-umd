@@ -961,7 +961,7 @@ TEST(ClusterWH, LargeAddressTlb) {
     uint32_t value1 = 0;
 
     // Read the scratch register via BAR0:
-    value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
+    value0 = cluster.get_chip(0)->get_tt_device()->get_pcie_interface()->bar_read32(0x1ff30060);
 
     // Read the scratch register via a dynamically mapped TLB:
     cluster.read_from_device(&value1, 0, ARC_CORE, addr, sizeof(uint32_t));

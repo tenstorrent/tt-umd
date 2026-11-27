@@ -1,0 +1,164 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <vector>
+
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/sysmem_manager.hpp"
+#include "tt-umd/types/cluster_types.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
+namespace tt::umd {
+
+class SimulationSysmemManager : public SysmemManager {
+public:
+    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id = 0);
+    ~SimulationSysmemManager() override;
+
+    // Per-chip host base for this chip's sysmem. On silicon each chip's pinned host memory lives at a
+    // distinct host physical address; UMD programs that address into the chip's outbound iATU as the
+    // region target, and the chip's DMA resolves there purely by address (no per-chip "magic"). We
+    // model that by giving chip N a distinct host base (N * PER_CHIP_HOST_STRIDE) and using it as the
+    // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
+    // routes by which chip's [host_base, host_base + PER_CHIP_HOST_STRIDE) window contains the address.
+    static constexpr uint64_t PER_CHIP_HOST_STRIDE = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+    // The modeled outbound iATU uses 32-bit base/limit registers. Mapped-buffer IOVAs share this
+    // device-visible window with the fixed-stride host-memory channels. WH's modeled PCIe DMA
+    // aperture ends at offset 0xFFFE0000, so use that conservative limit for every architecture.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
+
+    uint64_t get_host_base() const { return host_base_; }
+
+    uint64_t get_host_region_size() const { return PER_CHIP_HOST_STRIDE; }
+
+    uint64_t get_mapped_arena_offset() const { return system_memory_size_; }
+
+    uint64_t get_mapped_arena_size() const;
+
+    // The simulated device's host memory channels, which its simulator reaches by address. They are the device's
+    // own, unlike a silicon chip's, which the chip layer builds from buffers.
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, size_t size);
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, size_t size);
+
+    size_t get_num_host_mem_channels() const { return host_mem_channels_.get_num_channels(); }
+
+    HugepageMapping get_hugepage_mapping(size_t channel) const;
+
+    /**
+     * The same channels as a HostMemChannels, for the chip that owns this device. The object lives as long as this
+     * manager; growing the channels remaps it in place.
+     */
+    const HostMemChannels* get_host_mem_channels() const { return &host_mem_channels_; }
+
+    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+        size_t sysmem_buffer_size, const bool map_to_noc = false) override;
+
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
+
+    std::optional<size_t> get_max_buffer_count(size_t size) const override;
+
+    bool is_user_buffer_mapping_supported() const override { return true; }
+
+    // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
+    // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
+    //
+    // Searches the mapped-buffer registry for a buffer whose device_io_addr
+    // range covers [device_io_addr, device_io_addr + size).  On a hit the
+    // memcpy is performed and true is returned.  On a miss (the address falls
+    // in the regular hugepage arena) false is returned and the caller should
+    // forward to write_to_sysmem / read_from_sysmem with the correct channel
+    // and within-channel offset.
+    //
+    // This keeps the mapped-buffer fast path out of write_to_sysmem /
+    // read_from_sysmem so those methods keep sysmem_dest a within-channel
+    // offset, not an absolute address.
+    bool write_mapped_buffer(uint64_t device_io_addr, const void* src, size_t size);
+    bool read_mapped_buffer(uint64_t device_io_addr, void* dst, size_t size);
+
+    // Zero-copy address→host-pointer lookup (nullptr on a miss). Unlike
+    // write/read_mapped_buffer, which copy, this returns the mapping directly for in-place
+    // access. emule needs it: its NOC address resolver (__emule_resolve_noc_addr) maps a
+    // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
+    // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
+    // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
+    // mapped: the caller must not retain it across the manager's or the SysmemBuffer's
+    // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
+    // This is a pure address translation — the caller owns the access length (the returned bare
+    // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
+    void* get_mapped_host_ptr(uint64_t device_io_addr);
+
+    // Re-sizes this chip's sysmem to num_host_mem_channels channels, and reports whether the channel
+    // count changed (the caller has iATU regions to re-program when it did).
+    //
+    // A simulated cluster's channel count is not knowable when the device is built: the count is one
+    // per chip the MMIO chip serves, and chips reached over ethernet are only found by the topology
+    // discovery that the device itself has to be alive for. So the device starts with a provisional
+    // count and the cluster grows it here once the discovered descriptor says how many chips this one
+    // actually gateways for. Growing only, and only before any sysmem buffer has been handed out: the
+    // channels are slices of one mapping, so growing replaces it and every existing channel moves.
+    bool grow_host_mem_channels(uint32_t num_host_mem_channels);
+
+private:
+    void init_sysmem(uint32_t num_host_mem_channels);
+
+    // Caller holds registry_->mutex for capacity checks and registration.
+    void check_arena_capacity(uint64_t extent) const;
+
+    struct MappedBuffer {
+        // Device IO address (pcie_base_ + arena offset) of the first byte.
+        uint64_t device_io_addr = 0;
+        void* buffer = nullptr;
+        size_t size = 0;
+    };
+
+    // Shared registry of active mapped-buffer entries.  Held by shared_ptr so
+    // that SysmemBuffer unmap callbacks can capture a weak_ptr and safely
+    // become no-ops when the manager is destroyed before the buffer.
+    struct MappedBufferRegistry {
+        std::mutex mutex;
+        std::vector<MappedBuffer> buffers;
+        // Bump allocator: next arena offset (relative to pcie_base_) to assign.
+        uint64_t next_arena_offset = 0;
+    };
+
+    // Releases the hugepage-channel mapping without touching the registry, so grow_host_mem_channels
+    // can remap while it holds registry_->mutex.
+    void unmap_system_memory();
+
+    // Caller must hold registry_->mutex.
+    std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, size_t size);
+
+    // Caller holds registry_->mutex. Assigns an arena address, registers the buffer and wraps it.
+    // Shared by the allocate and map
+    // paths, which differ only in who owns the memory: allocate passes a release callable that frees
+    // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
+    std::unique_ptr<SysmemBuffer> register_and_wrap(
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc,
+        DeviceBufferAccess device_access,
+        SysmemBuffer::Deleter release_backing_memory);
+
+    uint8_t* system_memory_ = nullptr;
+    size_t system_memory_size_ = 0;
+    HostMemChannels host_mem_channels_;
+    uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
+    std::shared_ptr<MappedBufferRegistry> registry_;
+};
+
+}  // namespace tt::umd

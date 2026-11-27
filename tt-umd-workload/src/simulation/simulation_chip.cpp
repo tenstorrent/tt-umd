@@ -11,10 +11,10 @@
 
 #include "simulation/simulator_paths.hpp"
 #include "tt-umd-utils/internal/tracy.hpp"
-#include "tt-umd/chip_helpers/host_mem_channels.hpp"
-#include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
-#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/system_memory/host_mem_channels.hpp"
+#include "tt-umd/system_memory/simulation_sysmem_manager.hpp"
+#include "tt-umd/system_memory/sysmem_manager.hpp"
 #include "tt-umd/tt_device/simulation_device_factory.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/core_coordinates.hpp"

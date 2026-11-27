@@ -21,6 +21,7 @@
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
@@ -118,7 +119,7 @@ protected:
     // Configure some TopologyDiscovery paramaters from first discovered device.
     virtual void init_first_device(TTDevice* tt_device) = 0;
 
-    bool is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core);
+    EthTrainingStatus get_eth_training_status(TTDevice* tt_device, const CoreCoord eth_core);
 
     virtual void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) = 0;
 

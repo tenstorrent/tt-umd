@@ -18,6 +18,7 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -46,12 +47,12 @@ void RemoteProtocol::write_data(
     size_t size,
     NocId noc_id,
     [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, to_wire_size(size));
+    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, to_wire_size(size), noc_id, noc_id);
 }
 
 void RemoteProtocol::read_data(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, [[maybe_unused]] IoOrdering ordering) {
-    remote_communication_->read_non_mmio(core, mem_ptr, addr, to_wire_size(size));
+    remote_communication_->read_non_mmio(core, mem_ptr, addr, to_wire_size(size), noc_id, noc_id);
 }
 
 void RemoteProtocol::write_ctrl(
@@ -140,6 +141,8 @@ int RemoteProtocol::get_mmio_id() { return remote_communication_->get_local_devi
 
 RemoteCommunication* RemoteProtocol::get_remote_communication() { return remote_communication_.get(); }
 
-void RemoteProtocol::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
+void RemoteProtocol::wait_for_non_mmio_flush() {
+    remote_communication_->wait_for_non_mmio_flush(get_selected_noc_id());
+}
 
 }  // namespace tt::umd

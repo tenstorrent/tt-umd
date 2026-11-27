@@ -118,7 +118,7 @@ void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_star
     UMD_THROW(error::RuntimeError, "DMA operations are not available on remote chips.");
 }
 
-void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
+void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(get_selected_noc_id()); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 

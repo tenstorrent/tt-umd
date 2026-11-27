@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/timeouts.hpp"
@@ -35,11 +36,15 @@ public:
         TTDevice* local_tt_device, EthCoord target_chip, const HostMemChannels* host_mem_channels = nullptr);
 
     // Target core should be in translated coords.
+    // transport_noc is the NOC the host uses to talk to the local ethernet core. target_noc is the NOC the ethernet
+    // core uses for the final hop to the target core on the remote chip.
     virtual void read_non_mmio(
         tt_xy_pair target_core,
         void* dest,
         uint64_t core_src,
         uint32_t size_in_bytes,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     virtual void write_to_non_mmio(
@@ -47,6 +52,8 @@ public:
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     // Broadcasts to the cores selected by broadcast_header. Requires host memory channels.
@@ -55,9 +62,13 @@ public:
         uint64_t core_dest,
         uint32_t size_in_bytes,
         std::vector<int> broadcast_header,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
-    virtual void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
+    virtual void wait_for_non_mmio_flush(
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) = 0;
 
     // Set the ethernet cores which can be used for remote communication on the assigned local chip.
     // The cores should be in translated coordinates.

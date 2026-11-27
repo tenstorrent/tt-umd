@@ -31,6 +31,8 @@ public:
         void* dest,
         uint64_t core_src,
         uint32_t size_in_bytes,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
     void write_to_non_mmio(
@@ -38,6 +40,8 @@ public:
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
     void broadcast_to_non_mmio(
@@ -45,9 +49,13 @@ public:
         uint64_t core_dest,
         uint32_t size_in_bytes,
         std::vector<int> broadcast_header,
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        NocId target_noc = NocId::DEFAULT_NOC,
         const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
-    void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
+    void wait_for_non_mmio_flush(
+        NocId transport_noc = NocId::DEFAULT_NOC,
+        const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
     std::optional<EthCoord> get_target_eth_coord() override;
 
@@ -58,6 +66,8 @@ private:
         const void* src,
         uint64_t core_dest,
         uint32_t size_in_bytes,
+        NocId transport_noc,
+        NocId target_noc,
         bool broadcast,
         std::vector<int> broadcast_header,
         const std::chrono::milliseconds timeout_ms);

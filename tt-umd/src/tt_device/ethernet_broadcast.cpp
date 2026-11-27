@@ -20,6 +20,7 @@
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/utils/error.hpp"
 
 namespace tt::umd {
@@ -200,7 +201,13 @@ void EthernetBroadcast::ethernet_broadcast_write(
                 fmt::join(header, ", "));
             // RemoteCommunication sizes are 32-bit, which is more than a single ethernet broadcast can carry.
             mmio_remote_comms_.at(mmio_group.first)
-                ->broadcast_to_non_mmio(mem_ptr, address, static_cast<uint32_t>(size_in_bytes), header);
+                ->broadcast_to_non_mmio(
+                    mem_ptr,
+                    address,
+                    static_cast<uint32_t>(size_in_bytes),
+                    header,
+                    get_selected_noc_id(),
+                    get_selected_noc_id());
         }
     }
 }

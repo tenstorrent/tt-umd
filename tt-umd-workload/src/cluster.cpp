@@ -1267,6 +1267,54 @@ void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint
     }
 }
 
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(std::set<ChipId>* uncovered_chip_ids) {
+    return create_listener_for_chips(all_chip_ids_, uncovered_chip_ids);
+}
+
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(
+    const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    // An empty set is most likely a caller's mistake, such as a chip mapping that came out empty.
+    UMD_ASSERT(
+        !chip_ids.empty(),
+        error::RuntimeError,
+        "create_event_listener() was given an empty set of chip IDs; call it without chip IDs for all chips");
+    return create_listener_for_chips(chip_ids, uncovered_chip_ids);
+}
+
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_event_listener(
+    std::initializer_list<ChipId> chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    return create_event_listener(std::set<ChipId>(chip_ids), uncovered_chip_ids);
+}
+
+std::unique_ptr<ClusterDeviceEventListener> Cluster::create_listener_for_chips(
+    const std::set<ChipId>& chip_ids, std::set<ChipId>* uncovered_chip_ids) {
+    std::map<DeviceEventKey, TTDevice*> devices;
+    std::set<ChipId> uncovered;
+    for (const ChipId chip_id : chip_ids) {
+        TTDevice* tt_device = get_chip(chip_id)->get_tt_device();
+        if (tt_device == nullptr) {
+            uncovered.insert(chip_id);
+        } else {
+            devices.emplace(static_cast<DeviceEventKey>(chip_id), tt_device);
+        }
+    }
+
+    std::set<DeviceEventKey> uncovered_keys;
+    std::unique_ptr<DeviceEventListener> listener = DeviceEventListener::create(devices, &uncovered_keys);
+    for (const DeviceEventKey key : uncovered_keys) {
+        uncovered.insert(static_cast<ChipId>(key));
+    }
+
+    if (uncovered_chip_ids != nullptr) {
+        *uncovered_chip_ids = std::move(uncovered);
+    } else if (!uncovered.empty()) {
+        log_info(LogUMD, "Device events of chips {} can't be read; the event listener leaves them out", uncovered);
+    }
+
+    // The constructor is private to Cluster, so std::make_unique can't call it.
+    return std::unique_ptr<ClusterDeviceEventListener>(new ClusterDeviceEventListener(std::move(listener)));
+}
+
 TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     auto tt_device = get_chip(device_id)->get_tt_device();
     UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("TTDevice not found for device: {}", device_id));

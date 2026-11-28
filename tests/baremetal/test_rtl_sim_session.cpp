@@ -149,6 +149,7 @@ protected:
             unsetenv(("NNG_SOCKET_ADDR_" + name).c_str());
         }
         unsetenv("TT_SIMULATOR_LOCALHOST");
+        unsetenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S");
         std::filesystem::remove_all(dir_);
     }
 
@@ -200,6 +201,38 @@ TEST_F(RtlSimSessionTest, TimesOutWithoutAck) {
 
     EXPECT_THROW(session.start(std::chrono::milliseconds(200)), std::exception);
 }
+
+TEST_F(RtlSimSessionTest, AckTimeoutDefaultsToAnHour) {
+    unsetenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S");
+
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::hours(1));
+}
+
+TEST_F(RtlSimSessionTest, AckTimeoutPassedInWinsOverTheVariable) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "7200", 1);
+
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(std::chrono::seconds(30)), std::chrono::seconds(30));
+}
+
+TEST_F(RtlSimSessionTest, AckTimeoutComesFromTheVariable) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", "7200", 1);
+
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::seconds(7200));
+}
+
+class RtlSimSessionAckTimeoutVariableTest : public RtlSimSessionTest,
+                                            public ::testing::WithParamInterface<std::string> {};
+
+TEST_P(RtlSimSessionAckTimeoutVariableTest, IgnoresAnInvalidValue) {
+    setenv("TT_UMD_RTL_SIM_ACK_TIMEOUT_S", GetParam().c_str(), 1);
+
+    EXPECT_EQ(RtlSimSession::get_ack_timeout(), std::chrono::hours(1));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    NotPositiveWholeSeconds,
+    RtlSimSessionAckTimeoutVariableTest,
+    ::testing::Values("", "abc", "1.5", "2h", "0", "-30", "99999999999"));
 
 TEST_F(RtlSimSessionTest, RejectsAWrongAck) {
     const std::string address = add_socket("ut_a");

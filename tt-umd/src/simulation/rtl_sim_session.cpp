@@ -9,8 +9,10 @@
 #include <uv.h>
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <set>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
@@ -23,7 +25,7 @@ namespace tt::umd {
 namespace {
 
 void spawn_simulator(const std::filesystem::path &simulator_directory) {
-    const std::string run_script = simulator_directory / "run.sh";
+    std::string run_script = simulator_directory / "run.sh";
     UMD_ASSERT(
         std::filesystem::exists(run_script),
         error::RuntimeError,
@@ -38,8 +40,12 @@ void spawn_simulator(const std::filesystem::path &simulator_directory) {
     child_stdio[2].flags = UV_INHERIT_FD;
     child_stdio[2].data.fd = 2;
 
+    // libuv execs file with args as its argv verbatim, so argv[0] must be set and the array null-terminated.
+    std::array<char *, 2> child_args{run_script.data(), nullptr};
+
     uv_process_options_t child_options = {nullptr};
     child_options.file = run_script.c_str();
+    child_options.args = child_args.data();
     child_options.flags = UV_PROCESS_DETACHED;
     child_options.stdio_count = 3;
     child_options.stdio = child_stdio;

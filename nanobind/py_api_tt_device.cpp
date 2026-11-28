@@ -31,6 +31,7 @@
 #include "tt-umd/tt_device/tt_sim_tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/eth_training_status.hpp"
 #include "tt-umd/types/risc_type.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/mmio_timeout_config.hpp"
@@ -146,6 +147,14 @@ std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chi
     return create_tt_device(std::move(remote_communication));
 }
 
+// Mirrors TTDevice::resolve_coordinate: LITERAL coords pass through, others go to translated.
+static tt_xy_pair resolve_eth_core(TTDevice &device, CoreCoord eth_core, NocId noc) {
+    if (eth_core.coord_system == CoordSystem::LITERAL) {
+        return tt_xy_pair(eth_core.x, eth_core.y);
+    }
+    return device.get_soc_descriptor().translate_chip_coord_to_translated(eth_core, noc);
+}
+
 void bind_tt_device(nb::module_ &m) {
     nb::enum_<IODeviceType>(m, "IODeviceType")
         .value("PCIe", IODeviceType::PCIe)
@@ -241,6 +250,12 @@ void bind_tt_device(nb::module_ &m) {
             },
             release_gil());
 
+    nb::enum_<EthTrainingStatus>(m, "EthTrainingStatus")
+        .value("IN_PROGRESS", EthTrainingStatus::IN_PROGRESS)
+        .value("SUCCESS", EthTrainingStatus::SUCCESS)
+        .value("FAIL", EthTrainingStatus::FAIL)
+        .value("NOT_CONNECTED", EthTrainingStatus::NOT_CONNECTED);
+
     auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
 
     nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
@@ -298,6 +313,39 @@ void bind_tt_device(nb::module_ &m) {
             &TTDevice::get_noc_translation_enabled,
             nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil())
+        // ETH link status lives on DeviceFirmware, not on the TTDevice base API (#4066).
+        // These are Python conveniences so tools like tt-smi don't have to reach into firmware.
+        .def(
+            "read_eth_core_training_status",
+            [](TTDevice &self, CoreCoord eth_core) {
+                const NocId noc = get_selected_noc_id();
+                return self.get_device_firmware()->get_eth_core_training_status(
+                    resolve_eth_core(self, eth_core, noc), noc);
+            },
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the training status of the given ETH core")
+        .def(
+            "read_eth_core_train_speed",
+            [](TTDevice &self, CoreCoord eth_core) {
+                const NocId noc = get_selected_noc_id();
+                return self.get_device_firmware()->get_eth_core_train_speed(resolve_eth_core(self, eth_core, noc), noc);
+            },
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the trained link speed in Gbps of the given ETH core. None if link not up "
+            "or not supported")
+        .def(
+            "read_eth_core_target_speed",
+            [](TTDevice &self, CoreCoord eth_core) {
+                const NocId noc = get_selected_noc_id();
+                return self.get_device_firmware()->get_eth_core_target_speed(
+                    resolve_eth_core(self, eth_core, noc), noc);
+            },
+            nb::arg("eth_core"),
+            release_gil(),
+            "Read the target link speed in Gbps from the ETH core boot params. Valid in any "
+            "port state. None if not supported")
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)

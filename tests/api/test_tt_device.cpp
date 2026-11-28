@@ -171,6 +171,41 @@ TEST(ApiTTDeviceTest, PcieInterfacePhysicalSlot) {
     }
 }
 
+TEST(ApiTTDeviceTest, TTDeviceEthCoreSpeed) {
+    // Target speeds bh-erisc ETH firmware accepts (serdes_init.cpp).
+    const std::set<uint32_t> valid_speeds_gbps = {0, 40, 100, 200, 330, 350, 370, 400};
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+        DeviceFirmware* fw = tt_device->get_device_firmware();
+        const NocId noc = NocId::NOC0;
+        auto translate = [&](const CoreCoord& core) { return soc_desc.translate_chip_coord_to_translated(core, noc); };
+        for (const CoreCoord& eth_core : soc_desc.get_cores(CoreType::ETH, CoordSystem::NOC0)) {
+            const tt_xy_pair eth_xy = translate(eth_core);
+            std::optional<uint32_t> train_speed = fw->get_eth_core_train_speed(eth_xy, noc);
+            std::optional<uint32_t> target_speed = fw->get_eth_core_target_speed(eth_xy, noc);
+            if (tt_device->get_arch() == tt::ARCH::BLACKHOLE) {
+                ASSERT_TRUE(target_speed.has_value());
+                EXPECT_TRUE(valid_speeds_gbps.count(target_speed.value()));
+                if (train_speed.has_value()) {
+                    EXPECT_NE(train_speed.value(), 0u);
+                    // Target 0 means SerDes init did not run, so it does not bound the trained speed.
+                    if (target_speed.value() != 0) {
+                        EXPECT_LE(train_speed.value(), target_speed.value());
+                    }
+                    EXPECT_EQ(fw->get_eth_core_training_status(eth_xy, noc), EthTrainingStatus::SUCCESS);
+                }
+            } else {
+                EXPECT_FALSE(train_speed.has_value());
+                EXPECT_FALSE(target_speed.has_value());
+            }
+        }
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
